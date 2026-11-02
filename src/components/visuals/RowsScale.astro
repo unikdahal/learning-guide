@@ -1,0 +1,148 @@
+---
+// Rows touched per query on a log scale: the two workloads live nine orders of magnitude apart.
+// Bands are typical ranges, not measurements.
+const ticks = ['1', '10', '100', '1K', '10K', '100K', '1M', '10M', '100M', '1B', '10B'];
+const bands = [
+  { name: 'OLTP', from: 0, to: 2, text: 'one order, a customer’s recent orders', tone: 'build' },
+  { name: 'OLAP', from: 6, to: 10, text: 'a month of events, every order ever placed', tone: 'probe' },
+];
+const pos = (e: number) => `${(e / 10) * 100}%`;
+---
+
+<figure class="qe-rows not-content">
+  <p class="title">Rows a typical query touches</p>
+  <div class="plot" role="img" aria-label="OLTP queries touch about 1 to 100 rows; OLAP queries touch about one million to ten billion rows, on a logarithmic scale">
+    {
+      bands.map((b) => (
+        <div class={`band ${b.tone}`} style={`left:${pos(b.from)};width:calc(${pos(b.to - b.from)})`}>
+          <span class="bname">{b.name}</span>
+        </div>
+      ))
+    }
+    <div class="axis">
+      {
+        ticks.map((t, i) => (
+          <span class:list={['tick', { minor: i % 2 === 1 }]} style={`left:${pos(i)}`}>
+            {t}
+          </span>
+        ))
+      }
+    </div>
+  </div>
+  <ul class="notes">
+    {
+      bands.map((b) => (
+        <li>
+          <span class={`sw ${b.tone}`} />
+          <strong>{b.name}</strong> {b.text}
+        </li>
+      ))
+    }
+  </ul>
+  <figcaption>Logarithmic scale: each step to the right is ten times more rows. Typical ranges, not measurements.</figcaption>
+</figure>
+
+<style>
+  .qe-rows {
+    margin: 2rem 0;
+    padding: 1.25rem 1.25rem 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .title {
+    margin: 0 0 1rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .plot {
+    position: relative;
+    height: 4.5rem;
+    margin: 0 0.75rem;
+  }
+  .band {
+    position: absolute;
+    top: 0;
+    height: 2.25rem;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    min-width: 3rem;
+  }
+  .band.build { background: var(--qe-pipe-build); }
+  .band.probe { background: var(--qe-pipe-probe); }
+  .bname {
+    font-weight: 750;
+    font-size: 0.875rem;
+    color: var(--sl-color-black);
+  }
+  .axis {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 2.75rem;
+    height: 1.5rem;
+    border-top: 1.5px solid var(--sl-color-gray-4);
+  }
+  .tick {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    padding-top: 0.35rem;
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .tick::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 50%;
+    height: 0.3rem;
+    border-left: 1.5px solid var(--sl-color-gray-4);
+  }
+  .notes {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.35rem;
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-1);
+  }
+  .notes li {
+    margin: 0 !important;
+  }
+  .sw {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    margin-right: 0.35rem;
+    vertical-align: -1px;
+  }
+  .sw.build { background: var(--qe-pipe-build); }
+  .sw.probe { background: var(--qe-pipe-probe); }
+  strong {
+    color: var(--sl-color-white);
+    margin-right: 0.25rem;
+  }
+  figcaption {
+    margin-top: 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+  @media (max-width: 49.99rem) {
+    .qe-rows {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1.1rem 1rem 1rem;
+    }
+    .tick.minor {
+      color: transparent;
+    }
+  }
+</style>

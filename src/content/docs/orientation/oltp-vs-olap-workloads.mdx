@@ -1,16 +1,285 @@
 ---
-title: "OLTP vs OLAP workloads"
-description: "Point lookups and small updates vs scans over billions of rows. Why analytical engines end up columnar, vectorized and scan-oriented."
+title: OLTP vs OLAP workloads
+description: Point lookups and small updates vs scans over billions of rows. Why analytical engines end up columnar, vectorized and scan-oriented.
 level: B
-status: planned
+status: published
 module: "00"
-tableOfContents: false
 sidebar:
   order: 3
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import BytesTouched from '@components/visuals/BytesTouched.astro';
+import RowsScale from '@components/visuals/RowsScale.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="00" slug="oltp-vs-olap-workloads" />
+<ArticleMeta module="00" slug="oltp-vs-olap-workloads" minutes={14} />
+
+An online shop runs on two very different kinds of query. The checkout service writes one
+order at a time, and needs each write to finish in milliseconds while thousands of customers
+check out at once. The finance team asks for revenue by region over the last five years, and
+is happy to wait a few seconds for an answer computed from every order ever placed.
+
+Both are SQL. Both can, in principle, run on the same database. In practice, running the
+finance query on the checkout database slows checkout for everyone, and running checkout on
+the analytics warehouse makes every order slow. The two workloads want different machines,
+and the reasons why explain most of how analytical engines are built.
+
+## The question
+
+What is actually different between these workloads, and why does that difference reach all
+the way down to how bytes are laid out on disk?
+
+## Two workloads
+
+**OLTP**, online transaction processing, is the work of running the business: place an
+order, take a payment, update stock. Each transaction touches a handful of rows, usually
+found by key, and often writes to them. There are many of them at once, and each must be fast
+and correct even when they run concurrently.
+
+**OLAP**, online analytical processing, is the work of understanding the business: totals,
+trends, comparisons. Each query reads a huge number of rows, but usually only a few of each
+row's columns, and almost never writes. There are fewer of them, and throughput, how many rows
+per second a query can chew through, matters more than shaving milliseconds.
+
+The two have standard benchmarks that make the contrast concrete.
+
+- **TPC-C** models a wholesale supplier taking orders. It has five transaction types:
+  New-Order, Payment, Order-Status, Delivery and Stock-Level. New-Order and Payment run in
+  equal numbers, and for every ten New-Orders there is one of each of the other three. The
+  headline metric, tpmC, counts New-Order transactions completed per minute.
+- **TPC-H** models decision support: 22 complex queries over 8 tables, most of them scanning,
+  joining and aggregating large parts of the data. Its size is set by a scale factor; at scale
+  factor 1 the data is about 1 GB, and the largest table, `lineitem`, has about six million
+  rows per unit of scale factor.
+
+The single biggest difference is how many rows one query touches.
+
+<RowsScale />
+
+| | OLTP | OLAP |
+| --- | --- | --- |
+| Typical query | Find, insert or update a few rows by key | Scan, join and aggregate many rows |
+| Rows per query | One to hundreds | Millions to billions |
+| Columns used | Usually all of the row | A few of many |
+| Reads vs writes | Mixed, write-heavy | Almost entirely reads |
+| Concurrency | Thousands of short transactions | Tens of long queries |
+| Latency target | Milliseconds | Seconds, sometimes minutes |
+| What matters | Correctness under concurrency, latency | Scan throughput, efficient use of CPU |
+| Typical systems | PostgreSQL, MySQL, Oracle | Snowflake, ClickHouse, DuckDB, Spark, Trino |
+
+## Where the bytes go
+
+Disks, SSDs and object stores do not hand out single values. They hand out pages and blocks.
+PostgreSQL reads 8 KB pages, Parquet files are read in column chunks and pages, and object
+storage is read in byte ranges of a megabyte or more to be efficient. **Whatever a page
+contains, you pay to read all of it.**
+
+So the question that decides performance is: when a query needs certain values, how many
+pages does it have to read to get them? That depends on how values are grouped into pages.
+A **row store** puts whole rows together. A **column store** puts whole columns together.
+Try both layouts with both kinds of query.
+
+<BytesTouched />
+
+The point lookup wants one whole row, which a row store keeps in one page and a column store
+scatters across one page per column. The revenue query wants two columns from every row,
+which a column store keeps in two pages and a row store mixes with six columns it never needs.
+Each layout is excellent at one query and wasteful at the other.
+
+The slider shows why analytics settled on columns. Real tables are wide: fact tables with
+dozens or hundreds of columns are common, while a typical analytical query uses a handful. As
+the table widens, the row store's useful share of each page falls towards zero, and the
+column store's stays at one hundred percent.
+
+## How the workload shapes the engine
+
+Layout is the first consequence, not the last. Once an engine commits to analytics, the
+same reasoning repeats at every layer.
+
+**Indexes.** OLTP engines use B-trees, which find one row by key in a few page reads. Analytical
+engines mostly need to skip, not to find: they keep small summaries, such as the minimum and
+maximum value per block, and skip any block whose range cannot match the filter. Snowflake
+keeps min/max metadata for every file; ClickHouse keeps a sparse index with one entry per
+8,192-row granule. [Module 07](../../scans-and-pruning/) is about this.
+
+**Compression.** A column holds values of one type that often repeat or arrive sorted, so it
+compresses far better than a row mixing integers, dates and strings. Analytical engines
+compress heavily with lightweight schemes such as dictionary and run-length encoding, and
+sometimes compute directly on compressed data. Less data on disk means less to read.
+
+**Execution.** If a query touches ten rows, per-row overhead does not matter. If it touches
+ten billion, it dominates, as the [MonetDB/X100 profile](../what-a-query-engine-actually-does/)
+showed. That is why analytical engines process vectors of values per operator call.
+
+**Writes.** In a row store, updating one row rewrites part of one page. In a column store, the
+same update touches one place per column, so analytical stores prefer to write in large
+batches, keep data immutable, and handle updates and deletes separately. ClickHouse writes
+immutable sorted parts and merges them in the background; table formats such as Iceberg and
+Delta record deletes in separate files or deletion vectors.
+
+**Concurrency.** OLTP engines spend a great deal of effort on locking and multi-version
+concurrency control at the row level, because many transactions update the same rows at once.
+Analytical queries mostly read a consistent snapshot, so that machinery can be much simpler.
+
+## Can a row store just pretend?
+
+If columns help analytics so much, why not store columns inside a row-oriented database:
+split each table into one narrow table per column, or index every column? In 2008, Abadi,
+Madden and Hachem tested exactly that on the Star Schema Benchmark, a simplified TPC-H, at
+scale factor 10.
+
+The column store, C-Store, averaged 4.0 seconds per query. The commercial row store averaged
+25.7 seconds in its normal configuration and 10.2 seconds with materialized views built for
+each group of queries. Emulating columns inside the row store made it slower, not faster:
+79.9 seconds with one table per column, and 221.2 seconds with index-only plans. Each value
+dragged along per-row headers and row IDs, and rebuilding rows from separate tables cost
+expensive joins.
+
+They also took the column store apart. Turning off **late materialization**, which waits as
+long as possible before stitching columns back into rows, cost about a factor of three.
+Turning off **compression** cost about a factor of two on average, and up to ten on queries
+over sorted data.
+
+The conclusion that has held up since: a column layout only pays off fully with an
+execution engine built around it. Storage and execution have to be designed together.
+
+<Aside type="caution" title="Reading the numbers honestly">
+This is one benchmark from 2008, on one machine. The authors note that their row-store
+comparison also differed in ways unrelated to layout: the commercial system had partitioning
+and multi-threading that C-Store lacked. Read the result as evidence about which techniques
+matter, not as a fixed speed ratio between two kinds of system.
+</Aside>
+
+## The middle ground
+
+Most companies run both workloads, on separate systems. The OLTP database is the source of
+truth, and changes flow from it into a warehouse or lakehouse through batch ETL jobs or a
+continuous change-data-capture stream. Analytics then runs on data that is minutes or hours
+old, but never slows down checkout.
+
+**HTAP** systems, for hybrid transactional and analytical processing, try to serve both from
+one system. A common design keeps both layouts at once. TiDB, for example, stores rows in its
+transactional store and keeps columnar replicas in a separate engine, TiFlash, which follow
+the row data through the same Raft replication log, so analytical queries read fresh data
+without competing for the transactional engine's resources. The cost is storing and
+maintaining the data twice, and the engineering of keeping both consistent.
+
+## In real engines
+
+Real storage is rarely purely one layout or the other. Most analytical formats are a hybrid
+called PAX: rows are first split into large horizontal groups, and inside each group values
+are stored column by column. You get columnar scans within a group, and a whole row is never
+spread across the entire file.
+
+- **PostgreSQL** stores tables as rows in 8 KB heap pages, the classic row store.
+- **Parquet** splits a file into row groups, each row group into one column chunk per column,
+  and each chunk into pages. [Module 03](../../data-representation/) takes it apart byte by byte.
+- **DuckDB** splits tables into row groups of 122,880 rows, each storing its columns separately.
+- **ClickHouse** stores each column of each part in its own file, sorted by the table's key.
+- **Snowflake** stores tables as immutable files using a PAX layout, with metadata about each
+  column kept so the engine can skip whole files.
+
+## In Rust
+
+You can feel the difference between the layouts with no database at all. The same orders,
+stored as a vector of rows and as a separate vector for one column:
+
+```rust title="src/main.rs"
+use std::hint::black_box;
+use std::time::Instant;
+
+// One order as a row: 64 bytes in memory.
+#[derive(Clone, Copy)]
+struct Order {
+    id: u64,
+    customer: u64,
+    product: u64,
+    amount: i64,
+    date: u32,
+    region: u16,
+    status: u8,
+    note: [u8; 25],
+}
+
+fn main() {
+    const N: usize = 8_000_000;
+    let rows: Vec<Order> = (0..N as u64)
+        .map(|i| Order {
+            id: i,
+            customer: i % 10_000,
+            product: i % 500,
+            amount: (i % 1_000) as i64,
+            date: 20_000 + (i % 365) as u32,
+            region: (i % 5) as u16,
+            status: (i % 3) as u8,
+            note: [0; 25],
+        })
+        .collect();
+    // The same data, column-wise: just the amounts.
+    let amounts: Vec<i64> = rows.iter().map(|o| o.amount).collect();
+    assert_eq!(std::mem::size_of::<Order>(), 64);
+
+    let t = Instant::now();
+    let total_rows: i64 = black_box(&rows).iter().map(|o| o.amount).sum();
+    let row_time = t.elapsed();
+
+    let t = Instant::now();
+    let total_cols: i64 = black_box(&amounts).iter().sum();
+    let col_time = t.elapsed();
+
+    assert_eq!(total_rows, total_cols);
+    println!("row layout:    {row_time:?}");
+    println!("column layout: {col_time:?}");
+}
+```
+
+Run it with `cargo run --release`. To sum the amounts, the row layout drags all 64 bytes of
+every order through the memory system to use 8 of them; the column layout reads only the 8.
+The column version should be several times faster, and the compiler can also turn its loop
+into SIMD instructions. That is a prediction, not a measurement: run it several times, on
+your own machine, and see. [Module 02](../../hardware/) explains what limits each loop, and
+[Module 21](../../performance-engineering/) how to measure it properly.
+
+## Check yourself
+
+<details>
+<summary>A query fetches all columns of one customer by primary key. Which layout reads fewer pages, and why?</summary>
+
+The row store. An index leads to one page that contains the whole row. A column store keeps
+each column in different pages, so rebuilding one row needs a read per column.
+</details>
+
+<details>
+<summary>Why do analytical engines rely on min/max summaries more than on B-tree indexes?</summary>
+
+Analytical queries usually select ranges covering large fractions of a table, where finding
+rows one by one through an index is slower than scanning. What helps is skipping whole blocks
+that cannot contain matches, which small per-block summaries do cheaply, especially when data
+is sorted or clustered on the filtered column.
+</details>
+
+<details>
+<summary>Why did storing each column as a separate table inside a row store make queries slower in the 2008 study?</summary>
+
+Each stored value carried per-row overhead such as tuple headers and a row identifier, so the
+narrow tables were much larger than the raw column data. Reassembling rows meant joining those
+tables on row identifiers, which was expensive. The engine was still built around rows, so it
+got the costs of columns without the column-oriented execution that makes them pay.
+</details>
+
+<details>
+<summary>Why are updates harder in a column store than in a row store?</summary>
+
+One row's values live in a different place for every column, often inside compressed blocks.
+Updating one row in place touches as many places as there are columns and may require
+recompressing blocks. Column stores therefore favour immutable data written in batches, with
+updates and deletes recorded separately and merged later.
+</details>
+
+## Further reading
+
+- Abadi, Madden and Hachem, [Column-Stores vs. Row-Stores: How Different Are They Really?](https://users.cs.utah.edu/~pandey/courses/cs6530/fall22/papers/rowvcolumn/abadi-sigmod08.pdf), SIGMOD 2008.
+- Boncz, Zukowski and Nes, [MonetDB/X100: Hyper-Pipelining Query Execution](https://cs.brown.edu/courses/cs227/archives/2008/Papers/ColumnStores/MonetDB.pdf), CIDR 2005.
+- [TPC-C overview](https://www.tpc.org/tpcc/detail5.asp) from the Transaction Processing Performance Council.
+- Schulze et al., [ClickHouse: Lightning Fast Analytics for Everyone](https://vldb.org/pvldb/vol17/p3731-schulze.pdf), VLDB 2024, for a modern column store's storage layer.
+- Dageville et al., [The Snowflake Elastic Data Warehouse](https://www.cs.purdue.edu/homes/csjgwang/CloudNativeDB/SnowflakeSIGMOD16.pdf), SIGMOD 2016, for PAX files and pruning in the cloud.

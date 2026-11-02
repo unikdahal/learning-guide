@@ -1,0 +1,63 @@
+---
+// Header strip for a written article: where it sits, its level and reading time.
+import LevelMeter from './LevelMeter.astro';
+import { moduleById, partOf, url } from '../lib/site';
+
+interface Props {
+  module: string;
+  slug: string;
+  minutes: number;
+}
+const m = moduleById(Astro.props.module);
+const part = partOf(m);
+const a = m.articles.find((x) => x.slug === Astro.props.slug);
+if (!a) throw new Error(`Article ${Astro.props.slug} not found in module ${m.id}`);
+---
+
+<div class="meta not-content" style={`--part: ${part.color}`} data-pagefind-ignore>
+  <a href={url(`${m.slug}/`)} class="where">
+    <span class="part">Part {part.id}, {part.title}</span>
+    <span class="module">Module {m.id}: {m.title}</span>
+  </a>
+  <div class="facts">
+    <LevelMeter level={a.level} />
+    <span>Article {a.index} of {m.articles.length}</span>
+    <span>{Astro.props.minutes} min read</span>
+  </div>
+</div>
+
+<style>
+  .meta {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.1rem 0 0.1rem 1rem;
+    border-left: 3px solid var(--part);
+    margin-bottom: 2rem;
+    font-family: var(--sl-font);
+  }
+  .where {
+    display: grid;
+    text-decoration: none;
+  }
+  .part {
+    font-size: 0.8125rem;
+    font-weight: 650;
+    color: var(--part);
+  }
+  .module {
+    font-weight: 620;
+    color: var(--sl-color-white);
+  }
+  .where:hover .module {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.1rem;
+    align-items: center;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+</style>

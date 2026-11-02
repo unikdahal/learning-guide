@@ -1,0 +1,107 @@
+---
+// Renders a plan or syntax tree as an indented tree with connector lines, root first,
+// the way EXPLAIN prints it. Wraps cleanly at phone width, unlike a drawn SVG tree.
+export type PlanNode = {
+  op: string;
+  detail?: string;
+  tone?: 'build' | 'probe' | 'emit';
+  changed?: string;
+  children?: PlanNode[];
+};
+
+interface Props {
+  nodes: PlanNode[];
+  root?: boolean;
+}
+const { nodes, root = true } = Astro.props;
+---
+
+<ul class:list={['qe-tree', { root }]}>
+  {
+    nodes.map((n) => (
+      <li>
+        <div class:list={['qe-tree-node', n.tone && `tone-${n.tone}`, { changed: !!n.changed }]}>
+          <span class="op">{n.op}</span>
+          {n.detail && <span class="detail">{n.detail}</span>}
+          {n.changed && <span class="change">{n.changed}</span>}
+        </div>
+        {n.children && n.children.length > 0 && <Astro.self nodes={n.children} root={false} />}
+      </li>
+    ))
+  }
+</ul>
+
+<style is:global>
+  .qe-tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-family: var(--sl-font);
+  }
+  .qe-tree .qe-tree {
+    padding-left: 1.1rem;
+    margin-left: 0.55rem;
+  }
+  .qe-tree li {
+    position: relative;
+    margin: 0 !important;
+    padding: 0.3rem 0 0;
+  }
+  /* Vertical rail: full height for siblings that have a sibling below, stops at the elbow for the last one. */
+  .qe-tree .qe-tree > li::before {
+    content: '';
+    position: absolute;
+    left: -1.1rem;
+    top: 0;
+    bottom: 0;
+    border-left: 1.5px solid var(--sl-color-gray-4);
+  }
+  .qe-tree .qe-tree > li:last-child::before {
+    bottom: auto;
+    height: 1.1rem;
+  }
+  /* Elbow into the node. */
+  .qe-tree .qe-tree > li::after {
+    content: '';
+    position: absolute;
+    left: -1.1rem;
+    top: 1.1rem;
+    width: 0.85rem;
+    border-top: 1.5px solid var(--sl-color-gray-4);
+  }
+  .qe-tree-node {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    max-width: 100%;
+    padding: 0.35rem 0.6rem;
+    border: 1.25px solid var(--sl-color-gray-4);
+    border-radius: 6px;
+    background: var(--sl-color-black);
+  }
+  .qe-tree-node .op {
+    font-weight: 650;
+    font-size: 0.875rem;
+    color: var(--sl-color-white);
+    line-height: 1.3;
+  }
+  .qe-tree-node .detail {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--sl-color-gray-2);
+    overflow-wrap: anywhere;
+  }
+  .qe-tree-node .change {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--sl-color-accent-high);
+  }
+  .qe-tree-node.changed {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+  }
+  .qe-tree-node.tone-build { border-left: 4px solid var(--qe-pipe-build); }
+  .qe-tree-node.tone-probe { border-left: 4px solid var(--qe-pipe-probe); }
+  .qe-tree-node.tone-emit { border-left: 4px solid var(--qe-pipe-emit); }
+</style>

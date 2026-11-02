@@ -1,0 +1,172 @@
+---
+// Data from Boncz, Zukowski and Nes, "MonetDB/X100: Hyper-Pipelining Query Execution", CIDR 2005.
+// MySQL 4.1 profile of TPC-H Query 1 at scale factor 1, and Table 1 timings normalized to SF 1 and one CPU
+// on the same AthlonMP 1533 MHz machine.
+const breakdown = [
+  { label: 'Arithmetic and aggregation', pct: 10, tone: 'probe' },
+  { label: 'Hash table build and lookup', pct: 28, tone: 'build' },
+  { label: 'Moving between records and copying data', pct: 62, tone: 'warn' },
+];
+const timings = [
+  { label: 'MySQL 4.1', s: 26.6 },
+  { label: 'Commercial row-store (DBMS X)', s: 28.1 },
+  { label: 'MonetDB/X100 (vectorized)', s: 0.5, highlight: true },
+];
+const max = Math.max(...timings.map((t) => t.s));
+---
+
+<figure class="qe-wtg not-content">
+  <div class="block">
+    <p class="title">Where MySQL spent its time on TPC-H Query 1</p>
+    <div class="stack" role="img" aria-label="10% arithmetic and aggregation, 28% hash table work, 62% moving between records and copying">
+      {breakdown.map((b) => <span class={`seg ${b.tone}`} style={`flex-grow:${b.pct}`}>{b.pct}%</span>)}
+    </div>
+    <ul class="keys">
+      {
+        breakdown.map((b) => (
+          <li>
+            <span class={`sw ${b.tone}`} />
+            <span class="k">{b.label}</span>
+            <span class="v">{b.pct}%</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
+  <div class="block">
+    <p class="title">Same query, same machine, seconds per scale factor per CPU</p>
+    <ul class="bars">
+      {
+        timings.map((t) => (
+          <li class:list={{ hi: t.highlight }}>
+            <span class="k">{t.label}</span>
+            <span class="track">
+              <span class="fill" style={`width:${Math.max(0.8, (t.s / max) * 100)}%`} />
+            </span>
+            <span class="v">{t.s.toFixed(t.s < 1 ? 2 : 1)} s</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
+  <figcaption>
+    Source: Boncz, Zukowski and Nes, MonetDB/X100, CIDR 2005. Query 1 at scale factor 1 on a 1.5 GHz AthlonMP. The
+    work that answers the question was a tenth of the time; the rest was the engine getting in its own way.
+  </figcaption>
+</figure>
+
+<style>
+  .qe-wtg {
+    margin: 2rem 0;
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    display: grid;
+    gap: 1.75rem;
+    font-family: var(--sl-font);
+  }
+  .title {
+    margin: 0 0 0.75rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .stack {
+    display: flex;
+    gap: 2px;
+    height: 2.25rem;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .seg {
+    flex-basis: 0;
+    display: grid;
+    place-items: center;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--sl-color-black);
+    min-width: 2.5rem;
+  }
+  .seg.probe, .sw.probe { background: var(--qe-pipe-probe); }
+  .seg.build, .sw.build { background: var(--qe-pipe-build); }
+  .seg.warn, .sw.warn { background: var(--qe-warn); }
+  .keys {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.35rem;
+  }
+  .keys li {
+    display: grid;
+    grid-template-columns: 0.8rem 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-1);
+  }
+  .sw {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 3px;
+  }
+  .v {
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-gray-2);
+  }
+  .bars {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.9rem;
+  }
+  .bars li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: 'k v' 't t';
+    gap: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-1);
+  }
+  .bars .k { grid-area: k; }
+  .bars .v { grid-area: v; }
+  .track {
+    grid-area: t;
+    height: 0.85rem;
+    border-radius: 4px;
+    background: var(--sl-color-black);
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--sl-color-gray-3);
+  }
+  .bars li.hi .fill {
+    background: var(--sl-color-accent);
+  }
+  .bars li.hi .k,
+  .bars li.hi .v {
+    color: var(--sl-color-white);
+    font-weight: 650;
+  }
+  figcaption {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-3);
+    max-width: 62ch;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-wtg {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1.1rem 1rem;
+    }
+  }
+</style>

@@ -1,0 +1,128 @@
+---
+// Twenty years of analytical engines, as a vertical timeline that reads well on a phone.
+// Kind: research = paper or prototype, open = open-source milestone, company = commercial event.
+type Ev = { year: string; kind: 'research' | 'open' | 'company'; text: string };
+const events: Ev[] = [
+  { year: '2005', kind: 'research', text: 'MonetDB/X100 shows vectorized execution beating tuple-at-a-time engines by over an order of magnitude.' },
+  { year: '2005', kind: 'research', text: 'C-Store makes the case for column stores for read-mostly analytics.' },
+  { year: '2009', kind: 'open', text: 'Spark begins as a research project at UC Berkeley’s AMPLab.' },
+  { year: '2012', kind: 'open', text: 'Presto starts at Facebook to query its Hadoop warehouse interactively.' },
+  { year: '2012', kind: 'company', text: 'Snowflake is founded around separating storage from compute.' },
+  { year: '2015', kind: 'research', text: 'Spark SQL and the Catalyst optimizer are published.' },
+  { year: '2015', kind: 'company', text: 'Dremio is founded.' },
+  { year: '2016', kind: 'open', text: 'Apache Arrow launches as a shared columnar in-memory format. Yandex open-sources ClickHouse.' },
+  { year: '2019', kind: 'open', text: 'DuckDB is presented as an embeddable analytical database. DataFusion joins the Arrow project.' },
+  { year: '2020', kind: 'open', text: 'The PrestoSQL fork is renamed Trino.' },
+  { year: '2022', kind: 'research', text: 'Meta publishes Velox; Databricks publishes Photon. Native vectorized engines go mainstream.' },
+  { year: '2024', kind: 'open', text: 'DataFusion becomes an Apache top-level project, and DataFusion Comet brings it into Spark. ClickHouse publishes its architecture.' },
+  { year: '2026', kind: 'open', text: 'Apache Gluten graduates to a top-level project. DuckDB 2.0 ships as a long-term support release.' },
+  { year: '2026', kind: 'company', text: 'SAP completes its acquisition of Dremio.' },
+];
+const kinds = { research: 'Research', open: 'Open source', company: 'Company' };
+---
+
+<figure class="qe-tl not-content">
+  <p class="keys">
+    {Object.entries(kinds).map(([k, v]) => <span class={`key ${k}`}>{v}</span>)}
+  </p>
+  <ol>
+    {
+      events.map((e, i) => (
+        <li class={e.kind}>
+          <span class:list={['year', { repeat: i > 0 && events[i - 1].year === e.year }]}>{e.year}</span>
+          <span class="dot" aria-hidden="true" />
+          <span class="text">
+            <span class="sr-only">{kinds[e.kind]}: </span>
+            {e.text}
+          </span>
+        </li>
+      ))
+    }
+  </ol>
+</figure>
+
+<style>
+  .qe-tl {
+    margin: 2rem 0;
+    font-family: var(--sl-font);
+  }
+  .keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin: 0 0 1rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .key::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 0.4rem;
+    border-radius: 50%;
+    vertical-align: -1px;
+  }
+  .research { --k: var(--qe-pipe-emit); }
+  .open { --k: var(--qe-pipe-probe); }
+  .company { --k: var(--qe-pipe-build); }
+  .key::before { background: var(--k); }
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  li {
+    display: grid;
+    grid-template-columns: 3rem 1rem 1fr;
+    gap: 0 0.75rem;
+    position: relative;
+    margin: 0 !important;
+  }
+  li::before {
+    content: '';
+    position: absolute;
+    left: calc(3rem + 0.75rem + 0.5rem - 1px);
+    top: 0;
+    bottom: 0;
+    border-left: 2px solid var(--sl-color-gray-5);
+  }
+  li:first-child::before { top: 0.6rem; }
+  li:last-child::before { bottom: auto; height: 0.6rem; }
+  .year {
+    font-weight: 750;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+    padding-top: 0.05rem;
+  }
+  .year.repeat {
+    visibility: hidden;
+  }
+  .dot {
+    position: relative;
+    z-index: 1;
+    justify-self: center;
+    width: 12px;
+    height: 12px;
+    margin-top: 0.3rem;
+    border-radius: 50%;
+    background: var(--k);
+    box-shadow: 0 0 0 3px var(--sl-color-black);
+  }
+  .text {
+    padding-bottom: 1rem;
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+</style>

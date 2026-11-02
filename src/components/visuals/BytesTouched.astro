@@ -1,0 +1,432 @@
+---
+// Interactive: which storage pages two queries must read under a row layout and a column layout.
+// A 16-row × 8-column orders table. Every page holds 16 values: two whole rows in the row store,
+// or one whole column in the column store, so page counts compare fairly.
+---
+
+<qe-bytes class="qe-bytes not-content">
+  <div class="controls">
+    <fieldset>
+      <legend>Query</legend>
+      <label><input type="radio" name="qe-bytes-q" value="point" checked /> Look up one order</label>
+      <label><input type="radio" name="qe-bytes-q" value="agg" /> Revenue by region</label>
+    </fieldset>
+    <fieldset>
+      <legend>Storage layout</legend>
+      <label><input type="radio" name="qe-bytes-l" value="row" checked /> Row store</label>
+      <label><input type="radio" name="qe-bytes-l" value="col" /> Column store</label>
+    </fieldset>
+  </div>
+
+  <pre class="sql" aria-live="polite"><code data-sql></code></pre>
+
+  <div class="stage" data-stage aria-hidden="true"></div>
+
+  <dl class="stats" aria-live="polite">
+    <div><dt>Pages read</dt><dd data-pages></dd></div>
+    <div><dt>Values read</dt><dd data-read></dd></div>
+    <div><dt>Values needed</dt><dd data-need></dd></div>
+    <div class="useful">
+      <dt>Useful share of what was read</dt>
+      <dd><span class="bar"><span data-bar></span></span><span data-pct></span></dd>
+    </div>
+  </dl>
+  <p class="explain" data-explain></p>
+
+  <div class="legend">
+    <span><i class="c need"></i>needed by the query</span>
+    <span><i class="c waste"></i>read but not needed</span>
+    <span><i class="c skip"></i>not read</span>
+  </div>
+
+  <div class="scale">
+    <label for="qe-bytes-cols">
+      Now widen the table. With <strong data-cols-out>8</strong> columns, the revenue query in a row store uses{' '}
+      <strong data-scale-row>25%</strong> of what it reads. In a column store: <strong>100%</strong>.
+    </label>
+    <input id="qe-bytes-cols" type="range" min="8" max="200" step="1" value="8" />
+  </div>
+
+  <noscript>
+    <p>
+      This visual needs JavaScript. In short: looking up one order reads 1 page in a row store and 8 pages in a column
+      store, while summing revenue by region reads all 8 pages in a row store but only 2 pages in a column store.
+    </p>
+  </noscript>
+</qe-bytes>
+
+<script>
+  const COLS = ['id', 'cust', 'date', 'stat', 'amt', 'reg', 'prod', 'note'];
+  const ROWS = 16;
+  const POINT_ROW = 5; // the order with id 42
+  const AGG_COLS = new Set([4, 5]); // amount, region
+
+  const SQL = {
+    point: 'SELECT * FROM orders WHERE id = 42;',
+    agg: 'SELECT region, sum(amount) FROM orders GROUP BY region;',
+  };
+  const EXPLAIN: Record<string, string> = {
+    'point-row':
+      'An index points straight at one page, and that page holds the whole row. One read returns everything the query wants, plus the neighbouring order.',
+    'point-col':
+      'The order is spread across eight pages, one per column. Rebuilding a single row means reading every one of them.',
+    'agg-row':
+      'Every page has to be read to reach every amount and region, and three quarters of each page is columns the query never uses.',
+    'agg-col':
+      'Only the amount and region pages are read, and every value read is used. The other six columns are never touched.',
+  };
+
+  class QeBytes extends HTMLElement {
+    connectedCallback() {
+      this.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => this.render()));
+      const slider = this.querySelector<HTMLInputElement>('#qe-bytes-cols')!;
+      slider.addEventListener('input', () => this.scale(Number(slider.value)));
+      this.render();
+      this.scale(8);
+    }
+
+    get q() {
+      return (this.querySelector('input[name=qe-bytes-q]:checked') as HTMLInputElement).value as 'point' | 'agg';
+    }
+    get l() {
+      return (this.querySelector('input[name=qe-bytes-l]:checked') as HTMLInputElement).value as 'row' | 'col';
+    }
+
+    needed(r: number, c: number) {
+      return this.q === 'point' ? r === POINT_ROW : AGG_COLS.has(c);
+    }
+    pageOf(r: number, c: number) {
+      return this.l === 'row' ? Math.floor(r / 2) : c;
+    }
+
+    render() {
+      const q = this.q;
+      const l = this.l;
+      // A page is read if it contains any needed value.
+      const readPages = new Set<number>();
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS.length; c++) if (this.needed(r, c)) readPages.add(this.pageOf(r, c));
+
+      const cell = (r: number, c: number) => {
+        const s = document.createElement('span');
+        const state = this.needed(r, c) ? 'need' : readPages.has(this.pageOf(r, c)) ? 'waste' : 'skip';
+        s.className = `c ${state}`;
+        return s;
+      };
+
+      const stage = this.querySelector<HTMLElement>('[data-stage]')!;
+      stage.replaceChildren();
+      stage.className = `stage ${l}`;
+
+      if (l === 'row') {
+        const head = document.createElement('div');
+        head.className = 'page colnames';
+        const names = document.createElement('div');
+        names.className = 'cells names';
+        COLS.forEach((n) => {
+          const h = document.createElement('span');
+          h.textContent = n;
+          names.append(h);
+        });
+        head.append(document.createElement('span'), names);
+        stage.append(head);
+        for (let p = 0; p < ROWS / 2; p++) {
+          const page = document.createElement('div');
+          page.className = `page ${readPages.has(p) ? 'read' : ''}`;
+          const label = document.createElement('span');
+          label.className = 'plabel';
+          label.textContent = `p${p + 1}`;
+          const cells = document.createElement('div');
+          cells.className = 'cells';
+          for (let r = p * 2; r < p * 2 + 2; r++) for (let c = 0; c < COLS.length; c++) cells.append(cell(r, c));
+          page.append(label, cells);
+          stage.append(page);
+        }
+      } else {
+        COLS.forEach((name, c) => {
+          const page = document.createElement('div');
+          page.className = `page ${readPages.has(c) ? 'read' : ''}`;
+          const label = document.createElement('span');
+          label.className = 'plabel';
+          label.textContent = name;
+          const cells = document.createElement('div');
+          cells.className = 'cells';
+          for (let r = 0; r < ROWS; r++) cells.append(cell(r, c));
+          page.append(label, cells);
+          stage.append(page);
+        });
+      }
+
+      const valuesRead = readPages.size * 16;
+      const valuesNeeded = q === 'point' ? COLS.length : ROWS * AGG_COLS.size;
+      const pct = Math.round((valuesNeeded / valuesRead) * 100);
+      this.querySelector('[data-sql]')!.textContent = SQL[q];
+      this.querySelector('[data-pages]')!.textContent = `${readPages.size} of 8`;
+      this.querySelector('[data-read]')!.textContent = String(valuesRead);
+      this.querySelector('[data-need]')!.textContent = String(valuesNeeded);
+      this.querySelector('[data-pct]')!.textContent = `${pct}%`;
+      (this.querySelector('[data-bar]') as HTMLElement).style.width = `${pct}%`;
+      this.querySelector('[data-explain]')!.textContent = EXPLAIN[`${q}-${l}`];
+    }
+
+    scale(n: number) {
+      this.querySelector('[data-cols-out]')!.textContent = String(n);
+      const pct = (2 / n) * 100;
+      this.querySelector('[data-scale-row]')!.textContent = `${pct >= 10 ? Math.round(pct) : pct.toFixed(1)}%`;
+    }
+  }
+  if (!customElements.get('qe-bytes')) customElements.define('qe-bytes', QeBytes);
+</script>
+
+<style is:global>
+  .qe-bytes {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-bytes .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 1.25rem;
+  }
+  .qe-bytes fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .qe-bytes legend {
+    padding: 0;
+    margin-bottom: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-bytes fieldset label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+    cursor: pointer;
+  }
+  .qe-bytes fieldset label:has(input:checked) {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-white);
+  }
+  .qe-bytes fieldset label:has(input:focus-visible) {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-bytes input[type='radio'] {
+    accent-color: var(--sl-color-accent);
+    margin: 0;
+  }
+  .qe-bytes .sql {
+    margin: 1rem 0;
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    color: var(--sl-color-white);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .qe-bytes .stage {
+    --cell-h: 14px;
+    display: grid;
+    gap: 5px;
+  }
+  .qe-bytes .stage.row .page {
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.4rem;
+    align-items: center;
+  }
+  .qe-bytes .stage.row .cells.names {
+    border-color: transparent;
+    padding-block: 0;
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+    text-align: center;
+  }
+  .qe-bytes .stage.row .cells {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 3px;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1.5px dashed var(--sl-color-gray-4);
+  }
+  .qe-bytes .stage.col {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .qe-bytes .stage.col .page {
+    display: grid;
+    gap: 0.3rem;
+    justify-items: stretch;
+  }
+  .qe-bytes .stage.col .cells {
+    display: grid;
+    gap: 3px;
+    padding: 4px;
+    border-radius: 5px;
+    border: 1.5px dashed var(--sl-color-gray-4);
+  }
+  .qe-bytes .stage .page.read .cells {
+    border-style: solid;
+    border-color: var(--sl-color-accent);
+  }
+  .qe-bytes .plabel {
+    font-size: 0.6875rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-3);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-bytes .page.read .plabel {
+    color: var(--sl-color-accent-high);
+  }
+  .qe-bytes .c {
+    display: block;
+    height: var(--cell-h);
+    border-radius: 2px;
+  }
+  .qe-bytes .c.need {
+    background: var(--sl-color-accent);
+  }
+  .qe-bytes .c.waste {
+    background: color-mix(in srgb, var(--qe-warn) 55%, transparent);
+  }
+  .qe-bytes .c.skip {
+    background: var(--sl-color-gray-5);
+    opacity: 0.6;
+  }
+  .qe-bytes .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.1rem 0 0;
+  }
+  .qe-bytes .stats div {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .qe-bytes .stats dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-bytes .stats dd {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+  }
+  .qe-bytes .stats .useful {
+    grid-column: 1 / -1;
+  }
+  .qe-bytes .stats .useful dd {
+    display: grid;
+    grid-template-columns: 1fr 3.5rem;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .qe-bytes .stats .bar {
+    height: 0.75rem;
+    border-radius: 4px;
+    background: var(--sl-color-black);
+    overflow: hidden;
+  }
+  .qe-bytes .stats .bar span {
+    display: block;
+    height: 100%;
+    background: var(--sl-color-accent);
+    transition: width 0.25s ease;
+  }
+  .qe-bytes .explain {
+    margin: 0.75rem 0 0;
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--sl-color-gray-1);
+    min-height: 4.6em;
+  }
+  .qe-bytes .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin-top: 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-bytes .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .qe-bytes .legend .c {
+    width: 14px;
+    height: 12px;
+  }
+  .qe-bytes .scale {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-bytes .scale label {
+    display: block;
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-bytes .scale strong {
+    font-family: var(--sl-font);
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-bytes .scale input {
+    width: 100%;
+    margin-top: 0.75rem;
+    accent-color: var(--sl-color-accent);
+    height: 1.75rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qe-bytes .stats .bar span { transition: none; }
+  }
+  @media (max-width: 49.99rem) {
+    .qe-bytes {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1.1rem 1rem;
+    }
+    .qe-bytes .stage.col {
+      gap: 3px;
+    }
+    .qe-bytes .stage.col .cells {
+      padding: 3px;
+      gap: 2px;
+    }
+    .qe-bytes .stage {
+      --cell-h: 12px;
+    }
+  }
+</style>

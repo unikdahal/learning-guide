@@ -2098,7 +2098,7 @@
           "scope": "Follows one SQL query from text to parse tree, plan, optimized plan, running operators and result rows. Every later module zooms into one of these boxes.",
           "visual": "Animated end-to-end pipeline where each stage lights up and links to its module",
           "path": "orientation/what-a-query-engine-actually-does",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 2,
@@ -2108,7 +2108,7 @@
           "scope": "Spark, DuckDB, DataFusion, Trino, Snowflake, ClickHouse, Velox and Dremio, what each is built for and which design choices follow from that.",
           "visual": "Landscape map with axes embedded↔distributed and interactive↔batch",
           "path": "orientation/a-tour-of-real-engines",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 3,
@@ -2118,7 +2118,7 @@
           "scope": "Point lookups and small updates vs scans over billions of rows. Why analytical engines end up columnar, vectorized and scan-oriented.",
           "visual": "Side-by-side heatmap of which bytes each workload touches",
           "path": "orientation/oltp-vs-olap-workloads",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 4,

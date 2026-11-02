@@ -1,16 +1,314 @@
 ---
-title: "What a query engine actually does"
-description: "Follows one SQL query from text to parse tree, plan, optimized plan, running operators and result rows. Every later module zooms into one of these boxes."
+title: What a query engine actually does
+description: Follow one SQL query from text to parse tree, plan, optimized plan, running operators and result rows. Every later module zooms into one of these steps.
 level: B
-status: planned
+status: published
 module: "00"
-tableOfContents: false
 sidebar:
   order: 1
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import QueryJourney from '@components/visuals/QueryJourney.astro';
+import WhereTimeGoes from '@components/visuals/WhereTimeGoes.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="00" slug="what-a-query-engine-actually-does" />
+<ArticleMeta module="00" slug="what-a-query-engine-actually-does" minutes={16} />
+
+You type five lines of SQL and press enter. A second later you have an answer, and somewhere
+in that second a machine read a few hundred million values, threw most of them away, matched
+the rest across two tables and added them up. You never told it how to do any of that.
+
+That gap, between saying **what** you want and deciding **how** to get it, is the whole job of
+a query engine. This article follows one query through every step of that job, so that each
+later module has a place to hang on.
+
+## The question
+
+SQL is *declarative*. A query describes the result, not the procedure. Here is the query we
+will follow all the way through:
+
+```sql title="revenue_by_region.sql"
+SELECT c.region, sum(o.amount) AS revenue
+FROM orders o
+JOIN customer c ON o.cust_id = c.id
+WHERE c.segment = 'retail'
+GROUP BY c.region;
+```
+
+It says: for retail customers, total their order amounts by region. It says nothing about
+which table to read first, whether to filter before or after joining, how to match orders to
+customers, how many threads to use, or what to keep in memory.
+
+Those choices are not details. For a query like this one, a reasonable plan and a poor plan
+can differ in running time by a factor of a hundred or more, on the same data and the same
+hardware. The engine's job is to make those choices well, and then carry them out without
+wasting the machine.
+
+## The idea: one query, eight representations
+
+An engine never runs SQL directly. It turns the query into a series of representations,
+each closer to something a CPU can execute. Every step is a translation, and every
+translation either adds knowledge (what the names mean, what the types are) or makes a
+decision (which algorithm, which order).
+
+Step through them below. It is the same query at every stage.
+
+<QueryJourney />
+
+Notice what changes and what does not. The answer is fixed from the moment you send the
+text. Everything after is about the cost of producing it.
+
+## Walking the pipeline
+
+### 1. Text and tokens
+
+The engine first runs a **lexer** over the string. It cuts the text into tokens, the
+smallest meaningful pieces: keywords like `SELECT`, identifiers like `orders`, operators like
+`=`, literals like `'retail'`, and punctuation. Our query is 39 tokens. Whitespace, line
+breaks and comments are discarded here, which is why SQL does not care how you indent.
+
+### 2. Syntax tree
+
+The **parser** checks the tokens against the SQL grammar and builds an *abstract syntax tree*
+(AST): a tree of clauses and expressions. A misplaced comma fails here, as a syntax error.
+
+The parser knows grammar and nothing else. It does not know whether `orders` exists,
+whether `amount` is a number or whether `c` refers to anything. That separation is
+deliberate: the grammar can be checked quickly, on its own, without touching the catalog.
+
+<Aside type="note" title="In real engines">
+DataFusion parses with the `sqlparser` crate, which supports many SQL dialects. Spark SQL
+uses a parser generated from an ANTLR grammar. DuckDB long used a parser derived from
+PostgreSQL's and switched its default to a new extensible PEG parser in DuckDB 2.0.
+</Aside>
+
+### 3. Binding, and the logical plan
+
+**Binding** (Spark calls it *analysis*) resolves every name against the **catalog**, the
+engine's directory of tables, columns, types and functions. `o` becomes the `orders` table,
+`amount` becomes a decimal column, `sum` becomes a specific aggregate function whose output
+type is wide enough not to overflow. "Column not found" and "type mismatch" errors come from
+this step.
+
+The output is a **logical plan**: a tree of relational algebra operators. Data flows from
+the leaves (table scans) up to the root. The logical plan says what to compute and in what
+logical order, using operators such as Scan, Filter, Join, Aggregate and Projection. It does
+not yet say how any of them will run.
+
+Our logical plan is a direct transcription of the SQL: scan both tables, join them, filter
+for retail, aggregate by region, project the two output columns.
+
+### 4. Optimization
+
+The **optimizer** rewrites the logical plan into a cheaper plan that is guaranteed to
+produce the same result. Two rewrites matter for our query:
+
+- **Predicate pushdown.** The filter on `c.segment` only mentions customer columns, so it can
+  run before the join instead of after. If one customer in five is retail, the join now sees
+  a fifth of the customers. Better still, the filter can be handed to the scan, which may skip
+  whole files or row groups whose statistics prove there is no retail customer inside.
+- **Projection pruning.** The query only ever uses `cust_id` and `amount` from `orders`, so
+  the scan reads two columns instead of all of them. In a columnar file format, unread
+  columns cost almost nothing.
+
+Optimizers apply dozens of such rules, and cost-based optimizers also use statistics to pick
+the order of joins, which is where the largest wins and the largest mistakes live.
+[Module 12](../../logical-optimization/) and [Module 13](../../cost-based-optimization/)
+cover both.
+
+### 5. Physical planning
+
+A logical Join says *join these*. It does not say *how*. The **physical planner** picks an
+algorithm for every operator and decides how the work is spread across threads:
+
+- The join becomes a **hash join**. The smaller input, the filtered customers, is loaded
+  into a hash table: the *build* side. The larger input, orders, streams past it and looks
+  up each row: the *probe* side. Notice the planner swapped the inputs compared with the
+  SQL. Which side builds is a physical decision, and getting it backwards can be
+  catastrophic, because the build side has to fit in memory.
+- The aggregate splits in two. Each thread computes **partial** sums for the groups it sees,
+  then partial results are redistributed by region and **combined** into final sums.
+- Scans are split across files or row groups so several threads can read at once.
+
+### 6. Execution
+
+Now operators actually run. Two ideas from this step shape almost everything in Part 2 of
+this guide.
+
+**Batches, not rows.** Modern analytical engines move data between operators in batches of
+a few thousand rows, stored column by column. One function call processes a whole batch, so
+the cost of calling the operator is paid once per few thousand rows instead of once per row.
+DataFusion's default batch size is 8,192 rows; DuckDB's vectors hold 2,048 values.
+
+**Pipelines.** Some operators can pass each batch straight on: a filter, a projection, the
+probe side of a join. Others must see all of their input before producing anything: building
+a hash table, sorting, finishing an aggregate. These are **pipeline breakers**, and they cut
+the plan into **pipelines**. Our plan has three: build the hash table from customers; stream
+orders through the probe and partial aggregation; then combine and emit. The physical plan
+in the visual above is colored by pipeline.
+
+Engines differ in who drives the pipeline. In a **pull** model, each operator asks its input
+for the next batch, as in the classic Volcano design; DataFusion works this way, with each
+partition exposed as an asynchronous stream. In a **push** model, the scan drives and pushes
+batches up through the operators; DuckDB and Snowflake's engine work this way.
+[Module 05](../../execution-models/) compares them in depth.
+
+### 7. Result
+
+The final operator produces the result as batches, which the engine encodes for the client:
+rows over a database wire protocol, or Arrow batches over Arrow Flight, which avoids
+converting columnar data back to rows.
+
+## Why the execution step deserves most of this guide
+
+It is tempting to think that once the plan is right, execution is a solved problem. It is
+not. In 2005, the CWI database group profiled MySQL running TPC-H Query 1, a simple scan and
+aggregation over one table, and measured where the time went.
+
+<WhereTimeGoes />
+
+About a tenth of the time was the arithmetic that actually answers the query. The rest was
+the engine moving from record to record, copying data around and managing hash tables, one
+row at a time. Their prototype, MonetDB/X100, processed data in vectors of around a thousand
+values and ran the same query roughly fifty times faster per CPU on the same machine.
+
+That paper is a large part of why vectorized execution now runs inside DuckDB, DataFusion,
+Snowflake, ClickHouse, Velox and Photon. The plan decides how much work there is. Execution
+decides how much the machine wastes doing it.
+
+<Aside type="caution" title="Reading the numbers honestly">
+These figures are from a 2005 research prototype against 2005 versions of MySQL and a
+commercial system, on one query. They show the size of the overhead in a tuple-at-a-time
+engine, not how today's MySQL compares with today's analytical engines. Hardware, MySQL and
+the benchmark landscape have all changed since.
+</Aside>
+
+## In real engines
+
+Every engine has the same stages, under different names. Here is how four of them map:
+
+| Stage | DataFusion | DuckDB | Spark SQL | Trino |
+| --- | --- | --- | --- | --- |
+| Parse | `sqlparser` crate | Parser | ANTLR parser | Parser |
+| Bind | `SqlToRel`, analyzer rules | Binder | Analysis | Analyzer |
+| Logical optimize | `OptimizerRule`s | Optimizer (DPccp join order) | Rule batches to fixed point | Optimizer rules |
+| Physical plan | `PhysicalPlanner`, physical rules | Physical plan generator | Physical planning | Fragmenting into stages |
+| Execute | Pull-based async streams | Push-based vectors | Whole-stage code generation | Pipelined drivers on workers |
+
+Some of the differences are worth knowing already:
+
+- **Spark SQL** compiles chains of operators into generated Java code at runtime, so a
+  pipeline runs as one tight loop instead of a chain of operator calls. The Catalyst
+  optimizer runs its rule batches repeatedly until the plan stops changing.
+- **Trino** splits the physical plan into *stages* that run as *tasks* on many workers, and
+  streams data between stages in memory. Its unit of data is a *page*, a columnar batch.
+- **Velox**, Meta's execution library, has no parser and no optimizer at all. It receives a
+  plan that is already optimized and executes it. That makes the stages of this article
+  more than a teaching device: they are seams where real systems are cut apart and
+  recombined. Projects such as DataFusion Comet and Apache Gluten keep Spark's parser and
+  optimizer, and replace only its execution with a native engine.
+
+## Costs and trade-offs
+
+**Planning time is not free.** For a query that scans terabytes, spending even a second on
+optimization is invisible. For a lookup that returns one row, planning can cost more than
+executing, which is why transactional databases cache plans for prepared statements.
+
+**The optimizer works from estimates.** It guesses how many rows each operator will produce.
+When the guess is badly wrong, it may build a hash table on the wrong side or pick the wrong
+join order, and the query is slow for reasons invisible in the SQL. Some engines therefore
+re-plan during execution once real row counts are known;
+[Module 14](../../adaptive-execution/) covers this.
+
+**Separation buys modularity.** Because each stage has a clear input and output, engines can
+share pieces: one project's parser, another's optimizer, a third's execution kernels.
+Formats such as Substrait exist to pass plans between them.
+
+## In Rust
+
+DataFusion lets you print each stage for any query. Register two Parquet files and ask for
+the plans:
+
+```rust title="src/main.rs"
+use datafusion::physical_plan::displayable;
+use datafusion::prelude::*;
+
+#[tokio::main]
+async fn main() -> datafusion::error::Result<()> {
+    let ctx = SessionContext::new();
+    ctx.register_parquet("orders", "data/orders.parquet", ParquetReadOptions::default())
+        .await?;
+    ctx.register_parquet("customer", "data/customer.parquet", ParquetReadOptions::default())
+        .await?;
+
+    let sql = "SELECT c.region, sum(o.amount) AS revenue \
+               FROM orders o JOIN customer c ON o.cust_id = c.id \
+               WHERE c.segment = 'retail' GROUP BY c.region";
+
+    // Parse and bind: SQL text to a logical plan.
+    let df = ctx.sql(sql).await?;
+    println!("Logical plan:\n{}\n", df.logical_plan().display_indent());
+
+    // Logical optimization.
+    let optimized = df.clone().into_optimized_plan()?;
+    println!("Optimized plan:\n{}\n", optimized.display_indent());
+
+    // Physical planning.
+    let physical = df.clone().create_physical_plan().await?;
+    println!("Physical plan:\n{}", displayable(physical.as_ref()).indent(true));
+
+    // Execution.
+    df.show().await?;
+    Ok(())
+}
+```
+
+Running `EXPLAIN VERBOSE` followed by the query, in `datafusion-cli`, prints the plan after
+every individual optimizer rule. Reading which rule changed what is one of the fastest ways
+to learn how an optimizer thinks.
+
+## Check yourself
+
+<details>
+<summary>The parser accepts a query that references a table that does not exist. Is that a bug?</summary>
+
+No. The parser only checks grammar and has no access to the catalog. The missing table is
+caught during binding, when names are resolved against the catalog.
+</details>
+
+<details>
+<summary>Why is it safe to move the filter on `c.segment` below the join, but not always safe to move a filter below a join?</summary>
+
+For an inner join, a filter that only references one side's columns removes the same final
+rows whether it runs before or after the join. For outer joins it can change the result.
+Take a `WHERE` filter on the right side of a `LEFT JOIN`: applied after the join, it also
+removes the left rows that found no match, because their right columns are NULL. Pushed
+below the join, those left rows would survive with NULLs, and the answer changes.
+Module 12 works through these rules.
+</details>
+
+<details>
+<summary>Name the pipeline breakers in our physical plan, and say why each one must see all of its input.</summary>
+
+Building the hash table, because no probe can be answered until every build row is in the
+table. The partial aggregate, because a group's partial sum is only complete when the
+pipeline's input is exhausted. The final aggregate, for the same reason across all partial
+results.
+</details>
+
+<details>
+<summary>An engine processes 8,192 rows per operator call instead of one. Which costs does that reduce, and which does it not?</summary>
+
+It cuts per-call overhead such as function calls, branches and interpretation by a factor of
+thousands, and lets tight loops use the cache and SIMD well. It does not reduce the actual
+work per value, such as comparisons or additions, and it does not reduce I/O.
+</details>
+
+## Further reading
+
+- Boncz, Zukowski and Nes, [MonetDB/X100: Hyper-Pipelining Query Execution](https://cs.brown.edu/courses/cs227/archives/2008/Papers/ColumnStores/MonetDB.pdf), CIDR 2005. The source of the profile above.
+- Lamb et al., [Apache Arrow DataFusion: A Fast, Embeddable, Modular Analytic Query Engine](https://github.com/apache/datafusion/files/15149988/DataFusion_Query_Engine___SIGMOD_2024-FINAL-mk4.pdf), SIGMOD 2024.
+- [DataFusion crate documentation](https://docs.rs/datafusion/latest/datafusion/), whose overview walks through the same stages in code.
+- [DuckDB internals overview](https://duckdb.org/docs/current/internals/overview), a short tour of each stage in DuckDB.
+- Armbrust et al., [Spark SQL: Relational Data Processing in Spark](https://web.stanford.edu/class/cs245/win2020/readings/spark-sql.pdf), SIGMOD 2015.
+- Pedreira et al., [Velox: Meta's Unified Execution Engine](https://www.vldb.org/pvldb/vol15/p3372-pedreira.pdf), VLDB 2022.

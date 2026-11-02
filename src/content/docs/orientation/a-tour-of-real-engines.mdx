@@ -1,16 +1,266 @@
 ---
-title: "A tour of real engines"
-description: "Spark, DuckDB, DataFusion, Trino, Snowflake, ClickHouse, Velox and Dremio, what each is built for and which design choices follow from that."
+title: A tour of real engines
+description: DuckDB, DataFusion, Velox, ClickHouse, Spark, Photon, Trino, Snowflake and Dremio, what each is built for and which design choices follow from that.
 level: B
-status: planned
+status: published
 module: "00"
-tableOfContents: false
 sidebar:
   order: 2
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import EngineMap from '@components/visuals/EngineMap.astro';
+import EngineTimeline from '@components/visuals/EngineTimeline.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="00" slug="a-tour-of-real-engines" />
+<ArticleMeta module="00" slug="a-tour-of-real-engines" minutes={15} />
+
+Every engine in this article will happily run the query from the
+[previous article](../what-a-query-engine-actually-does/). Most will return the same five
+rows. Yet one of them is a library you link into a Rust program, another runs on a laptop
+with no server at all, and another spreads the work over hundreds of machines and survives
+some of them dying halfway through.
+
+They are different because each one made a few large bets about what matters most. Once you
+can see those bets, a new engine stops being a logo and becomes a set of choices you can
+predict from.
+
+## The question
+
+Why are there so many query engines, when they all run SQL?
+
+Because "fast" is not one thing. Fast to start, fast for one user, fast for a thousand
+concurrent users, fast on a single machine, fast on a petabyte, fast to recover from failure,
+fast to build a new product on: each pulls the design in a different direction, and no engine
+wins all of them.
+
+## Six questions that place any engine
+
+You can locate any engine by answering six questions about it.
+
+1. **Where does it run?** Inside your program, as one server, or across a cluster.
+2. **Who owns the storage?** Its own on-disk format, or open files and table formats that
+   other engines can read too.
+3. **Product or library?** A system you deploy and query, or a component you build a system
+   from.
+4. **How does it execute?** Interpreted vectorized kernels, generated code, or a mix.
+5. **What happens when a machine fails?** Retry a small piece of work, or rerun the query.
+6. **Which runtime?** The JVM, or native code such as C++ or Rust.
+
+The map below uses the first two questions as its axes. Tap an engine to see its answers to
+the rest.
+
+<EngineMap />
+
+The axes are deliberately coarse. ClickHouse also runs as a cluster, DuckDB reads Parquet
+and Iceberg as happily as its own files, and Snowflake can manage Iceberg tables. Each engine
+sits where its designers put the centre of gravity.
+
+## How we got here
+
+<EngineTimeline />
+
+Two research results from 2005 shaped almost everything on this timeline. MonetDB/X100
+showed that processing a vector of values per operator call, instead of one row, removes
+most of the overhead of a traditional engine. C-Store made the case that analytical data
+should be stored by column. Nearly every engine above is vectorized and columnar today. The
+interesting differences are in the bets they made on top.
+
+## The bets
+
+### Interpret or compile?
+
+Once execution is vectorized, there is still a choice about how each operator's inner loop
+is produced.
+
+**Generated code.** Spark SQL fuses a pipeline of operators into one Java method at runtime,
+so a scan, filter and aggregate run as a single loop with no calls between them. Presto, and
+later Trino, generates JVM bytecode for expressions and key operators. Done well, generated
+code avoids interpretation entirely.
+
+**Interpreted vectorized kernels.** Photon's authors chose the other road. Their paper
+argues that pre-compiled kernels are far easier to build, profile and debug, keep clear
+operator boundaries for metrics, and let the engine adapt per batch: take a faster path when
+a batch has no NULLs, or when every string in it is ASCII. They report building an
+aggregation prototype in about two weeks with vectorized code, against about two months with
+code generation.
+
+**Both.** ClickHouse runs vectorized kernels, picks SIMD variants for the CPU at runtime,
+and compiles frequently repeated expressions with LLVM. Dremio's Gandiva library compiles
+expressions over Arrow data with LLVM.
+
+[Module 05](../../execution-models/) works through this debate with evidence from both sides.
+
+### The JVM or native code?
+
+Spark and Trino run on the JVM. For years that was a sensible bet: memory safety, a huge
+ecosystem, and a JIT compiler that makes hot code fast. The trend since 2022 is clear,
+though: the largest Spark users are replacing Spark's execution layer with native code while
+keeping its API, planner and scheduler.
+
+- **Photon** (Databricks) runs C++ kernels inside each Spark executor, reached through JNI,
+  and falls back to Spark for any operator it does not support. On customer workloads the
+  paper reports an average speedup of 3× over the previous engine, with some queries above
+  10×.
+- **Velox** (Meta) powers Prestissimo, a C++ replacement for Presto's Java workers. On a
+  3 TB TPC-H run over 80 nodes, the paper reports wall-time speedups of 8.4× on Query 1 and
+  around 2× on shuffle-heavy queries.
+- **DataFusion Comet** and **Apache Gluten** do the same for open-source Spark, with
+  DataFusion and with Velox or ClickHouse respectively as the native engine.
+
+The reasons the Photon paper gives are mostly about control. Getting the JIT to emit SIMD
+loops took deep JVM expertise, and there was no direct control over custom SIMD kernels or
+memory layout. Limits on the size of generated methods forced a fallback to a much slower
+interpreter, which wide tables with hundreds of columns hit regularly. And to cope with large
+heaps the team was already managing memory by hand, which removed much of the JVM's
+convenience anyway.
+
+### Stream or write down?
+
+Between the stages of a distributed query, an engine can stream data straight from one
+stage to the next, or write each stage's output to disk first.
+
+**Trino streams.** Data flows between stages in memory as it is produced, which gives low
+latency and lets results start arriving before the query finishes. The cost is fragility: by
+default, if a node fails, the query fails and must be rerun. Trino now offers an opt-in
+fault-tolerant mode that spools intermediate data to external storage and retries tasks
+instead.
+
+**Spark writes down.** Every shuffle writes its output to files. That costs I/O, but when an
+executor dies, only the lost tasks rerun. For a six-hour job on hundreds of machines, that
+is the difference between finishing and never finishing.
+
+[Module 17](../../scheduling-and-fault-tolerance/) covers this trade-off, including designs
+that reuse completed shuffle output across retries.
+
+### Own the storage, or read open formats?
+
+**Owning storage** lets an engine shape data for its own queries. ClickHouse sorts each part
+by its primary key and keeps a sparse index with one entry per 8,192-row granule, so a
+filter on the key reads a tiny slice of the table. Snowflake keeps min/max metadata for every
+file and skips files that cannot match.
+
+**Reading open formats** such as Parquet, Iceberg and Delta gives up some of that control in
+exchange for one copy of the data that many engines can share. Spark writes a table, Trino
+queries it, Dremio accelerates it and DuckDB reads it on a laptop, all without copying.
+The table formats have been closing the gap by adding the metadata that native storage used to
+have: per-file statistics, sort orders, and deletion vectors. Part 5 of this guide is about them.
+
+### Product or library?
+
+DataFusion and Velox are not products. They are engines for building engines. Velox stops
+at the data plane: no parser, no optimizer, just fast execution of a plan it is given.
+DataFusion offers every stage and lets you replace any of them.
+
+This is why the boundaries between stages in the previous article matter so much. DataFusion
+Comet keeps Spark's parser, optimizer and scheduler and swaps in DataFusion's execution.
+Gluten does the same with Velox. A query in those systems crosses from one project to another
+in the middle of its pipeline.
+
+## Reading performance claims
+
+Every engine has a benchmark where it wins. The claims above come from the engines' own
+papers, which is the best source for how a system works and the weakest source for how it
+compares.
+
+<Aside type="caution" title="Before you trust a number">
+Ask four questions. Which benchmark and scale factor? Which hardware and how many nodes? Warm
+or cold cache? Against which version of the competitor, configured by whom? The Photon and
+Velox speedups above compare each engine with its own predecessor on the vendor's chosen
+workloads. They tell you the native rewrite paid off for them, not which engine is fastest
+for you. [Module 21](../../performance-engineering/) covers how to benchmark properly.
+</Aside>
+
+## Choosing a starting point
+
+These are starting points to evaluate, not verdicts. Real choices also depend on what your
+team already runs, where your data lives, and cost.
+
+| Situation | Look first at |
+| --- | --- |
+| Analysing Parquet or CSV files on a laptop or in a notebook | DuckDB |
+| Building a product that needs a SQL engine inside it | DataFusion, or DuckDB if C++ is fine |
+| Nightly ETL over tens of terabytes that must survive failures | Spark, possibly with a native accelerator |
+| Interactive SQL over a lake and other databases at once | Trino, or Dremio for Iceberg-centred lakes |
+| Dashboards over billions of fresh events, many users at once | ClickHouse |
+| A managed warehouse with as little operations work as possible | Snowflake or a similar service |
+
+## In Rust
+
+To feel what "a library, not a product" means, here is DataFusion embedded in a program:
+the whole engine is a dependency in `Cargo.toml`.
+
+```rust title="src/main.rs"
+use datafusion::prelude::*;
+
+#[tokio::main]
+async fn main() -> datafusion::error::Result<()> {
+    let ctx = SessionContext::new();
+
+    // SQL over a CSV file, with no server and no load step.
+    ctx.register_csv("trips", "data/trips.csv", CsvReadOptions::new()).await?;
+    let by_hour = ctx
+        .sql("SELECT hour, count(*) AS trips FROM trips GROUP BY hour ORDER BY hour")
+        .await?;
+    by_hour.show().await?;
+
+    // The same engine through the DataFrame API.
+    let busiest = ctx
+        .table("trips")
+        .await?
+        .aggregate(vec![col("hour")], vec![count(lit(1)).alias("trips")])?
+        .sort(vec![col("trips").sort(false, false)])?
+        .limit(0, Some(3))?;
+    busiest.show().await?;
+    Ok(())
+}
+```
+
+Both paths produce the same kind of logical plan and run on the same execution engine. A
+product built on DataFusion would replace the CSV file with its own table provider, and add
+its own functions, optimizer rules or operators where it needs to.
+
+## Check yourself
+
+<details>
+<summary>Why can Velox skip having a SQL parser and an optimizer?</summary>
+
+Because it is designed to sit underneath an engine that already has them. Presto or Spark
+parses and optimizes the query, then hands Velox a physical plan to execute. Each engine keeps
+its own SQL dialect and planner while sharing one execution layer.
+</details>
+
+<details>
+<summary>A query runs for four hours on 200 machines, and one machine fails at hour three. What happens in default Trino, and in Spark?</summary>
+
+In Trino's default mode the query fails and must start again, because intermediate data was
+streamed in memory. Spark reruns only the tasks whose output was lost, using the shuffle files
+already written by the surviving stages. Trino's opt-in fault-tolerant mode behaves more like
+Spark, at the cost of writing intermediate data to external storage.
+</details>
+
+<details>
+<summary>Name one thing an engine gains by owning its storage format, and one thing it gives up.</summary>
+
+It gains control over layout: sort orders, indexes and metadata designed for its own query
+patterns, as with ClickHouse's sorted parts and sparse index. It gives up sharing: other
+engines cannot read the data directly, so using them means copying or exporting it.
+</details>
+
+<details>
+<summary>Photon reports a 3× average speedup. What would you need to know before expecting that for your workload?</summary>
+
+What it was compared against (the previous Databricks engine, not other engines), which
+workloads were averaged, and how much of your own workload is CPU-bound execution that a
+native engine can speed up, as opposed to I/O, shuffle or queueing that it cannot.
+</details>
+
+## Further reading
+
+- Lamb et al., [Apache Arrow DataFusion](https://github.com/apache/datafusion/files/15149988/DataFusion_Query_Engine___SIGMOD_2024-FINAL-mk4.pdf), SIGMOD 2024.
+- Raasveldt and Mühleisen, [DuckDB: an Embeddable Analytical Database](https://duckdb.org/pdf/SIGMOD2019-demo-duckdb.pdf), SIGMOD 2019.
+- Pedreira et al., [Velox: Meta's Unified Execution Engine](https://www.vldb.org/pvldb/vol15/p3372-pedreira.pdf), VLDB 2022.
+- Behm et al., [Photon: A Fast Query Engine for Lakehouse Systems](https://www.databricks.com/wp-content/uploads/2022/07/Photon-A-Fast-Query-Engine-for-Lakehouse-Systems.pdf), SIGMOD 2022.
+- Sethi et al., [Presto: SQL on Everything](https://trino.io/Presto_SQL_on_Everything.pdf), ICDE 2019, and Trino's [fault-tolerant execution](https://trino.io/docs/current/admin/fault-tolerant-execution.html) documentation.
+- Dageville et al., [The Snowflake Elastic Data Warehouse](https://www.cs.purdue.edu/homes/csjgwang/CloudNativeDB/SnowflakeSIGMOD16.pdf), SIGMOD 2016.
+- Schulze et al., [ClickHouse: Lightning Fast Analytics for Everyone](https://vldb.org/pvldb/vol17/p3731-schulze.pdf), VLDB 2024.
+- Armbrust et al., [Spark SQL: Relational Data Processing in Spark](https://web.stanford.edu/class/cs245/win2020/readings/spark-sql.pdf), SIGMOD 2015.

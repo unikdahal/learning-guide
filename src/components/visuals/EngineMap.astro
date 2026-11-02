@@ -1,0 +1,430 @@
+---
+// The engine landscape as a 3 × 2 map: where the engine runs, and whether it owns its storage.
+// Tap an engine to see its profile. Without JavaScript, every profile is listed below the map.
+type Engine = {
+  id: string;
+  name: string;
+  col: 0 | 1 | 2;
+  row: 0 | 1;
+  lib?: boolean;
+  tagline: string;
+  facts: [string, string][];
+  bet: string;
+  source: [string, string];
+};
+
+const cols = ['Inside your program', 'One server', 'A cluster or cloud service'];
+const rows = ['Manages its own storage', 'Reads open files and tables'];
+
+const engines: Engine[] = [
+  {
+    id: 'duckdb',
+    name: 'DuckDB',
+    col: 0,
+    row: 0,
+    tagline: 'An analytical database that runs inside your process, like SQLite for analytics.',
+    facts: [
+      ['Origin', 'CWI Database Architectures group, Amsterdam; first released 2019'],
+      ['Written in', 'C++'],
+      ['Execution', 'Vectorized and push-based, 2,048 values per vector, morsel-driven parallelism'],
+      ['Storage', 'Its own single-file format, and reads Parquet, CSV and table formats directly'],
+      ['Good at', 'Local and embedded analytics, notebooks, data apps, files on disk or object storage'],
+    ],
+    bet: 'Zero setup beats scale. No server, no cluster, no network: the data and the engine share one address space.',
+    source: ['DuckDB SIGMOD 2019 demo paper', 'https://duckdb.org/pdf/SIGMOD2019-demo-duckdb.pdf'],
+  },
+  {
+    id: 'datafusion',
+    name: 'DataFusion',
+    col: 0,
+    row: 1,
+    lib: true,
+    tagline: 'A query engine library in Rust, used as the core of other systems.',
+    facts: [
+      ['Origin', 'Started by Andy Grove; joined Apache Arrow in 2019; Apache top-level project since 2024'],
+      ['Written in', 'Rust'],
+      ['Execution', 'Vectorized over Arrow record batches (8,192 rows by default); pull-based async streams, one per partition'],
+      ['Storage', 'None of its own; reads Parquet, CSV, JSON, Avro and whatever a table provider exposes'],
+      ['Good at', 'Being the engine inside your product: every stage can be replaced or extended'],
+    ],
+    bet: 'Most new data systems should not write a query engine from scratch. Build one well, make every piece swappable.',
+    source: ['DataFusion SIGMOD 2024 paper', 'https://github.com/apache/datafusion/files/15149988/DataFusion_Query_Engine___SIGMOD_2024-FINAL-mk4.pdf'],
+  },
+  {
+    id: 'velox',
+    name: 'Velox',
+    col: 0,
+    row: 1,
+    lib: true,
+    tagline: 'Meta’s execution library: the data plane only, with no SQL parser and no optimizer.',
+    facts: [
+      ['Origin', 'Meta; paper at VLDB 2022'],
+      ['Written in', 'C++'],
+      ['Execution', 'Vectorized; tasks split into pipelines run by drivers that can pause and resume'],
+      ['Storage', 'None; reads formats such as Parquet and ORC through pluggable readers'],
+      ['Good at', 'Replacing the execution layer of existing engines: Presto’s C++ workers, Spark through Gluten'],
+    ],
+    bet: 'Many engines at one company can share one execution layer, even if each keeps its own SQL dialect and optimizer.',
+    source: ['Velox VLDB 2022 paper', 'https://www.vldb.org/pvldb/vol15/p3372-pedreira.pdf'],
+  },
+  {
+    id: 'clickhouse',
+    name: 'ClickHouse',
+    col: 1,
+    row: 0,
+    tagline: 'A column-oriented database built for real-time analytics on large, append-heavy tables.',
+    facts: [
+      ['Origin', 'Built at Yandex for web analytics; open-sourced 2016'],
+      ['Written in', 'C++, shipped as a single binary'],
+      ['Execution', 'Vectorized, with SIMD kernels chosen at runtime by CPU, and optional LLVM compilation of hot expressions'],
+      ['Storage', 'MergeTree: immutable sorted parts merged in the background, a sparse index with one entry per 8,192-row granule'],
+      ['Good at', 'Filtering and aggregating huge event tables with many concurrent low-latency queries'],
+    ],
+    bet: 'Own the storage layout end to end, and sort it for the queries you expect, and scans become tiny.',
+    source: ['ClickHouse VLDB 2024 paper', 'https://vldb.org/pvldb/vol17/p3731-schulze.pdf'],
+  },
+  {
+    id: 'spark',
+    name: 'Spark SQL',
+    col: 2,
+    row: 1,
+    tagline: 'The general-purpose engine for large-scale batch processing and ETL.',
+    facts: [
+      ['Origin', 'UC Berkeley AMPLab; Spark SQL and its Catalyst optimizer described at SIGMOD 2015'],
+      ['Written in', 'Scala, on the JVM'],
+      ['Execution', 'Whole-stage code generation: pipelines compiled into Java bytecode at runtime'],
+      ['Storage', 'None of its own; reads Parquet, ORC and table formats such as Iceberg and Delta'],
+      ['Good at', 'Huge jobs that must survive failures: shuffle output is written down, failed tasks are retried'],
+    ],
+    bet: 'At large scale, failures are normal. Materialize between stages and recompute what is lost.',
+    source: ['Spark SQL SIGMOD 2015 paper', 'https://web.stanford.edu/class/cs245/win2020/readings/spark-sql.pdf'],
+  },
+  {
+    id: 'photon',
+    name: 'Photon',
+    col: 2,
+    row: 1,
+    tagline: 'Databricks’ native engine that runs inside Spark executors and replaces Spark operators where it can.',
+    facts: [
+      ['Origin', 'Databricks; paper at SIGMOD 2022'],
+      ['Written in', 'C++, called from the JVM through JNI'],
+      ['Execution', 'Interpreted vectorized kernels, chosen over code generation for debuggability and per-batch adaptivity'],
+      ['Storage', 'Reads Delta Lake and Parquet; falls back to Spark for operators it does not support'],
+      ['Good at', 'Speeding up existing Spark SQL workloads without changing them'],
+    ],
+    bet: 'Keep Spark’s API, planner and scheduler, and swap the execution layer for native code.',
+    source: ['Photon SIGMOD 2022 paper', 'https://www.databricks.com/wp-content/uploads/2022/07/Photon-A-Fast-Query-Engine-for-Lakehouse-Systems.pdf'],
+  },
+  {
+    id: 'trino',
+    name: 'Trino',
+    col: 2,
+    row: 1,
+    tagline: 'A distributed SQL engine for interactive queries over many data sources at once.',
+    facts: [
+      ['Origin', 'Created as Presto at Facebook in 2012; the Trino fork took its current name in 2020'],
+      ['Written in', 'Java'],
+      ['Execution', 'Pipelined and in-memory: stages stream columnar pages to each other; JVM bytecode generated for expressions'],
+      ['Storage', 'None; connectors read lakes, databases and other systems, and can join across them'],
+      ['Good at', 'Interactive analytics on data that lives in many places'],
+    ],
+    bet: 'Stream between stages to keep latency low. By default a failed node fails the query; fault-tolerant execution is an opt-in mode.',
+    source: ['Presto ICDE 2019 paper', 'https://trino.io/Presto_SQL_on_Everything.pdf'],
+  },
+  {
+    id: 'snowflake',
+    name: 'Snowflake',
+    col: 2,
+    row: 0,
+    tagline: 'A cloud data warehouse sold as a service, with storage and compute scaled separately.',
+    facts: [
+      ['Origin', 'Founded 2012; architecture described at SIGMOD 2016'],
+      ['Written in', 'Proprietary; not open source'],
+      ['Execution', 'Columnar, vectorized and push-based, with operators that spill to disk'],
+      ['Storage', 'Immutable columnar files on object storage, with min/max metadata used to skip files'],
+      ['Good at', 'Managed warehousing: many independent compute clusters over one copy of the data'],
+    ],
+    bet: 'Separate storage from compute so each scales on its own, and hide every knob behind a service.',
+    source: ['Snowflake SIGMOD 2016 paper', 'https://www.cs.purdue.edu/homes/csjgwang/CloudNativeDB/SnowflakeSIGMOD16.pdf'],
+  },
+  {
+    id: 'dremio',
+    name: 'Dremio',
+    col: 2,
+    row: 1,
+    tagline: 'A lakehouse query engine built on Apache Arrow, centred on Iceberg tables.',
+    facts: [
+      ['Origin', 'Founded 2015 by people who also co-created Apache Arrow; acquired by SAP in 2026'],
+      ['Written in', 'Java, with LLVM-compiled expression kernels (Gandiva)'],
+      ['Execution', 'Arrow as the in-memory format end to end; coordinators plan, stateless engines execute'],
+      ['Storage', 'Reads Iceberg and other open formats; reflections are optimized copies the planner substitutes automatically'],
+      ['Good at', 'Fast SQL directly on the data lake, without loading a warehouse'],
+    ],
+    bet: 'Make the open lake fast enough that you never copy data into a proprietary warehouse.',
+    source: ['Dremio architecture guide', 'https://www.dremio.com/downloads/DremioArchitectureGuide.pdf'],
+  },
+];
+---
+
+<qe-engine-map class="qe-emap not-content">
+  <div class="grid" role="group" aria-label="Engines by where they run and how they store data">
+    <span class="corner" aria-hidden="true"></span>
+    {cols.map((c) => <span class="colh">{c}</span>)}
+    {
+      rows.map((r, ri) => (
+        <>
+          <span class="rowh">{r}</span>
+          {cols.map((_, ci) => (
+            <div class="cell">
+              {engines
+                .filter((e) => e.col === ci && e.row === ri)
+                .map((e) => (
+                  <button type="button" class="chip" data-engine={e.id} aria-pressed="false" aria-controls="qe-emap-card">
+                    {e.name}
+                    {e.lib && <span class="lib">library</span>}
+                  </button>
+                ))}
+            </div>
+          ))}
+        </>
+      ))
+    }
+  </div>
+
+  <div class="cards" id="qe-emap-card" aria-live="polite">
+    {
+      engines.map((e) => (
+        <article class="card" data-card={e.id}>
+          <h4>
+            {e.name}
+            {e.lib && <span class="lib">library</span>}
+          </h4>
+          <p class="tagline">{e.tagline}</p>
+          <dl>
+            {e.facts.map(([k, v]) => (
+              <div>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <p class="bet">
+            <span>The bet</span>
+            {e.bet}
+          </p>
+          <p class="src">
+            Primary source: <a href={e.source[1]}>{e.source[0]}</a>
+          </p>
+        </article>
+      ))
+    }
+  </div>
+</qe-engine-map>
+
+<script>
+  class QeEngineMap extends HTMLElement {
+    connectedCallback() {
+      this.classList.add('is-interactive');
+      const chips = [...this.querySelectorAll<HTMLButtonElement>('.chip')];
+      const cards = [...this.querySelectorAll<HTMLElement>('.card')];
+      const show = (id: string) => {
+        chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.engine === id)));
+        cards.forEach((c) => (c.hidden = c.dataset.card !== id));
+      };
+      chips.forEach((c) => c.addEventListener('click', () => show(c.dataset.engine!)));
+      show(chips[0].dataset.engine!);
+    }
+  }
+  if (!customElements.get('qe-engine-map')) customElements.define('qe-engine-map', QeEngineMap);
+</script>
+
+<style is:global>
+  .qe-emap {
+    display: block;
+    margin: 2rem 0;
+    font-family: var(--sl-font);
+  }
+  .qe-emap .grid {
+    display: grid;
+    grid-template-columns: 5.5rem repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .qe-emap .colh,
+  .qe-emap .rowh {
+    font-size: 0.75rem;
+    line-height: 1.3;
+    font-weight: 650;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-emap .colh {
+    padding: 0 0.35rem 0.4rem;
+    align-self: end;
+  }
+  .qe-emap .rowh {
+    padding: 0.6rem 0.4rem 0 0;
+  }
+  .qe-emap .cell {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 0.35rem;
+    min-height: 6.5rem;
+    padding: 0.5rem;
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-emap .chip {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.05rem;
+    min-height: 2.5rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    font-weight: 650;
+    text-align: left;
+    cursor: default;
+  }
+  .qe-emap.is-interactive .chip {
+    cursor: pointer;
+  }
+  .qe-emap .chip:hover {
+    border-color: var(--sl-color-accent);
+  }
+  .qe-emap .chip[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-emap .chip:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-emap .lib {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    opacity: 0.8;
+  }
+  .qe-emap .cards {
+    margin-top: 1rem;
+  }
+  .qe-emap .card {
+    padding: 1.1rem 1.2rem;
+    border-radius: 10px;
+    border: 1px solid var(--sl-color-gray-5);
+    border-top: 3px solid var(--sl-color-accent);
+    background: var(--sl-color-gray-6);
+  }
+  .qe-emap:not(.is-interactive) .card + .card {
+    margin-top: 1rem;
+  }
+  .qe-emap .card h4 {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 750;
+    color: var(--sl-color-white);
+  }
+  .qe-emap .card .tagline {
+    margin: 0.3rem 0 0.9rem;
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-emap .card dl {
+    margin: 0;
+    display: grid;
+    gap: 0.55rem;
+  }
+  .qe-emap .card dl div {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: 0.75rem;
+  }
+  .qe-emap .card dt {
+    font-size: 0.8125rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-emap .card dd {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--sl-color-white);
+  }
+  .qe-emap .card .bet {
+    margin: 1rem 0 0;
+    padding: 0.75rem 0.9rem;
+    border-radius: 6px;
+    background: var(--sl-color-accent-low);
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-white);
+  }
+  .qe-emap .card .bet span {
+    display: block;
+    font-family: var(--sl-font);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sl-color-accent-high);
+    margin-bottom: 0.15rem;
+  }
+  .qe-emap .card .src {
+    margin: 0.75rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-emap .card .src a {
+    color: var(--qe-link);
+    text-underline-offset: 3px;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-emap .grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .qe-emap .corner {
+      display: none;
+    }
+    /* On phones the row labels become full-width headings above each row of cells. */
+    .qe-emap .rowh {
+      grid-column: 1 / -1;
+      padding: 0.6rem 0 0.1rem;
+      font-size: 0.8125rem;
+      color: var(--sl-color-white);
+    }
+    .qe-emap .colh {
+      font-size: 0.6875rem;
+      padding: 0 0.2rem 0.3rem;
+    }
+    .qe-emap .cell {
+      min-height: 0;
+      padding: 0.35rem;
+      gap: 0.3rem;
+    }
+    .qe-emap .chip {
+      width: 100%;
+      font-size: 0.8125rem;
+      padding: 0.35rem 0.45rem;
+    }
+    .qe-emap .card {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1.1rem 1rem;
+    }
+    .qe-emap .card dl div {
+      grid-template-columns: 1fr;
+      gap: 0.1rem;
+    }
+  }
+</style>

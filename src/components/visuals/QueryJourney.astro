@@ -1,0 +1,838 @@
+---
+// One query, eight representations: follow it from SQL text to result rows.
+// Without JavaScript every stage renders in order; with it, stages become tabs.
+import PlanTree, { type PlanNode } from './PlanTree.astro';
+import { url } from '../../lib/site';
+
+type Tok = [string, 'kw' | 'id' | 'p' | 'op' | 'lit'];
+const tokens: Tok[] = [
+  ['SELECT', 'kw'], ['c', 'id'], ['.', 'p'], ['region', 'id'], [',', 'p'], ['sum', 'id'], ['(', 'p'], ['o', 'id'],
+  ['.', 'p'], ['amount', 'id'], [')', 'p'], ['AS', 'kw'], ['revenue', 'id'], ['FROM', 'kw'], ['orders', 'id'],
+  ['o', 'id'], ['JOIN', 'kw'], ['customer', 'id'], ['c', 'id'], ['ON', 'kw'], ['o', 'id'], ['.', 'p'],
+  ['cust_id', 'id'], ['=', 'op'], ['c', 'id'], ['.', 'p'], ['id', 'id'], ['WHERE', 'kw'], ['c', 'id'], ['.', 'p'],
+  ['segment', 'id'], ['=', 'op'], ["'retail'", 'lit'], ['GROUP', 'kw'], ['BY', 'kw'], ['c', 'id'], ['.', 'p'],
+  ['region', 'id'], [';', 'p'],
+];
+
+const ast: PlanNode[] = [
+  {
+    op: 'Query',
+    children: [
+      { op: 'Select list', detail: 'c.region, sum(o.amount) AS revenue' },
+      {
+        op: 'From: Join (inner)',
+        children: [
+          { op: 'Table', detail: 'orders AS o' },
+          { op: 'Table', detail: 'customer AS c' },
+          { op: 'On', detail: 'o.cust_id = c.id' },
+        ],
+      },
+      { op: 'Where', detail: "c.segment = 'retail'" },
+      { op: 'Group by', detail: 'c.region' },
+    ],
+  },
+];
+
+const logical: PlanNode[] = [
+  {
+    op: 'Projection',
+    detail: 'c.region, sum(o.amount) AS revenue',
+    children: [
+      {
+        op: 'Aggregate',
+        detail: 'group by [c.region], aggregate [sum(o.amount)]',
+        children: [
+          {
+            op: 'Filter',
+            detail: "c.segment = 'retail'",
+            children: [
+              {
+                op: 'Inner Join',
+                detail: 'o.cust_id = c.id',
+                children: [
+                  { op: 'TableScan: orders', detail: 'all 5 columns' },
+                  { op: 'TableScan: customer', detail: 'all 4 columns' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+];
+
+const optimized: PlanNode[] = [
+  {
+    op: 'Projection',
+    detail: 'c.region, sum(o.amount) AS revenue',
+    children: [
+      {
+        op: 'Aggregate',
+        detail: 'group by [c.region], aggregate [sum(o.amount)]',
+        children: [
+          {
+            op: 'Inner Join',
+            detail: 'o.cust_id = c.id',
+            children: [
+              {
+                op: 'TableScan: orders',
+                detail: 'projection [cust_id, amount]',
+                changed: 'Reads 2 of 5 columns',
+              },
+              {
+                op: 'Filter',
+                detail: "c.segment = 'retail'",
+                changed: 'Moved below the join',
+                children: [
+                  {
+                    op: 'TableScan: customer',
+                    detail: "projection [id, region, segment], filter segment = 'retail'",
+                    changed: 'Reads 3 of 4 columns, filter offered to the scan',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+];
+
+const physical: PlanNode[] = [
+  {
+    op: 'ProjectionExec',
+    detail: 'region, revenue',
+    tone: 'emit',
+    children: [
+      {
+        op: 'AggregateExec',
+        detail: 'mode=FinalPartitioned, group by [region], sum(amount)',
+        tone: 'emit',
+        children: [
+          {
+            op: 'RepartitionExec',
+            detail: 'Hash([region], 8 partitions)',
+            tone: 'emit',
+            children: [
+              {
+                op: 'AggregateExec',
+                detail: 'mode=Partial, group by [region], sum(amount)',
+                tone: 'probe',
+                children: [
+                  {
+                    op: 'HashJoinExec',
+                    detail: 'mode=CollectLeft, on [(id, cust_id)]',
+                    tone: 'probe',
+                    changed: 'Inputs swapped: the smaller side builds',
+                    children: [
+                      {
+                        op: 'FilterExec',
+                        detail: "segment = 'retail'",
+                        tone: 'build',
+                        children: [
+                          {
+                            op: 'ParquetExec: customer',
+                            detail: "projection [id, region, segment], predicate segment = 'retail'",
+                            tone: 'build',
+                          },
+                        ],
+                      },
+                      {
+                        op: 'ParquetExec: orders',
+                        detail: 'projection [cust_id, amount], 8 file groups',
+                        tone: 'probe',
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+];
+
+// Sizes borrowed from TPC-H scale factor 1 (150,000 customers, 1,500,000 orders) with a
+// 1-in-5 segment, as TPC-H's market segment has five values. Batches of 8,192 rows.
+const lanes = [
+  {
+    tone: 'build',
+    name: 'Pipeline 1: build',
+    steps: [
+      { label: 'Scan customer', value: 150000, unit: 'rows, about 19 batches' },
+      { label: 'Filter keeps', value: 30000, unit: 'rows (about 1 in 5)' },
+      { label: 'Hash table', value: 30000, unit: 'entries' },
+    ],
+  },
+  {
+    tone: 'probe',
+    name: 'Pipeline 2: probe and partially aggregate',
+    steps: [
+      { label: 'Scan orders', value: 1500000, unit: 'rows, about 184 batches' },
+      { label: 'Join matches', value: 300000, unit: 'rows (about 1 in 5)' },
+      { label: 'Partial groups', value: 40, unit: 'rows (5 regions × 8 threads)' },
+    ],
+  },
+  {
+    tone: 'emit',
+    name: 'Pipeline 3: combine and emit',
+    steps: [
+      { label: 'Repartition', value: 40, unit: 'partial rows by region' },
+      { label: 'Final aggregate', value: 5, unit: 'groups' },
+      { label: 'Result', value: 5, unit: 'rows to the client' },
+    ],
+  },
+];
+
+const result = [
+  ['AFRICA', '4,512,839,214.06'],
+  ['AMERICA', '4,498,107,563.91'],
+  ['ASIA', '4,531,660,027.48'],
+  ['EUROPE', '4,487,925,318.70'],
+  ['MIDDLE EAST', '4,506,213,955.12'],
+];
+
+const stages = [
+  {
+    id: 'text',
+    name: 'Text',
+    what: 'You send a string. To the engine it is just characters; nothing is known yet, not even whether the tables exist.',
+    module: ['query-frontend', 'Module 04'],
+  },
+  {
+    id: 'tokens',
+    name: 'Tokens',
+    what: 'The lexer cuts the text into tokens and classifies each one. Whitespace and comments disappear here.',
+    module: ['query-frontend', 'Module 04'],
+  },
+  {
+    id: 'ast',
+    name: 'Syntax tree',
+    what: 'The parser checks the grammar and builds a tree of the query’s clauses. It still has not looked at the catalog.',
+    module: ['query-frontend', 'Module 04'],
+  },
+  {
+    id: 'logical',
+    name: 'Logical plan',
+    what: 'Binding resolves every name against the catalog and every type. The result is relational algebra: what to compute, not how.',
+    module: ['query-frontend', 'Module 04'],
+  },
+  {
+    id: 'optimized',
+    name: 'Optimized',
+    what: 'The optimizer rewrites the plan into a cheaper equivalent. Highlighted nodes changed; the answer cannot.',
+    module: ['logical-optimization', 'Module 12'],
+  },
+  {
+    id: 'physical',
+    name: 'Physical plan',
+    what: 'Each logical operator gets a concrete algorithm, a parallelism and a data layout. Colors mark the three pipelines.',
+    module: ['execution-models', 'Module 05'],
+  },
+  {
+    id: 'execution',
+    name: 'Execution',
+    what: 'Operators run as pipelines over batches of rows. The build pipeline must finish before probing can start.',
+    module: ['joins', 'Module 08'],
+  },
+  {
+    id: 'result',
+    name: 'Result',
+    what: 'Five rows come back. Everything above existed to produce this table as cheaply as possible.',
+    module: ['data-representation', 'Module 03'],
+  },
+];
+const fmt = (n: number) => n.toLocaleString('en-US');
+const sql = `SELECT c.region, sum(o.amount) AS revenue
+FROM orders o
+JOIN customer c ON o.cust_id = c.id
+WHERE c.segment = 'retail'
+GROUP BY c.region;`;
+---
+
+<qe-journey class="qe-journey not-content">
+  <div class="qj-tabs" role="tablist" aria-label="Stages of query processing" hidden>
+    {
+      stages.map((s, i) => (
+        <button
+          type="button"
+          role="tab"
+          id={`qj-tab-${s.id}`}
+          aria-controls={`qj-panel-${s.id}`}
+          aria-selected={i === 0 ? 'true' : 'false'}
+          tabindex={i === 0 ? 0 : -1}
+        >
+          <span class="n">{i + 1}</span>
+          {s.name}
+        </button>
+      ))
+    }
+  </div>
+
+  {
+    stages.map((s, i) => (
+      <section class="qj-panel" id={`qj-panel-${s.id}`} role="tabpanel" aria-labelledby={`qj-tab-${s.id}`} data-stage={s.id}>
+        <header>
+          <h3>
+            <span class="n">{i + 1}</span> {s.name}
+          </h3>
+          <p>{s.what}</p>
+        </header>
+
+        <div class="qj-artifact">
+          {s.id === 'text' && (
+            <pre class="qj-sql"><code>{sql}</code></pre>
+          )}
+
+          {s.id === 'tokens' && (
+            <>
+              <ol class="qj-tokens" aria-label={`${tokens.length} tokens`}>
+                {tokens.map(([t, k]) => (
+                  <li class={`k-${k}`}>{t}</li>
+                ))}
+              </ol>
+              <p class="qj-legend">
+                <span class="k-kw">keyword</span>
+                <span class="k-id">identifier</span>
+                <span class="k-op">operator</span>
+                <span class="k-lit">literal</span>
+                <span class="k-p">punctuation</span>
+                <span class="count">{tokens.length} tokens</span>
+              </p>
+            </>
+          )}
+
+          {s.id === 'ast' && <PlanTree nodes={ast} />}
+
+          {s.id === 'logical' && (
+            <>
+              <PlanTree nodes={logical} />
+              <p class="qj-note">
+                Binding also fixed the types: <code>amount</code> is a decimal, <code>region</code> a string, and{' '}
+                <code>sum(amount)</code> a wider decimal so it cannot overflow.
+              </p>
+            </>
+          )}
+
+          {s.id === 'optimized' && <PlanTree nodes={optimized} />}
+
+          {s.id === 'physical' && (
+            <>
+              <PlanTree nodes={physical} />
+              <p class="qj-legend">
+                <span class="pipe build">build pipeline</span>
+                <span class="pipe probe">probe pipeline</span>
+                <span class="pipe emit">emit pipeline</span>
+              </p>
+              <p class="qj-note">
+                Written in the style of DataFusion’s physical plan. Exact operator names and modes differ between
+                engines and versions.
+              </p>
+            </>
+          )}
+
+          {s.id === 'execution' && (
+            <>
+              <div class="qj-lanes">
+                {lanes.map((l, li) => (
+                  <div class={`qj-lane ${l.tone}`} data-lane={li}>
+                    <p class="lane-name">{l.name}</p>
+                    <ol>
+                      {l.steps.map((st) => (
+                        <li>
+                          <span class="label">{st.label}</span>
+                          <span class="value" data-target={st.value}>
+                            {fmt(st.value)}
+                          </span>
+                          <span class="unit">{st.unit}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    <span class="bar" aria-hidden="true">
+                      <span />
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button type="button" class="qj-run" hidden>
+                Run the query
+              </button>
+              <p class="qj-note">
+                Row counts use TPC-H scale factor 1 sizes, with one customer in five in the retail segment, and batches
+                of 8,192 rows. They show the shape of the work, not a measurement.
+              </p>
+            </>
+          )}
+
+          {s.id === 'result' && (
+            <>
+              <table class="qj-result">
+                <thead>
+                  <tr>
+                    <th scope="col">region</th>
+                    <th scope="col">revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.map(([r, v]) => (
+                    <tr>
+                      <td>{r}</td>
+                      <td>{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p class="qj-note">Revenue values are illustrative.</p>
+            </>
+          )}
+        </div>
+
+        <footer>
+          <a href={url(`${s.module[0]}/`)}>Covered in depth in {s.module[1]}</a>
+        </footer>
+      </section>
+    ))
+  }
+
+  <div class="qj-nav" hidden>
+    <button type="button" data-prev>Previous</button>
+    <span class="qj-pos" aria-live="polite"></span>
+    <button type="button" data-next>Next</button>
+  </div>
+</qe-journey>
+
+<script>
+  class QeJourney extends HTMLElement {
+    i = 0;
+    tabs: HTMLButtonElement[] = [];
+    panels: HTMLElement[] = [];
+    ran = false;
+
+    connectedCallback() {
+      this.tabs = [...this.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+      this.panels = [...this.querySelectorAll<HTMLElement>('.qj-panel')];
+      this.querySelector<HTMLElement>('.qj-tabs')!.hidden = false;
+      this.querySelector<HTMLElement>('.qj-nav')!.hidden = false;
+      this.classList.add('is-interactive');
+      this.tabs.forEach((t, k) => {
+        t.addEventListener('click', () => this.go(k, true));
+        t.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowRight') { e.preventDefault(); this.go(this.i + 1, true); }
+          if (e.key === 'ArrowLeft') { e.preventDefault(); this.go(this.i - 1, true); }
+        });
+      });
+      this.querySelector('[data-prev]')!.addEventListener('click', () => this.go(this.i - 1));
+      this.querySelector('[data-next]')!.addEventListener('click', () => this.go(this.i + 1));
+      const run = this.querySelector<HTMLButtonElement>('.qj-run')!;
+      run.hidden = false;
+      run.addEventListener('click', () => this.run());
+      this.go(0);
+    }
+
+    go(n: number, focusTab = false) {
+      this.i = Math.max(0, Math.min(this.tabs.length - 1, n));
+      this.tabs.forEach((t, k) => {
+        const on = k === this.i;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+      });
+      this.panels.forEach((p, k) => (p.hidden = k !== this.i));
+      const tab = this.tabs[this.i];
+      // Keep the active chip visible inside the horizontally scrolling strip, without moving the page.
+      const strip = tab.parentElement!;
+      strip.scrollTo({ left: tab.offsetLeft - strip.clientWidth / 2 + tab.clientWidth / 2, behavior: 'smooth' });
+      if (focusTab) tab.focus({ preventScroll: true });
+      this.querySelector('.qj-pos')!.textContent = `${this.i + 1} of ${this.tabs.length}`;
+      (this.querySelector('[data-prev]') as HTMLButtonElement).disabled = this.i === 0;
+      (this.querySelector('[data-next]') as HTMLButtonElement).disabled = this.i === this.tabs.length - 1;
+      if (this.panels[this.i].dataset.stage === 'execution' && !this.ran) this.run();
+    }
+
+    run() {
+      this.ran = true;
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const lanes = [...this.querySelectorAll<HTMLElement>('.qj-lane')];
+      const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+      lanes.forEach((lane, li) => {
+        const values = [...lane.querySelectorAll<HTMLElement>('.value')];
+        const bar = lane.querySelector<HTMLElement>('.bar > span')!;
+        if (reduce) {
+          values.forEach((v) => (v.textContent = fmt(Number(v.dataset.target))));
+          bar.style.transform = 'scaleX(1)';
+          lane.classList.add('done');
+          return;
+        }
+        lane.classList.remove('done');
+        values.forEach((v) => (v.textContent = '0'));
+        bar.style.transition = 'none';
+        bar.style.transform = 'scaleX(0)';
+        // Pipelines run in order: build finishes before probe, probe before emit.
+        const start = li * 1100;
+        const dur = 1000;
+        setTimeout(() => {
+          bar.style.transition = `transform ${dur}ms linear`;
+          bar.style.transform = 'scaleX(1)';
+          const t0 = performance.now();
+          const tick = (now: number) => {
+            const p = Math.min(1, (now - t0) / dur);
+            values.forEach((v) => (v.textContent = fmt(Number(v.dataset.target) * p)));
+            if (p < 1) requestAnimationFrame(tick);
+            else lane.classList.add('done');
+          };
+          requestAnimationFrame(tick);
+        }, start);
+      });
+    }
+  }
+  if (!customElements.get('qe-journey')) customElements.define('qe-journey', QeJourney);
+</script>
+
+<style is:global>
+  .qe-journey {
+    display: block;
+    margin: 2rem 0;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    --qe-tree-bg: var(--sl-color-gray-6);
+    overflow: hidden;
+  }
+  .qe-journey .qj-tabs {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.75rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    scroll-snap-type: x proximity;
+  }
+  .qe-journey .qj-tabs::-webkit-scrollbar { display: none; }
+  .qe-journey .qj-tabs[hidden] { display: none; }
+  .qe-journey [role='tab'] {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.5rem;
+    padding: 0.35rem 0.85rem 0.35rem 0.4rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    scroll-snap-align: center;
+  }
+  .qe-journey [role='tab'] .n {
+    display: inline-grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-journey [role='tab'][aria-selected='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-white);
+  }
+  .qe-journey [role='tab'][aria-selected='true'] .n {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-journey [role='tab']:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-journey .qj-panel {
+    padding: 1.25rem;
+  }
+  .qe-journey:not(.is-interactive) .qj-panel + .qj-panel {
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-journey .qj-panel header h3 {
+    margin: 0;
+    font-family: var(--sl-font);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-journey .qj-panel header h3 .n {
+    color: var(--sl-color-accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-journey .qj-panel header p {
+    margin: 0.4rem 0 1.1rem;
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--sl-color-gray-1);
+    max-width: 60ch;
+  }
+  .qe-journey .qj-artifact {
+    min-height: 12rem;
+  }
+  .qe-journey .qj-panel footer {
+    margin-top: 1.1rem;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+  }
+  .qe-journey .qj-panel footer a {
+    color: var(--qe-link);
+    text-underline-offset: 3px;
+  }
+  .qe-journey .qj-sql {
+    margin: 0;
+    padding: 1rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: var(--sl-color-white);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .qe-journey .qj-tokens {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .qe-journey .qj-tokens li {
+    margin: 0 !important;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    border: 1px solid transparent;
+  }
+  .qe-journey .k-kw { background: color-mix(in srgb, var(--qe-pipe-emit) 22%, transparent); color: var(--sl-color-white); }
+  .qe-journey .k-id { background: color-mix(in srgb, var(--qe-pipe-probe) 20%, transparent); color: var(--sl-color-white); }
+  .qe-journey .k-op { background: color-mix(in srgb, var(--qe-warn) 25%, transparent); color: var(--sl-color-white); }
+  .qe-journey .k-lit { background: color-mix(in srgb, var(--qe-pipe-build) 25%, transparent); color: var(--sl-color-white); }
+  .qe-journey .k-p { border-color: var(--sl-color-gray-3); color: var(--sl-color-gray-1); }
+  .qe-journey .qj-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+    align-items: center;
+    margin: 1rem 0 0;
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-journey .qj-legend > span[class^='k-'] {
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+  }
+  .qe-journey .qj-legend .count {
+    margin-left: auto;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-journey .qj-legend .pipe::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 0.4rem;
+    vertical-align: -1px;
+    border-radius: 3px;
+  }
+  .qe-journey .pipe.build::before { background: var(--qe-pipe-build); }
+  .qe-journey .pipe.probe::before { background: var(--qe-pipe-probe); }
+  .qe-journey .pipe.emit::before { background: var(--qe-pipe-emit); }
+  .qe-journey .qj-note {
+    margin: 0.9rem 0 0;
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-3);
+    max-width: 60ch;
+  }
+  .qe-journey .qj-note code {
+    font-size: 0.95em;
+  }
+  .qe-journey .qj-lanes {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .qe-journey .qj-lane {
+    position: relative;
+    padding: 0.8rem 0.9rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    overflow: hidden;
+  }
+  .qe-journey .qj-lane.build { --lane: var(--qe-pipe-build); }
+  .qe-journey .qj-lane.probe { --lane: var(--qe-pipe-probe); }
+  .qe-journey .qj-lane.emit { --lane: var(--qe-pipe-emit); }
+  .qe-journey .qj-lane .lane-name {
+    margin: 0 0 0.6rem;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--lane);
+  }
+  .qe-journey .qj-lane ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .qe-journey .qj-lane li {
+    margin: 0 !important;
+    display: grid;
+    gap: 0.1rem;
+    align-content: start;
+    font-family: var(--sl-font);
+  }
+  .qe-journey .qj-lane .label {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-journey .qj-lane .value {
+    font-size: 1.125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+  }
+  .qe-journey .qj-lane .unit {
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-journey .qj-lane .bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background: var(--sl-color-gray-5);
+  }
+  .qe-journey .qj-lane .bar > span {
+    display: block;
+    height: 100%;
+    background: var(--lane);
+    transform-origin: left;
+    transform: scaleX(1);
+  }
+  .qe-journey .qj-run {
+    margin-top: 0.9rem;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    font-weight: 650;
+    min-height: 2.5rem;
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .qe-journey .qj-run[hidden] { display: none; }
+  .qe-journey .qj-result {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sl-font);
+    font-size: 0.9375rem;
+    display: table;
+  }
+  .qe-journey .qj-result th,
+  .qe-journey .qj-result td {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    text-align: left;
+    background: transparent;
+  }
+  .qe-journey .qj-result th {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+    font-weight: 600;
+  }
+  .qe-journey .qj-result td:last-child,
+  .qe-journey .qj-result th:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-journey .qj-nav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem 1rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-journey .qj-nav[hidden] { display: none; }
+  .qe-journey .qj-nav button {
+    min-height: 2.75rem;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    font-weight: 650;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .qe-journey .qj-nav [data-next] {
+    border-color: var(--sl-color-accent);
+  }
+  .qe-journey .qj-nav button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .qe-journey .qj-nav button:focus-visible,
+  .qe-journey .qj-run:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-journey .qj-pos {
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-journey {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+    }
+    .qe-journey .qj-panel {
+      padding: 1.1rem 1rem;
+    }
+    .qe-journey .qj-nav {
+      padding: 0.75rem 1rem 1rem;
+    }
+    .qe-journey .qj-lane ol {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+    .qe-journey .qj-lane li {
+      grid-template-columns: 7.5rem auto 1fr;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+    .qe-journey .qj-lane .value {
+      font-size: 1rem;
+    }
+  }
+</style>
