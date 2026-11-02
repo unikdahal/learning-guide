@@ -2128,7 +2128,7 @@
           "scope": "Levels, prerequisites, labs and the suggested paths for beginners, working engineers and interview preparation.",
           "visual": "Roadmap graph of modules with prerequisite edges",
           "path": "orientation/how-to-read-this-guide",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 5,
@@ -2138,7 +2138,7 @@
           "scope": "Toolchain, the lab cargo workspace, arrow-rs and datafusion crates, criterion for benchmarks, and how lab exercises are structured.",
           "visual": "Annotated repository tree",
           "path": "orientation/setting-up-the-rust-lab",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 6,
@@ -2148,7 +2148,7 @@
           "scope": "Wall time vs CPU time, warm vs cold runs, variance, and why a single number from a single run usually misleads. Sets the standard every lab follows.",
           "visual": "Distribution of 50 repeated runs with the single-run trap highlighted",
           "path": "orientation/measuring-things-honestly",
-          "status": "planned"
+          "status": "published"
         }
       ]
     },

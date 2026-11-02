@@ -1,0 +1,455 @@
+---
+// The 22 modules as a dependency graph, layered by depth. Tap a module to light up everything it
+// needs and everything it unlocks, or pick a suggested route. Built from syllabus/*.yaml, so it
+// stays correct as the syllabus changes. Without JavaScript it renders as layered lists.
+import { data, moduleById, url } from '../../lib/site';
+
+const modules = data.parts.flatMap((p) => p.modules.map(moduleById));
+const byId = new Map(modules.map((m) => [m.id, m]));
+
+// Depth = length of the longest prerequisite chain below a module.
+const depth = new Map<string, number>();
+const depthOf = (id: string): number => {
+  if (depth.has(id)) return depth.get(id)!;
+  const m = byId.get(id)!;
+  const d = m.prereqs.length ? 1 + Math.max(...m.prereqs.map(depthOf)) : 0;
+  depth.set(id, d);
+  return d;
+};
+modules.forEach((m) => depthOf(m.id));
+const layers: string[][] = [];
+for (const m of modules) (layers[depth.get(m.id)!] ??= []).push(m.id);
+
+const partColor = Object.fromEntries(data.parts.map((p) => [p.id, p.color]));
+const graph = Object.fromEntries(
+  modules.map((m) => [m.id, { title: m.title, prereqs: m.prereqs, n: m.articles.length, href: url(`${m.slug}/`) }]),
+);
+
+const routes = [
+  { id: 'new', name: 'New to databases', steps: ['00', '01', '03', '05', '07', '08', '09'] },
+  { id: 'eng', name: 'Working data engineer', steps: ['05', '08', '13', '14', '15', '16', '18'] },
+  { id: 'interview', name: 'Preparing for engine roles', steps: ['02', '05', '08', '09', '11', '15', '20'] },
+];
+---
+
+<qe-prereq class="qe-prereq not-content" data-graph={JSON.stringify(graph)} data-routes={JSON.stringify(routes)}>
+  <div class="routes" role="group" aria-label="Suggested routes" hidden>
+    {routes.map((r) => <button type="button" data-route={r.id} aria-pressed="false">{r.name}</button>)}
+  </div>
+
+  <div class="canvas">
+    <svg class="edges" aria-hidden="true"></svg>
+    {
+      layers.map((ids, d) => (
+        <div class="layer" data-depth={d}>
+          <span class="depth">{d === 0 ? 'Start' : `Step ${d}`}</span>
+          <div class="nodes">
+            {ids.map((id) => (
+              <button
+                type="button"
+                class="node"
+                data-node={id}
+                style={`--part:${partColor[byId.get(id)!.part]}`}
+                aria-pressed="false"
+              >
+                <span class="nid">{id}</span>
+                <span class="ntitle">{byId.get(id)!.title}</span>
+                <span class="order" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="panel" aria-live="polite">
+    <p class="hint" data-hint>Tap a module to see what it needs and what it unlocks.</p>
+    <div class="detail" data-detail hidden>
+      <p class="dtitle"><a data-dlink href="#"></a></p>
+      <p data-dneeds></p>
+      <p data-dunlocks></p>
+      <p class="estimate" data-destimate></p>
+    </div>
+  </div>
+
+  <p class="legend" hidden>
+    <span class="k sel">selected</span>
+    <span class="k need">needed first</span>
+    <span class="k unlock">unlocks</span>
+  </p>
+</qe-prereq>
+
+<script>
+  type G = Record<string, { title: string; prereqs: string[]; n: number; href: string }>;
+  type Route = { id: string; name: string; steps: string[] };
+  const MIN_PER_ARTICLE = 15;
+
+  class QePrereq extends HTMLElement {
+    g: G = {};
+    routes: Route[] = [];
+    selected: string | null = null;
+    route: string | null = null;
+    ro?: ResizeObserver;
+
+    connectedCallback() {
+      this.g = JSON.parse(this.dataset.graph!);
+      this.routes = JSON.parse(this.dataset.routes!);
+      this.classList.add('is-interactive');
+      this.querySelector<HTMLElement>('.routes')!.hidden = false;
+      this.querySelector<HTMLElement>('.legend')!.hidden = false;
+      this.querySelectorAll<HTMLButtonElement>('[data-node]').forEach((b) =>
+        b.addEventListener('click', () => this.select(this.selected === b.dataset.node ? null : b.dataset.node!)),
+      );
+      this.querySelectorAll<HTMLButtonElement>('[data-route]').forEach((b) =>
+        b.addEventListener('click', () => this.pickRoute(this.route === b.dataset.route ? null : b.dataset.route!)),
+      );
+      this.ro = new ResizeObserver(() => this.draw());
+      this.ro.observe(this.querySelector('.canvas')!);
+      document.fonts?.ready.then(() => this.draw());
+      this.draw();
+    }
+    disconnectedCallback() {
+      this.ro?.disconnect();
+    }
+
+    closure(id: string, dir: 'up' | 'down'): Set<string> {
+      const out = new Set<string>();
+      const stack = [id];
+      while (stack.length) {
+        const cur = stack.pop()!;
+        const next =
+          dir === 'up'
+            ? this.g[cur].prereqs
+            : Object.keys(this.g).filter((k) => this.g[k].prereqs.includes(cur));
+        for (const n of next) if (!out.has(n)) (out.add(n), stack.push(n));
+      }
+      return out;
+    }
+
+    /** Ancestors in a valid reading order: every module after all of its prerequisites. */
+    order(ids: Set<string>): string[] {
+      const done = new Set<string>();
+      const out: string[] = [];
+      const visit = (id: string) => {
+        if (done.has(id)) return;
+        done.add(id);
+        this.g[id].prereqs.filter((p) => ids.has(p)).sort().forEach(visit);
+        out.push(id);
+      };
+      [...ids].sort().forEach(visit);
+      return out;
+    }
+
+    select(id: string | null) {
+      this.selected = id;
+      this.route = null;
+      this.querySelectorAll('[data-route]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+      this.apply();
+    }
+
+    pickRoute(id: string | null) {
+      this.route = id;
+      this.selected = null;
+      this.querySelectorAll<HTMLElement>('[data-route]').forEach((b) =>
+        b.setAttribute('aria-pressed', String(b.dataset.route === id)),
+      );
+      this.apply();
+    }
+
+    apply() {
+      const nodes = [...this.querySelectorAll<HTMLButtonElement>('[data-node]')];
+      const hint = this.querySelector<HTMLElement>('[data-hint]')!;
+      const detail = this.querySelector<HTMLElement>('[data-detail]')!;
+      nodes.forEach((n) => {
+        n.className = 'node';
+        n.setAttribute('aria-pressed', 'false');
+        n.querySelector('.order')!.textContent = '';
+      });
+      this.classList.toggle('has-focus', !!(this.selected || this.route));
+
+      if (this.selected) {
+        const up = this.closure(this.selected, 'up');
+        const down = this.closure(this.selected, 'down');
+        nodes.forEach((n) => {
+          const id = n.dataset.node!;
+          if (id === this.selected) (n.classList.add('sel'), n.setAttribute('aria-pressed', 'true'));
+          else if (up.has(id)) n.classList.add('need');
+          else if (down.has(id)) n.classList.add('unlock');
+        });
+        const m = this.g[this.selected];
+        const path = [...this.order(up), this.selected];
+        const articles = path.reduce((s, id) => s + this.g[id].n, 0);
+        const link = this.querySelector<HTMLAnchorElement>('[data-dlink]')!;
+        link.textContent = `${this.selected} ${m.title}`;
+        link.href = m.href;
+        this.querySelector('[data-dneeds]')!.textContent = up.size
+          ? `Read first, in this order: ${this.order(up).join(', ')}.`
+          : 'No prerequisites. You can start here.';
+        this.querySelector('[data-dunlocks]')!.textContent = down.size
+          ? `It leads on to ${down.size} module${down.size > 1 ? 's' : ''}: ${[...down].sort().join(', ')}.`
+          : 'Nothing depends on it; it is an end point.';
+        this.querySelector('[data-destimate]')!.textContent =
+          `The whole path is ${path.length} module${path.length > 1 ? 's' : ''} and ${articles} articles, roughly ${Math.round((articles * MIN_PER_ARTICLE) / 60)} hours of reading at about ${MIN_PER_ARTICLE} minutes an article.`;
+        hint.hidden = true;
+        detail.hidden = false;
+      } else if (this.route) {
+        const r = this.routes.find((x) => x.id === this.route)!;
+        nodes.forEach((n) => {
+          const i = r.steps.indexOf(n.dataset.node!);
+          if (i >= 0) {
+            n.classList.add('route');
+            n.querySelector('.order')!.textContent = String(i + 1);
+          }
+        });
+        const articles = r.steps.reduce((s, id) => s + this.g[id].n, 0);
+        hint.hidden = false;
+        hint.textContent = `${r.name}: ${r.steps.length} modules, ${articles} articles, roughly ${Math.round((articles * MIN_PER_ARTICLE) / 60)} hours. Numbers show the order. Each module page says what to read first if you skip ahead.`;
+        detail.hidden = true;
+      } else {
+        hint.hidden = false;
+        hint.textContent = 'Tap a module to see what it needs and what it unlocks.';
+        detail.hidden = true;
+      }
+      this.draw();
+    }
+
+    draw() {
+      const canvas = this.querySelector<HTMLElement>('.canvas')!;
+      const svg = this.querySelector<SVGSVGElement>('svg.edges')!;
+      const box = canvas.getBoundingClientRect();
+      svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+      svg.setAttribute('width', String(box.width));
+      svg.setAttribute('height', String(box.height));
+      const pos = (id: string) => {
+        const r = this.querySelector(`[data-node="${id}"]`)!.getBoundingClientRect();
+        return { x: r.left - box.left + r.width / 2, top: r.top - box.top, bottom: r.bottom - box.top };
+      };
+      const up = this.selected ? this.closure(this.selected, 'up') : new Set<string>();
+      const down = this.selected ? this.closure(this.selected, 'down') : new Set<string>();
+      const chain = new Set([...up, ...(this.selected ? [this.selected] : [])]);
+      const ahead = new Set([...down, ...(this.selected ? [this.selected] : [])]);
+      const paths: string[] = [];
+      for (const [id, m] of Object.entries(this.g)) {
+        for (const p of m.prereqs) {
+          const a = pos(p);
+          const b = pos(id);
+          const mid = (a.bottom + b.top) / 2;
+          let cls = 'e';
+          if (chain.has(id) && chain.has(p)) cls += ' need';
+          else if (ahead.has(id) && ahead.has(p)) cls += ' unlock';
+          paths.push(`<path class="${cls}" d="M${a.x},${a.bottom} C${a.x},${mid} ${b.x},${mid} ${b.x},${b.top}"/>`);
+        }
+      }
+      // Highlighted edges last, so they draw on top.
+      paths.sort((x, y) => Number(x.includes(' need') || x.includes(' unlock')) - Number(y.includes(' need') || y.includes(' unlock')));
+      svg.innerHTML = paths.join('');
+    }
+  }
+  if (!customElements.get('qe-prereq')) customElements.define('qe-prereq', QePrereq);
+</script>
+
+<style is:global>
+  .qe-prereq {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-prereq .routes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .qe-prereq .routes[hidden] { display: none; }
+  .qe-prereq .routes button {
+    min-height: 2.5rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .qe-prereq .routes button[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-prereq .canvas {
+    position: relative;
+    display: grid;
+    gap: 1.6rem;
+  }
+  .qe-prereq svg.edges {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .qe-prereq svg.edges path {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.25;
+    opacity: 0.55;
+  }
+  .qe-prereq.has-focus svg.edges path { opacity: 0.15; }
+  .qe-prereq svg.edges path.need {
+    stroke: var(--qe-pipe-build);
+    stroke-width: 2;
+    opacity: 1;
+  }
+  .qe-prereq svg.edges path.unlock {
+    stroke: var(--qe-pipe-emit);
+    stroke-width: 2;
+    opacity: 0.9;
+  }
+  .qe-prereq .layer {
+    position: relative;
+    display: grid;
+    grid-template-columns: 3.25rem 1fr;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .qe-prereq .depth {
+    font-size: 0.6875rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-prereq .nodes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .qe-prereq .node {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    max-width: 13rem;
+    min-height: 2.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 7px;
+    border: 1px solid var(--sl-color-gray-4);
+    border-left: 4px solid var(--part);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: 0.8125rem;
+    text-align: left;
+    line-height: 1.25;
+    cursor: default;
+  }
+  .qe-prereq.is-interactive .node { cursor: pointer; }
+  .qe-prereq .nid {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--part);
+  }
+  .qe-prereq .ntitle { font-weight: 600; }
+  .qe-prereq .node:focus-visible,
+  .qe-prereq .routes button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-prereq.has-focus .node { opacity: 0.45; }
+  .qe-prereq.has-focus .node:is(.sel, .need, .unlock, .route) { opacity: 1; }
+  .qe-prereq .node.sel {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-prereq .node.sel .nid { color: var(--sl-color-black); }
+  .qe-prereq .node.need { border-color: var(--qe-pipe-build); box-shadow: 0 0 0 1px var(--qe-pipe-build); }
+  .qe-prereq .node.unlock { border-color: var(--qe-pipe-emit); box-shadow: 0 0 0 1px var(--qe-pipe-emit); }
+  .qe-prereq .node.route { border-color: var(--sl-color-accent); box-shadow: 0 0 0 1px var(--sl-color-accent); }
+  .qe-prereq .order:empty { display: none; }
+  .qe-prereq .order {
+    position: absolute;
+    top: -0.55rem;
+    right: -0.45rem;
+    display: grid;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    font-size: 0.6875rem;
+    font-weight: 800;
+  }
+  .qe-prereq .panel {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+    min-height: 5.5rem;
+  }
+  .qe-prereq .panel p {
+    margin: 0 0 0.4rem;
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-prereq .dtitle a {
+    font-family: var(--sl-font);
+    font-weight: 750;
+    font-size: 1.0625rem;
+    color: var(--sl-color-white);
+    text-underline-offset: 3px;
+  }
+  .qe-prereq .estimate {
+    font-family: var(--sl-font) !important;
+    font-size: 0.8125rem !important;
+    color: var(--sl-color-gray-3) !important;
+  }
+  .qe-prereq .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0.5rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-prereq .legend[hidden] { display: none; }
+  .qe-prereq .legend .k::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 0.35rem;
+    vertical-align: -1px;
+    border-radius: 3px;
+  }
+  .qe-prereq .k.sel::before { background: var(--sl-color-accent); }
+  .qe-prereq .k.need::before { background: var(--qe-pipe-build); }
+  .qe-prereq .k.unlock::before { background: var(--qe-pipe-emit); }
+  @media (max-width: 49.99rem) {
+    .qe-prereq {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-prereq .layer {
+      grid-template-columns: 1fr;
+      gap: 0.3rem;
+    }
+    .qe-prereq .canvas {
+      gap: 1.4rem;
+    }
+    .qe-prereq .node {
+      max-width: 100%;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.5rem;
+    }
+  }
+</style>

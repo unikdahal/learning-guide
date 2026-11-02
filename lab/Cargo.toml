@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+publish = false
+
+# One version of each dependency for the whole lab, so every exercise builds against the same engine.
+[workspace.dependencies]
+labkit = { path = "crates/labkit" }
+datafusion = "55.2"
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros"] }
+criterion = "0.8"
+libc = "0.2"
+
+# Benchmarks and timing exercises always run optimized. Line tables keep profilers able to
+# map samples back to source lines without the cost of full debug info.
+[profile.release]
+debug = "line-tables-only"
+
+[profile.bench]
+inherits = "release"

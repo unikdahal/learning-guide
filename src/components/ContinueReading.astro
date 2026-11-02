@@ -1,0 +1,258 @@
+---
+// "Continue reading" card for returning readers on the home page. Hidden until the script finds
+// progress saved in this browser; first-time visitors never see it.
+import { data, moduleById, url } from '../lib/site';
+
+const published = data.parts
+  .flatMap((p) => p.modules.map(moduleById))
+  .flatMap((m) =>
+    m.articles
+      .filter((a) => a.status === 'published')
+      .map((a) => ({ path: url(a.path + '/'), title: a.title, module: m.id, moduleTitle: m.title })),
+  );
+---
+
+<section
+  class="qe-continue not-content"
+  data-continue
+  data-roadmap={url('roadmap/')}
+  hidden
+  aria-labelledby="qe-continue-title"
+>
+  <script type="application/json" data-published set:html={JSON.stringify(published)} />
+  <div class="body">
+    <p class="eyebrow" id="qe-continue-title" data-heading>Continue reading</p>
+    <a class="title" data-title href="#"></a>
+    <p class="where" data-where></p>
+    <div class="meter" data-meter>
+      <span class="track"><span class="fill" data-fill></span></span>
+      <span class="pct" data-pct></span>
+    </div>
+  </div>
+  <div class="actions">
+    <a class="go" data-go href="#">Resume</a>
+    <a class="next" data-next href="#" hidden></a>
+  </div>
+  <p class="foot">
+    <span data-count></span>
+    <button type="button" data-clear>Clear reading history</button>
+  </p>
+</section>
+
+<script>
+  import { canonical, clear, load, statusOf } from '../scripts/progress';
+
+  type Pub = { path: string; title: string; module: string; moduleTitle: string };
+
+  const card = document.querySelector<HTMLElement>('[data-continue]');
+  if (card) {
+    const published: Pub[] = JSON.parse(card.querySelector('[data-published]')!.textContent || '[]');
+    const state = load();
+    const byPath = new Map(published.map((p) => [canonical(p.path), p]));
+    const read = published.filter((p) => statusOf(state.articles[canonical(p.path)]) === 'done').length;
+    const last = state.last ? state.articles[state.last] : undefined;
+
+    if (state.last && last && byPath.has(state.last)) {
+      const $ = <T extends HTMLElement>(s: string) => card.querySelector<T>(s)!;
+      const nextUnread = (after: string) => {
+        const i = published.findIndex((p) => canonical(p.path) === after);
+        const rest = [...published.slice(i + 1), ...published.slice(0, Math.max(0, i))];
+        return rest.find((p) => statusOf(state.articles[canonical(p.path)]) !== 'done');
+      };
+
+      const title = $<HTMLAnchorElement>('[data-title]');
+      const go = $<HTMLAnchorElement>('[data-go]');
+      const next = $<HTMLAnchorElement>('[data-next]');
+
+      if (!last.done) {
+        const href = last.s ? `${state.last}#${last.s}` : state.last;
+        title.textContent = last.t;
+        title.href = href;
+        go.href = href;
+        go.textContent = 'Resume';
+        $('[data-where]').textContent = last.st
+          ? `Module ${last.m}: ${last.mt}. You were in “${last.st}”.`
+          : `Module ${last.m}: ${last.mt}`;
+        $('[data-fill]').style.width = `${Math.round(last.p * 100)}%`;
+        $('[data-pct]').textContent = `${Math.round(last.p * 100)}% read`;
+      } else {
+        const n = nextUnread(state.last);
+        $('[data-meter]').hidden = true;
+        if (n) {
+          $('[data-heading]').textContent = 'Up next';
+          title.textContent = n.title;
+          title.href = n.path;
+          go.href = n.path;
+          go.textContent = 'Start';
+          $('[data-where]').textContent = `Module ${n.module}: ${n.moduleTitle}. You finished “${last.t}”.`;
+        } else {
+          $('[data-heading]').textContent = 'All caught up';
+          title.textContent = 'You have read every article written so far';
+          title.removeAttribute('href');
+          go.href = card.dataset.roadmap ?? go.href;
+          go.textContent = 'See what is coming';
+          $('[data-where]').textContent = 'New articles appear on the roadmap as they are written.';
+        }
+      }
+
+      // If the current article is unfinished, also offer the next one.
+      if (!last.done) {
+        const n = nextUnread(state.last);
+        if (n) {
+          next.hidden = false;
+          next.href = n.path;
+          next.textContent = `Next: ${n.title}`;
+        }
+      }
+
+      $('[data-count]').textContent = `${read} of ${published.length} written articles read`;
+      $('[data-clear]').addEventListener('click', () => {
+        if (confirm('Clear your reading history on this device?')) {
+          clear();
+          card.hidden = true;
+          document.querySelectorAll<HTMLElement>('a[data-progress]').forEach((a) => delete a.dataset.progress);
+        }
+      });
+      card.hidden = false;
+    }
+  }
+</script>
+
+<style>
+  .qe-continue {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 1rem 1.5rem;
+    padding: 1.1rem 1.25rem;
+    border-radius: 12px;
+    border: 1px solid var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    font-family: var(--sl-font);
+  }
+  .qe-continue[hidden] {
+    display: none;
+  }
+  .body {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+  .eyebrow {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--sl-color-accent-high);
+  }
+  .title {
+    font-size: 1.375rem;
+    font-weight: 750;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--sl-color-white);
+    text-decoration: none;
+  }
+  .title[href]:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .where {
+    margin: 0;
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.45;
+    color: var(--sl-color-gray-1);
+  }
+  .meter {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.4rem;
+  }
+  .meter[hidden] {
+    display: none;
+  }
+  .track {
+    height: 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--sl-color-accent) 20%, transparent);
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--sl-color-accent);
+  }
+  .pct {
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .actions {
+    display: grid;
+    gap: 0.5rem;
+    justify-items: stretch;
+  }
+  .actions a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-weight: 650;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    text-align: center;
+  }
+  .go {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .next {
+    border: 1px solid var(--sl-color-gray-4);
+    color: var(--sl-color-white);
+    max-width: 18rem;
+  }
+  .next[hidden] {
+    display: none;
+  }
+  .actions a:focus-visible,
+  .foot button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .foot {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.4rem 1rem;
+    margin: 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--sl-color-accent) 30%, transparent);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .foot button {
+    font: inherit;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--sl-color-gray-2);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  @media (max-width: 40rem) {
+    .qe-continue {
+      grid-template-columns: 1fr;
+      padding: 1rem;
+    }
+    .next {
+      max-width: none;
+    }
+  }
+</style>

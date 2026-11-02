@@ -1,0 +1,5 @@
+# Pin the compiler so every reader, and every benchmark in the guide, uses the same one.
+# rustup installs it automatically the first time you run cargo in this directory.
+[toolchain]
+channel = "1.97.0"
+components = ["rustfmt", "clippy"]

@@ -1,0 +1,214 @@
+---
+// The lab workspace as a tappable file tree. Each entry explains what the file is for.
+type Entry = { path: string; depth: number; dir?: boolean; what: string; code?: string };
+
+const entries: Entry[] = [
+  { path: 'lab/', depth: 0, dir: true, what: 'The Cargo workspace for every hands-on exercise in the guide. Run all commands from here.' },
+  {
+    path: 'rust-toolchain.toml',
+    depth: 1,
+    what: 'Pins the exact compiler version. rustup reads it and installs that version automatically, so your results and the guide’s come from the same compiler.',
+    code: '[toolchain]\nchannel = "1.97.0"\ncomponents = ["rustfmt", "clippy"]',
+  },
+  {
+    path: 'Cargo.toml',
+    depth: 1,
+    what: 'The workspace manifest: which crates belong to the lab, one shared version of each dependency, and the release profile that every benchmark uses.',
+    code: '[workspace.dependencies]\ndatafusion = "55.2"\ntokio = { version = "1.54", features = ["rt-multi-thread", "macros"] }\ncriterion = "0.8"\n\n[profile.release]\ndebug = "line-tables-only"',
+  },
+  { path: 'data/', depth: 1, dir: true, what: 'Generated data: customer.parquet, orders.parquet and trips.csv. Not committed; gen-data recreates it identically on any machine.' },
+  { path: 'crates/', depth: 1, dir: true, what: 'One crate per module of the guide, plus shared helpers.' },
+  { path: 'labkit/', depth: 2, dir: true, what: 'Helpers shared by every module: deterministic data, timing and statistics.' },
+  {
+    path: 'src/rng.rs',
+    depth: 3,
+    what: 'SplitMix64, a tiny deterministic random number generator. The same seed gives the same data everywhere, so everyone’s results are comparable.',
+  },
+  {
+    path: 'src/data.rs',
+    depth: 3,
+    what: 'Builds the customer, orders and trips tables as Arrow record batches and writes them to Parquet and CSV. Sizes follow TPC-H scale factor 1.',
+  },
+  {
+    path: 'src/timing.rs',
+    depth: 3,
+    what: 'Wall-clock and CPU time, warm-up, repeated runs and summary statistics. The article "Measuring things honestly" explains each piece.',
+    code: 'let samples = repeat(3, 20, || work());\nprintln!("{}", Summary::of(&samples));',
+  },
+  {
+    path: 'src/bin/gen-data.rs',
+    depth: 3,
+    what: 'The data generator. Run it once before the examples. Pass a scale factor to make the data bigger or smaller.',
+    code: 'cargo run --release -p labkit --bin gen-data',
+  },
+  { path: 'm00-orientation/', depth: 2, dir: true, what: 'Module 00’s exercises. Later modules add m01-…, m02-… alongside it.' },
+  { path: 'src/lib.rs', depth: 3, what: 'Code shared by this module’s examples, such as the 64-byte Order row.' },
+  {
+    path: 'examples/',
+    depth: 3,
+    dir: true,
+    what: 'One runnable program per article: query_stages, embed_datafusion, row_vs_column and measure_query.',
+    code: 'cargo run --release -p m00-orientation --example query_stages',
+  },
+  {
+    path: 'benches/sum_layout.rs',
+    depth: 3,
+    what: 'A Criterion benchmark: warm-up, 100 samples, confidence intervals, and a comparison with your previous run.',
+    code: 'cargo bench -p m00-orientation --bench sum_layout',
+  },
+];
+---
+
+<qe-labtree class="qe-labtree not-content">
+  <ul class="tree" role="list">
+    {
+      entries.map((e, i) => (
+        <li style={`--d:${e.depth}`}>
+          <button type="button" data-i={i} aria-pressed={i === 2 ? 'true' : 'false'} class:list={{ dir: e.dir }}>
+            <span class="icon" aria-hidden="true">{e.dir ? '▸' : '·'}</span>
+            {e.path}
+          </button>
+        </li>
+      ))
+    }
+  </ul>
+  <div class="details">
+    {
+      entries.map((e, i) => (
+        <div class="item" data-item={i}>
+          <p class="name">{e.path}</p>
+          <p class="what">{e.what}</p>
+          {e.code && <pre><code>{e.code}</code></pre>}
+        </div>
+      ))
+    }
+  </div>
+</qe-labtree>
+
+<script>
+  class QeLabTree extends HTMLElement {
+    connectedCallback() {
+      this.classList.add('is-interactive');
+      const buttons = [...this.querySelectorAll<HTMLButtonElement>('[data-i]')];
+      const items = [...this.querySelectorAll<HTMLElement>('[data-item]')];
+      const show = (i: string) => {
+        buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.i === i)));
+        items.forEach((it) => (it.hidden = it.dataset.item !== i));
+      };
+      buttons.forEach((b) =>
+        b.addEventListener('click', () => {
+          show(b.dataset.i!);
+          // On phones the details sit below the tree; bring them into view if they are off screen.
+          const item = this.querySelector<HTMLElement>(`[data-item="${b.dataset.i}"]`)!;
+          const r = item.getBoundingClientRect();
+          if (r.top > innerHeight || r.bottom < 0) {
+            const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+            item.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest' });
+          }
+        }),
+      );
+      show('2');
+    }
+  }
+  if (!customElements.get('qe-labtree')) customElements.define('qe-labtree', QeLabTree);
+</script>
+
+<style is:global>
+  .qe-labtree {
+    display: grid;
+    grid-template-columns: minmax(13rem, 17rem) 1fr;
+    gap: 1rem;
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-labtree .tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .qe-labtree .tree li {
+    margin: 0 !important;
+    padding-left: calc(var(--d) * 1rem);
+  }
+  .qe-labtree .tree button {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0.2rem 0.5rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    text-align: left;
+    cursor: default;
+  }
+  .qe-labtree.is-interactive .tree button { cursor: pointer; }
+  .qe-labtree .tree button.dir { color: var(--sl-color-white); font-weight: 600; }
+  .qe-labtree .tree button:hover { background: var(--sl-color-black); }
+  .qe-labtree .tree button[aria-pressed='true'] {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-labtree .tree button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 1px;
+  }
+  .qe-labtree .icon {
+    width: 0.8rem;
+    color: inherit;
+    opacity: 0.7;
+  }
+  .qe-labtree .details {
+    min-width: 0;
+  }
+  .qe-labtree:not(.is-interactive) .item + .item { margin-top: 1rem; }
+  .qe-labtree .item {
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-labtree .name {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-accent-high);
+  }
+  .qe-labtree .what {
+    margin: 0.4rem 0 0;
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-labtree pre {
+    margin: 0.75rem 0 0;
+    padding: 0.7rem 0.8rem;
+    border-radius: 6px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--sl-color-white);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-labtree {
+      grid-template-columns: 1fr;
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+  }
+</style>

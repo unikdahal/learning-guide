@@ -226,20 +226,30 @@ Formats such as Substrait exist to pass plans between them.
 
 ## In Rust
 
-DataFusion lets you print each stage for any query. Register two Parquet files and ask for
-the plans:
+DataFusion lets you print each stage for any query. This program is in the lab as
+[`examples/query_stages.rs`](https://github.com/unikdahal/learning-guide/blob/main/lab/crates/m00-orientation/examples/query_stages.rs);
+[Setting up the Rust lab](../setting-up-the-rust-lab/) gets it running.
 
-```rust title="src/main.rs"
+```rust title="lab/crates/m00-orientation/examples/query_stages.rs"
 use datafusion::physical_plan::displayable;
 use datafusion::prelude::*;
+use labkit::data::data_file;
 
 #[tokio::main]
 async fn main() -> datafusion::error::Result<()> {
     let ctx = SessionContext::new();
-    ctx.register_parquet("orders", "data/orders.parquet", ParquetReadOptions::default())
-        .await?;
-    ctx.register_parquet("customer", "data/customer.parquet", ParquetReadOptions::default())
-        .await?;
+    ctx.register_parquet(
+        "orders",
+        &data_file("orders.parquet"),
+        ParquetReadOptions::default(),
+    )
+    .await?;
+    ctx.register_parquet(
+        "customer",
+        &data_file("customer.parquet"),
+        ParquetReadOptions::default(),
+    )
+    .await?;
 
     let sql = "SELECT c.region, sum(o.amount) AS revenue \
                FROM orders o JOIN customer c ON o.cust_id = c.id \
@@ -255,13 +265,32 @@ async fn main() -> datafusion::error::Result<()> {
 
     // Physical planning.
     let physical = df.clone().create_physical_plan().await?;
-    println!("Physical plan:\n{}", displayable(physical.as_ref()).indent(true));
+    println!(
+        "Physical plan:\n{}",
+        displayable(physical.as_ref()).indent(true)
+    );
 
     // Execution.
     df.show().await?;
     Ok(())
 }
 ```
+
+The physical plan in the visual above is this program's real output, trimmed. Two lines in it
+are worth noticing now, because later modules are built around them.
+
+```text title="From the physical plan, trimmed"
+DataSourceExec: customer.parquet, predicate=segment@2 = retail,
+  pruning_predicate=segment_null_count@2 != row_count@3 AND segment_min@0 <= retail AND retail <= segment_max@1
+DataSourceExec: orders.parquet, projection=[cust_id, amount], predicate=DynamicFilter [ empty ]
+```
+
+The first is the pushed-down filter turned into a test on the Parquet file's per-row-group
+statistics: any row group whose minimum and maximum segment cannot include `retail` is skipped
+without being read. [Module 07](../../scans-and-pruning/) covers this. The second is a
+**dynamic filter**: it starts empty, and once the hash table is built, DataFusion fills it from
+the build side's join keys and uses it to skip orders that cannot match. That is a runtime
+filter, the subject of [Module 14](../../adaptive-execution/).
 
 Running `EXPLAIN VERBOSE` followed by the query, in `datafusion-cli`, prints the plan after
 every individual optimizer rule. Reading which rule changed what is one of the fastest ways

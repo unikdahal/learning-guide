@@ -1,16 +1,193 @@
 ---
-title: "How to read this guide"
-description: "Levels, prerequisites, labs and the suggested paths for beginners, working engineers and interview preparation."
+title: How to read this guide
+description: Levels, prerequisites, labs and the suggested paths for beginners, working engineers and interview preparation.
 level: B
-status: planned
+status: published
 module: "00"
-tableOfContents: false
 sidebar:
   order: 4
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import PrereqGraph from '@components/visuals/PrereqGraph.astro';
+import TestingEffect from '@components/visuals/TestingEffect.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="00" slug="how-to-read-this-guide" />
+<ArticleMeta module="00" slug="how-to-read-this-guide" minutes={11} />
+
+This guide has 324 articles. Nobody should read them the way they read a novel, front to back
+in one go, and almost nobody needs all of them at once. What you need is a map, a way to choose
+a route through it, a way to check that you actually understood what you read, and a way to pick
+up where you left off. This article gives you all four.
+
+## The question
+
+How do you get through a large technical guide so that the knowledge stays, instead of
+evaporating a week after you close the tab?
+
+## The map
+
+The guide is built in three layers.
+
+- **Seven parts**, from foundations through single-machine execution, optimization, distributed
+  execution, lakehouse storage and real engines, to building and measuring your own.
+- **Twenty-two modules**, each a coherent topic such as joins, aggregation or shuffles. Each
+  module's overview page lists its goal, what you will be able to do afterwards, and which
+  modules to read first.
+- **Articles**, each covering one idea in depth, in reading order within the module.
+
+Those "read first" links form a graph. Most modules depend on a few earlier ones, and nothing
+depends on something later. The graph below is drawn from the same data as the rest of the site.
+Tap a module to see everything it needs and everything it leads to, or pick one of the
+suggested routes.
+
+<PrereqGraph />
+
+Modules on the same step don't depend on each other, so you can read them in any order. A
+module two steps down can wait until you need it.
+
+## Choosing a route
+
+There are three good ways through.
+
+**Start at the beginning** if you are new to databases. The "New to databases" route covers what
+a query means, how data is laid out, and how one machine runs scans, joins and aggregations.
+That is enough to understand why most analytical queries are fast or slow.
+
+**Follow a route for your goal** if you already work with data systems. The "Working data
+engineer" route goes straight to execution models, joins and the optimizer, then into shuffles,
+distributed joins and table formats: the parts that explain the behaviour of Spark, Trino and
+lakehouse tables. The "Preparing for engine roles" route goes deep on the machine, execution,
+memory and shuffle, and ends with building an engine yourself, which is the depth interviews for
+query execution and runtime roles tend to probe.
+
+**Jump in where you are curious** and follow "read first" links only when an article assumes
+something you don't know. This is the fastest way to answer a specific question, and the
+module overviews are designed for it.
+
+## Levels
+
+Every article carries a four-step level meter.
+
+| Level | Assumes | Articles |
+| --- | --- | --- |
+| Beginner | You can program and know basic SQL | 46 |
+| Intermediate | The modules marked as prerequisites, or working experience with a data system | 141 |
+| Advanced | Comfort with the internals of at least one engine; you could explain the idea to a colleague | 126 |
+| Expert | Research papers and open problems; the depth of an engine contributor | 11 |
+
+Most of the guide is intermediate and advanced, because that is where the interesting decisions
+are. The beginner articles exist so that nobody has to start there if they don't want to.
+
+## What every article contains
+
+Articles share one structure, so you always know where you are:
+
+1. **The question** the article answers, in plain words.
+2. **The idea**: the mechanism from first principles, usually with an interactive figure.
+3. **A worked example** with concrete data, often a step-through visual.
+4. **In real engines**: how DataFusion, DuckDB, Spark, Trino and others actually do it, with
+   links to papers and source code.
+5. **Costs and trade-offs**: when it wins, when it loses, and what that depends on.
+6. **In Rust**: a short, runnable program, kept in the lab so you can run it yourself.
+7. **Check yourself**: a few questions, with answers hidden until you open them.
+
+Two conventions run through all of them. Claims about performance always say what was measured,
+on what, and by whom. When something is a prediction or a hypothesis rather than a measurement,
+the text says so. Boxes headed "Reading the numbers honestly" spell out what a number does and
+does not show.
+
+## Why every article ends with questions
+
+It is tempting to skip the questions. The research on learning says they are the most valuable
+part of the article.
+
+In a well-known 2006 experiment, Roediger and Karpicke gave students a short prose passage. Some
+read it four times. Others read it once and then tried to write down everything they remembered,
+three times, with no feedback. A few minutes later, the students who had reread it recalled the
+most. A week later the result had flipped:
+
+<TestingEffect />
+
+The students who practised recalling kept half again as much as the ones who reread. And the
+rereaders were the most confident they would remember. Rereading feels productive because the
+text becomes familiar; familiarity is not the same as being able to use it.
+
+A 2013 review by Dunlosky and colleagues compared ten common study techniques across hundreds of
+studies. Two came out with the highest rating for usefulness: **practice testing** and
+**distributed practice**, meaning spreading study out over time. Rereading, highlighting and
+summarising came out among the least useful.
+
+So, three habits that make this guide work much better:
+
+- **Answer before you open.** Commit to an answer in your head, or on paper, before revealing it.
+  A wrong guess you then correct is still practice.
+- **Come back later.** Revisit the questions from earlier articles a few days later, without
+  rereading the article first. The module pages make this quick.
+- **Do the lab.** Running and changing the code is retrieval practice too: you have to
+  reconstruct the idea to make it work.
+
+## Labs
+
+The lab is a Rust workspace in the [guide's repository](https://github.com/unikdahal/learning-guide/tree/main/lab).
+Every "In Rust" section is a real program in it, compiled and run against the same data the
+article describes. The [next article](../setting-up-the-rust-lab/) sets it up, and the one after
+that, [Measuring things honestly](../measuring-things-honestly/), sets the rules every lab follows
+when it reports a number.
+
+## Picking up where you left off
+
+The site remembers your reading, on this device:
+
+- On the home page, a **Continue reading** card takes you back to the section you were in, or to
+  the next article once you finish one.
+- When you return to an article you didn't finish, it offers to jump back to where you were.
+- In the menu, written articles you have started show a **half-filled dot**, and finished ones a
+  **filled dot**. Articles that are planned but not yet written show an **open ring**.
+- A thin bar at the top of the screen shows how far through the current article you are.
+
+<Aside type="note" title="Where your progress is stored">
+Progress lives in your browser's local storage, not in cookies and not on any server. The site is
+static, hosted on GitHub Pages, so there is no server that could read it. That also means it
+stays on one device and one browser: a private window, a different phone or clearing the site's
+data starts fresh. The Continue reading card on the home page has a button to clear it.
+</Aside>
+
+## How long it takes
+
+At about 15 minutes per article, the full guide is roughly 80 hours of reading, before labs. At
+45 minutes a day that is three to four months. Each suggested route is 7 modules and between 105
+and 118 articles, so roughly 26 to 30 hours. These are estimates from article counts, not
+measurements of anyone's reading. The reading time shown on each written article is its word count
+at 200 words a minute, plus two minutes for each interactive figure.
+
+## Check yourself
+
+<details>
+<summary>You want to read Module 16, Distributed joins and aggregation. Which modules does it depend on, directly or indirectly?</summary>
+
+Ten: 00, 01, 02, 03, 04, 05, 06, 08, 09 and 15. Tap Module 16 in the graph above to see them in
+a valid reading order. Together with Module 16 itself they come to 163 articles, which is why
+jumping in and following "read first" links only when needed is often the better strategy.
+</details>
+
+<details>
+<summary>Why did rereading beat recall practice after five minutes, but lose after a week?</summary>
+
+Rereading keeps the material fresh in short-term memory and makes it feel familiar, which helps
+on an immediate test. Retrieval practice makes you reconstruct the material yourself, which is
+harder in the moment but builds memory that lasts. The benefit only shows once the short-term
+advantage has faded.
+</details>
+
+<details>
+<summary>You read half an article on your phone, then open the site on your laptop. Will it offer to resume?</summary>
+
+No. Progress is kept in the browser's local storage on the phone. Nothing is synced between
+devices, because nothing is sent to a server.
+</details>
+
+## Further reading
+
+- Roediger and Karpicke, [Test-Enhanced Learning: Taking Memory Tests Improves Long-Term Retention](https://psychology.ecu.edu/wp-content/pv-uploads/sites/216/2019/03/Roediger-Karpicke-2006.pdf), Psychological Science, 2006.
+- Dunlosky et al., Improving Students' Learning With Effective Learning Techniques, Psychological Science in the Public Interest, 2013. The Association for Psychological Science has a [short summary](https://www.psychologicalscience.org/news/releases/which-study-strategies-make-the-grade.html).
+- The [roadmap](../../roadmap/) lists every article with its level, and lets you search them.

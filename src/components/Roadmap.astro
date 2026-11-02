@@ -68,7 +68,7 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
       <span aria-live="polite" data-count>Search or change the levels to list matching articles.</span>
       <button type="button" class="show-all" data-show-all>Show all {articles.length}</button>
     </p>
-    <ul class="results" data-results hidden>
+    <ul class="results" data-results hidden data-track-links>
       {
         articles.map((a) => (
           <li

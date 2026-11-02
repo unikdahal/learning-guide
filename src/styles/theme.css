@@ -185,10 +185,11 @@ body {
 
 /* Code blocks run edge to edge on phones so lines aren't cramped. */
 @media (max-width: 49.99rem) {
-  .sl-markdown-content .expressive-code {
+  /* Only top-level blocks bleed; code inside lists and steps stays within its indent. */
+  .sl-markdown-content > .expressive-code {
     margin-inline: var(--qe-bleed);
   }
-  .sl-markdown-content .expressive-code :is(.frame, figure, pre) {
+  .sl-markdown-content > .expressive-code :is(.frame, figure, pre) {
     border-radius: 0 !important;
     border-inline: 0 !important;
   }

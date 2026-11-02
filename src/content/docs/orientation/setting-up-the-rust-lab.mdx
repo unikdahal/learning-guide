@@ -1,16 +1,238 @@
 ---
-title: "Setting up the Rust lab"
-description: "Toolchain, the lab cargo workspace, arrow-rs and datafusion crates, criterion for benchmarks, and how lab exercises are structured."
+title: Setting up the Rust lab
+description: Toolchain, the lab cargo workspace, arrow-rs and datafusion crates, criterion for benchmarks, and how lab exercises are structured.
 level: B
-status: planned
+status: published
 module: "00"
-tableOfContents: false
 sidebar:
   order: 5
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import LabTree from '@components/visuals/LabTree.astro';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
-<ArticlePlan module="00" slug="setting-up-the-rust-lab" />
+<ArticleMeta module="00" slug="setting-up-the-rust-lab" minutes={9} />
+
+Every article in this guide ends with code you can run. This article gets all of it running on
+your machine: install Rust, fetch the lab, generate the data, and run your first query through
+DataFusion. Most of the time is the compiler building a query engine from source, so start the
+build, then read on while it works.
+
+## The question
+
+What do you need to run the guide's exercises, and why is the lab set up the way it is?
+
+## Why Rust
+
+Three reasons, all specific to this subject.
+
+- **Real engines are written in it.** Apache Arrow's Rust implementation and DataFusion are
+  production query engine components used inside InfluxDB, DataFusion Comet and many other
+  systems. When an article says "here is how a hash join works", you can read and run the real
+  thing, not a toy.
+- **You control the memory layout.** Much of query execution is about how bytes sit in memory.
+  Rust lets you choose that layout explicitly, as the row-versus-column exercise in
+  [OLTP vs OLAP workloads](../oltp-vs-olap-workloads/) did.
+- **Measurements stay clean.** There is no garbage collector pausing your program in the
+  middle of a benchmark, and Cargo has testing and benchmarking built in.
+
+You don't need to be a Rust expert. The lab code is written to be read, and the guide explains
+anything unusual when it appears.
+
+## Getting started
+
+<Steps>
+
+1. **Install Rust** with `rustup`, the official installer, which also manages compiler versions.
+   On Linux and macOS:
+
+   ```sh wrap
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+
+   On Windows, use WSL. The lab's timing code reads CPU time through a Linux and macOS system
+   call, so native Windows is not supported.
+
+2. **Get the lab.** It lives in the guide's repository.
+
+   ```sh wrap
+   git clone https://github.com/unikdahal/learning-guide.git
+   cd learning-guide/lab
+   ```
+
+   The first `cargo` command you run here reads `rust-toolchain.toml` and installs the exact
+   compiler version the guide uses, automatically.
+
+3. **Generate the data.** This compiles the lab, then writes three files into `lab/data/`.
+
+   ```sh wrap
+   cargo run --release -p labkit --bin gen-data
+   ```
+
+   The first build compiles DataFusion and its dependencies, about 336 crates. On the 2-core
+   cloud machine this guide was checked on, that took roughly twenty minutes. A laptop with
+   more cores should be several times faster; that is an estimate, so time yours. Generating
+   the data itself takes well under a second.
+
+4. **Run your first query.**
+
+   ```sh wrap
+   cargo run --release -p m00-orientation --example query_stages
+   ```
+
+   It prints the logical, optimized and physical plans from
+   [What a query engine actually does](../what-a-query-engine-actually-does/), then the result:
+
+   ```text
+   +-------------+--------------+
+   | region      | revenue      |
+   +-------------+--------------+
+   | AMERICA     | 149691110.90 |
+   | MIDDLE EAST | 149423247.54 |
+   | ASIA        | 150049799.10 |
+   | AFRICA      | 146087670.17 |
+   | EUROPE      | 150911354.33 |
+   +-------------+--------------+
+   ```
+
+   The data is generated from a fixed seed, so your revenue figures should match these exactly.
+   The row order may not: the query has no `ORDER BY`.
+
+5. **Run the tests and a benchmark** to check everything works.
+
+   ```sh wrap
+   cargo test --release
+   cargo bench -p m00-orientation --bench sum_layout
+   ```
+
+</Steps>
+
+<Aside type="caution" title="Disk space">
+A full release build of the lab used 6.8 GB of disk for Cargo's `target/` directory, almost all
+of it DataFusion's compiled dependencies and debug line tables. Make sure you have about 10 GB
+free. Deleting `target/` reclaims the space, at the cost of a full rebuild next time.
+</Aside>
+
+## What is in the lab
+
+<LabTree />
+
+Each module of the guide gets its own crate, so `m00-orientation` holds this module's exercises,
+and later modules add `m01-…`, `m02-…` alongside it. Code shared between modules, such as the data
+generator and the timing helpers, lives in `labkit`.
+
+Every exercise is an example program or a benchmark. Examples are run with
+`cargo run --release -p <crate> --example <name>`; benchmarks with
+`cargo bench -p <crate> --bench <name>`. Each file starts with a comment naming the article it
+belongs to and the exact command to run it.
+
+## Four decisions worth understanding
+
+### The compiler is pinned
+
+`rust-toolchain.toml` fixes the compiler at version 1.97.0. Compiler releases change
+optimizations, so a benchmark run with a different compiler may produce a different number for
+reasons that have nothing to do with the code. Pinning makes the guide's numbers and yours come
+from the same compiler. When the guide moves to a newer version, it will say so.
+
+### One version of everything
+
+The workspace's `Cargo.toml` declares each dependency once, under `[workspace.dependencies]`, and
+every crate inherits it. This matters more than it looks. While this article was written, the
+newest `arrow` crate was version 60.1, but DataFusion 55.2 is built on arrow 59.3. If an exercise
+depended on `arrow` 60 directly, it would get a second, incompatible copy of every Arrow type, and
+a `RecordBatch` from one could not be passed to the other.
+
+The lab avoids this by never depending on `arrow` or `parquet` directly. It uses the copies
+DataFusion re-exports:
+
+```rust
+use datafusion::arrow::record_batch::RecordBatch;
+use datafusion::parquet::arrow::ArrowWriter;
+```
+
+When you add dependencies of your own, prefer the same pattern.
+
+### Always build in release mode
+
+Rust's default `debug` build skips most optimizations to compile quickly. That makes it useless
+for measuring anything. The same row-versus-column loop, on the same machine:
+
+| Build | Row layout | Column layout | Ratio |
+| --- | --- | --- | --- |
+| Debug | 80 ms | 25 ms | 3.2× |
+| Release | 32 ms | 6.6 ms | 4.8× |
+
+Debug mode didn't just slow both loops down; it changed the comparison between them. The likely
+reason is that only the optimized build turns the column loop into SIMD instructions, which helps
+the column loop far more than the row loop. That is a hypothesis, not something measured here;
+[Module 02](../../hardware/) shows how to check by reading the generated machine code. Every command
+in this guide uses `--release`, and the lab's release profile keeps line-level debug information so
+profilers can still map samples to source lines.
+
+### Data is generated, not downloaded
+
+The data set is produced by a small deterministic random number generator with fixed seeds.
+Anyone, on any machine, gets byte-for-byte identical rows, without downloading anything. Sizes
+follow TPC-H at scale factor 1: 150,000 customers and 1.5 million orders. To make more data, pass
+a scale factor:
+
+```sh wrap
+cargo run --release -p labkit --bin gen-data -- 10
+```
+
+## Working day to day
+
+The first build is slow; later ones depend on what you change. On the same machine, editing an
+example that doesn't use DataFusion and rebuilding took under half a second. Editing the
+`query_stages` example, which does, took about 67 seconds, because the compiler has to generate
+code for all the DataFusion functions that example instantiates and link a large binary.
+
+So, while you are writing code:
+
+- Use `cargo check`, which finds type errors without generating code, for the edit-fix loop.
+- Run with `cargo run --release` only when you need the program's output.
+- Install `rust-analyzer` in your editor, so errors appear as you type.
+- Run `cargo clippy` before calling an exercise done; it catches common mistakes.
+
+<Aside type="note" title="Why not target-cpu=native?">
+Building with `RUSTFLAGS="-C target-cpu=native"` lets the compiler use every instruction your CPU
+supports, such as wider SIMD, and can make some loops faster. The lab doesn't set it, because it
+makes your numbers depend on your exact CPU model, and the guide compares numbers across
+machines. When an exercise is about SIMD, it will turn it on and say so.
+</Aside>
+
+## Check yourself
+
+<details>
+<summary>An exercise of yours adds `arrow = "60"` to its Cargo.toml and fails to compile when passing a RecordBatch to DataFusion. Why?</summary>
+
+DataFusion 55.2 uses arrow 59.3, so the build now contains two different versions of the arrow
+crate. Their `RecordBatch` types have the same name but are different types to the compiler. Use
+`datafusion::arrow` instead of depending on `arrow` directly.
+</details>
+
+<details>
+<summary>Why is a benchmark run in a debug build worse than slow?</summary>
+
+Because it can change the conclusion, not just the numbers. Optimizations affect different code
+by different amounts: in the lab, debug mode shrank the row-versus-column ratio from about 4.8×
+to 3.2×. A comparison measured in debug mode can rank two approaches differently from the
+optimized code that would actually run.
+</details>
+
+<details>
+<summary>Your revenue figures differ from the ones in this article. What should you check first?</summary>
+
+That you generated the data with the default scale factor and the lab's unchanged generator. The
+data is deterministic, so identical code and scale must produce identical rows. If those match,
+check that you are on the pinned DataFusion version, since aggregation results should not differ
+between machines for the same data.
+</details>
+
+## Further reading
+
+- [rustup](https://rustup.rs/) and the [Cargo book's chapter on workspaces](https://doc.rust-lang.org/cargo/reference/workspaces.html).
+- The [DataFusion documentation](https://docs.rs/datafusion/latest/datafusion/), whose crate overview is a good map of the engine.
+- [Criterion's user guide](https://bheisler.github.io/criterion.rs/book/), for the benchmarking library the lab uses.
+- The [lab's source](https://github.com/unikdahal/learning-guide/tree/main/lab) on GitHub.

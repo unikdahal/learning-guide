@@ -1,16 +1,283 @@
 ---
-title: "Measuring things honestly"
-description: "Wall time vs CPU time, warm vs cold runs, variance, and why a single number from a single run usually misleads. Sets the standard every lab follows."
+title: Measuring things honestly
+description: Wall time vs CPU time, warm vs cold runs, variance, and why a single number from a single run usually misleads. Sets the standard every lab follows.
 level: B
-status: planned
+status: published
 module: "00"
-tableOfContents: false
 sidebar:
   order: 6
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import WallVsCpu from '@components/visuals/WallVsCpu.astro';
+import SingleRunTrap from '@components/visuals/SingleRunTrap.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="00" slug="measuring-things-honestly" />
+<ArticleMeta module="00" slug="measuring-things-honestly" minutes={15} />
+
+"I made it 20% faster" is one of the most dangerous sentences in engineering. Usually it means:
+I ran the old version once, ran the new version once, and the second number was smaller. Maybe it
+is faster. Maybe a browser tab stopped using the CPU in between, or the file was in the page cache
+the second time, or the measurement was within the noise and nothing changed at all.
+
+This guide makes performance claims in almost every article, and asks you to make your own in the
+labs. This article sets the rules for both.
+
+## The question
+
+When is a performance number worth believing, and how do you produce one that is?
+
+## First, measure the right thing
+
+"How long did it take?" has several honest answers, and they answer different questions.
+
+- **Wall time** is how long you waited, start to finish, by the clock on the wall. It is what
+  users feel.
+- **CPU time** is how long the CPU actually spent running your program, summed over every thread.
+  It is closer to what the work costs, and what you pay for in the cloud.
+- **Throughput** is work per unit of time: rows per second, bytes per second. It lets you compare
+  runs over different amounts of data.
+- **Resources**: peak memory, bytes read from storage, bytes sent over the network. Often the
+  real reason a query is slow, and invisible in a timing.
+
+The ratio of CPU time to wall time is a quick diagnostic. Switch between the scenarios:
+
+<WallVsCpu />
+
+Here is the same diagnostic on a real query: the running example from
+[What a query engine actually does](../what-a-query-engine-actually-does/), run by the lab's
+`measure_query` example on a 2-core cloud machine, first restricted to one thread and then using
+both cores.
+
+```text title="cargo run --release -p m00-orientation --example measure_query"
+1 thread(s)
+  first run   wall  54.466ms  cpu  42.948ms
+  warm runs   runs  20  min  24.360ms  median  26.379ms  p95  34.133ms  max  34.244ms  noise ±12.6%
+  median cpu  25.904ms  = 1.0x the median wall time
+
+2 thread(s)
+  first run   wall  26.236ms  cpu  39.956ms
+  warm runs   runs  20  min  17.936ms  median  19.539ms  p95  26.440ms  max  29.673ms  noise ±15.5%
+  median cpu  26.747ms  = 1.4x the median wall time
+```
+
+With one thread, CPU and wall time match: the query is CPU-bound and single-threaded. With two,
+the median wall time fell from 26.4 to 19.5 ms, about 1.35× faster, while total CPU time stayed
+the same. A ratio of 1.4 rather than 2.0 says the two cores were not both busy the whole time:
+part of the query, such as building the hash table, ran on one core while the other waited.
+That is a hypothesis to test, not a conclusion; a profiler would confirm it, and
+[Module 21](../../performance-engineering/) shows how.
+
+## Cold runs and warm runs
+
+Look at the first run in that output: 54 ms against a median of 26 ms with one thread. The first
+run of almost anything is slower, because it pays one-off costs that later runs don't:
+
+- **The operating system's page cache.** The first read of a file comes from disk; later reads of
+  the same bytes usually come from memory.
+- **Engine caches.** Query engines cache file metadata such as Parquet footers and statistics, so
+  the second query skips reading them.
+- **CPU caches and branch predictors**, which start empty.
+- **Memory allocation**, which is slower the first time pages are touched.
+- **Just-in-time compilation** in JVM engines such as Spark and Trino, which run code in a slower
+  mode until the JIT compiler has optimized the hot paths.
+
+Neither cold nor warm is the "right" number. A dashboard query that runs every few seconds is
+warm. A nightly job reading fresh files from object storage is cold. What matters is that you
+**say which one you measured**, and that you don't compare a cold run of one system with a warm run
+of another.
+
+Warm runs are easy: run the thing a few times, throw those runs away, then measure. Truly cold
+runs on Linux mean dropping the page cache before every run, which needs root. The `hyperfine`
+tool can do it for whole programs:
+
+```sh wrap
+hyperfine --prepare 'sync; echo 3 | sudo tee /proc/sys/vm/drop_caches' 'my-query-program'
+```
+
+## The single-run trap
+
+Even warm runs vary. On the machine above, warm runs of the same query ranged from 24 to 34 ms,
+a spread of about 13% around the mean. If the change you are testing is smaller than the noise,
+one run of each version tells you nothing. Try it: in this simulation, version B is truly 3%
+faster, and every run has noise like the real query above.
+
+<SingleRunTrap />
+
+Press "Run each once" a few times. Running this exact simulation 200,000 times, about two
+single-run comparisons in five pointed the wrong way, 42% of them. With thirty warm runs each, the
+result changes character: in 1,000 simulated tries, about half showed B faster with a confidence
+interval that excluded zero, the other half honestly reported that thirty runs were not enough to
+tell, and none pointed the wrong way. A 3% difference under 4% noise needs more than thirty runs to
+pin down every time; "can't tell yet" is a correct answer.
+
+Where does the noise come from? Other processes, operating system interrupts, CPU frequency
+scaling and turbo boost, the CPU heating up and slowing down, other tenants on the same cloud
+host, and where the program's code and data happen to land in memory. Some of it is not random at
+all, which makes it worse.
+
+### Noise that isn't random
+
+In 2009, Mytkowicz and colleagues measured how much faster programs from the SPEC CPU2006 suite
+ran when compiled with GCC's `-O3` instead of `-O2`. Then they changed things that should not
+matter. Making an unused environment variable longer changed the measured speedup of one benchmark
+anywhere from 0.91 to 1.07: from a 9% slowdown to a 7% speedup, with the same binary. Changing the
+order in which object files were linked moved results by similar amounts.
+
+They then surveyed 133 papers from four major systems conferences. None of the 88 with an
+experimental methodology section adequately dealt with this kind of bias, and the median speedup
+the papers reported was 10%, well within the range the bias can produce.
+
+The cure they propose is the same idea as the simulation above, one level up: vary the setup that
+shouldn't matter, measure across many setups, and report the distribution.
+
+## Reporting a distribution
+
+Instead of one number, report a few that describe the distribution of runs.
+
+- **Median**: the typical run. Better than the mean, which a single slow outlier can drag up.
+- **p95** or **p99**: how bad the bad runs are. For latency users feel, this matters more than
+  the median.
+- **Minimum**: the closest you get to the work's intrinsic cost, with the least interference.
+  Useful for micro-benchmarks, misleading if real users never see that speed.
+- **Noise**, as standard deviation over mean: how much to trust a difference. If two versions
+  differ by less than the noise, you have not shown a difference.
+
+The lab's `labkit::timing` module computes exactly these:
+
+```rust title="lab/crates/labkit/src/timing.rs (usage)"
+use labkit::timing::{Summary, repeat};
+
+// 3 warm-up runs, thrown away, then 20 measured runs.
+let samples = repeat(3, 20, || run_the_thing());
+println!("{}", Summary::of(&samples));
+// runs  20  min  24.360ms  median  26.379ms  p95  34.133ms  max  34.244ms  noise ±12.6%
+```
+
+## Comparing two versions with Criterion
+
+For code-level benchmarks, the lab uses Criterion. Its defaults, read from the source of version
+0.8.2: 3 seconds of warm-up, then 100 samples over about 5 seconds, then 100,000 bootstrap
+resamples to compute a 95% confidence interval. When you run it again, it compares against the
+previous run and reports a change only if it is statistically significant at the 5% level and
+larger than a 1% noise threshold.
+
+Here is the row-versus-column benchmark from
+[OLTP vs OLAP workloads](../oltp-vs-olap-workloads/), on the same 2-core machine:
+
+```text title="cargo bench -p m00-orientation --bench sum_layout"
+sum_amount/row_layout     time:   [1.9389 ms 1.9521 ms 1.9663 ms]
+                          thrpt:  [508.57 Melem/s 512.26 Melem/s 515.76 Melem/s]
+sum_amount/column_layout  time:   [256.73 µs 264.24 µs 272.60 µs]
+                          thrpt:  [3.6684 Gelem/s 3.7844 Gelem/s 3.8951 Gelem/s]
+```
+
+The three numbers are the lower bound, estimate and upper bound of the 95% interval. Over one
+million orders the column layout is about 7.4× faster. In the five-run program over eight million
+orders it was about 4.9×. Same code, same machine, a different data size and a different
+measurement method, and a different ratio. Neither is wrong; a ratio like this belongs to its
+setup, and has to be reported with it.
+
+Then the same benchmark was run again, **without changing a single line of code**:
+
+```text title="The same benchmark, run again immediately"
+sum_amount/row_layout     time:   [2.0890 ms 2.1043 ms 2.1197 ms]
+                 change:  time:   [+6.6169% +7.7921% +8.9027%] (p = 0.00 < 0.05)
+                          Performance has regressed.
+sum_amount/column_layout  time:   [234.02 µs 241.71 µs 249.88 µs]
+                 change:  time:   [−5.6934% −1.9497% +1.9008%] (p = 0.31 > 0.05)
+                          No change in performance detected.
+```
+
+Criterion reported a statistically significant 7.8% regression in code that had not changed.
+Its statistics were not wrong: the two runs really were different. Something about the machine
+changed between them, on a shared cloud host where other tenants' work, CPU frequency and
+cache contention drift from minute to minute. Statistics can tell you that two sets of runs
+differ. They cannot tell you that your change is the reason.
+
+<Aside type="caution" title="What this means in practice">
+A significant result between two runs separated in time is evidence that something changed, not
+that your code did. To attribute a difference to a code change, run the old and new versions
+interleaved, A then B then A then B, in the same session, so drift affects both equally. Better
+still, run them on a quiet, dedicated machine, and repeat the whole comparison on another day.
+</Aside>
+
+## How database benchmarks go wrong
+
+Database benchmarks have their own failure modes on top of all this. In 2018, Raasveldt,
+Holanda, Gubner and Mühleisen, the group behind DuckDB, catalogued common pitfalls in published
+database comparisons:
+
+- **Non-reproducibility**: not publishing enough of the setup, data and code for anyone to rerun
+  the comparison. Small details matter; for example, whether TPC-H's money columns are stored as
+  floating point or as exact decimals changes both the speed and the results.
+- **Failure to optimise**: configuring your own system carefully and the competitor with defaults.
+  Their examples include compiler flags alone moving PostgreSQL from 0.47 to 0.27 seconds on one
+  query, and MonetDB from 1.58 to 0.87 seconds.
+- **Apples versus oranges**: comparing a full database against a program that does much less. A
+  hand-written C program that hard-codes one query ran it in 0.03 seconds. It is not a database.
+- **Incorrect results**: being fast by being wrong. They describe a published prototype that beat
+  established systems on TPC-H Query 1 while hard-coding the number of groups and ignoring
+  overflow.
+- **Cold versus warm runs**, mixed without saying so.
+- **Data preprocessing** left out of the timing when the other system had to include it.
+- **Overly specific tuning** for exactly the benchmark queries, which real workloads won't match.
+
+## The lab standard
+
+Every measurement in this guide's labs, and every number in its articles, follows these rules.
+
+1. **Release build, pinned compiler.** Never measure a debug build.
+2. **Deterministic data**, generated by the lab, so anyone can reproduce it.
+3. **Say what was measured on.** CPU model, core count, memory, operating system, and whether it
+   was a laptop, a server or a cloud VM.
+4. **Say cold or warm.** Warm runs discard at least one run first.
+5. **Many runs.** At least 20 for programs, Criterion's defaults for micro-benchmarks.
+6. **Report a distribution**: median and p95, with the noise level, not a single number.
+7. **Check the answer.** Every timed run verifies its result, as `measure_query` does by checking
+   it got five rows. Fast and wrong is not fast.
+8. **Compare fairly.** Interleave versions in one session, change one thing at a time, and never
+   compare numbers from different machines.
+9. **Separate fact from explanation.** "B's median was 12% lower" is a measurement. "Because of
+   SIMD" is a hypothesis until a profiler or an experiment confirms it.
+
+## Check yourself
+
+<details>
+<summary>A query's wall time is 10 seconds and its CPU time is 9.5 seconds on a 16-core machine. What does that suggest?</summary>
+
+A CPU-to-wall ratio near 1 on 16 cores means the query effectively ran on one core. It may be
+single-threaded, bottlenecked on one partition through skew, or waiting on something serial. Adding
+cores will not help until that is fixed.
+</details>
+
+<details>
+<summary>Version B's single run is 8% faster than version A's single run. The noise level of warm runs is ±12%. What can you conclude?</summary>
+
+Nothing yet. The difference is smaller than the run-to-run noise, so it could easily be chance.
+Run each version many times, interleaved, and compare the distributions with a confidence
+interval.
+</details>
+
+<details>
+<summary>Criterion reports a significant 5% regression after a change you are sure is harmless. What do you do?</summary>
+
+Rerun the old and new code interleaved in the same session, ideally on a quiet machine. If the
+difference disappears, it came from the environment drifting between runs. If it persists across
+interleaved runs and on another day, your change is the likely cause, and a profiler can show
+where the time went.
+</details>
+
+<details>
+<summary>When is the minimum of many runs a better summary than the median?</summary>
+
+When you want the intrinsic cost of a small piece of code with as little interference as
+possible, as in a micro-benchmark. It is a poor summary when users experience the typical or the
+slow runs, as in a latency-sensitive service, where the median and p99 matter more.
+</details>
+
+## Further reading
+
+- Raasveldt, Holanda, Gubner and Mühleisen, [Fair Benchmarking Considered Difficult: Common Pitfalls in Database Performance Testing](https://dbtest.dima.tu-berlin.de/media/DBTEST.io_Presentations/dbtest_raasveldt_18-06.pdf), DBTest 2018.
+- Mytkowicz, Diwan, Hauswirth and Sweeney, [Producing Wrong Data Without Doing Anything Obviously Wrong!](https://huang.isis.vanderbilt.edu/cs8395/readings/producing-wrong-data.pdf), ASPLOS 2009.
+- [Criterion.rs user guide](https://bheisler.github.io/criterion.rs/book/), including how its statistics work.
+- [hyperfine](https://docs.rs/crate/hyperfine/latest), for benchmarking whole programs, with warm-up and cache-clearing options.

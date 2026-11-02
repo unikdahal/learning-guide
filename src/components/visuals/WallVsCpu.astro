@@ -1,0 +1,273 @@
+---
+// Four threads on a timeline. Wall time is how long you wait; CPU time is the sum of every
+// thread's busy time. Their ratio tells you whether work is parallel, waiting, or stuck behind a straggler.
+type Seg = [number, number, 'busy' | 'wait'];
+type Scenario = { id: string; name: string; threads: Seg[][]; note: string };
+
+const scenarios: Scenario[] = [
+  {
+    id: 'one',
+    name: 'One thread',
+    threads: [[[0, 96, 'busy']], [], [], []],
+    note: 'One thread does all the work. Wall and CPU time match: a ratio near 1 means single-threaded, CPU-bound work.',
+  },
+  {
+    id: 'four',
+    name: 'Four threads',
+    threads: [[[0, 26, 'busy']], [[0, 27, 'busy']], [[0, 25, 'busy']], [[0, 28, 'busy']]],
+    note: 'The same work split four ways. You wait a quarter as long, but the CPU did slightly more in total: splitting and merging is not free. A faster wall time alone would hide that.',
+  },
+  {
+    id: 'wait',
+    name: 'Waiting on storage',
+    threads: [
+      [[0, 8, 'wait'], [8, 18, 'busy'], [18, 30, 'wait'], [30, 40, 'busy'], [40, 52, 'wait'], [52, 60, 'busy']],
+      [[0, 10, 'wait'], [10, 19, 'busy'], [19, 33, 'wait'], [33, 42, 'busy'], [42, 54, 'wait'], [54, 61, 'busy']],
+      [[0, 9, 'wait'], [9, 17, 'busy'], [17, 31, 'wait'], [31, 40, 'busy'], [40, 51, 'wait'], [51, 60, 'busy']],
+      [[0, 11, 'wait'], [11, 20, 'busy'], [20, 32, 'wait'], [32, 41, 'busy'], [41, 53, 'wait'], [53, 62, 'busy']],
+    ],
+    note: 'Threads spend most of their time waiting for data from disk or object storage. CPU time is well below what four threads could deliver: a faster CPU or more threads would barely help. Faster I/O would.',
+  },
+  {
+    id: 'skew',
+    name: 'One straggler',
+    threads: [[[0, 22, 'busy']], [[0, 20, 'busy']], [[0, 72, 'busy']], [[0, 21, 'busy']]],
+    note: 'One thread got far more work than the others, so everyone waits for it. Three cores sit idle most of the time. Skew like this is one of the most common reasons parallel queries are slow.',
+  },
+];
+
+const stats = (s: Scenario) => {
+  const wall = Math.max(...s.threads.flat().map(([, e]) => e));
+  const cpu = s.threads.flat().filter(([, , k]) => k === 'busy').reduce((t, [a, b]) => t + (b - a), 0);
+  return { wall, cpu, ratio: cpu / wall };
+};
+const SCALE = 100;
+---
+
+<figure class="qe-wvc not-content">
+  <div class="tabs" role="tablist" aria-label="Scenarios">
+    {
+      scenarios.map((s, i) => (
+        <button type="button" role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-tab={s.id}>
+          {s.name}
+        </button>
+      ))
+    }
+  </div>
+
+  {
+    scenarios.map((s, i) => {
+      const st = stats(s);
+      return (
+        <div class="scenario" data-scenario={s.id} hidden={i !== 0} role="tabpanel">
+          <div class="lanes">
+            {s.threads.map((segs, ti) => (
+              <div class="lane">
+                <span class="tname">Thread {ti + 1}</span>
+                <span class="track">
+                  {segs.map(([a, b, k]) => (
+                    <span class={`seg ${k}`} style={`left:${(a / SCALE) * 100}%;width:${((b - a) / SCALE) * 100}%`} />
+                  ))}
+                </span>
+              </div>
+            ))}
+            <div class="lane wall">
+              <span class="tname">Wall</span>
+              <span class="track">
+                <span class="bracket" style={`width:${(st.wall / SCALE) * 100}%`} />
+              </span>
+            </div>
+          </div>
+          <dl class="nums">
+            <div>
+              <dt>Wall time</dt>
+              <dd>{st.wall} ms</dd>
+            </div>
+            <div>
+              <dt>CPU time</dt>
+              <dd>{st.cpu} ms</dd>
+            </div>
+            <div>
+              <dt>CPU ÷ wall</dt>
+              <dd>{st.ratio.toFixed(2)}</dd>
+            </div>
+          </dl>
+          <p class="note">{s.note}</p>
+        </div>
+      );
+    })
+  }
+
+  <p class="legend">
+    <span><i class="sw busy"></i>running on a CPU</span>
+    <span><i class="sw wait"></i>waiting for I/O</span>
+  </p>
+</figure>
+
+<script>
+  for (const fig of document.querySelectorAll<HTMLElement>('.qe-wvc')) {
+    const tabs = [...fig.querySelectorAll<HTMLButtonElement>('[data-tab]')];
+    const panels = [...fig.querySelectorAll<HTMLElement>('[data-scenario]')];
+    tabs.forEach((t) =>
+      t.addEventListener('click', () => {
+        tabs.forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+        panels.forEach((p) => (p.hidden = p.dataset.scenario !== t.dataset.tab));
+      }),
+    );
+  }
+</script>
+
+<style>
+  .qe-wvc {
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .tabs button {
+    min-height: 2.5rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .tabs button[aria-selected='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .tabs button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .lanes {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .lane {
+    display: grid;
+    grid-template-columns: 4.25rem 1fr;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .tname {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .track {
+    position: relative;
+    height: 1.25rem;
+    border-radius: 4px;
+    background: var(--sl-color-black);
+  }
+  .seg {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    border-radius: 3px;
+  }
+  .seg.busy,
+  .sw.busy {
+    background: var(--sl-color-accent);
+  }
+  .seg.wait,
+  .sw.wait {
+    background: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--qe-warn) 55%, transparent) 0 4px,
+      transparent 4px 8px
+    );
+    border: 1px solid color-mix(in srgb, var(--qe-warn) 70%, transparent);
+  }
+  .lane.wall .track {
+    background: transparent;
+  }
+  .bracket {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 0;
+    border-top: 2px solid var(--sl-color-white);
+  }
+  .bracket::before,
+  .bracket::after {
+    content: '';
+    position: absolute;
+    top: -7px;
+    height: 12px;
+    border-left: 2px solid var(--sl-color-white);
+  }
+  .bracket::before { left: 0; }
+  .bracket::after { right: 0; }
+  .nums {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0 0;
+  }
+  .nums div {
+    display: grid;
+    gap: 0.1rem;
+  }
+  dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  dd {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+  }
+  .note {
+    margin: 0.75rem 0 0;
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--sl-color-gray-1);
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0.9rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .sw {
+    display: inline-block;
+    width: 16px;
+    height: 12px;
+    border-radius: 3px;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-wvc {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .lane {
+      grid-template-columns: 3.5rem 1fr;
+    }
+  }
+</style>

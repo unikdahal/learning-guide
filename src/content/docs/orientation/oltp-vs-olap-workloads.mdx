@@ -12,7 +12,7 @@ import BytesTouched from '@components/visuals/BytesTouched.astro';
 import RowsScale from '@components/visuals/RowsScale.astro';
 import { Aside } from '@astrojs/starlight/components';
 
-<ArticleMeta module="00" slug="oltp-vs-olap-workloads" minutes={14} />
+<ArticleMeta module="00" slug="oltp-vs-olap-workloads" minutes={15} />
 
 An online shop runs on two very different kinds of query. The checkout service writes one
 order at a time, and needs each write to finish in milliseconds while thousands of customers
@@ -233,12 +233,27 @@ fn main() {
 }
 ```
 
-Run it with `cargo run --release`. To sum the amounts, the row layout drags all 64 bytes of
-every order through the memory system to use 8 of them; the column layout reads only the 8.
-The column version should be several times faster, and the compiler can also turn its loop
-into SIMD instructions. That is a prediction, not a measurement: run it several times, on
-your own machine, and see. [Module 02](../../hardware/) explains what limits each loop, and
-[Module 21](../../performance-engineering/) how to measure it properly.
+The lab has this program as
+[`examples/row_vs_column.rs`](https://github.com/unikdahal/learning-guide/blob/main/lab/crates/m00-orientation/examples/row_vs_column.rs),
+running the comparison five times. To sum the amounts, the row layout drags all 64 bytes of every
+order through the memory system to use 8 of them; the column layout reads only the 8, and the
+compiler can turn its loop into SIMD instructions.
+
+On the machine this guide was checked on, a 2-core cloud VM, the column layout was about five
+times faster:
+
+```text title="cargo run --release -p m00-orientation --example row_vs_column"
+round 1: row layout    31.01ms   column layout     6.39ms   ratio 4.9x
+round 2: row layout    30.70ms   column layout     6.45ms   ratio 4.8x
+round 3: row layout    31.07ms   column layout     6.43ms   ratio 4.8x
+round 4: row layout    34.44ms   column layout     6.96ms   ratio 5.0x
+round 5: row layout    33.75ms   column layout     6.53ms   ratio 5.2x
+```
+
+Your numbers will differ with your CPU and memory, which is the point of running it.
+[Module 02](../../hardware/) explains what limits each loop, and
+[Measuring things honestly](../measuring-things-honestly/) shows how the same comparison looks
+when measured properly, where the ratio changes again.
 
 ## Check yourself
 

@@ -100,49 +100,60 @@ const optimized: PlanNode[] = [
   },
 ];
 
+// Captured from DataFusion 55.2 running lab/ (example query_stages) on a 2-core machine,
+// simplified: column indexes and file paths removed.
 const physical: PlanNode[] = [
   {
     op: 'ProjectionExec',
-    detail: 'region, revenue',
+    detail: 'region, sum(o.amount) as revenue',
     tone: 'emit',
     children: [
       {
         op: 'AggregateExec',
-        detail: 'mode=FinalPartitioned, group by [region], sum(amount)',
+        detail: 'mode=FinalPartitioned, gby=[region], aggr=[sum(o.amount)]',
         tone: 'emit',
         children: [
           {
             op: 'RepartitionExec',
-            detail: 'Hash([region], 8 partitions)',
+            detail: 'partitioning=Hash([region], 2), input_partitions=2',
             tone: 'emit',
             children: [
               {
                 op: 'AggregateExec',
-                detail: 'mode=Partial, group by [region], sum(amount)',
+                detail: 'mode=Partial, gby=[region], aggr=[sum(o.amount)]',
                 tone: 'probe',
                 children: [
                   {
                     op: 'HashJoinExec',
-                    detail: 'mode=CollectLeft, on [(id, cust_id)]',
+                    detail: 'mode=CollectLeft, join_type=Inner, on=[(id, cust_id)]',
                     tone: 'probe',
                     changed: 'Inputs swapped: the smaller side builds',
                     children: [
                       {
-                        op: 'FilterExec',
-                        detail: "segment = 'retail'",
+                        op: 'CoalescePartitionsExec',
+                        detail: 'merges both build partitions into one hash table',
                         tone: 'build',
                         children: [
                           {
-                            op: 'ParquetExec: customer',
-                            detail: "projection [id, region, segment], predicate segment = 'retail'",
+                            op: 'FilterExec',
+                            detail: 'segment = retail, projection=[id, region]',
                             tone: 'build',
+                            children: [
+                              {
+                                op: 'DataSourceExec: customer.parquet',
+                                detail:
+                                  'projection=[id, segment, region], predicate=segment = retail, pruning_predicate on segment min/max',
+                                tone: 'build',
+                              },
+                            ],
                           },
                         ],
                       },
                       {
-                        op: 'ParquetExec: orders',
-                        detail: 'projection [cust_id, amount], 8 file groups',
+                        op: 'DataSourceExec: orders.parquet',
+                        detail: 'projection=[cust_id, amount], predicate=DynamicFilter [ empty ]',
                         tone: 'probe',
+                        changed: 'A runtime filter, filled from the build side’s keys once the hash table is built',
                       },
                     ],
                   },
@@ -156,16 +167,16 @@ const physical: PlanNode[] = [
   },
 ];
 
-// Sizes borrowed from TPC-H scale factor 1 (150,000 customers, 1,500,000 orders) with a
-// 1-in-5 segment, as TPC-H's market segment has five values. Batches of 8,192 rows.
+// Row counts measured on the lab data (TPC-H scale factor 1 sizes, one segment in five is retail),
+// with 2 partitions as in the captured plan. Batch counts assume DataFusion's default 8,192 rows.
 const lanes = [
   {
     tone: 'build',
     name: 'Pipeline 1: build',
     steps: [
       { label: 'Scan customer', value: 150000, unit: 'rows, about 19 batches' },
-      { label: 'Filter keeps', value: 30000, unit: 'rows (about 1 in 5)' },
-      { label: 'Hash table', value: 30000, unit: 'entries' },
+      { label: 'Filter keeps', value: 29792, unit: 'rows (about 1 in 5)' },
+      { label: 'Hash table', value: 29792, unit: 'entries' },
     ],
   },
   {
@@ -173,27 +184,28 @@ const lanes = [
     name: 'Pipeline 2: probe and partially aggregate',
     steps: [
       { label: 'Scan orders', value: 1500000, unit: 'rows, about 184 batches' },
-      { label: 'Join matches', value: 300000, unit: 'rows (about 1 in 5)' },
-      { label: 'Partial groups', value: 40, unit: 'rows (5 regions × 8 threads)' },
+      { label: 'Join matches', value: 298609, unit: 'rows (about 1 in 5)' },
+      { label: 'Partial groups', value: 10, unit: 'rows (5 regions × 2 partitions)' },
     ],
   },
   {
     tone: 'emit',
     name: 'Pipeline 3: combine and emit',
     steps: [
-      { label: 'Repartition', value: 40, unit: 'partial rows by region' },
+      { label: 'Repartition', value: 10, unit: 'partial rows by region' },
       { label: 'Final aggregate', value: 5, unit: 'groups' },
       { label: 'Result', value: 5, unit: 'rows to the client' },
     ],
   },
 ];
 
+// Real output of the lab's query_stages example, in the order DataFusion returned it.
 const result = [
-  ['AFRICA', '4,512,839,214.06'],
-  ['AMERICA', '4,498,107,563.91'],
-  ['ASIA', '4,531,660,027.48'],
-  ['EUROPE', '4,487,925,318.70'],
-  ['MIDDLE EAST', '4,506,213,955.12'],
+  ['AMERICA', '149,691,110.90'],
+  ['MIDDLE EAST', '149,423,247.54'],
+  ['ASIA', '150,049,799.10'],
+  ['AFRICA', '146,087,670.17'],
+  ['EUROPE', '150,911,354.33'],
 ];
 
 const stages = [
@@ -329,8 +341,8 @@ GROUP BY c.region;`;
                 <span class="pipe emit">emit pipeline</span>
               </p>
               <p class="qj-note">
-                Written in the style of DataFusion’s physical plan. Exact operator names and modes differ between
-                engines and versions.
+                Captured from DataFusion 55.2 running this guide’s lab on a 2-core machine, with column indexes and
+                file paths removed. Other engines and versions name and arrange operators differently.
               </p>
             </>
           )}
@@ -362,8 +374,8 @@ GROUP BY c.region;`;
                 Run the query
               </button>
               <p class="qj-note">
-                Row counts use TPC-H scale factor 1 sizes, with one customer in five in the retail segment, and batches
-                of 8,192 rows. They show the shape of the work, not a measurement.
+                Row counts measured on the lab’s data, which uses TPC-H scale factor 1 sizes. The animation shows the
+                order of the work, not its speed: in the lab the whole query takes about 20 to 30 milliseconds.
               </p>
             </>
           )}
@@ -386,7 +398,10 @@ GROUP BY c.region;`;
                   ))}
                 </tbody>
               </table>
-              <p class="qj-note">Revenue values are illustrative.</p>
+              <p class="qj-note">
+                Real output from the lab. The query has no ORDER BY, so the engine may return the rows in any order,
+                and the order can change between runs.
+              </p>
             </>
           )}
         </div>

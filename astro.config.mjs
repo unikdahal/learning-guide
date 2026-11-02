@@ -57,6 +57,7 @@ export default defineConfig({
         styleOverrides: { borderRadius: '6px', codeFontFamily: "'JetBrains Mono Variable', ui-monospace, monospace", codeFontSize: '0.875rem' },
       },
       sidebar,
+      components: { Footer: './src/components/overrides/Footer.astro' },
     }),
   ],
 });

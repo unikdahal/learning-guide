@@ -1,6 +1,7 @@
 ---
 // Landing page body.
 import HeroPlan from './HeroPlan.astro';
+import ContinueReading from './ContinueReading.astro';
 import { data, moduleById, url } from '../lib/site';
 
 const first = moduleById('00').articles[0];
@@ -30,6 +31,7 @@ const routes = [
 ---
 
 <div class="home not-content">
+  <ContinueReading />
   <section class="hero">
     <div class="intro">
       <h1>Query Execution</h1>

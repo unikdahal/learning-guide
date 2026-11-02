@@ -1,0 +1,179 @@
+---
+// Mounted on every page through the Footer override.
+// Everywhere: marks sidebar and module-list links as started or read.
+// On written articles: a reading progress bar, position tracking, and a "continue where you left off" offer.
+import { moduleById } from '../lib/site';
+
+const data = Astro.locals.starlightRoute.entry.data as { title: string; status?: string; module?: string };
+const isArticle = data.status === 'published' && !!data.module;
+const moduleTitle = isArticle ? moduleById(data.module!).title : '';
+---
+
+<div
+  class="qe-progress-root"
+  data-progress-root
+  data-article={isArticle ? 'true' : undefined}
+  data-title={data.title}
+  data-module={data.module}
+  data-module-title={moduleTitle}
+  hidden
+>
+</div>
+
+{
+  isArticle && (
+    <>
+      <div class="qe-reading-bar" aria-hidden="true">
+        <span data-reading-bar />
+      </div>
+      <div class="qe-resume" data-resume-toast role="status" hidden>
+        <p>
+          <span class="lead">Welcome back.</span> You were reading <strong data-resume-section />, <span data-resume-pct />{' '}
+          of the way through.
+        </p>
+        <div class="actions">
+          <button type="button" class="go" data-resume-go>
+            Continue reading
+          </button>
+          <button type="button" class="close" data-resume-close aria-label="Dismiss">
+            Not now
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+<script>
+  import { annotateLinks, load, trackArticle } from '../scripts/progress';
+
+  const root = document.querySelector<HTMLElement>('[data-progress-root]');
+  annotateLinks(load());
+  if (root?.dataset.article) {
+    trackArticle({
+      title: root.dataset.title ?? document.title,
+      module: root.dataset.module ?? '',
+      moduleTitle: root.dataset.moduleTitle ?? '',
+    });
+  }
+  // Keep marks fresh when the reader comes back to this tab after reading in another.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') annotateLinks(load());
+  });
+</script>
+
+<style is:global>
+  /* Sits on the very top edge of the screen, above the header, so the mobile table of contents
+     bar can't cover it. */
+  .qe-reading-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: calc(var(--sl-z-index-navbar) + 1);
+    pointer-events: none;
+  }
+  .qe-reading-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--sl-color-accent);
+    transform-origin: left;
+    transform: scaleX(0);
+  }
+  .qe-resume {
+    position: fixed;
+    z-index: calc(var(--sl-z-index-navbar) + 1);
+    left: 50%;
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    width: min(30rem, calc(100vw - 2rem));
+    padding: 1rem 1.1rem;
+    border-radius: 12px;
+    border: 1px solid var(--sl-color-accent);
+    background: var(--sl-color-black);
+    box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.45);
+    font-family: var(--sl-font);
+    transform: translate(-50%, 1rem);
+    opacity: 0;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  .qe-resume.is-open {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  .qe-resume[hidden] {
+    display: none;
+  }
+  .qe-resume p {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-resume .lead {
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-resume strong {
+    color: var(--sl-color-white);
+    font-weight: 650;
+  }
+  .qe-resume .actions {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+  }
+  .qe-resume button {
+    min-height: 2.75rem;
+    padding: 0.4rem 1rem;
+    border-radius: 8px;
+    font-family: var(--sl-font);
+    font-size: 0.9375rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .qe-resume .go {
+    flex: 1;
+    border: 0;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-resume .close {
+    border: 1px solid var(--sl-color-gray-4);
+    background: transparent;
+    color: var(--sl-color-white);
+  }
+  .qe-resume button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qe-resume {
+      transition: none;
+    }
+  }
+
+  /* Progress marks on links. Planned articles keep their open ring (theme.css). */
+  :is(nav.sidebar, [data-track-links]) a[data-progress]::after {
+    content: '';
+    display: inline-block;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-inline-start: 0.45em;
+    vertical-align: 0.05em;
+    border-radius: 50%;
+    border: 1.5px solid var(--sl-color-accent);
+  }
+  :is(nav.sidebar, [data-track-links]) a[data-progress='started']::after {
+    background: linear-gradient(90deg, var(--sl-color-accent) 50%, transparent 50%);
+  }
+  :is(nav.sidebar, [data-track-links]) a[data-progress='done']::after {
+    background: var(--sl-color-accent);
+  }
+  @media (max-width: 49.99rem) {
+    nav.sidebar a[data-progress]::after {
+      margin-inline-start: auto;
+    }
+  }
+</style>

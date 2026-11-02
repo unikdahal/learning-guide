@@ -15,6 +15,20 @@ Live site: https://unikdahal.github.io/learning-guide/
 | `src/content/docs/<module>/` | One `.mdx` file per article |
 | `src/components/` | Landing hero, roadmap, module and article components, `Figure` and `Stepper` for visuals |
 | `src/styles/theme.css` | Theme tokens and the SVG diagram kit |
+| `src/scripts/progress.ts` | Reading progress, kept in the reader's browser (localStorage) |
+| `lab/` | The Rust lab workspace |
+
+## Lab
+
+`lab/` is a Rust workspace with the runnable code for every article: one crate per module, plus
+`labkit` for shared data generation and timing. See the article
+[Setting up the Rust lab](https://unikdahal.github.io/learning-guide/orientation/setting-up-the-rust-lab/).
+
+```sh
+cd lab
+cargo run --release -p labkit --bin gen-data
+cargo run --release -p m00-orientation --example query_stages
+```
 
 ## Develop
 

@@ -49,7 +49,7 @@ const published = m.articles.filter((a) => a.status === 'published').length;
 
   <section>
     <h2>Articles, in reading order</h2>
-    <ol class="articles" data-pagefind-ignore>
+    <ol class="articles" data-pagefind-ignore data-track-links>
       {
         m.articles.map((a) => (
           <li class:list={{ planned: a.status === 'planned' }}>

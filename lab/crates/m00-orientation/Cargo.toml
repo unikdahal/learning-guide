@@ -1,0 +1,18 @@
+[package]
+name = "m00-orientation"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+description = "Module 00 lab: the code from each Orientation article, runnable."
+
+[dependencies]
+labkit.workspace = true
+datafusion.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "sum_layout"
+harness = false

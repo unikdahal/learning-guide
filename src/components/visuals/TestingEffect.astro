@@ -1,0 +1,137 @@
+---
+// Roediger and Karpicke (2006), Experiment 2: proportion of idea units recalled from a prose
+// passage, after four study periods (SSSS), three study and one test (SSST), or one study and
+// three tests (STTT). Final test after 5 minutes or after one week. Confidence on a 1–7 scale.
+const groups = [
+  { when: 'Tested after 5 minutes', bars: [['Study 4×', 83], ['Study 3×, test 1×', 78], ['Study 1×, test 3×', 71]] },
+  { when: 'Tested after 1 week', bars: [['Study 4×', 40], ['Study 3×, test 1×', 56], ['Study 1×, test 3×', 61]] },
+] as const;
+const confidence = [['Study 4×', 4.8], ['Study 3×, test 1×', 4.2], ['Study 1×, test 3×', 4.0]] as const;
+const tone = (i: number) => ['study', 'mix', 'test'][i];
+---
+
+<figure class="qe-te not-content">
+  {
+    groups.map((g) => (
+      <div class="group">
+        <p class="when">{g.when}</p>
+        <ul>
+          {g.bars.map(([label, v], i) => (
+            <li>
+              <span class="label">{label}</span>
+              <span class="track">
+                <span class={`fill ${tone(i)}`} style={`width:${v}%`} />
+              </span>
+              <span class="v">{v}%</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))
+  }
+  <div class="conf">
+    <p>How well students expected to remember it a week later, on a 1 to 7 scale:</p>
+    <ul class="confs">
+      {confidence.map(([l, v]) => <li><strong>{v.toFixed(1)}</strong> {l}</li>)}
+    </ul>
+  </div>
+  <figcaption>
+    Roediger and Karpicke, Psychological Science, 2006, Experiment 2: share of a prose passage recalled. Restudying wins
+    a few minutes later and loses badly a week later, while making students feel more confident.
+  </figcaption>
+</figure>
+
+<style>
+  .qe-te {
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+    display: grid;
+    gap: 1.2rem;
+  }
+  .when {
+    margin: 0 0 0.5rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.45rem;
+  }
+  li {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr 2.75rem;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 !important;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-1);
+  }
+  .track {
+    height: 0.9rem;
+    border-radius: 4px;
+    background: var(--sl-color-black);
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+  }
+  .fill.study { background: var(--sl-color-gray-3); }
+  .fill.mix { background: var(--qe-pipe-build); }
+  .fill.test { background: var(--sl-color-accent); }
+  .v {
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+  }
+  .conf p {
+    margin: 0 0 0.35rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .conf .confs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1.1rem;
+  }
+  .conf .confs li {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .conf strong {
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+  figcaption {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-3);
+  }
+  @media (max-width: 49.99rem) {
+    .qe-te {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    li {
+      grid-template-columns: 1fr 2.75rem;
+      grid-template-areas: 'l v' 't t';
+      gap: 0.2rem 0.6rem;
+    }
+    .label { grid-area: l; }
+    .v { grid-area: v; }
+    .track { grid-area: t; }
+  }
+</style>

@@ -1,0 +1,266 @@
+---
+// Simulated benchmark: version B is truly 3% faster than A, but every run has noise, occasional
+// interference from other processes, and the first run is slow. One run each often gives the wrong
+// answer; many runs with a confidence interval give the right one, or honestly say "can't tell".
+---
+
+<qe-trap class="qe-trap not-content">
+  <p class="truth">Hidden truth: version B is <strong>3% faster</strong> than A. The simulator knows; you don't.</p>
+  <div class="buttons">
+    <button type="button" data-once>Run each once</button>
+    <button type="button" data-many>Warm up, then run each 30 times</button>
+  </div>
+
+  <div class="plot" data-plot>
+    <div class="row" data-row="A"><span class="name">A</span><div class="strip"></div></div>
+    <div class="row" data-row="B"><span class="name">B</span><div class="strip"></div></div>
+    <div class="axis"><span data-lo></span><span data-hi></span></div>
+  </div>
+
+  <p class="verdict" data-verdict aria-live="polite">Press a button to benchmark.</p>
+  <p class="score" data-score hidden></p>
+
+  <noscript><p>This simulation needs JavaScript.</p></noscript>
+</qe-trap>
+
+<script>
+  const TRUE_A = 120; // milliseconds
+  const TRUE_B = TRUE_A * 0.97;
+
+  // Box-Muller normal.
+  const normal = () => {
+    const u = 1 - Math.random();
+    const v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+  /** One simulated run: log-normal noise (about 4%), and sometimes another process gets in the way. */
+  const run = (truth: number, cold: boolean) => {
+    let t = truth * Math.exp(0.04 * normal());
+    if (Math.random() < 0.08) t *= 1.15 + Math.random() * 0.45;
+    if (cold) t *= 1.35 + Math.random() * 0.4;
+    return t;
+  };
+  const median = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    const n = s.length;
+    return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+  };
+  /** Bootstrap 95% interval for the relative change in median from A to B. */
+  const bootstrap = (a: number[], b: number[], rounds = 2000) => {
+    const pick = (xs: number[]) => xs.map(() => xs[Math.floor(Math.random() * xs.length)]);
+    const diffs: number[] = [];
+    for (let i = 0; i < rounds; i++) diffs.push(median(pick(b)) / median(pick(a)) - 1);
+    diffs.sort((x, y) => x - y);
+    return [diffs[Math.floor(rounds * 0.025)], diffs[Math.floor(rounds * 0.975)]];
+  };
+  const pct = (x: number) => `${(Math.abs(x) * 100).toFixed(1)}%`;
+
+  class QeTrap extends HTMLElement {
+    right = 0;
+    wrong = 0;
+
+    connectedCallback() {
+      this.querySelector('[data-once]')!.addEventListener('click', () => this.once());
+      this.querySelector('[data-many]')!.addEventListener('click', () => this.many());
+    }
+
+    plot(a: number[], b: number[], ma?: number, mb?: number) {
+      const all = [...a, ...b];
+      const lo = Math.min(...all, TRUE_B) * 0.97;
+      const hi = Math.max(...all, TRUE_A) * 1.03;
+      const x = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`;
+      for (const [name, xs, m] of [['A', a, ma], ['B', b, mb]] as const) {
+        const strip = this.querySelector<HTMLElement>(`[data-row="${name}"] .strip`)!;
+        strip.replaceChildren();
+        for (const v of xs) {
+          const d = document.createElement('span');
+          d.className = 'dot';
+          d.style.left = x(v);
+          // Spread dots vertically a little so overlapping runs stay visible.
+          d.style.top = `${30 + Math.random() * 40}%`;
+          strip.append(d);
+        }
+        if (m !== undefined) {
+          const med = document.createElement('span');
+          med.className = 'median';
+          med.style.left = x(m);
+          med.title = `median ${m.toFixed(1)} ms`;
+          strip.append(med);
+        }
+      }
+      this.querySelector('[data-lo]')!.textContent = `${lo.toFixed(0)} ms`;
+      this.querySelector('[data-hi]')!.textContent = `${hi.toFixed(0)} ms`;
+    }
+
+    once() {
+      const a = run(TRUE_A, true);
+      const b = run(TRUE_B, true);
+      this.plot([a], [b]);
+      const change = b / a - 1;
+      const correct = change < 0;
+      correct ? this.right++ : this.wrong++;
+      this.say(
+        `One run each: A took ${a.toFixed(1)} ms, B took ${b.toFixed(1)} ms. B looks ${pct(change)} ${change < 0 ? 'faster' : 'slower'}. ${correct ? 'Right direction this time, but one run gives no way to know how much to trust it.' : 'Wrong: B is actually faster.'}`,
+        correct ? 'ok' : 'bad',
+      );
+      const score = this.querySelector<HTMLElement>('[data-score]')!;
+      score.hidden = false;
+      const total = this.right + this.wrong;
+      score.textContent = `Single-run verdicts so far: ${this.right} of ${total} pointed the right way. Keep pressing to see how often one run misleads.`;
+    }
+
+    many() {
+      // Warm-up runs are thrown away, like the first run in a real benchmark.
+      for (let i = 0; i < 3; i++) (run(TRUE_A, i === 0), run(TRUE_B, i === 0));
+      const a = Array.from({ length: 30 }, () => run(TRUE_A, false));
+      const b = Array.from({ length: 30 }, () => run(TRUE_B, false));
+      const ma = median(a);
+      const mb = median(b);
+      this.plot(a, b, ma, mb);
+      const [lo, hi] = bootstrap(a, b);
+      const change = mb / ma - 1;
+      if (hi < 0) {
+        this.say(
+          `30 runs each: B's median is ${pct(change)} faster, and the 95% interval runs from ${pct(hi)} to ${pct(lo)} faster. The interval excludes zero, so the difference is real.`,
+          'ok',
+        );
+      } else if (lo > 0) {
+        this.say(`30 runs each: B looks ${pct(change)} slower (interval ${pct(lo)} to ${pct(hi)}). A rare unlucky draw: run again.`, 'bad');
+      } else {
+        this.say(
+          `30 runs each: B's median is ${pct(change)} ${change < 0 ? 'faster' : 'slower'}, but the 95% interval (${(lo * 100).toFixed(1)}% to ${(hi * 100).toFixed(1)}%) includes zero. The honest answer is "can't tell yet": run more.`,
+          'meh',
+        );
+      }
+    }
+
+    say(text: string, tone: 'ok' | 'bad' | 'meh') {
+      const v = this.querySelector<HTMLElement>('[data-verdict]')!;
+      v.textContent = text;
+      v.dataset.tone = tone;
+    }
+  }
+  if (!customElements.get('qe-trap')) customElements.define('qe-trap', QeTrap);
+</script>
+
+<style is:global>
+  .qe-trap {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-trap .truth {
+    margin: 0 0 0.9rem;
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-trap .truth strong { color: var(--sl-color-white); }
+  .qe-trap .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .qe-trap .buttons button {
+    min-height: 2.75rem;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 650;
+    cursor: pointer;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .qe-trap .buttons [data-many] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+  }
+  .qe-trap .buttons button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-trap .plot {
+    margin-top: 1.1rem;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .qe-trap .row {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .qe-trap .name {
+    font-weight: 800;
+    color: var(--sl-color-white);
+  }
+  .qe-trap .strip {
+    position: relative;
+    height: 2.75rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-trap [data-row='A'] { --dot: var(--qe-pipe-build); }
+  .qe-trap [data-row='B'] { --dot: var(--qe-pipe-probe); }
+  .qe-trap .dot {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    margin: -4.5px 0 0 -4.5px;
+    border-radius: 50%;
+    background: var(--dot);
+    opacity: 0.85;
+  }
+  .qe-trap .median {
+    position: absolute;
+    top: 8%;
+    bottom: 8%;
+    width: 3px;
+    margin-left: -1.5px;
+    border-radius: 2px;
+    background: var(--sl-color-white);
+  }
+  .qe-trap .axis {
+    display: flex;
+    justify-content: space-between;
+    margin-left: 2rem;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-trap .verdict {
+    margin: 0.9rem 0 0;
+    padding: 0.75rem 0.9rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border-left: 4px solid var(--sl-color-gray-4);
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 4.5em;
+  }
+  .qe-trap .verdict[data-tone='ok'] { border-left-color: var(--sl-color-accent); }
+  .qe-trap .verdict[data-tone='bad'] { border-left-color: var(--qe-warn); }
+  .qe-trap .verdict[data-tone='meh'] { border-left-color: var(--qe-pipe-emit); }
+  .qe-trap .score {
+    margin: 0.6rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+  @media (max-width: 49.99rem) {
+    .qe-trap {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-trap .buttons button { flex: 1 1 auto; }
+  }
+</style>
