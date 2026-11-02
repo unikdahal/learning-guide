@@ -1,0 +1,27 @@
+{
+  "name": "learning-guide",
+  "description": "Query Execution, from first principles to engine internals",
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "dev": "npm run generate && astro dev",
+    "build": "npm run generate && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unikdahal/learning-guide.git"
+  },
+  "bugs": {
+    "url": "https://github.com/unikdahal/learning-guide/issues"
+  },
+  "homepage": "https://github.com/unikdahal/learning-guide#readme",
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.8",
+    "astro": "^7.4.5",
+    "sharp": "^0.35.5",
+    "yaml": "^2.9.1"
+  },
+  "type": "module",
+  "private": true
+}

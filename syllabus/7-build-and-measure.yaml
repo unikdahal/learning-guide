@@ -1,0 +1,129 @@
+part:
+  id: 7
+  slug: build-and-measure
+  title: Build and measure
+  color: "#6B7F8E"
+  summary: Build a working engine end to end, then learn to measure performance like a professional.
+
+modules:
+  - id: "20"
+    slug: capstone-engine
+    title: "Capstone: build a query engine in Rust"
+    goal: Assemble everything into a working engine that runs TPC-H queries.
+    prereqs: ["05", "07", "08", "09", "12"]
+    outcomes:
+      - Ship a working SQL engine with scan, filter, project, join, aggregate and sort
+      - Add a rule-based optimizer and a simple cost model
+      - Run and profile TPC-H queries
+    articles:
+      - t: Capstone overview and architecture
+        l: I
+        d: What you will build, the crate layout, and milestones.
+        v: Architecture diagram of the capstone engine
+      - t: Project skeleton, crates and core traits
+        l: I
+        d: Setting up the workspace and defining the plan and operator traits.
+      - t: Record batches and schemas with arrow-rs
+        l: I
+        d: The data model the engine uses throughout.
+      - t: CSV and Parquet scan operators
+        l: I
+        d: Reading files into batches with projection.
+      - t: Projection and filter operators
+        l: I
+        d: The first operators, and wiring them together.
+      - t: The expression evaluator
+        l: I
+        d: Vectorized expression evaluation with arrow kernels.
+      - t: The SQL frontend
+        l: I
+        d: Parsing SQL and binding it to the catalog.
+      - t: Logical plans and the plan builder
+        l: I
+        d: Building logical plans from SQL and a DataFrame API.
+      - t: The physical planner
+        l: A
+        d: Translating logical plans into executable operators.
+      - t: Hash aggregation
+        l: A
+        d: GROUP BY with partial and final phases.
+      - t: Hash join
+        l: A
+        d: Inner, outer, semi and anti hash joins.
+      - t: Sort and top-K
+        l: A
+        d: ORDER BY and ORDER BY with LIMIT.
+      - t: Limit, union and the remaining operators
+        l: I
+        d: Completing the operator set.
+      - t: A rule-based optimizer
+        l: A
+        d: Predicate pushdown, projection pruning and constant folding.
+      - t: Statistics and a simple cost model
+        l: A
+        d: Row count estimation and join ordering.
+      - t: Parallel execution with partitions
+        l: A
+        d: Running operators across threads.
+      - t: Memory limits and spilling
+        l: E
+        d: Adding memory accounting and spilling to the join and aggregate.
+      - t: Running TPC-H
+        l: A
+        d: Generating data, running all 22 queries, and checking results.
+      - t: Profiling and optimizing the engine
+        l: A
+        d: Finding and fixing the biggest bottlenecks with profilers.
+      - t: "Next steps: contributing to real engines"
+        l: I
+        d: Finding good first issues in DataFusion, Arrow and Iceberg, and how upstream review works.
+
+  - id: "21"
+    slug: performance-engineering
+    title: Performance engineering
+    goal: Measure, diagnose and report performance rigorously.
+    prereqs: ["00", "02"]
+    outcomes:
+      - Design benchmarks that separate signal from noise
+      - Profile query engines at the system and microarchitecture level
+      - Write up performance results with evidence and caveats
+    articles:
+      - t: Benchmark methodology
+        l: I
+        d: Defining the question, controlling variables, and avoiding the common benchmarking mistakes.
+        v: Checklist diagram of a sound benchmark design
+      - t: TPC-H, TPC-DS and ClickBench
+        l: I
+        d: What each benchmark measures, their query shapes and their blind spots.
+      - t: Micro vs end-to-end benchmarks
+        l: I
+        d: When each answers the question you are asking, and why micro wins often vanish end to end.
+      - t: Cold vs warm runs and cache effects
+        l: I
+        d: Page cache, metadata caches and JIT warm-up, and how to control for them.
+      - t: Statistics for benchmark results
+        l: A
+        d: Confidence intervals, distributions, outliers, and comparing two systems properly.
+        v: Two overlapping runtime distributions with confidence intervals
+      - t: CPU profiling and flame graphs
+        l: I
+        d: perf, sampling profilers and reading flame graphs for query engines.
+        v: Interactive flame graph of a query
+      - t: Memory profiling
+        l: A
+        d: Heap profilers, tracking peak memory, and attributing allocations to operators.
+      - t: Reading query metrics
+        l: I
+        d: EXPLAIN ANALYZE and engine metrics, and what each operator's numbers mean.
+      - t: Diagnosing slow queries
+        l: I
+        d: A systematic checklist from plan shape to I/O, skew and spilling.
+      - t: Top-down microarchitecture analysis
+        l: E
+        d: Frontend, backend, bad speculation and retiring, and using them to target fixes.
+      - t: Performance regression testing
+        l: A
+        d: Running benchmarks in CI, detecting regressions, and handling noise.
+      - t: Writing up performance results
+        l: I
+        d: Stating claims, showing evidence, and listing caveats so readers can trust the numbers.

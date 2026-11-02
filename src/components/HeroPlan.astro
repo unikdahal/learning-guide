@@ -1,0 +1,246 @@
+---
+// Landing hero: a hash-join plan executing. Record batches flow up three pipelines on a 10.5s loop:
+// build (scan + filter → hash table), probe (scan → join → partial groups), then emit.
+// Every animation shares one cycle and uses keyTimes, so they stay in sync without JS.
+const CYCLE = 10.5;
+
+type Batch = { path: string; start: number; end: number; w0: number; w1: number; at: number; pipe: 'build' | 'probe' | 'emit' };
+
+const BUILD = 'M110,372 L110,292 L218,208';
+const PROBE = 'M380,372 L262,208 L250,132';
+const EMIT = 'M250,104 L250,58';
+
+const batches: Batch[] = [
+  ...[0, 0.9, 1.8].map((s) => ({ path: BUILD, start: s + 0.2, end: s + 2.0, w0: 22, w1: 12, at: 0.37, pipe: 'build' as const })),
+  ...[3.9, 4.6, 5.3, 6.0].map((s) => ({ path: PROBE, start: s, end: s + 1.6, w0: 22, w1: 16, at: 0.72, pipe: 'probe' as const })),
+  { path: EMIT, start: 8.1, end: 9.0, w0: 14, w1: 14, at: 0.5, pipe: 'emit' as const },
+];
+
+const t = (s: number) => +(s / CYCLE).toFixed(4);
+// keyTimes must be strictly increasing within [0, 1].
+const times = (start: number, end: number) => `0;${t(start)};${t(end)};1`;
+
+// Hash table buckets fill as each build batch arrives; groups fill as probe batches arrive.
+const buckets = [2.2, 2.2, 3.1, 4.0].map((s, i) => ({ x: 214 + i * 20, at: s }));
+const groups = [5.5, 6.2, 6.9].map((s, i) => ({ x: 222 + i * 20, at: s }));
+const visible = (at: number, until = 9.9) => ({
+  values: '0;0;1;1;0',
+  keyTimes: `0;${t(at)};${t(at + 0.15)};${t(until)};1`,
+});
+---
+
+<figure class="hero-plan" aria-labelledby="hero-plan-caption">
+  <svg viewBox="0 0 500 420" role="img" aria-labelledby="hero-plan-title hero-plan-desc">
+    <title id="hero-plan-title">A hash join plan executing</title>
+    <desc id="hero-plan-desc">
+      Record batches flow up from two table scans. Customer batches shrink as they pass the filter and fill the
+      join's hash table. Then order batches probe the hash table and fill aggregate groups. Finally one result batch
+      leaves the aggregate.
+    </desc>
+
+    <!-- edges -->
+    <g class="edges">
+      <path d="M110,360 L110,306" class="edge build" />
+      <path d="M110,276 L214,214" class="edge build" />
+      <path d="M380,360 L264,214" class="edge probe" />
+      <path d="M250,186 L250,144" class="edge probe" />
+      <path d="M250,102 L250,62" class="edge emit" />
+    </g>
+
+    <!-- nodes -->
+    <g class="node">
+      <rect x="40" y="360" width="140" height="34" rx="5" />
+      <text x="110" y="382">Scan customer</text>
+    </g>
+    <g class="node">
+      <rect x="30" y="272" width="160" height="34" rx="5" />
+      <text x="110" y="294">Filter segment = retail</text>
+    </g>
+    <g class="node">
+      <rect x="315" y="360" width="130" height="34" rx="5" />
+      <text x="380" y="382">Scan orders</text>
+    </g>
+    <g class="node join">
+      <rect x="196" y="174" width="108" height="42" rx="5" />
+      <text x="250" y="190">Hash join</text>
+      {buckets.map((b) => <rect class="slot" x={b.x} y="198" width="14" height="10" rx="1.5" />)}
+      {
+        buckets.map((b) => (
+          <rect class="slot-fill build" x={b.x} y="198" width="14" height="10" rx="1.5" opacity="0">
+            <animate attributeName="opacity" dur={`${CYCLE}s`} repeatCount="indefinite" {...visible(b.at)} />
+          </rect>
+        ))
+      }
+    </g>
+    <g class="node agg">
+      <rect x="196" y="102" width="108" height="42" rx="5" />
+      <text x="250" y="118">Aggregate</text>
+      {groups.map((g) => <rect class="slot" x={g.x} y="126" width="14" height="10" rx="1.5" />)}
+      {
+        groups.map((g) => (
+          <rect class="slot-fill probe" x={g.x} y="126" width="14" height="10" rx="1.5" opacity="0">
+            <animate attributeName="opacity" dur={`${CYCLE}s`} repeatCount="indefinite" {...visible(g.at)} />
+          </rect>
+        ))
+      }
+    </g>
+    <g class="node out">
+      <rect x="205" y="26" width="90" height="34" rx="5" />
+      <text x="250" y="48">Result</text>
+    </g>
+
+    <!-- record batches -->
+    <g class="batches">
+      {
+        batches.map((b) => (
+          <rect class={`batch ${b.pipe}`} x={-b.w0 / 2} y="-5" width={b.w0} height="10" rx="2" opacity="0">
+            <animateMotion
+              path={b.path}
+              dur={`${CYCLE}s`}
+              repeatCount="indefinite"
+              calcMode="linear"
+              keyPoints="0;0;1;1"
+              keyTimes={times(b.start, b.end)}
+            />
+            <animate
+              attributeName="opacity"
+              dur={`${CYCLE}s`}
+              repeatCount="indefinite"
+              values="0;0;1;1;0;0"
+              keyTimes={`0;${t(b.start)};${t(b.start + 0.12)};${t(b.end - 0.08)};${t(b.end)};1`}
+            />
+            {b.w0 !== b.w1 && (
+              <>
+                <animate
+                  attributeName="width"
+                  dur={`${CYCLE}s`}
+                  repeatCount="indefinite"
+                  values={`${b.w0};${b.w0};${b.w0};${b.w1};${b.w1}`}
+                  keyTimes={`0;${t(b.start)};${t(b.start + (b.end - b.start) * b.at)};${t(b.start + (b.end - b.start) * (b.at + 0.06))};1`}
+                />
+                <animate
+                  attributeName="x"
+                  dur={`${CYCLE}s`}
+                  repeatCount="indefinite"
+                  values={`${-b.w0 / 2};${-b.w0 / 2};${-b.w0 / 2};${-b.w1 / 2};${-b.w1 / 2}`}
+                  keyTimes={`0;${t(b.start)};${t(b.start + (b.end - b.start) * b.at)};${t(b.start + (b.end - b.start) * (b.at + 0.06))};1`}
+                />
+              </>
+            )}
+          </rect>
+        ))
+      }
+    </g>
+  </svg>
+
+  <figcaption id="hero-plan-caption">
+    <span class="key"><span class="swatch build"></span>Pipeline 1 builds the hash table</span>
+    <span class="key"><span class="swatch probe"></span>Pipeline 2 probes it and groups rows</span>
+    <span class="key"><span class="swatch emit"></span>Pipeline 3 emits results</span>
+    <button type="button" class="pause" aria-pressed="false">Pause</button>
+  </figcaption>
+</figure>
+
+<script>
+  for (const fig of document.querySelectorAll<HTMLElement>('.hero-plan')) {
+    const svg = fig.querySelector('svg')!;
+    const btn = fig.querySelector<HTMLButtonElement>('.pause')!;
+    const set = (paused: boolean) => {
+      if (paused) svg.pauseAnimations();
+      else svg.unpauseAnimations();
+      btn.setAttribute('aria-pressed', String(paused));
+      btn.textContent = paused ? 'Play' : 'Pause';
+    };
+    btn.addEventListener('click', () => set(!svg.animationsPaused()));
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // Show the plan mid-execution, with the hash table built, instead of moving.
+      svg.setCurrentTime(5.6);
+      set(true);
+    }
+  }
+</script>
+
+<style>
+  .hero-plan {
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  svg {
+    width: 100%;
+    height: auto;
+    max-width: 30rem;
+    justify-self: center;
+    overflow: visible;
+  }
+  .edge {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.45;
+  }
+  .edge.build { stroke: var(--qe-pipe-build); }
+  .edge.probe { stroke: var(--qe-pipe-probe); }
+  .edge.emit { stroke: var(--qe-pipe-emit); }
+  .node > rect:first-child {
+    fill: var(--sl-color-black);
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.25;
+  }
+  .node text {
+    font-family: var(--sl-font);
+    font-size: 13px;
+    font-weight: 600;
+    fill: var(--sl-color-white);
+    text-anchor: middle;
+  }
+  .slot {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1;
+  }
+  .slot-fill.build { fill: var(--qe-pipe-build); }
+  .slot-fill.probe { fill: var(--qe-pipe-probe); }
+  .batch.build { fill: var(--qe-pipe-build); }
+  .batch.probe { fill: var(--qe-pipe-probe); }
+  .batch.emit { fill: var(--qe-pipe-emit); }
+  figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    justify-content: center;
+    align-items: center;
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .swatch {
+    width: 14px;
+    height: 8px;
+    border-radius: 2px;
+  }
+  .swatch.build { background: var(--qe-pipe-build); }
+  .swatch.probe { background: var(--qe-pipe-probe); }
+  .swatch.emit { background: var(--qe-pipe-emit); }
+  .pause {
+    font: inherit;
+    padding: 0.2rem 0.65rem;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--sl-color-gray-1);
+    cursor: pointer;
+  }
+  .pause:hover {
+    border-color: var(--sl-color-accent);
+  }
+  .pause:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+</style>

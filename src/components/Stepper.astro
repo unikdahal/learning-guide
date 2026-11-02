@@ -1,0 +1,119 @@
+---
+// Step-through visual. Each direct child with a data-step attribute is one step; its value is the step label.
+//
+//   <Stepper caption="The iterator model">
+//     <div data-step="Root calls next()"> …svg or text… </div>
+//     <div data-step="Scan returns a tuple"> … </div>
+//   </Stepper>
+//
+// Without JavaScript every step is shown in sequence, so content is never lost.
+interface Props {
+  caption?: string;
+}
+const { caption } = Astro.props;
+---
+
+<qe-stepper class="qe-stepper">
+  <div class="steps"><slot /></div>
+  <div class="controls" hidden>
+    <button type="button" data-prev>Previous</button>
+    <p class="label" aria-live="polite"><span data-pos></span> <span data-label></span></p>
+    <button type="button" data-next>Next</button>
+  </div>
+  {caption && <p class="caption">{caption}</p>}
+</qe-stepper>
+
+<script>
+  class QeStepper extends HTMLElement {
+    i = 0;
+    steps: HTMLElement[] = [];
+    connectedCallback() {
+      this.steps = [...this.querySelectorAll<HTMLElement>('.steps > [data-step]')];
+      if (this.steps.length < 2) return;
+      const controls = this.querySelector<HTMLElement>('.controls')!;
+      controls.hidden = false;
+      this.querySelector('[data-prev]')!.addEventListener('click', () => this.go(this.i - 1));
+      this.querySelector('[data-next]')!.addEventListener('click', () => this.go(this.i + 1));
+      this.tabIndex = -1;
+      this.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') this.go(this.i + 1);
+        if (e.key === 'ArrowLeft') this.go(this.i - 1);
+      });
+      this.go(0);
+    }
+    go(n: number) {
+      this.i = Math.max(0, Math.min(this.steps.length - 1, n));
+      this.steps.forEach((s, k) => (s.hidden = k !== this.i));
+      this.querySelector('[data-pos]')!.textContent = `Step ${this.i + 1} of ${this.steps.length}:`;
+      this.querySelector('[data-label]')!.textContent = this.steps[this.i].dataset.step ?? '';
+      (this.querySelector('[data-prev]') as HTMLButtonElement).disabled = this.i === 0;
+      (this.querySelector('[data-next]') as HTMLButtonElement).disabled = this.i === this.steps.length - 1;
+    }
+  }
+  if (!customElements.get('qe-stepper')) customElements.define('qe-stepper', QeStepper);
+</script>
+
+<style>
+  .qe-stepper {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+  }
+  .qe-stepper:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .controls[hidden] {
+    display: none;
+  }
+  .label {
+    margin: 0;
+    text-align: center;
+    font-family: var(--sl-font);
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  [data-pos] {
+    color: var(--sl-color-gray-3);
+  }
+  button {
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) {
+    border-color: var(--sl-color-accent);
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .caption {
+    margin: 0.75rem 0 0;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-2);
+  }
+</style>

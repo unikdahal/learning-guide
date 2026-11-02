@@ -1,0 +1,70 @@
+part:
+  id: 5
+  slug: lakehouse
+  title: Lakehouse storage
+  color: "#3D8A3D"
+  summary: Table formats on object storage, and how engines use their metadata to read less.
+
+modules:
+  - id: "18"
+    slug: table-formats
+    title: Table formats and the lakehouse
+    goal: Understand Iceberg, Delta and Hudi deeply enough to reason about read and write performance.
+    prereqs: ["03", "07"]
+    outcomes:
+      - Walk an Iceberg table's metadata tree by hand
+      - Explain row-level delete strategies and their read cost
+      - Plan table layout for effective pruning
+    articles:
+      - t: Why table formats exist
+        l: B
+        d: Directories of files lack atomicity, schemas and statistics. What table formats add on top.
+      - t: The Apache Iceberg metadata tree
+        l: I
+        d: Metadata files, manifest lists, manifests and data files, and how a reader walks them.
+        v: Clickable metadata tree from table metadata down to data files
+      - t: Snapshots and time travel
+        l: I
+        d: Immutable snapshots, reading past versions, and snapshot expiry.
+      - t: Manifest-level pruning
+        l: I
+        d: Partition summaries and column statistics in manifests for skipping files before opening them.
+      - t: Hidden partitioning and partition evolution
+        l: I
+        d: Transforms such as day and bucket, and changing partitioning without rewriting data.
+      - t: Schema evolution
+        l: I
+        d: Field IDs, adding, renaming and dropping columns safely.
+      - t: "Row-level deletes: position and equality deletes"
+        l: A
+        d: Iceberg v2 delete files, how readers apply them, and their cost.
+        v: Data file with position and equality deletes being applied
+      - t: Deletion vectors
+        l: A
+        d: Bitmap-based deletes in Delta and Iceberg v3, and why they replace position delete files.
+      - t: Copy-on-write vs merge-on-read
+        l: A
+        d: Write amplification vs read amplification for updates and deletes.
+        v: Side-by-side update handled both ways
+      - t: Commits and optimistic concurrency
+        l: A
+        d: Atomic swaps of metadata pointers, conflicts and retries.
+      - t: "Catalogs: REST, Polaris, Glue and Hive"
+        l: I
+        d: What a catalog stores, the Iceberg REST catalog, and credential vending.
+      - t: The Delta Lake transaction log
+        l: I
+        d: JSON log entries, checkpoints, and how readers reconstruct table state.
+      - t: Apache Hudi
+        l: I
+        d: Timeline, file groups, and Hudi's approach to upserts.
+      - t: Compaction and table maintenance
+        l: A
+        d: Small files, rewriting data and manifests, and expiring snapshots.
+      - t: Sorting, clustering and Z-order
+        l: A
+        d: Laying out data so statistics prune well, and space-filling curves.
+        v: Pruning effectiveness for linear sort vs Z-order on two-column filters
+      - t: Reading Iceberg from a native engine
+        l: A
+        d: iceberg-rust, planning file scans, applying deletes, and integration with DataFusion.

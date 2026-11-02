@@ -1,0 +1,251 @@
+part:
+  id: 1
+  slug: foundations
+  title: Foundations
+  color: "#2F6FB0"
+  summary: What a query means, the hardware it runs on, and how data is laid out in memory and on disk.
+
+modules:
+  - id: "00"
+    slug: orientation
+    title: Orientation
+    goal: Build a mental map of the whole field before going deep into any part of it.
+    prereqs: []
+    outcomes:
+      - Trace a query from SQL text to result rows and name every stage in between
+      - Place well-known engines on the embedded vs distributed and row vs column axes
+      - Set up the Rust lab used throughout the guide
+    articles:
+      - t: What a query engine actually does
+        l: B
+        d: Follows one SQL query from text to parse tree, plan, optimized plan, running operators and result rows. Every later module zooms into one of these boxes.
+        v: Animated end-to-end pipeline where each stage lights up and links to its module
+      - t: A tour of real engines
+        l: B
+        d: Spark, DuckDB, DataFusion, Trino, Snowflake, ClickHouse, Velox and Dremio, what each is built for and which design choices follow from that.
+        v: Landscape map with axes embedded↔distributed and interactive↔batch
+      - t: OLTP vs OLAP workloads
+        l: B
+        d: Point lookups and small updates vs scans over billions of rows. Why analytical engines end up columnar, vectorized and scan-oriented.
+        v: Side-by-side heatmap of which bytes each workload touches
+      - t: How to read this guide
+        l: B
+        d: Levels, prerequisites, labs and the suggested paths for beginners, working engineers and interview preparation.
+        v: Roadmap graph of modules with prerequisite edges
+      - t: Setting up the Rust lab
+        l: B
+        d: Toolchain, the lab cargo workspace, arrow-rs and datafusion crates, criterion for benchmarks, and how lab exercises are structured.
+        v: Annotated repository tree
+      - t: Measuring things honestly
+        l: B
+        d: Wall time vs CPU time, warm vs cold runs, variance, and why a single number from a single run usually misleads. Sets the standard every lab follows.
+        v: Distribution of 50 repeated runs with the single-run trap highlighted
+
+  - id: "01"
+    slug: relational-model-and-sql
+    title: Relational model and SQL semantics
+    goal: Know exactly what a query means before learning how to run it fast.
+    prereqs: ["00"]
+    outcomes:
+      - Translate SQL into relational algebra by hand
+      - Predict query results involving NULLs, duplicates and subqueries
+      - State the algebraic equivalences that optimizers rely on
+    articles:
+      - t: Relations, tuples and attributes
+        l: B
+        d: The relational model from first principles, schemas, keys, and why tables are a convenient lie over bags of tuples.
+        v: Table morphing into a set-of-tuples view
+      - t: "Relational algebra: selection, projection, rename"
+        l: B
+        d: The unary operators, their notation, and how each maps onto a SQL clause.
+        v: Interactive table where selection and projection highlight kept rows and columns
+      - t: Joins in relational algebra
+        l: B
+        d: Cartesian product, theta join, equi-join and natural join defined formally, with join as filtered product.
+        v: Product grid with matching pairs lit up
+      - t: Set operations and bag semantics
+        l: B
+        d: UNION, INTERSECT and EXCEPT under set vs bag semantics, and why SQL is a bag language that sometimes pretends otherwise.
+        v: Multiset diagram with duplicate counts
+      - t: Grouping and aggregation semantics
+        l: B
+        d: GROUP BY as partition-then-reduce, HAVING, aggregates over empty input, and the extended algebra operator γ.
+        v: Rows sliding into group buckets, then collapsing
+      - t: NULL and three-valued logic
+        l: B
+        d: UNKNOWN as a truth value, NULL in comparisons, aggregates, GROUP BY, joins and NOT IN, and the classic bugs each causes.
+        v: Interactive three-valued truth table
+      - t: Logical processing order of a query
+        l: B
+        d: FROM, WHERE, GROUP BY, HAVING, SELECT, DISTINCT, ORDER BY, LIMIT, the order clauses take effect vs the order you write them.
+        v: Clause cards reordering from written to logical order
+      - t: ORDER BY, LIMIT and determinism
+        l: B
+        d: What ordering guarantees SQL actually gives, ties, stability, and why LIMIT without ORDER BY is non-deterministic.
+      - t: Data types and their traps
+        l: B
+        d: Integers, decimals, floats, strings, dates and timestamps. Overflow, decimal precision and scale, float equality, collation and time zones.
+        v: Decimal precision/scale calculator
+      - t: Subqueries
+        l: I
+        d: Scalar, IN, EXISTS and correlated subqueries, their exact semantics, and the NULL edge cases of IN and NOT IN.
+        v: Correlated subquery re-evaluating per outer row
+      - t: Window function semantics
+        l: I
+        d: PARTITION BY, ORDER BY and frames as a definition, independent of how engines compute them.
+        v: Moving frame over an ordered partition
+      - t: CTEs and recursive queries
+        l: I
+        d: Common table expressions, recursion as fixpoint iteration, termination, and UNION vs UNION ALL inside recursion.
+        v: Fixpoint iterations growing a hierarchy
+      - t: From SQL to relational algebra by hand
+        l: I
+        d: Worked translations of progressively harder queries into algebra trees. The skill every later module assumes.
+        v: Side-by-side SQL and algebra tree with linked highlighting
+      - t: Equivalence rules of relational algebra
+        l: I
+        d: Commutativity and associativity of joins, pushing selections and projections, and the conditions under which each rule is valid.
+        v: Rewrite rule stepper on a plan tree
+      - t: Duplicate-sensitive and order-sensitive operators
+        l: I
+        d: Which operators care about duplicates or order, and what that means for the rewrites an engine is allowed to do.
+
+  - id: "02"
+    slug: hardware
+    title: Hardware for query engines
+    goal: Understand the machine well enough to explain why fast operators look the way they do.
+    prereqs: ["00"]
+    outcomes:
+      - Estimate the cost of a memory access, branch or I/O from first principles
+      - Explain cache behaviour and SIMD in terms of operator design
+      - Profile a program with hardware counters
+    articles:
+      - t: The memory hierarchy, from registers to object storage
+        l: B
+        d: Latency and bandwidth at each level, from registers and caches to DRAM, SSD, network and object storage, with orders of magnitude to memorize.
+        v: Log-scale latency ladder you can scale to human time
+      - t: CPU caches, cache lines and locality
+        l: B
+        d: Cache lines, associativity, spatial and temporal locality, and why sequential columnar scans are so fast.
+        v: Cache line grid simulation for sequential vs random access
+      - t: Branch prediction and why branches hurt
+        l: I
+        d: Pipelines, mispredictions and their cost, and how selectivity around 50% makes branchy filters slow.
+        v: Pipeline flush animation and a selectivity vs cycles curve
+      - t: Instruction-level parallelism
+        l: I
+        d: Superscalar, out-of-order execution and dependency chains, and why tight loops over arrays run near peak.
+      - t: "SIMD: one instruction, many values"
+        l: I
+        d: Vector registers, lanes, widths (SSE, AVX2, AVX-512, NEON), and which operator loops vectorize well.
+        v: Lane diagram of a vectorized comparison
+      - t: SIMD in Rust
+        l: A
+        d: Auto-vectorization and how to check it, portable SIMD, intrinsics, and runtime feature detection.
+      - t: TLBs, pages and huge pages
+        l: I
+        d: Virtual memory translation, TLB misses on large hash tables, and when huge pages help.
+      - t: Prefetching and memory bandwidth
+        l: I
+        d: Hardware and software prefetching, bandwidth as the ceiling for scans, and memory-level parallelism.
+      - t: Multicore, threads and false sharing
+        l: I
+        d: Cores, hyperthreads, cache coherence, false sharing, and why per-thread state wins.
+        v: Two cores bouncing a cache line
+      - t: Atomics and memory ordering for engine developers
+        l: A
+        d: Atomic operations, ordering in Rust, contention costs, and lock-free vs partitioned designs for shared hash tables.
+      - t: NUMA
+        l: A
+        d: Non-uniform memory access, remote memory cost, and NUMA-aware scheduling in morsel-driven engines.
+      - t: Disks and SSDs
+        l: B
+        d: Sequential vs random I/O, queue depth, NVMe, and what the OS page cache does for and to a query engine.
+      - t: Object storage for query engines
+        l: I
+        d: S3, GCS and ADLS latency, throughput per connection, request costs, and why request size and parallelism dominate.
+        v: Request size vs effective throughput curve
+      - t: Networks for data movement
+        l: I
+        d: Bandwidth, latency, TCP behaviour, and where RDMA appears, framed as the cost model for shuffles.
+      - t: Measuring hardware with perf counters
+        l: A
+        d: IPC, cache misses, branch misses and stalled cycles with perf stat, and how to read them for an operator.
+      - t: The roofline model for query operators
+        l: A
+        d: Arithmetic intensity, compute vs memory-bound operators, and placing scans, hashing and sorting on a roofline.
+        v: Interactive roofline chart with operator points
+
+  - id: "03"
+    slug: data-representation
+    title: Data representation and file formats
+    goal: Know how bytes are arranged in memory and on disk, and why that arrangement drives performance.
+    prereqs: ["02"]
+    outcomes:
+      - Draw the Arrow buffers for any array, including nested and string types
+      - Explain a Parquet file from footer to page
+      - Choose encodings and compression for a column
+    articles:
+      - t: Row vs column layout
+        l: B
+        d: N-ary storage vs decomposed storage, PAX, and which workloads each serves.
+        v: Toggle that rearranges the same table between layouts
+      - t: "Apache Arrow: the columnar in-memory standard"
+        l: B
+        d: Why a shared in-memory format matters, what Arrow standardizes, and the ecosystem built on it.
+      - t: Arrow physical layout
+        l: I
+        d: Validity bitmaps, value buffers, offset buffers, alignment, and slicing without copying.
+        v: Buffer explorer that shows the bytes behind any array you type
+      - t: Arrow nested types
+        l: I
+        d: List, large list, struct, map and union layouts, and how nesting composes.
+        v: Nested value expanding into its child arrays
+      - t: Dictionary and run-end encoded arrays
+        l: I
+        d: In-memory encodings, when kernels can operate on them directly, and when they must decode.
+      - t: "String layouts: offsets vs views"
+        l: A
+        d: Offset-based strings vs the view layout with inline prefixes (StringView, the German string idea), and the operations each makes cheap.
+        v: Same strings in both layouts with comparison cost annotations
+      - t: Selection vectors vs filtered copies
+        l: I
+        d: Representing filter results by index list, bitmap or materialized copy, and the trade-offs downstream.
+      - t: Lightweight encodings
+        l: I
+        d: RLE, bit-packing, delta, and frame-of-reference, with when each wins and how they combine.
+        v: Encoder playground showing encoded size for your input
+      - t: Dictionary encoding in storage
+        l: I
+        d: Dictionary pages, fallback when dictionaries grow too large, and filtering on dictionary codes.
+      - t: General-purpose compression
+        l: I
+        d: LZ4, Snappy and Zstd, compression ratio vs decode speed, and where compression sits in the I/O path.
+        v: Ratio vs decode throughput scatter
+      - t: Anatomy of an Apache Parquet file
+        l: I
+        d: Magic bytes, row groups, column chunks, pages and the footer metadata.
+        v: Exploded file diagram you can click through
+      - t: Parquet row groups, pages and statistics
+        l: I
+        d: Sizing row groups and pages, min/max and null count statistics, and how readers use them.
+      - t: "Parquet nested data: repetition and definition levels"
+        l: A
+        d: The Dremel encoding step by step, with worked examples for optional and repeated fields.
+        v: Stepper that shreds a nested record into levels
+      - t: Parquet page index and bloom filters
+        l: A
+        d: Column and offset indexes for page-level skipping, and bloom filters for equality predicates.
+      - t: ORC compared with Parquet
+        l: I
+        d: Stripes, indexes and type system differences, and why ecosystems settled where they did.
+      - t: Newer columnar file formats
+        l: A
+        d: What formats such as Lance, Nimble and Vortex change about random access, encodings and wide schemas, and what remains unproven.
+      - t: Arrow IPC and Arrow Flight
+        l: I
+        d: The IPC stream and file formats, and Flight as RPC for moving record batches between processes.
+      - t: What zero-copy really means
+        l: I
+        d: Memory mapping, buffer sharing, the FFI C data interface, and the places where copies still happen.
+        v: Buffer ownership diagram across process boundaries

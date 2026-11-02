@@ -1,0 +1,314 @@
+---
+// Landing page body.
+import HeroPlan from './HeroPlan.astro';
+import { data, moduleById, url } from '../lib/site';
+
+const first = moduleById('00').articles[0];
+const parts = data.parts.map((p) => {
+  const mods = p.modules.map(moduleById);
+  return { ...p, count: mods.reduce((n, m) => n + m.articles.length, 0), first: mods[0] };
+});
+
+// Suggested routes through the guide. Each step is a module id.
+const routes = [
+  {
+    title: 'New to databases',
+    text: 'Learn what a query means and how one machine runs it before going distributed.',
+    steps: ['00', '01', '03', '05', '07', '08', '09'],
+  },
+  {
+    title: 'Working data engineer',
+    text: 'You run Spark or Trino daily and want to know why queries are fast or slow.',
+    steps: ['05', '08', '13', '14', '15', '16', '18'],
+  },
+  {
+    title: 'Preparing for engine roles',
+    text: 'The depth that query execution and runtime interviews expect, plus the capstone.',
+    steps: ['02', '05', '08', '09', '11', '15', '20'],
+  },
+];
+---
+
+<div class="home not-content">
+  <section class="hero">
+    <div class="intro">
+      <h1>Query Execution</h1>
+      <p class="lede">
+        How engines turn SQL into running code, from relational algebra to vectorized joins, shuffles and lakehouse
+        pruning. {data.articleCount} articles that start at zero and end inside the engines.
+      </p>
+      <pre class="sql" aria-label="The query running in the diagram"><code><span class="emit">SELECT</span> c.region, sum(o.amount)
+<span class="probe">FROM</span> orders o
+<span class="build">JOIN</span> customer c ON o.cust_id = c.id
+<span class="build">WHERE</span> c.segment = 'retail'
+<span class="emit">GROUP BY</span> c.region;</code></pre>
+      <div class="actions">
+        <a class="primary" href={url(first.path + '/')}>Start reading</a>
+        <a class="secondary" href={url('roadmap/')}>See the roadmap</a>
+      </div>
+    </div>
+    <HeroPlan />
+  </section>
+
+  <section class="parts" aria-labelledby="parts-title">
+    <h2 id="parts-title">Seven parts, in order</h2>
+    <p class="note">The bar shows how the articles split across parts.</p>
+    <div class="track" aria-hidden="true">
+      {parts.map((p) => <span style={`--part:${p.color}; flex-grow:${p.count}`} />)}
+    </div>
+    <ol class="band">
+      {
+        parts.map((p) => (
+          <li style={`--part:${p.color}`}>
+            <a href={url(`${p.first.slug}/`)}>
+              <span class="pid">{p.id}</span>
+              <span class="ptitle">{p.title}</span>
+              <span class="pcount">{p.count} articles</span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="routes" aria-labelledby="routes-title">
+    <h2 id="routes-title">Where to start</h2>
+    <div class="route-list">
+      {
+        routes.map((r) => (
+          <article class="route">
+            <h3>{r.title}</h3>
+            <p>{r.text}</p>
+            <ol>
+              {r.steps.map(moduleById).map((m) => (
+                <li style={`--part:${data.parts.find((p) => p.id === m.part)!.color}`}>
+                  <a href={url(`${m.slug}/`)}>
+                    <span class="mid">{m.id}</span> {m.title}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+</div>
+
+<style>
+  .home {
+    display: grid;
+    gap: 5rem;
+    padding-block: 1rem 3rem;
+  }
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem 3rem;
+    align-items: center;
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--sl-font);
+    font-size: clamp(2.75rem, 7vw, 4.75rem);
+    font-weight: 800;
+    font-variation-settings: 'opsz' 96;
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+    color: var(--sl-color-white);
+  }
+  .lede {
+    margin: 1.25rem 0 0;
+    font-family: var(--qe-font-prose);
+    font-size: 1.25rem;
+    line-height: 1.55;
+    color: var(--sl-color-gray-1);
+    max-width: 36ch;
+  }
+  .sql {
+    margin: 1.75rem 0 0;
+    padding: 1rem 1.15rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: var(--sl-color-gray-1);
+    overflow-x: auto;
+  }
+  .sql span {
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+  .sql .build { text-decoration-color: var(--qe-pipe-build); }
+  .sql .probe { text-decoration-color: var(--qe-pipe-probe); }
+  .sql .emit { text-decoration-color: var(--qe-pipe-emit); }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+  }
+  .actions a {
+    font-family: var(--sl-font);
+    font-weight: 650;
+    font-size: 1rem;
+    padding: 0.7rem 1.25rem;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .primary {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .primary:hover {
+    background: var(--sl-color-accent-high);
+  }
+  .secondary {
+    border: 1px solid var(--sl-color-gray-4);
+    color: var(--sl-color-white);
+  }
+  .secondary:hover {
+    border-color: var(--sl-color-accent);
+  }
+  .actions a:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 3px;
+  }
+  h2 {
+    margin: 0;
+    font-family: var(--sl-font);
+    font-size: 1.75rem;
+    letter-spacing: -0.02em;
+    color: var(--sl-color-white);
+  }
+  .note {
+    margin: 0.35rem 0 1.25rem;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .track {
+    display: flex;
+    gap: 3px;
+    height: 10px;
+    margin-bottom: 1.25rem;
+  }
+  .track span {
+    flex-basis: 0;
+    border-radius: 3px;
+    background: var(--part);
+  }
+  .band {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1.25rem 1rem;
+  }
+  .band a {
+    display: grid;
+    gap: 0.2rem;
+    align-content: start;
+    padding-top: 0.6rem;
+    border-top: 3px solid var(--part);
+    text-decoration: none;
+    font-family: var(--sl-font);
+  }
+  .pid {
+    font-weight: 800;
+    font-size: 1.25rem;
+    color: var(--part);
+  }
+  .ptitle {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    line-height: 1.2;
+    color: var(--sl-color-white);
+  }
+  .band a:hover .ptitle {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .pcount {
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .route-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2.5rem;
+    margin-top: 1.25rem;
+  }
+  .route h3 {
+    margin: 0;
+    font-family: var(--sl-font);
+    font-size: 1.25rem;
+    color: var(--sl-color-white);
+  }
+  .route p {
+    margin: 0.4rem 0 1rem;
+    font-family: var(--qe-font-prose);
+    color: var(--sl-color-gray-2);
+    line-height: 1.5;
+  }
+  .route ol {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 0.9rem;
+    border-left: 2px solid var(--sl-color-gray-5);
+    display: grid;
+    gap: 0.45rem;
+  }
+  .route li {
+    position: relative;
+  }
+  .route li::before {
+    content: '';
+    position: absolute;
+    left: calc(-0.9rem - 5px);
+    top: 0.55em;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--part);
+  }
+  .route a {
+    font-family: var(--sl-font);
+    font-size: 0.9375rem;
+    color: var(--sl-color-gray-1);
+    text-decoration: none;
+  }
+  .route a:hover {
+    color: var(--sl-color-white);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .mid {
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-gray-3);
+  }
+  @media (max-width: 60rem) {
+    .hero {
+      grid-template-columns: 1fr;
+    }
+    .route-list {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 40rem) {
+    .band {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

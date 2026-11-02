@@ -1,0 +1,487 @@
+part:
+  id: 2
+  slug: single-node-execution
+  title: Single-node execution
+  color: "#0E7C72"
+  summary: How a plan becomes running operators on one machine, operator by operator.
+
+modules:
+  - id: "04"
+    slug: query-frontend
+    title: "Query frontend: from SQL to logical plans"
+    goal: Turn SQL text into a correct, typed logical plan.
+    prereqs: ["01"]
+    outcomes:
+      - Build a parser-to-logical-plan pipeline with sqlparser-rs
+      - Explain binding, type coercion and function resolution
+      - Read EXPLAIN output from several engines
+    articles:
+      - t: Lexing and parsing SQL
+        l: B
+        d: Tokens, grammars, recursive descent, and how real SQL parsers handle dialects.
+        v: Token stream assembling into an AST
+      - t: The AST is not a plan
+        l: B
+        d: What the syntax tree knows and doesn't, and why engines need a separate logical representation.
+      - t: Name resolution and binding
+        l: I
+        d: Resolving tables, columns, aliases and scopes, ambiguous names, and correlated references.
+        v: Scope chain highlighting where each name resolves
+      - t: Type checking, coercion and function resolution
+        l: I
+        d: Implicit casts, numeric promotion, overload resolution, and the bugs that come from loose coercion.
+      - t: The catalog
+        l: I
+        d: Schemas, tables, views, functions and statistics as a service the planner queries.
+      - t: Logical plan operators
+        l: B
+        d: Scan, Filter, Projection, Join, Aggregate, Sort, Limit, Union, and the schema each produces.
+        v: Plan tree builder where you add operators and watch schemas flow
+      - t: Building logical plans from the AST
+        l: I
+        d: Walking the AST to emit plan nodes in the right order, including GROUP BY, HAVING and ORDER BY by alias.
+      - t: Expression trees and canonical form
+        l: I
+        d: Representing expressions, normalizing them, and comparing expressions for equality.
+      - t: Representing subqueries
+        l: A
+        d: Subquery expressions, the apply or dependent join operator, and mark joins.
+      - t: Decorrelating subqueries
+        l: A
+        d: Turning correlated subqueries into joins and aggregates, including the general unnesting approach for arbitrary queries.
+        v: Before and after plans with the correlation edge removed
+      - t: DataFrame APIs as plan builders
+        l: I
+        d: How Spark, Polars and DataFusion DataFrames build the same logical plans as SQL.
+      - t: "Plan serialization with Substrait"
+        l: I
+        d: Cross-engine plan exchange, what Substrait covers, and where engine differences leak through.
+      - t: Reading EXPLAIN output
+        l: B
+        d: EXPLAIN and EXPLAIN ANALYZE in DuckDB, DataFusion, Spark and Trino, and what each tells you.
+      - t: "Lab: a SQL-to-logical-plan frontend"
+        l: I
+        d: Build a small frontend on sqlparser-rs that binds names against a catalog and emits a typed logical plan.
+
+  - id: "05"
+    slug: execution-models
+    title: Execution models
+    goal: Understand the main ways engines run plans and the hardware reasons behind each.
+    prereqs: ["02", "03", "04"]
+    outcomes:
+      - Implement iterator, vectorized and push-based operators
+      - Identify pipelines and pipeline breakers in any plan
+      - Argue both sides of vectorization vs compilation
+    articles:
+      - t: From logical to physical plans
+        l: B
+        d: Choosing algorithms for each logical operator, physical properties, and the physical plan as an executable artifact.
+        v: Logical node expanding into its physical alternatives
+      - t: The iterator (Volcano) model
+        l: B
+        d: open, next and close, tuple-at-a-time execution, and why it composes so well.
+        v: Stepper showing next() calls travelling down the tree and tuples coming up
+      - t: The cost of tuple-at-a-time execution
+        l: I
+        d: Virtual calls, interpretation overhead and poor cache use per tuple, measured.
+      - t: The materialization model
+        l: I
+        d: Operators that produce whole columns at once, as in MonetDB, and the memory cost of doing so.
+      - t: Vectorized execution
+        l: I
+        d: Batches of a few thousand values, tight loops per operator, and how this recovers cache and SIMD efficiency.
+        v: Tuple-at-a-time vs batch animation with call counts
+      - t: Choosing a batch size
+        l: I
+        d: Cache fit vs overhead amortization, and why most engines settle between 1K and 8K rows.
+        v: Illustrative throughput vs batch size curve
+      - t: Query compilation with produce/consume
+        l: A
+        d: Generating fused code per pipeline in the style of HyPer, and data-centric execution.
+        v: Plan pipeline turning into one fused loop
+      - t: Vectorization vs compilation
+        l: A
+        d: What the research comparisons found, where each wins, and why many engines mix both.
+      - t: Pipelines and pipeline breakers
+        l: I
+        d: Which operators must see all input before producing output, and how plans split into pipelines.
+        v: Plan tree colored by pipeline
+      - t: Push vs pull execution
+        l: I
+        d: Control flow direction, its effect on scheduling and parallelism, and push-based engines such as DuckDB.
+        v: Same plan executed pull-style and push-style
+      - t: Morsel-driven parallelism
+        l: A
+        d: Splitting input into small morsels, work stealing, and elastic parallelism within a query.
+        v: Worker threads taking morsels from a shared queue
+      - t: Exchange-based parallelism
+        l: I
+        d: Volcano-style exchange operators inside a single machine, and their limits.
+      - t: Async streams as an execution model
+        l: A
+        d: DataFusion's approach with Rust async streams and partitions, and what the async runtime does and doesn't give you.
+      - t: Early vs late materialization
+        l: I
+        d: When to stitch columns into rows, and how late materialization saves work on selective queries.
+      - t: Operator fusion and specialization
+        l: A
+        d: Fusing adjacent operators, specializing on types and nullability, and the code-size cost.
+      - t: "Lab: a tiny vectorized engine in Rust"
+        l: I
+        d: Build scan, filter, project and limit over Arrow record batches, then compare with a tuple-at-a-time version.
+
+  - id: "06"
+    slug: expression-evaluation
+    title: Expression evaluation
+    goal: Evaluate expressions over batches quickly and correctly.
+    prereqs: ["05"]
+    outcomes:
+      - Write vectorized kernels with correct null handling
+      - Implement conditional evaluation without wasted work
+      - Explain how JIT expression compilation fits in
+    articles:
+      - t: Interpreting expression trees
+        l: B
+        d: Recursive evaluation, the overhead per node, and why per-row interpretation is slow.
+      - t: Vectorized expression kernels
+        l: I
+        d: Kernels that run one operation over a whole array, and composing them to evaluate a tree.
+        v: Expression tree evaluated column-at-a-time
+      - t: Null handling in kernels
+        l: I
+        d: Combining validity bitmaps, computing over garbage in null slots, and when that is safe.
+        v: Validity bitmaps combining with AND
+      - t: "Conditional expressions: CASE, AND, OR"
+        l: A
+        d: Short-circuiting, evaluating branches only on matching rows, and avoiding errors in unselected rows.
+      - t: Constant folding and simplification
+        l: I
+        d: Folding constants, algebraic simplification, and the rules engines apply before execution.
+      - t: Common subexpression elimination
+        l: I
+        d: Finding repeated subexpressions and computing them once per batch.
+      - t: Casts and type conversion
+        l: I
+        d: Cast kernels, overflow and invalid input handling, and safe vs unsafe casts.
+      - t: String functions at speed
+        l: A
+        d: LIKE, substring, case conversion and regex over string arrays, and the tricks fast engines use.
+      - t: Decimal arithmetic
+        l: A
+        d: Fixed-point representation, precision and scale rules, overflow, and 128-bit and 256-bit decimals.
+      - t: Date and timestamp arithmetic
+        l: I
+        d: Epoch-based representations, intervals, time zones and calendar operations.
+      - t: JIT-compiling expressions
+        l: A
+        d: LLVM-based expression compilation as in Gandiva, compile cost vs run cost, and caching.
+      - t: User-defined functions
+        l: I
+        d: Scalar, aggregate and table UDFs, vectorized UDF interfaces, and the cost of crossing language boundaries.
+
+  - id: "07"
+    slug: scans-and-pruning
+    title: Scans, filters and pruning
+    goal: Read as little data as possible and filter what you read efficiently.
+    prereqs: ["03", "05", "06"]
+    outcomes:
+      - Implement projection, predicate and statistics-based pruning in a Parquet scan
+      - Write branchless filter kernels
+      - Plan efficient reads against object storage
+    articles:
+      - t: Reading a file end to end
+        l: B
+        d: Opening a file, reading metadata, decoding columns and producing batches, the full path of a scan.
+        v: Scan pipeline from bytes to record batches
+      - t: Projection pushdown
+        l: B
+        d: Reading only needed columns, and why this is the single biggest win of columnar formats.
+      - t: Predicate pushdown
+        l: B
+        d: Moving filters into the scan, what can and can't be pushed, and exact vs inexact pushdown.
+        v: Filter node sliding down into the scan
+      - t: Zone maps and min/max statistics
+        l: I
+        d: Using min/max per block to skip data, and why sort order determines how well it works.
+        v: Interactive zone-map pruning on sorted vs unsorted data
+      - t: Bloom filters for pruning
+        l: I
+        d: Bloom filter basics, false positive rates, and where they help equality predicates.
+        v: Bloom filter bit array with inserts and lookups
+      - t: Partition pruning
+        l: I
+        d: Directory and metadata partitioning, pruning by partition values, and the trap of over-partitioning.
+      - t: Late materialization in scans
+        l: A
+        d: Decoding filter columns first and fetching other columns only for surviving rows.
+      - t: Branchless filter evaluation
+        l: A
+        d: Selection by predication, writing indexes unconditionally, and the selectivity crossover with branching.
+        v: Branching vs branchless cost across selectivity
+      - t: Bitmaps and selection vectors in filters
+        l: I
+        d: Producing filter results as bitmaps vs index lists, and converting between them.
+      - t: Async I/O and prefetching
+        l: A
+        d: Overlapping I/O with compute, read-ahead, and concurrency limits for object storage.
+        v: Timeline of serial vs overlapped I/O and compute
+      - t: Coalescing range reads
+        l: A
+        d: Merging nearby byte ranges to cut request count on object storage, and the waste-vs-requests trade-off.
+      - t: Caching metadata and data
+        l: I
+        d: Footer and metadata caches, local data caches, and invalidation.
+      - t: Limit pushdown and early termination
+        l: I
+        d: Stopping scans early for LIMIT, and how parallel scans complicate it.
+      - t: "Lab: a Parquet scanner with pruning"
+        l: I
+        d: Build a scan with projection, row-group and page pruning, then measure bytes read and time across query shapes.
+
+  - id: "08"
+    slug: joins
+    title: Joins
+    goal: Master every join algorithm an analytical engine uses and when each wins.
+    prereqs: ["05", "06"]
+    outcomes:
+      - Implement nested loop, sort-merge and hash joins for all join types
+      - Design cache-efficient join hash tables
+      - Handle skew, spilling and non-equi joins
+    articles:
+      - t: "Join types: inner, outer, semi, anti, mark"
+        l: B
+        d: Each join type defined by example, including the semi and anti joins that come from subqueries.
+        v: Row-level view of which pairs each join type keeps
+      - t: Nested loop join
+        l: B
+        d: The simplest join, its cost, block nested loops, and when it is still the right choice.
+        v: Stepper over outer and inner loops
+      - t: Index nested loop join
+        l: I
+        d: Probing an index per outer row, and why analytical engines rarely do this.
+      - t: Sort-merge join
+        l: I
+        d: Sorting both inputs and merging, handling duplicates, and when pre-sorted input makes it the best choice.
+        v: Two cursors advancing through sorted inputs
+      - t: "Hash join: build and probe"
+        l: B
+        d: Building a hash table on the smaller side and probing it with the larger, the workhorse of analytics.
+        v: Build phase filling buckets, then probe rows finding matches
+      - t: "Hash tables for joins: chaining vs open addressing"
+        l: I
+        d: Collision strategies, load factors, and what each does to cache misses.
+        v: Same keys inserted into a chained and an open-addressing table
+      - t: Hash functions for query engines
+        l: I
+        d: Speed vs quality, hashing multiple columns, and hashing strings.
+      - t: Join hash table layout and cache behavior
+        l: A
+        d: Separating keys from payloads, tagged pointers, bucket arrays, and counting cache misses per probe.
+      - t: Vectorized hash join probing
+        l: A
+        d: Probing a batch at a time, separating hash, lookup and compare phases, and gathering payloads.
+      - t: Outer, semi and anti joins in a hash join
+        l: I
+        d: Tracking matched build rows, emitting unmatched rows, and stopping early for semi joins.
+      - t: Null-aware anti join
+        l: A
+        d: Why NOT IN with NULLs needs special handling, and how engines implement it correctly.
+      - t: Duplicate keys and skew in hash joins
+        l: A
+        d: Long chains from duplicate keys, output explosion, and probe-side skew.
+      - t: Grace hash join
+        l: I
+        d: Partitioning both sides so each partition's build fits in memory.
+        v: Inputs fanning out into partition pairs
+      - t: Hybrid hash join
+        l: A
+        d: Keeping one partition in memory while spilling the others, and recursive partitioning.
+      - t: Radix-partitioned hash join
+        l: A
+        d: Partitioning to cache-sized pieces first, multi-pass radix partitioning, and when it beats a non-partitioned join.
+      - t: Spilling hash joins
+        l: A
+        d: Detecting memory pressure, choosing what to spill, and reading partitions back.
+      - t: Join ordering basics
+        l: I
+        d: Why join order changes cost by orders of magnitude, left-deep vs bushy trees, with a pointer to the optimizer module.
+      - t: Range, inequality and band joins
+        l: A
+        d: Non-equi joins, sort-based and interval-based approaches, and IEJoin.
+      - t: As-of joins
+        l: A
+        d: Matching each row to the most recent row on the other side, used in time series analytics.
+      - t: Worst-case optimal joins
+        l: E
+        d: Multi-way joins such as triangle queries, the AGM bound, and Leapfrog Triejoin in brief.
+
+  - id: "09"
+    slug: aggregation
+    title: Aggregation
+    goal: Compute GROUP BY fast, at any cardinality, within a memory budget.
+    prereqs: ["05", "08"]
+    outcomes:
+      - Implement hash and sort-based aggregation with partial and final phases
+      - Choose strategies by group cardinality
+      - Use sketches for approximate distinct counts and quantiles
+    articles:
+      - t: Decomposable and holistic aggregates
+        l: B
+        d: Which aggregates can be split into partial states (SUM, COUNT, AVG) and which can't (MEDIAN), and why it matters.
+      - t: Ungrouped aggregation
+        l: B
+        d: Aggregating a whole input into one row, vectorized and in parallel.
+      - t: Hash aggregation
+        l: I
+        d: Group keys into a hash table of accumulator states, update per batch, emit at the end.
+        v: Groups filling a hash table as batches arrive
+      - t: Sort-based aggregation
+        l: I
+        d: Aggregating sorted input with a running group, and when sorted input makes it free.
+      - t: Partial and final aggregation
+        l: I
+        d: Two-phase aggregation within and across threads, and combining partial states.
+        v: Threads producing partials that merge into finals
+      - t: Vectorized aggregate updates
+        l: A
+        d: Computing group indexes for a batch, then updating accumulators column by column.
+      - t: Designing the aggregation hash table
+        l: A
+        d: Key storage, fixed vs variable width keys, accumulator layout, and resize cost.
+      - t: Low vs high cardinality grouping
+        l: A
+        d: Perfect hashing for small domains, cache effects of large tables, and adaptive strategies.
+      - t: Spilling aggregation
+        l: A
+        d: Partitioning groups to disk, merging spilled states, and sort-based fallback.
+      - t: DISTINCT aggregates
+        l: A
+        d: COUNT(DISTINCT), multiple distinct aggregates in one query, and rewriting them into two-level aggregation.
+      - t: Approximate distinct counts with HyperLogLog
+        l: I
+        d: Registers and leading zeros, error bounds, and mergeable sketches.
+        v: HLL register simulation with live estimate and error
+      - t: Approximate quantiles
+        l: A
+        d: t-digest and KLL sketches, their accuracy guarantees and mergeability.
+      - t: GROUPING SETS, ROLLUP and CUBE
+        l: I
+        d: Semantics, the expand-then-aggregate implementation, and grouping IDs.
+      - t: Aggregation pushdown below joins
+        l: A
+        d: Eager aggregation, when pre-aggregating before a join is valid, and when it pays.
+      - t: Skipping partial aggregation adaptively
+        l: A
+        d: Detecting when partial aggregation isn't reducing rows and passing data through.
+      - t: "Lab: a vectorized hash aggregate in Rust"
+        l: I
+        d: Build hash aggregation over Arrow batches with partial/final phases, and measure across group cardinalities.
+
+  - id: "10"
+    slug: sorting-and-windows
+    title: Sorting, top-K and window functions
+    goal: Sort and compute window functions efficiently, in memory and beyond.
+    prereqs: ["05", "09"]
+    outcomes:
+      - Implement external merge sort with normalized keys
+      - Compute top-K without a full sort
+      - Execute window functions with segment trees
+    articles:
+      - t: Sorting in query engines
+        l: B
+        d: Where sorts appear in plans, multi-column keys, and NULL ordering.
+      - t: Comparison sorts vs radix sort
+        l: I
+        d: Quicksort, pdqsort and radix sort, and which wins for which key types.
+      - t: Normalized keys and row formats for sorting
+        l: A
+        d: Encoding multi-column keys into byte-comparable strings so comparisons become memcmp.
+        v: Multi-column key encoded into one byte string
+      - t: External merge sort
+        l: I
+        d: Generating sorted runs, spilling them, and merging back.
+        v: Runs being written then merged
+      - t: K-way merge with tournament trees
+        l: A
+        d: Loser trees for merging many runs with fewer comparisons.
+      - t: Top-K with heaps
+        l: I
+        d: ORDER BY with LIMIT using a bounded heap instead of a full sort.
+        v: Bounded heap rejecting values
+      - t: Dynamic filters from top-K
+        l: A
+        d: Pushing the current K-th value down to the scan to skip data that can't make the cut.
+      - t: Parallel sorting and range partitioning
+        l: A
+        d: Sorting in parallel, sampling for splitters, and merging results.
+      - t: Executing window functions
+        l: I
+        d: Partition, sort, then evaluate per row, and how engines share the sort with ORDER BY.
+      - t: "Window frames: ROWS, RANGE and GROUPS"
+        l: I
+        d: Frame semantics in detail, peers, and frame exclusion.
+        v: Frame slider over an ordered partition showing each mode
+      - t: Segment trees for window aggregates
+        l: A
+        d: Computing arbitrary frame aggregates in logarithmic time per row.
+        v: Segment tree answering a range query
+      - t: Ranking functions
+        l: B
+        d: ROW_NUMBER, RANK, DENSE_RANK, NTILE and PERCENT_RANK, and how they are computed in one pass.
+      - t: Navigation functions
+        l: B
+        d: LAG, LEAD, FIRST_VALUE, LAST_VALUE and NTH_VALUE, and their interaction with frames.
+      - t: Streaming vs batch windows
+        l: A
+        d: Running windows incrementally on unbounded input vs all-at-once on bounded input.
+      - t: "Lab: external sort in Rust"
+        l: A
+        d: Build an external merge sort over Arrow batches with a memory limit and normalized keys.
+
+  - id: "11"
+    slug: memory-and-spilling
+    title: Memory management and spilling
+    goal: Keep queries within a memory budget without falling over.
+    prereqs: ["08", "09", "10"]
+    outcomes:
+      - Design memory accounting for operators
+      - Implement spilling for blocking operators
+      - Diagnose out-of-memory failures
+    articles:
+      - t: Why engines manage their own memory
+        l: I
+        d: Predictability, isolation between queries, and the failure modes of relying on the allocator alone.
+      - t: Memory pools and reservations
+        l: I
+        d: Reserving before allocating, pools per query, and DataFusion's memory pool as a worked example.
+        v: Operators reserving and releasing from a shared pool
+      - t: Accounting vs enforcement
+        l: A
+        d: Tracking usage vs refusing allocations, estimation error, and untracked memory.
+      - t: Memory-adaptive operators
+        l: A
+        d: Operators that change strategy when memory is short instead of failing.
+      - t: Spill file formats and I/O
+        l: A
+        d: Arrow IPC for spill files, compression, and local disk throughput limits.
+      - t: Spill policies
+        l: A
+        d: Which operator spills, how much, and when, and fairness across operators.
+      - t: Allocators
+        l: A
+        d: jemalloc, mimalloc and arenas, fragmentation, and allocation patterns of query engines.
+      - t: Buffer pools in disk-based systems
+        l: I
+        d: Page caching, eviction policies, and how disk-oriented databases manage memory.
+      - t: Off-heap memory in JVM engines
+        l: I
+        d: Why JVM engines like Spark keep data off-heap, Tungsten memory management, and the native memory boundary in hybrid engines.
+      - t: Out-of-memory failures in production
+        l: A
+        d: Common OOM causes such as skew, unbounded state and estimation errors, and how to diagnose each.
+      - t: Sharing memory across concurrent queries
+        l: A
+        d: Admission, per-query limits, and fair sharing.
+      - t: "Lab: a memory-limited hash join with spilling"
+        l: E
+        d: Extend the lab hash join to respect a memory limit, spill partitions and finish correctly.

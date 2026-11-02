@@ -1,0 +1,48 @@
+---
+// Four-step difficulty meter. Filled bars encode level, so it reads without color.
+import { LEVELS, type LevelKey } from '../lib/site';
+
+interface Props {
+  level: LevelKey;
+  showLabel?: boolean;
+}
+const { level, showLabel = true } = Astro.props;
+const { name, rank } = LEVELS[level];
+---
+
+<span class="level-meter" data-level={level} title={name} aria-label={`Level: ${name}`}>
+  <span class="bars" aria-hidden="true">
+    {[1, 2, 3, 4].map((i) => <span class:list={['bar', { on: i <= rank }]} />)}
+  </span>
+  {showLabel && <span class="label">{name}</span>}
+</span>
+
+<style>
+  .level-meter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+    white-space: nowrap;
+  }
+  .bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 0.85em;
+  }
+  .bar {
+    width: 4px;
+    border-radius: 1px;
+    background: var(--sl-color-gray-5);
+  }
+  .bar:nth-child(1) { height: 40%; }
+  .bar:nth-child(2) { height: 60%; }
+  .bar:nth-child(3) { height: 80%; }
+  .bar:nth-child(4) { height: 100%; }
+  .bar.on {
+    background: var(--sl-color-accent);
+  }
+</style>

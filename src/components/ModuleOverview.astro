@@ -1,0 +1,196 @@
+---
+// Generated overview for a module: goal, outcomes, prerequisites and the article sequence.
+import LevelMeter from './LevelMeter.astro';
+import LevelSpread from './LevelSpread.astro';
+import { moduleById, partOf, url } from '../lib/site';
+
+interface Props {
+  id: string;
+}
+const m = moduleById(Astro.props.id);
+const part = partOf(m);
+const prereqs = m.prereqs.map(moduleById);
+const published = m.articles.filter((a) => a.status === 'published').length;
+---
+
+<div class="overview not-content" style={`--part: ${part.color}`}>
+  <header>
+    <span class="part">Part {part.id}, {part.title}</span>
+    <p class="goal">{m.goal}</p>
+    <div class="meta">
+      <span>{m.articles.length} articles, {published} written</span>
+      <LevelSpread articles={m.articles} />
+    </div>
+  </header>
+
+  <section>
+    <h2>You will be able to</h2>
+    <ul class="outcomes">
+      {m.outcomes.map((o) => <li>{o}</li>)}
+    </ul>
+  </section>
+
+  {
+    prereqs.length > 0 && (
+      <section>
+        <h2>Read first</h2>
+        <ul class="prereqs">
+          {prereqs.map((p) => (
+            <li>
+              <a href={url(`${p.slug}/`)}>
+                <span class="num">{p.id}</span> {p.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  <section>
+    <h2>Articles, in reading order</h2>
+    <ol class="articles">
+      {
+        m.articles.map((a) => (
+          <li class:list={{ planned: a.status === 'planned' }}>
+            <a href={url(a.path + '/')}>
+              <span class="idx">{a.index}</span>
+              <span class="body">
+                <span class="title">{a.title}</span>
+                <span class="scope">{a.scope}</span>
+              </span>
+              <LevelMeter level={a.level} showLabel={false} />
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+</div>
+
+<style>
+  .overview {
+    display: grid;
+    gap: 2.5rem;
+  }
+  header {
+    border-left: 3px solid var(--part);
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .part {
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--part);
+  }
+  .goal {
+    margin: 0;
+    font-family: var(--qe-font-prose);
+    font-size: 1.375rem;
+    line-height: 1.45;
+    color: var(--sl-color-white);
+    max-width: 38ch;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1.25rem;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-3);
+  }
+  h2 {
+    font-family: var(--sl-font);
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    margin: 0 0 0.75rem;
+  }
+  .outcomes {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-family: var(--qe-font-prose);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--sl-color-gray-1);
+  }
+  .prereqs {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .prereqs a {
+    display: inline-flex;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    font-family: var(--sl-font);
+    font-size: 0.9375rem;
+    text-decoration: none;
+    color: var(--sl-color-white);
+  }
+  .prereqs a:hover {
+    border-color: var(--sl-color-accent);
+  }
+  .num {
+    color: var(--sl-color-gray-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .articles {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .articles li {
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+  .articles a {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr auto;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.9rem 0.25rem;
+    text-decoration: none;
+  }
+  .articles a:hover .title {
+    color: var(--sl-color-accent-high);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .idx {
+    font-family: var(--sl-font);
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-gray-3);
+    padding-top: 0.1rem;
+  }
+  .body {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .title {
+    font-family: var(--sl-font);
+    font-weight: 600;
+    font-size: 1.0625rem;
+    color: var(--sl-color-white);
+  }
+  .scope {
+    font-family: var(--qe-font-prose);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-2);
+  }
+  .planned .title {
+    color: var(--sl-color-gray-1);
+  }
+  .articles :global(.level-meter) {
+    padding-top: 0.35rem;
+  }
+</style>

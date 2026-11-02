@@ -1,0 +1,36 @@
+---
+// A figure with a caption. Use `wide` for diagrams that need more room than the text column.
+interface Props {
+  caption?: string;
+  wide?: boolean;
+}
+const { caption, wide = false } = Astro.props;
+---
+
+<figure class:list={['qe-figure', { wide }]}>
+  <div class="frame"><slot /></div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .qe-figure {
+    margin: 2rem 0;
+  }
+  .frame {
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+  }
+  .wide .frame {
+    margin-inline: clamp(-4rem, -4vw, 0rem);
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--sl-color-gray-2);
+    max-width: 60ch;
+  }
+</style>

@@ -1,0 +1,181 @@
+part:
+  id: 4
+  slug: distributed-execution
+  title: Distributed execution
+  color: "#B8443A"
+  summary: Splitting queries across machines, moving data between them and surviving failures.
+
+modules:
+  - id: "15"
+    slug: shuffle-and-exchange
+    title: Partitioning, exchange and shuffle
+    goal: Understand how data moves between machines during a query, the dominant cost in distributed execution.
+    prereqs: ["02", "05"]
+    outcomes:
+      - Split a plan into stages at exchange boundaries
+      - Compare hash, sort, push-based and remote shuffle designs
+      - Choose blocking, pipelined or materialized exchange for a query shape
+    articles:
+      - t: Why distribute a query
+        l: B
+        d: Data that doesn't fit, compute that isn't enough, and the coordination costs you pay instead.
+      - t: Shared-nothing, shared-disk and disaggregated storage
+        l: B
+        d: Architectures for distributed databases and why the cloud moved most engines to disaggregated storage.
+        v: Three architecture diagrams side by side
+      - t: "Partitioning schemes: hash, range and round-robin"
+        l: B
+        d: How rows are assigned to partitions and what each scheme guarantees downstream.
+        v: Rows routed to partitions by each scheme
+      - t: Stages and the exchange operator
+        l: I
+        d: Where plans split into stages, and the exchange operator as the boundary.
+        v: Plan cut into stages at exchanges
+      - t: "Shuffle: the core mechanism"
+        l: I
+        d: Map-side partitioning, writing outputs, reduce-side fetching, the many-to-many data movement.
+        v: Mappers sending partitions to reducers
+      - t: Hash shuffle vs sort shuffle
+        l: I
+        d: File-per-partition vs sorted single-file outputs, and why Spark moved to sort-based shuffle.
+      - t: Shuffle file layout and indexes
+        l: A
+        d: Data and index files, fetch granularity, and the small-file problem at scale.
+      - t: Push-based shuffle
+        l: A
+        d: Mappers pushing blocks to merge locations, as in Spark's Magnet, and what it fixes.
+      - t: Remote shuffle services
+        l: A
+        d: Celeborn and Uniffle, decoupling shuffle from executors, and the trade-offs.
+      - t: Pipelined, blocking and materialized exchange
+        l: A
+        d: Streaming between stages vs writing everything first, fault tolerance vs latency.
+        v: Timeline comparing the three exchange modes
+      - t: Backpressure and flow control
+        l: A
+        d: Keeping fast producers from overwhelming slow consumers in pipelined exchanges.
+      - t: Broadcast exchange
+        l: I
+        d: Sending a small input to every worker, and its memory and network costs.
+      - t: Serialization over the wire
+        l: I
+        d: Arrow IPC, Flight and engine-specific formats, and serialization cost in shuffles.
+      - t: Compression in shuffle
+        l: I
+        d: When compression saves time vs spends it, by network and CPU balance.
+      - t: The cost model of a shuffle
+        l: A
+        d: Bytes, connections, files and disk, and where real shuffles bottleneck.
+      - t: Choosing an exchange strategy by query shape
+        l: E
+        d: Matching exchange mode to query shape, size and runtime conditions.
+      - t: Exchange in MPP engines
+        l: A
+        d: How Trino and similar engines stream data between stages, and how this differs from batch engines.
+      - t: "Lab: a two-node shuffle over Arrow Flight"
+        l: A
+        d: Build a hash-partitioned exchange between two processes using Arrow Flight, and measure throughput.
+
+  - id: "16"
+    slug: distributed-joins-and-aggregation
+    title: Distributed joins and aggregation
+    goal: Run the heaviest operators across a cluster, including under skew.
+    prereqs: ["08", "09", "15"]
+    outcomes:
+      - Choose between broadcast, shuffle and co-located joins
+      - Mitigate skew in joins and aggregations
+      - Implement distributed sort, top-K and windows
+    articles:
+      - t: Broadcast hash join
+        l: I
+        d: Broadcasting the small side, size thresholds, and failure modes when estimates are wrong.
+      - t: Shuffle hash join
+        l: I
+        d: Co-partitioning both sides by join key and joining partition-wise.
+        v: Both sides shuffled into matching partitions
+      - t: Shuffle sort-merge join
+        l: I
+        d: Shuffling then sorting partitions, and why it is the default for large joins in Spark.
+      - t: Co-located and bucketed joins
+        l: A
+        d: Avoiding shuffles when data is already partitioned by the join key.
+      - t: Storage-partitioned joins
+        l: A
+        d: Using table format partitioning, as in Iceberg, to avoid shuffles.
+      - t: Skew in distributed joins
+        l: A
+        d: Hot keys, straggler tasks, and how to recognize skew in metrics.
+        v: Partition size bars with one hot partition
+      - t: Salting and splitting skewed keys
+        l: A
+        d: Manual and automatic techniques for spreading hot keys.
+      - t: Distributed aggregation
+        l: I
+        d: Partial aggregation before the shuffle, final aggregation after.
+      - t: Distributed distinct counts
+        l: A
+        d: Exact and approximate COUNT(DISTINCT) at scale, and multiple distinct aggregates.
+      - t: Distributed sort
+        l: A
+        d: Range partitioning with sampling, and global ordering of outputs.
+      - t: Distributed top-K and limit
+        l: I
+        d: Local top-K then global merge, and limit handling across partitions.
+      - t: Distributed window functions
+        l: A
+        d: Partitioning by window keys, and windows without partition keys.
+
+  - id: "17"
+    slug: scheduling-and-fault-tolerance
+    title: Scheduling, fault tolerance and resources
+    goal: Run distributed queries reliably on shared clusters.
+    prereqs: ["15"]
+    outcomes:
+      - Explain DAG scheduling and task placement
+      - Reason about recovery costs after failures
+      - Describe multi-tenant resource management and query gateways
+    articles:
+      - t: Drivers, coordinators and workers
+        l: B
+        d: Roles in distributed engines and what each process does.
+      - t: DAG scheduling of stages
+        l: I
+        d: Building the stage graph, scheduling ready stages, and stage dependencies.
+        v: Stage DAG executing over time
+      - t: Task scheduling and locality
+        l: I
+        d: Assigning tasks to executors, data locality, and delay scheduling.
+      - t: Speculative execution
+        l: I
+        d: Launching backup copies of slow tasks, and when it helps or wastes resources.
+      - t: Fault tolerance through lineage
+        l: I
+        d: Recomputing lost data from its inputs, the model behind Spark's RDDs.
+      - t: Lost shuffle outputs and stage retries
+        l: A
+        d: What happens when an executor holding shuffle files dies, and the cascade of recomputation.
+        v: Failure triggering recomputation of upstream stages
+      - t: Deterministic and nondeterministic stages
+        l: A
+        d: Why recomputation is only safe when outputs are deterministic, and the correctness bugs otherwise.
+      - t: Checkpointing and materialization for recovery
+        l: A
+        d: Trading write cost for recovery cost.
+      - t: Reusing shuffle outputs across attempts
+        l: E
+        d: Preserving completed, deterministic shuffle outputs so retries skip finished work, and the correctness conditions.
+      - t: Query-level vs task-level retry
+        l: A
+        d: MPP engines restarting whole queries vs batch engines retrying tasks, and hybrid approaches such as fault-tolerant execution in Trino.
+      - t: "Resource managers: YARN and Kubernetes"
+        l: I
+        d: How engines obtain executors, and the Kubernetes model for Spark.
+      - t: Dynamic allocation and autoscaling
+        l: A
+        d: Adding and removing executors during a job, and the shuffle data problem it creates.
+      - t: Multi-tenancy and admission control
+        l: A
+        d: Queues, quotas, admission policies, and isolating noisy neighbours.
+      - t: Query gateways and sessions
+        l: I
+        d: Kyuubi, Thrift servers and Flight SQL, managing sessions and engines on behalf of clients.

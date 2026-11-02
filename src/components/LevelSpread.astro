@@ -1,0 +1,49 @@
+---
+// Proportional strip showing how a set of articles spreads across the four levels.
+import { LEVELS, levelCounts, type Article, type LevelKey } from '../lib/site';
+
+interface Props {
+  articles: Article[];
+  wide?: boolean;
+}
+const { articles, wide = false } = Astro.props;
+const counts = levelCounts(articles);
+const total = articles.length || 1;
+const keys = Object.keys(LEVELS) as LevelKey[];
+const label = keys
+  .filter((k) => counts[k] > 0)
+  .map((k) => `${counts[k]} ${LEVELS[k].name.toLowerCase()}`)
+  .join(', ');
+---
+
+<span class:list={['spread', { wide }]} role="img" aria-label={label} title={label}>
+  {
+    keys.map((k) =>
+      counts[k] > 0 ? <span class="seg" data-level={k} style={`flex-grow:${counts[k] / total}`} /> : null,
+    )
+  }
+</span>
+
+<style>
+  .spread {
+    display: inline-flex;
+    width: 7rem;
+    height: 6px;
+    gap: 2px;
+    border-radius: 3px;
+    overflow: hidden;
+    vertical-align: middle;
+  }
+  .spread.wide {
+    width: 100%;
+  }
+  .seg {
+    flex-basis: 0;
+    min-width: 3px;
+  }
+  /* One hue, four steps of lightness: level is ordinal, so the ramp is too. */
+  .seg[data-level='B'] { background: var(--qe-level-1); }
+  .seg[data-level='I'] { background: var(--qe-level-2); }
+  .seg[data-level='A'] { background: var(--qe-level-3); }
+  .seg[data-level='E'] { background: var(--qe-level-4); }
+</style>

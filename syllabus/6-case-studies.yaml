@@ -1,0 +1,68 @@
+part:
+  id: 6
+  slug: case-studies
+  title: Engine case studies
+  color: "#A86A12"
+  summary: Real engines taken apart, connecting every earlier concept to production designs.
+
+modules:
+  - id: "19"
+    slug: engines
+    title: Engines in depth
+    goal: Recognize the design choices of production engines and the reasons behind them.
+    prereqs: ["05", "13", "15"]
+    outcomes:
+      - Describe the execution model, optimizer and distribution strategy of major engines
+      - Compare engines with a principled framework rather than marketing claims
+    articles:
+      - t: Spark SQL, Catalyst and Tungsten
+        l: I
+        d: Spark's planner, optimizer rules, physical planning and memory management.
+        v: Spark plan stages from SQL to RDD DAG
+      - t: Whole-stage code generation in Spark
+        l: A
+        d: How Spark fuses operators into generated Java code, and where it falls back.
+      - t: Databricks Photon
+        l: A
+        d: A native vectorized engine inside Spark, as described in its published paper.
+      - t: Apache DataFusion architecture
+        l: I
+        d: Crates, plans, execution with async streams, extensibility points.
+        v: Architecture diagram of DataFusion's layers
+      - t: "DataFusion Comet: native Spark acceleration"
+        l: A
+        d: Translating Spark plans to native DataFusion operators, JVM interop through Arrow, and fallbacks.
+      - t: Ballista
+        l: A
+        d: Distributed DataFusion, its scheduler, executors and shuffle.
+      - t: DuckDB
+        l: I
+        d: In-process analytics, push-based vectorized execution, morsel parallelism and out-of-core operators.
+      - t: Velox and Gluten
+        l: A
+        d: A reusable C++ execution library, and Gluten as a bridge from Spark.
+      - t: Trino and Presto
+        l: I
+        d: MPP execution, connectors, pipelined exchanges, and the coordinator model.
+      - t: Dremio and Arrow-native execution
+        l: A
+        d: An engine built on Arrow, its execution model and reflections, from public material.
+      - t: Snowflake
+        l: I
+        d: Separation of storage and compute, micro-partitions, and pruning, from its published papers.
+      - t: ClickHouse
+        l: I
+        d: MergeTree, sparse primary indexes, and a vectorized engine built for speed on a single table.
+      - t: Umbra and compiled execution
+        l: E
+        d: Compilation with adaptive execution, and string handling ideas that spread to other engines.
+      - t: Polars
+        l: I
+        d: A DataFrame engine on Arrow-style memory, lazy query optimization and streaming execution.
+      - t: Apache Flink as a query engine
+        l: A
+        d: Streaming SQL, state, and how continuous queries differ from batch queries.
+      - t: Comparing engines with a decision framework
+        l: A
+        d: Dimensions that actually matter for choosing an engine, applied to the engines in this module.
+        v: Interactive comparison matrix

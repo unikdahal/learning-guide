@@ -1,0 +1,204 @@
+/*
+  Query Execution — theme tokens.
+  Cool slate paper, ink, and a teal taken from the "batch" color in the hero plan.
+  Part colors encode which of the seven Parts a module belongs to; pipeline colors are used in diagrams.
+*/
+
+:root {
+  --sl-font: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --qe-font-prose: 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+
+  --sl-content-width: 46rem;
+  --sl-text-h1: 2.5rem;
+
+  /* Dark theme (Starlight default) */
+  --sl-color-accent-low: #0c312d;
+  --sl-color-accent: #2fb3a4;
+  --sl-color-accent-high: #b4ece4;
+  --sl-color-white: #eaf2f0;
+  --sl-color-gray-1: #cfdbd8;
+  --sl-color-gray-2: #a7b7b3;
+  --sl-color-gray-3: #7b8e89;
+  --sl-color-gray-4: #4f615d;
+  --sl-color-gray-5: #313f3c;
+  --sl-color-gray-6: #1f2a29;
+  --sl-color-black: #141c1e;
+
+  --qe-pipe-build: #6ea8e8;
+  --qe-pipe-probe: #2fb3a4;
+  --qe-pipe-emit: #c3a2f0;
+  --qe-warn: #f0a35c;
+
+  --qe-level-1: #bfeee7;
+  --qe-level-2: #6fd2c4;
+  --qe-level-3: #2b9e91;
+  --qe-level-4: #146a61;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #cdebe6;
+  --sl-color-accent: #0e7c72;
+  --sl-color-accent-high: #08443f;
+  --sl-color-white: #16232a;
+  --sl-color-gray-1: #24343b;
+  --sl-color-gray-2: #3d4e55;
+  --sl-color-gray-3: #5f7077;
+  --sl-color-gray-4: #8d9ba0;
+  --sl-color-gray-5: #c6d0d1;
+  --sl-color-gray-6: #e2e9e8;
+  --sl-color-gray-7: #ecf1f0;
+  --sl-color-black: #f3f6f5;
+
+  --qe-pipe-build: #2f6fb0;
+  --qe-pipe-probe: #0e7c72;
+  --qe-pipe-emit: #7a4fb5;
+  --qe-warn: #b4540a;
+
+  --qe-level-1: #a9ddd5;
+  --qe-level-2: #4fb3a6;
+  --qe-level-3: #0e7c72;
+  --qe-level-4: #07433d;
+}
+
+/* ---------- Typography ---------- */
+
+.sl-markdown-content {
+  font-family: var(--qe-font-prose);
+  font-size: 1.1rem;
+  line-height: 1.72;
+  font-optical-sizing: auto;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6),
+.content-panel h1 {
+  font-family: var(--sl-font);
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+.content-panel h1 {
+  font-weight: 750;
+  font-variation-settings: 'opsz' 96;
+}
+
+.sl-markdown-content h2 {
+  font-weight: 700;
+  margin-top: 2.5em;
+}
+
+.sl-markdown-content h3 {
+  font-weight: 650;
+}
+
+.sl-markdown-content :is(p, li):not(:where(.not-content *)) {
+  max-width: 68ch;
+}
+
+.sl-markdown-content code:not(pre code) {
+  font-size: 0.86em;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  background: var(--sl-color-gray-6);
+}
+
+.sl-markdown-content strong {
+  font-weight: 650;
+  color: var(--sl-color-white);
+}
+
+/* Starlight's description under the title: set in the prose face. */
+.content-panel .sl-container > p:first-of-type {
+  font-family: var(--qe-font-prose);
+}
+
+/* ---------- Sidebar ---------- */
+
+/* Planned articles read lighter, with an open ring; written ones look normal. */
+nav.sidebar a[data-status='planned'] {
+  color: var(--sl-color-gray-3);
+}
+nav.sidebar a[data-status='planned']::after {
+  content: '';
+  display: inline-block;
+  vertical-align: middle;
+  width: 6px;
+  height: 6px;
+  margin-inline-start: 0.45em;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.55;
+}
+nav.sidebar a[data-status='planned'][aria-current='page'] {
+  color: var(--sl-color-white);
+}
+
+/* ---------- Focus ---------- */
+
+:focus-visible {
+  outline-color: var(--sl-color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Diagram kit ----------
+   Shared classes for hand-drawn SVG in articles, so every figure speaks the same visual language.
+   Usage: <svg class="qe-diagram" viewBox="…"> with .qe-node, .qe-edge, .qe-batch and a pipeline class.
+*/
+
+.qe-diagram {
+  width: 100%;
+  height: auto;
+  font-family: var(--sl-font);
+}
+.qe-diagram .qe-node rect,
+.qe-diagram rect.qe-node {
+  fill: var(--sl-color-black);
+  stroke: var(--sl-color-gray-4);
+  stroke-width: 1.25;
+}
+.qe-diagram text {
+  fill: var(--sl-color-white);
+  font-size: 13px;
+  font-weight: 600;
+}
+.qe-diagram text.qe-muted {
+  fill: var(--sl-color-gray-3);
+  font-weight: 400;
+}
+.qe-diagram .qe-edge {
+  fill: none;
+  stroke: var(--sl-color-gray-4);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.qe-diagram .build { --qe-pipe: var(--qe-pipe-build); }
+.qe-diagram .probe { --qe-pipe: var(--qe-pipe-probe); }
+.qe-diagram .emit { --qe-pipe: var(--qe-pipe-emit); }
+.qe-diagram .warn { --qe-pipe: var(--qe-warn); }
+.qe-diagram .qe-edge:is(.build, .probe, .emit, .warn) {
+  stroke: var(--qe-pipe);
+  opacity: 0.6;
+}
+.qe-diagram .qe-batch {
+  fill: var(--qe-pipe, var(--sl-color-accent));
+}
+.qe-diagram .qe-highlight,
+.qe-diagram rect.qe-node.qe-highlight {
+  fill: var(--sl-color-accent-low);
+  stroke: var(--sl-color-accent);
+}
+
+/* Landing page: the Home component draws its own title, so hide Starlight's. */
+.content-panel:has(> .sl-container > h1#_top):has(+ .content-panel .home) {
+  display: none;
+}
+.content-panel:has(.home) {
+  border-top: 0;
+}

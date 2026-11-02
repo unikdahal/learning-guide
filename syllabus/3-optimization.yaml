@@ -1,0 +1,174 @@
+part:
+  id: 3
+  slug: optimization
+  title: Optimization
+  color: "#7A4FB5"
+  summary: How engines rewrite plans, estimate costs and adapt while the query runs.
+
+modules:
+  - id: "12"
+    slug: logical-optimization
+    title: Logical optimization
+    goal: Rewrite plans into cheaper equivalent plans with rules.
+    prereqs: ["01", "04"]
+    outcomes:
+      - Implement common rewrite rules and prove them valid
+      - Explain rule ordering and fixpoint iteration
+      - Write custom optimizer rules in DataFusion
+    articles:
+      - t: What an optimizer is for
+        l: B
+        d: Search over equivalent plans, why the gap between a good and bad plan can be enormous, and the parts of an optimizer.
+        v: Two equivalent plans with wildly different row counts per node
+      - t: Rule-based rewriting
+        l: I
+        d: Pattern matching on plan trees, transformation rules, and tree rewriting frameworks.
+      - t: Pushing predicates through joins
+        l: I
+        d: Which predicates can move past inner and outer joins, and the outer-join cases where they can't.
+        v: Predicate moving through a join tree, blocked at an outer join
+      - t: Projection pruning
+        l: B
+        d: Removing unused columns throughout the plan.
+      - t: Simplifying expressions in plans
+        l: I
+        d: Constant folding, boolean simplification, and removing always-true filters.
+      - t: Simplifying outer joins
+        l: A
+        d: Converting outer joins to inner joins when null-rejecting predicates allow it.
+      - t: Join elimination
+        l: A
+        d: Removing joins using foreign keys and uniqueness.
+      - t: Unnesting subqueries in the optimizer
+        l: A
+        d: Rule-based decorrelation patterns and their limits.
+      - t: "CTEs: inline or materialize"
+        l: A
+        d: When to inline a CTE and when to compute it once and reuse it.
+      - t: Inferring filters and transitive predicates
+        l: A
+        d: Deriving new predicates from equalities, such as copying a filter across a join key.
+      - t: Pushing down limits and top-K
+        l: I
+        d: Moving LIMIT through projections, unions and outer joins.
+      - t: Eager aggregation
+        l: A
+        d: Moving aggregations below joins, validity conditions, and cost trade-offs.
+      - t: Rule ordering and fixpoints
+        l: A
+        d: Batches of rules, repeated application, termination and rules that undo each other.
+      - t: "Lab: writing optimizer rules in DataFusion"
+        l: I
+        d: Implement and test custom logical optimizer rules against DataFusion plans.
+
+  - id: "13"
+    slug: cost-based-optimization
+    title: Cost-based optimization
+    goal: Estimate cost and pick the cheapest plan, knowing where estimates break.
+    prereqs: ["08", "12"]
+    outcomes:
+      - Estimate cardinalities using statistics
+      - Implement dynamic programming join enumeration
+      - Explain the Cascades framework
+    articles:
+      - t: Why costs matter
+        l: B
+        d: When rules aren't enough, and choosing among alternatives using estimated cost.
+      - t: "Statistics: row counts, NDV and histograms"
+        l: I
+        d: What engines collect, how, and how stale statistics hurt.
+        v: Histogram builder over a skewed column
+      - t: Estimating filter selectivity
+        l: I
+        d: Equality, range, and conjunction estimates from histograms and distinct counts.
+      - t: Estimating join cardinality
+        l: A
+        d: Key-based estimation, the containment assumption, and error propagation through join trees.
+        v: Estimate error compounding up a join tree
+      - t: Independence and correlation
+        l: A
+        d: The independence assumption, correlated columns, and multi-column statistics.
+      - t: Sketches as statistics
+        l: A
+        d: HyperLogLog and other sketches for distinct counts and frequencies in statistics collection.
+      - t: Cost models
+        l: A
+        d: CPU, I/O and network components, calibration, and why relative cost matters more than absolute.
+      - t: Join enumeration with dynamic programming
+        l: A
+        d: System R style enumeration of left-deep plans and interesting orders.
+        v: DP table filling for a four-table join
+      - t: DPccp and DPhyp
+        l: E
+        d: Enumerating connected subgraphs and complements efficiently, and hypergraphs for complex predicates.
+      - t: Greedy and heuristic join ordering
+        l: A
+        d: Heuristics for large join counts, and how engines switch strategies by query size.
+      - t: The Cascades framework
+        l: E
+        d: Memo, groups, expressions, transformation and implementation rules, and top-down search.
+        v: Memo groups filling as rules fire
+      - t: Physical properties
+        l: A
+        d: Sort order and partitioning as required and provided properties, and enforcers.
+      - t: Choosing join algorithms and distribution
+        l: A
+        d: Hash vs merge vs nested loop, broadcast vs shuffle, and the costs that drive the choice.
+      - t: Why cardinality estimates are wrong
+        l: A
+        d: What benchmarks of real optimizers found about estimation error, and the practical consequences.
+      - t: Learned and feedback-driven optimization
+        l: E
+        d: Using execution feedback and learned models to improve estimates and plan choice, with honest limitations.
+      - t: "Lab: a dynamic programming join enumerator"
+        l: A
+        d: Implement DP join ordering with a simple cost model and compare with a greedy heuristic.
+
+  - id: "14"
+    slug: adaptive-execution
+    title: Adaptive and runtime optimization
+    goal: Correct bad plans and exploit runtime knowledge while the query runs.
+    prereqs: ["13"]
+    outcomes:
+      - Explain Spark AQE features and their triggers
+      - Design runtime filters that prune storage
+      - Evaluate adaptive features with sound benchmarks
+    articles:
+      - t: The case for adapting at runtime
+        l: I
+        d: Estimates are wrong, runtime facts are exact, and the points in a query where it is safe to change course.
+      - t: Adaptive Query Execution in Spark
+        l: I
+        d: Re-planning at stage boundaries using shuffle statistics.
+        v: Plan changing between stages
+      - t: Coalescing shuffle partitions
+        l: I
+        d: Merging small post-shuffle partitions to avoid task overhead.
+      - t: Handling skewed joins at runtime
+        l: A
+        d: Detecting skewed partitions and splitting them.
+      - t: Switching join strategies at runtime
+        l: A
+        d: Converting sort-merge joins to broadcast joins when one side turns out small.
+      - t: Runtime filters
+        l: I
+        d: Building a filter from the join build side and applying it to the probe side before the join.
+        v: Build side producing a filter that flows to the probe scan
+      - t: "Runtime filter types: min/max, IN-list and bloom"
+        l: A
+        d: Building, sizing and choosing each type, and their costs.
+      - t: Pushing runtime filters into storage
+        l: A
+        d: Using runtime filters for file, row-group and page pruning, not just row filtering.
+      - t: Dynamic partition pruning
+        l: I
+        d: Pruning fact-table partitions using dimension filters at runtime.
+      - t: Adaptive aggregation
+        l: A
+        d: Changing aggregation strategy based on observed reduction.
+      - t: Re-optimizing mid-query
+        l: E
+        d: Checkpoints for re-planning, materialization points, and research systems that re-optimize.
+      - t: Evaluating adaptive features honestly
+        l: A
+        d: Designing benchmarks that show when adaptive features help and when they cost more than they save.

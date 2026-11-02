@@ -1,0 +1,186 @@
+---
+// Body of a planned (not yet written) article: what it will cover and where it sits.
+import LevelMeter from './LevelMeter.astro';
+import { moduleById, partOf, url } from '../lib/site';
+
+interface Props {
+  module: string;
+  slug: string;
+}
+const m = moduleById(Astro.props.module);
+const part = partOf(m);
+const a = m.articles.find((x) => x.slug === Astro.props.slug);
+if (!a) throw new Error(`Article ${Astro.props.slug} not found in module ${m.id}`);
+const prereqs = m.prereqs.map(moduleById);
+const neighbours = m.articles;
+---
+
+<div class="plan not-content" style={`--part: ${part.color}`}>
+  <div class="where">
+    <a href={url(`${m.slug}/`)} class="module-link">
+      <span class="part">Part {part.id}, {part.title}</span>
+      <span class="module">Module {m.id}: {m.title}</span>
+    </a>
+    <LevelMeter level={a.level} />
+  </div>
+
+  <p class="status">
+    This article is planned and not written yet. Below is what it will cover.
+  </p>
+
+  <dl class="facts">
+    <div>
+      <dt>Scope</dt>
+      <dd>{a.scope}</dd>
+    </div>
+    {
+      a.visual && (
+        <div>
+          <dt>Planned visual</dt>
+          <dd>{a.visual}</dd>
+        </div>
+      )
+    }
+    <div>
+      <dt>Module goal</dt>
+      <dd>{m.goal}</dd>
+    </div>
+    {
+      prereqs.length > 0 && (
+        <div>
+          <dt>Read first</dt>
+          <dd>
+            <ul class="inline">
+              {prereqs.map((p) => (
+                <li>
+                  <a href={url(`${p.slug}/`)}>
+                    {p.id} {p.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </dd>
+        </div>
+      )
+    }
+  </dl>
+
+  <details class="sequence">
+    <summary>Article {a.index} of {neighbours.length} in this module</summary>
+    <ol>
+      {
+        neighbours.map((n) => (
+          <li class:list={{ current: n.slug === a.slug, planned: n.status === 'planned' }}>
+            {n.slug === a.slug ? <span>{n.title}</span> : <a href={url(n.path + '/')}>{n.title}</a>}
+          </li>
+        ))
+      }
+    </ol>
+  </details>
+</div>
+
+<style>
+  .plan {
+    border-left: 3px solid var(--part);
+    padding: 0.25rem 0 0.25rem 1.25rem;
+    display: grid;
+    gap: 1.25rem;
+  }
+  .where {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+  }
+  .module-link {
+    display: grid;
+    text-decoration: none;
+    font-family: var(--sl-font);
+  }
+  .module-link .part {
+    color: var(--part);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .module-link .module {
+    color: var(--sl-color-white);
+    font-weight: 600;
+  }
+  .module-link:hover .module {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .status {
+    margin: 0;
+    font-family: var(--qe-font-prose);
+    font-style: italic;
+    color: var(--sl-color-gray-2);
+  }
+  .facts {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+  }
+  .facts div {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: 1rem;
+  }
+  dt {
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-3);
+    padding-top: 0.15rem;
+  }
+  dd {
+    margin: 0;
+    font-family: var(--qe-font-prose);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--sl-color-white);
+    max-width: 62ch;
+  }
+  dd a,
+  .sequence a {
+    color: var(--sl-color-accent-high);
+    text-underline-offset: 3px;
+  }
+  ul.inline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    font-family: var(--sl-font);
+    font-size: 0.9375rem;
+  }
+  .sequence summary {
+    cursor: pointer;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-2);
+  }
+  .sequence ol {
+    margin: 0.75rem 0 0;
+    padding-left: 1.75rem;
+    font-family: var(--sl-font);
+    font-size: 0.9375rem;
+    line-height: 1.75;
+  }
+  .sequence li.current {
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .sequence li.planned a {
+    color: var(--sl-color-gray-2);
+  }
+  @media (max-width: 40rem) {
+    .facts div {
+      grid-template-columns: 1fr;
+      gap: 0.25rem;
+    }
+  }
+</style>

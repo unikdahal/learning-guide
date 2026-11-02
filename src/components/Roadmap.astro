@@ -1,0 +1,344 @@
+---
+// The full curriculum: Parts as colored rails, modules along them, and a filterable index of every article.
+import LevelSpread from './LevelSpread.astro';
+import LevelMeter from './LevelMeter.astro';
+import { data, moduleById, url, LEVELS, allArticles, type LevelKey } from '../lib/site';
+
+const articles = allArticles();
+const levelKeys = Object.keys(LEVELS) as LevelKey[];
+---
+
+<div class="roadmap not-content">
+  <ol class="parts">
+    {
+      data.parts.map((p) => {
+        const mods = p.modules.map(moduleById);
+        const count = mods.reduce((n, m) => n + m.articles.length, 0);
+        return (
+          <li class="part" style={`--part:${p.color}`}>
+            <div class="part-head">
+              <h2>
+                <span class="pnum">Part {p.id}</span> {p.title}
+              </h2>
+              <p>{p.summary}</p>
+              <span class="count">
+                {mods.length} modules, {count} articles
+              </span>
+            </div>
+            <ol class="modules">
+              {mods.map((m) => (
+                <li>
+                  <a href={url(`${m.slug}/`)}>
+                    <span class="mnum">{m.id}</span>
+                    <span class="mtitle">{m.title}</span>
+                    <span class="mmeta">
+                      <span>{m.articles.length}</span>
+                      <LevelSpread articles={m.articles} />
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </li>
+        );
+      })
+    }
+  </ol>
+
+  <section class="index" aria-labelledby="index-title">
+    <h2 id="index-title">Find an article</h2>
+    <div class="controls">
+      <label class="search">
+        <span class="sr-only">Search articles</span>
+        <input type="search" placeholder="Search titles and scope, e.g. bloom, spill, Iceberg" data-q />
+      </label>
+      <fieldset class="levels">
+        <legend class="sr-only">Levels</legend>
+        {
+          levelKeys.map((k) => (
+            <label>
+              <input type="checkbox" value={k} checked data-level-toggle />
+              <LevelMeter level={k} />
+            </label>
+          ))
+        }
+      </fieldset>
+    </div>
+    <p class="result-count">
+      <span aria-live="polite" data-count>Search or change the levels to list matching articles.</span>
+      <button type="button" class="show-all" data-show-all>Show all {articles.length}</button>
+    </p>
+    <ul class="results" data-results hidden>
+      {
+        articles.map((a) => (
+          <li
+            data-level={a.level}
+            data-text={`${a.title} ${a.scope} ${a.module.title}`.toLowerCase()}
+            style={`--part:${a.part.color}`}
+          >
+            <a href={url(a.path + '/')}>
+              <span class="rmod">{a.module.id}</span>
+              <span class="rtitle">{a.title}</span>
+              <LevelMeter level={a.level} showLabel={false} />
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</div>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('.roadmap')) {
+    const q = root.querySelector<HTMLInputElement>('[data-q]')!;
+    const toggles = [...root.querySelectorAll<HTMLInputElement>('[data-level-toggle]')];
+    const items = [...root.querySelectorAll<HTMLElement>('[data-results] > li')];
+    const count = root.querySelector<HTMLElement>('[data-count]')!;
+    const list = root.querySelector<HTMLElement>('[data-results]')!;
+    let showAll = false;
+    const showAllBtn = root.querySelector<HTMLButtonElement>('[data-show-all]')!;
+    showAllBtn.addEventListener('click', () => {
+      showAll = true;
+      apply();
+    });
+    const apply = () => {
+      const filtering = q.value.trim() !== '' || toggles.some((t) => !t.checked);
+      list.hidden = !(filtering || showAll);
+      showAllBtn.hidden = !list.hidden;
+      if (list.hidden) {
+        count.textContent = 'Search or change the levels to list matching articles.';
+        return;
+      }
+      const terms = q.value.toLowerCase().split(/\s+/).filter(Boolean);
+      const levels = new Set(toggles.filter((t) => t.checked).map((t) => t.value));
+      let shown = 0;
+      for (const li of items) {
+        const text = li.dataset.text ?? '';
+        const ok = levels.has(li.dataset.level ?? '') && terms.every((t) => text.includes(t));
+        li.hidden = !ok;
+        if (ok) shown++;
+      }
+      count.textContent = shown === 1 ? '1 article' : `${shown} articles`;
+    };
+    q.addEventListener('input', apply);
+    toggles.forEach((t) => t.addEventListener('change', apply));
+  }
+</script>
+
+<style>
+  .roadmap {
+    display: grid;
+    gap: 4rem;
+  }
+  .parts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2.75rem;
+  }
+  .part {
+    display: grid;
+    grid-template-columns: minmax(12rem, 18rem) 1fr;
+    gap: 1.5rem 2.5rem;
+    border-top: 3px solid var(--part);
+    padding-top: 1.25rem;
+  }
+  .part-head h2 {
+    margin: 0;
+    font-family: var(--sl-font);
+    font-size: 1.5rem;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: var(--sl-color-white);
+  }
+  .pnum {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--part);
+    margin-bottom: 0.25rem;
+  }
+  .part-head p {
+    margin: 0.6rem 0 0.75rem;
+    font-family: var(--qe-font-prose);
+    color: var(--sl-color-gray-2);
+    line-height: 1.55;
+  }
+  .count {
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+  .modules {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+  }
+  .modules a {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    text-decoration: none;
+    font-family: var(--sl-font);
+  }
+  .modules li:first-child a {
+    padding-top: 0.1rem;
+  }
+  .mnum {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--part);
+  }
+  .mtitle {
+    color: var(--sl-color-white);
+    font-weight: 600;
+    font-size: 1.0625rem;
+  }
+  .modules a:hover .mtitle {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .mmeta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .index h2 {
+    font-family: var(--sl-font);
+    font-size: 1.5rem;
+    margin: 0 0 1rem;
+    color: var(--sl-color-white);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    align-items: center;
+  }
+  .search {
+    flex: 1 1 18rem;
+  }
+  .search input {
+    width: 100%;
+    font: inherit;
+    font-family: var(--sl-font);
+    font-size: 1rem;
+    padding: 0.6rem 0.85rem;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .search input:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 1px;
+  }
+  .levels {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .levels label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .levels label:has(input:checked) {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+  }
+  .levels label:has(input:focus-visible) {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .levels input {
+    accent-color: var(--sl-color-accent);
+    margin: 0;
+  }
+  .result-count {
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-3);
+    margin: 1rem 0 0.5rem;
+  }
+  .show-all {
+    font: inherit;
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .show-all:hover {
+    border-color: var(--sl-color-accent);
+  }
+  .results[hidden] {
+    display: none;
+  }
+  .results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    columns: 2 22rem;
+    column-gap: 2.5rem;
+  }
+  .results li {
+    break-inside: avoid;
+  }
+  .results a {
+    display: grid;
+    grid-template-columns: 2rem 1fr auto;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.4rem 0;
+    text-decoration: none;
+    font-family: var(--sl-font);
+    font-size: 0.9375rem;
+    border-bottom: 1px solid var(--sl-color-gray-6);
+  }
+  .rmod {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--part);
+    font-size: 0.8125rem;
+  }
+  .rtitle {
+    color: var(--sl-color-gray-1);
+  }
+  .results a:hover .rtitle {
+    color: var(--sl-color-white);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  @media (max-width: 50rem) {
+    .part {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

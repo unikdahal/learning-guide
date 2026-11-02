@@ -1,0 +1,3725 @@
+{
+  "articleCount": 324,
+  "parts": [
+    {
+      "id": 1,
+      "slug": "foundations",
+      "title": "Foundations",
+      "color": "#2F6FB0",
+      "summary": "What a query means, the hardware it runs on, and how data is laid out in memory and on disk.",
+      "modules": [
+        "00",
+        "01",
+        "02",
+        "03"
+      ]
+    },
+    {
+      "id": 2,
+      "slug": "single-node-execution",
+      "title": "Single-node execution",
+      "color": "#0E7C72",
+      "summary": "How a plan becomes running operators on one machine, operator by operator.",
+      "modules": [
+        "04",
+        "05",
+        "06",
+        "07",
+        "08",
+        "09",
+        "10",
+        "11"
+      ]
+    },
+    {
+      "id": 3,
+      "slug": "optimization",
+      "title": "Optimization",
+      "color": "#7A4FB5",
+      "summary": "How engines rewrite plans, estimate costs and adapt while the query runs.",
+      "modules": [
+        "12",
+        "13",
+        "14"
+      ]
+    },
+    {
+      "id": 4,
+      "slug": "distributed-execution",
+      "title": "Distributed execution",
+      "color": "#B8443A",
+      "summary": "Splitting queries across machines, moving data between them and surviving failures.",
+      "modules": [
+        "15",
+        "16",
+        "17"
+      ]
+    },
+    {
+      "id": 5,
+      "slug": "lakehouse",
+      "title": "Lakehouse storage",
+      "color": "#3D8A3D",
+      "summary": "Table formats on object storage, and how engines use their metadata to read less.",
+      "modules": [
+        "18"
+      ]
+    },
+    {
+      "id": 6,
+      "slug": "case-studies",
+      "title": "Engine case studies",
+      "color": "#A86A12",
+      "summary": "Real engines taken apart, connecting every earlier concept to production designs.",
+      "modules": [
+        "19"
+      ]
+    },
+    {
+      "id": 7,
+      "slug": "build-and-measure",
+      "title": "Build and measure",
+      "color": "#6B7F8E",
+      "summary": "Build a working engine end to end, then learn to measure performance like a professional.",
+      "modules": [
+        "20",
+        "21"
+      ]
+    }
+  ],
+  "modules": {
+    "10": {
+      "id": "10",
+      "slug": "sorting-and-windows",
+      "title": "Sorting, top-K and window functions",
+      "goal": "Sort and compute window functions efficiently, in memory and beyond.",
+      "prereqs": [
+        "05",
+        "09"
+      ],
+      "outcomes": [
+        "Implement external merge sort with normalized keys",
+        "Compute top-K without a full sort",
+        "Execute window functions with segment trees"
+      ],
+      "part": 2,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Sorting in query engines",
+          "slug": "sorting-in-query-engines",
+          "level": "B",
+          "scope": "Where sorts appear in plans, multi-column keys, and NULL ordering.",
+          "visual": null,
+          "path": "sorting-and-windows/sorting-in-query-engines",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Comparison sorts vs radix sort",
+          "slug": "comparison-sorts-vs-radix-sort",
+          "level": "I",
+          "scope": "Quicksort, pdqsort and radix sort, and which wins for which key types.",
+          "visual": null,
+          "path": "sorting-and-windows/comparison-sorts-vs-radix-sort",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Normalized keys and row formats for sorting",
+          "slug": "normalized-keys-and-row-formats-for-sorting",
+          "level": "A",
+          "scope": "Encoding multi-column keys into byte-comparable strings so comparisons become memcmp.",
+          "visual": "Multi-column key encoded into one byte string",
+          "path": "sorting-and-windows/normalized-keys-and-row-formats-for-sorting",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "External merge sort",
+          "slug": "external-merge-sort",
+          "level": "I",
+          "scope": "Generating sorted runs, spilling them, and merging back.",
+          "visual": "Runs being written then merged",
+          "path": "sorting-and-windows/external-merge-sort",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "K-way merge with tournament trees",
+          "slug": "k-way-merge-with-tournament-trees",
+          "level": "A",
+          "scope": "Loser trees for merging many runs with fewer comparisons.",
+          "visual": null,
+          "path": "sorting-and-windows/k-way-merge-with-tournament-trees",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Top-K with heaps",
+          "slug": "top-k-with-heaps",
+          "level": "I",
+          "scope": "ORDER BY with LIMIT using a bounded heap instead of a full sort.",
+          "visual": "Bounded heap rejecting values",
+          "path": "sorting-and-windows/top-k-with-heaps",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Dynamic filters from top-K",
+          "slug": "dynamic-filters-from-top-k",
+          "level": "A",
+          "scope": "Pushing the current K-th value down to the scan to skip data that can't make the cut.",
+          "visual": null,
+          "path": "sorting-and-windows/dynamic-filters-from-top-k",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Parallel sorting and range partitioning",
+          "slug": "parallel-sorting-and-range-partitioning",
+          "level": "A",
+          "scope": "Sorting in parallel, sampling for splitters, and merging results.",
+          "visual": null,
+          "path": "sorting-and-windows/parallel-sorting-and-range-partitioning",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Executing window functions",
+          "slug": "executing-window-functions",
+          "level": "I",
+          "scope": "Partition, sort, then evaluate per row, and how engines share the sort with ORDER BY.",
+          "visual": null,
+          "path": "sorting-and-windows/executing-window-functions",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Window frames: ROWS, RANGE and GROUPS",
+          "slug": "window-frames-rows-range-and-groups",
+          "level": "I",
+          "scope": "Frame semantics in detail, peers, and frame exclusion.",
+          "visual": "Frame slider over an ordered partition showing each mode",
+          "path": "sorting-and-windows/window-frames-rows-range-and-groups",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Segment trees for window aggregates",
+          "slug": "segment-trees-for-window-aggregates",
+          "level": "A",
+          "scope": "Computing arbitrary frame aggregates in logarithmic time per row.",
+          "visual": "Segment tree answering a range query",
+          "path": "sorting-and-windows/segment-trees-for-window-aggregates",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Ranking functions",
+          "slug": "ranking-functions",
+          "level": "B",
+          "scope": "ROW_NUMBER, RANK, DENSE_RANK, NTILE and PERCENT_RANK, and how they are computed in one pass.",
+          "visual": null,
+          "path": "sorting-and-windows/ranking-functions",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Navigation functions",
+          "slug": "navigation-functions",
+          "level": "B",
+          "scope": "LAG, LEAD, FIRST_VALUE, LAST_VALUE and NTH_VALUE, and their interaction with frames.",
+          "visual": null,
+          "path": "sorting-and-windows/navigation-functions",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Streaming vs batch windows",
+          "slug": "streaming-vs-batch-windows",
+          "level": "A",
+          "scope": "Running windows incrementally on unbounded input vs all-at-once on bounded input.",
+          "visual": null,
+          "path": "sorting-and-windows/streaming-vs-batch-windows",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Lab: external sort in Rust",
+          "slug": "lab-external-sort-in-rust",
+          "level": "A",
+          "scope": "Build an external merge sort over Arrow batches with a memory limit and normalized keys.",
+          "visual": null,
+          "path": "sorting-and-windows/lab-external-sort-in-rust",
+          "status": "planned"
+        }
+      ]
+    },
+    "11": {
+      "id": "11",
+      "slug": "memory-and-spilling",
+      "title": "Memory management and spilling",
+      "goal": "Keep queries within a memory budget without falling over.",
+      "prereqs": [
+        "08",
+        "09",
+        "10"
+      ],
+      "outcomes": [
+        "Design memory accounting for operators",
+        "Implement spilling for blocking operators",
+        "Diagnose out-of-memory failures"
+      ],
+      "part": 2,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Why engines manage their own memory",
+          "slug": "why-engines-manage-their-own-memory",
+          "level": "I",
+          "scope": "Predictability, isolation between queries, and the failure modes of relying on the allocator alone.",
+          "visual": null,
+          "path": "memory-and-spilling/why-engines-manage-their-own-memory",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Memory pools and reservations",
+          "slug": "memory-pools-and-reservations",
+          "level": "I",
+          "scope": "Reserving before allocating, pools per query, and DataFusion's memory pool as a worked example.",
+          "visual": "Operators reserving and releasing from a shared pool",
+          "path": "memory-and-spilling/memory-pools-and-reservations",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Accounting vs enforcement",
+          "slug": "accounting-vs-enforcement",
+          "level": "A",
+          "scope": "Tracking usage vs refusing allocations, estimation error, and untracked memory.",
+          "visual": null,
+          "path": "memory-and-spilling/accounting-vs-enforcement",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Memory-adaptive operators",
+          "slug": "memory-adaptive-operators",
+          "level": "A",
+          "scope": "Operators that change strategy when memory is short instead of failing.",
+          "visual": null,
+          "path": "memory-and-spilling/memory-adaptive-operators",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Spill file formats and I/O",
+          "slug": "spill-file-formats-and-i-o",
+          "level": "A",
+          "scope": "Arrow IPC for spill files, compression, and local disk throughput limits.",
+          "visual": null,
+          "path": "memory-and-spilling/spill-file-formats-and-i-o",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Spill policies",
+          "slug": "spill-policies",
+          "level": "A",
+          "scope": "Which operator spills, how much, and when, and fairness across operators.",
+          "visual": null,
+          "path": "memory-and-spilling/spill-policies",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Allocators",
+          "slug": "allocators",
+          "level": "A",
+          "scope": "jemalloc, mimalloc and arenas, fragmentation, and allocation patterns of query engines.",
+          "visual": null,
+          "path": "memory-and-spilling/allocators",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Buffer pools in disk-based systems",
+          "slug": "buffer-pools-in-disk-based-systems",
+          "level": "I",
+          "scope": "Page caching, eviction policies, and how disk-oriented databases manage memory.",
+          "visual": null,
+          "path": "memory-and-spilling/buffer-pools-in-disk-based-systems",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Off-heap memory in JVM engines",
+          "slug": "off-heap-memory-in-jvm-engines",
+          "level": "I",
+          "scope": "Why JVM engines like Spark keep data off-heap, Tungsten memory management, and the native memory boundary in hybrid engines.",
+          "visual": null,
+          "path": "memory-and-spilling/off-heap-memory-in-jvm-engines",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Out-of-memory failures in production",
+          "slug": "out-of-memory-failures-in-production",
+          "level": "A",
+          "scope": "Common OOM causes such as skew, unbounded state and estimation errors, and how to diagnose each.",
+          "visual": null,
+          "path": "memory-and-spilling/out-of-memory-failures-in-production",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Sharing memory across concurrent queries",
+          "slug": "sharing-memory-across-concurrent-queries",
+          "level": "A",
+          "scope": "Admission, per-query limits, and fair sharing.",
+          "visual": null,
+          "path": "memory-and-spilling/sharing-memory-across-concurrent-queries",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Lab: a memory-limited hash join with spilling",
+          "slug": "lab-a-memory-limited-hash-join-with-spilling",
+          "level": "E",
+          "scope": "Extend the lab hash join to respect a memory limit, spill partitions and finish correctly.",
+          "visual": null,
+          "path": "memory-and-spilling/lab-a-memory-limited-hash-join-with-spilling",
+          "status": "planned"
+        }
+      ]
+    },
+    "12": {
+      "id": "12",
+      "slug": "logical-optimization",
+      "title": "Logical optimization",
+      "goal": "Rewrite plans into cheaper equivalent plans with rules.",
+      "prereqs": [
+        "01",
+        "04"
+      ],
+      "outcomes": [
+        "Implement common rewrite rules and prove them valid",
+        "Explain rule ordering and fixpoint iteration",
+        "Write custom optimizer rules in DataFusion"
+      ],
+      "part": 3,
+      "articles": [
+        {
+          "index": 1,
+          "title": "What an optimizer is for",
+          "slug": "what-an-optimizer-is-for",
+          "level": "B",
+          "scope": "Search over equivalent plans, why the gap between a good and bad plan can be enormous, and the parts of an optimizer.",
+          "visual": "Two equivalent plans with wildly different row counts per node",
+          "path": "logical-optimization/what-an-optimizer-is-for",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Rule-based rewriting",
+          "slug": "rule-based-rewriting",
+          "level": "I",
+          "scope": "Pattern matching on plan trees, transformation rules, and tree rewriting frameworks.",
+          "visual": null,
+          "path": "logical-optimization/rule-based-rewriting",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Pushing predicates through joins",
+          "slug": "pushing-predicates-through-joins",
+          "level": "I",
+          "scope": "Which predicates can move past inner and outer joins, and the outer-join cases where they can't.",
+          "visual": "Predicate moving through a join tree, blocked at an outer join",
+          "path": "logical-optimization/pushing-predicates-through-joins",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Projection pruning",
+          "slug": "projection-pruning",
+          "level": "B",
+          "scope": "Removing unused columns throughout the plan.",
+          "visual": null,
+          "path": "logical-optimization/projection-pruning",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Simplifying expressions in plans",
+          "slug": "simplifying-expressions-in-plans",
+          "level": "I",
+          "scope": "Constant folding, boolean simplification, and removing always-true filters.",
+          "visual": null,
+          "path": "logical-optimization/simplifying-expressions-in-plans",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Simplifying outer joins",
+          "slug": "simplifying-outer-joins",
+          "level": "A",
+          "scope": "Converting outer joins to inner joins when null-rejecting predicates allow it.",
+          "visual": null,
+          "path": "logical-optimization/simplifying-outer-joins",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Join elimination",
+          "slug": "join-elimination",
+          "level": "A",
+          "scope": "Removing joins using foreign keys and uniqueness.",
+          "visual": null,
+          "path": "logical-optimization/join-elimination",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Unnesting subqueries in the optimizer",
+          "slug": "unnesting-subqueries-in-the-optimizer",
+          "level": "A",
+          "scope": "Rule-based decorrelation patterns and their limits.",
+          "visual": null,
+          "path": "logical-optimization/unnesting-subqueries-in-the-optimizer",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "CTEs: inline or materialize",
+          "slug": "ctes-inline-or-materialize",
+          "level": "A",
+          "scope": "When to inline a CTE and when to compute it once and reuse it.",
+          "visual": null,
+          "path": "logical-optimization/ctes-inline-or-materialize",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Inferring filters and transitive predicates",
+          "slug": "inferring-filters-and-transitive-predicates",
+          "level": "A",
+          "scope": "Deriving new predicates from equalities, such as copying a filter across a join key.",
+          "visual": null,
+          "path": "logical-optimization/inferring-filters-and-transitive-predicates",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Pushing down limits and top-K",
+          "slug": "pushing-down-limits-and-top-k",
+          "level": "I",
+          "scope": "Moving LIMIT through projections, unions and outer joins.",
+          "visual": null,
+          "path": "logical-optimization/pushing-down-limits-and-top-k",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Eager aggregation",
+          "slug": "eager-aggregation",
+          "level": "A",
+          "scope": "Moving aggregations below joins, validity conditions, and cost trade-offs.",
+          "visual": null,
+          "path": "logical-optimization/eager-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Rule ordering and fixpoints",
+          "slug": "rule-ordering-and-fixpoints",
+          "level": "A",
+          "scope": "Batches of rules, repeated application, termination and rules that undo each other.",
+          "visual": null,
+          "path": "logical-optimization/rule-ordering-and-fixpoints",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Lab: writing optimizer rules in DataFusion",
+          "slug": "lab-writing-optimizer-rules-in-datafusion",
+          "level": "I",
+          "scope": "Implement and test custom logical optimizer rules against DataFusion plans.",
+          "visual": null,
+          "path": "logical-optimization/lab-writing-optimizer-rules-in-datafusion",
+          "status": "planned"
+        }
+      ]
+    },
+    "13": {
+      "id": "13",
+      "slug": "cost-based-optimization",
+      "title": "Cost-based optimization",
+      "goal": "Estimate cost and pick the cheapest plan, knowing where estimates break.",
+      "prereqs": [
+        "08",
+        "12"
+      ],
+      "outcomes": [
+        "Estimate cardinalities using statistics",
+        "Implement dynamic programming join enumeration",
+        "Explain the Cascades framework"
+      ],
+      "part": 3,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Why costs matter",
+          "slug": "why-costs-matter",
+          "level": "B",
+          "scope": "When rules aren't enough, and choosing among alternatives using estimated cost.",
+          "visual": null,
+          "path": "cost-based-optimization/why-costs-matter",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Statistics: row counts, NDV and histograms",
+          "slug": "statistics-row-counts-ndv-and-histograms",
+          "level": "I",
+          "scope": "What engines collect, how, and how stale statistics hurt.",
+          "visual": "Histogram builder over a skewed column",
+          "path": "cost-based-optimization/statistics-row-counts-ndv-and-histograms",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Estimating filter selectivity",
+          "slug": "estimating-filter-selectivity",
+          "level": "I",
+          "scope": "Equality, range, and conjunction estimates from histograms and distinct counts.",
+          "visual": null,
+          "path": "cost-based-optimization/estimating-filter-selectivity",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Estimating join cardinality",
+          "slug": "estimating-join-cardinality",
+          "level": "A",
+          "scope": "Key-based estimation, the containment assumption, and error propagation through join trees.",
+          "visual": "Estimate error compounding up a join tree",
+          "path": "cost-based-optimization/estimating-join-cardinality",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Independence and correlation",
+          "slug": "independence-and-correlation",
+          "level": "A",
+          "scope": "The independence assumption, correlated columns, and multi-column statistics.",
+          "visual": null,
+          "path": "cost-based-optimization/independence-and-correlation",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Sketches as statistics",
+          "slug": "sketches-as-statistics",
+          "level": "A",
+          "scope": "HyperLogLog and other sketches for distinct counts and frequencies in statistics collection.",
+          "visual": null,
+          "path": "cost-based-optimization/sketches-as-statistics",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Cost models",
+          "slug": "cost-models",
+          "level": "A",
+          "scope": "CPU, I/O and network components, calibration, and why relative cost matters more than absolute.",
+          "visual": null,
+          "path": "cost-based-optimization/cost-models",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Join enumeration with dynamic programming",
+          "slug": "join-enumeration-with-dynamic-programming",
+          "level": "A",
+          "scope": "System R style enumeration of left-deep plans and interesting orders.",
+          "visual": "DP table filling for a four-table join",
+          "path": "cost-based-optimization/join-enumeration-with-dynamic-programming",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "DPccp and DPhyp",
+          "slug": "dpccp-and-dphyp",
+          "level": "E",
+          "scope": "Enumerating connected subgraphs and complements efficiently, and hypergraphs for complex predicates.",
+          "visual": null,
+          "path": "cost-based-optimization/dpccp-and-dphyp",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Greedy and heuristic join ordering",
+          "slug": "greedy-and-heuristic-join-ordering",
+          "level": "A",
+          "scope": "Heuristics for large join counts, and how engines switch strategies by query size.",
+          "visual": null,
+          "path": "cost-based-optimization/greedy-and-heuristic-join-ordering",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "The Cascades framework",
+          "slug": "the-cascades-framework",
+          "level": "E",
+          "scope": "Memo, groups, expressions, transformation and implementation rules, and top-down search.",
+          "visual": "Memo groups filling as rules fire",
+          "path": "cost-based-optimization/the-cascades-framework",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Physical properties",
+          "slug": "physical-properties",
+          "level": "A",
+          "scope": "Sort order and partitioning as required and provided properties, and enforcers.",
+          "visual": null,
+          "path": "cost-based-optimization/physical-properties",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Choosing join algorithms and distribution",
+          "slug": "choosing-join-algorithms-and-distribution",
+          "level": "A",
+          "scope": "Hash vs merge vs nested loop, broadcast vs shuffle, and the costs that drive the choice.",
+          "visual": null,
+          "path": "cost-based-optimization/choosing-join-algorithms-and-distribution",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Why cardinality estimates are wrong",
+          "slug": "why-cardinality-estimates-are-wrong",
+          "level": "A",
+          "scope": "What benchmarks of real optimizers found about estimation error, and the practical consequences.",
+          "visual": null,
+          "path": "cost-based-optimization/why-cardinality-estimates-are-wrong",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Learned and feedback-driven optimization",
+          "slug": "learned-and-feedback-driven-optimization",
+          "level": "E",
+          "scope": "Using execution feedback and learned models to improve estimates and plan choice, with honest limitations.",
+          "visual": null,
+          "path": "cost-based-optimization/learned-and-feedback-driven-optimization",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Lab: a dynamic programming join enumerator",
+          "slug": "lab-a-dynamic-programming-join-enumerator",
+          "level": "A",
+          "scope": "Implement DP join ordering with a simple cost model and compare with a greedy heuristic.",
+          "visual": null,
+          "path": "cost-based-optimization/lab-a-dynamic-programming-join-enumerator",
+          "status": "planned"
+        }
+      ]
+    },
+    "14": {
+      "id": "14",
+      "slug": "adaptive-execution",
+      "title": "Adaptive and runtime optimization",
+      "goal": "Correct bad plans and exploit runtime knowledge while the query runs.",
+      "prereqs": [
+        "13"
+      ],
+      "outcomes": [
+        "Explain Spark AQE features and their triggers",
+        "Design runtime filters that prune storage",
+        "Evaluate adaptive features with sound benchmarks"
+      ],
+      "part": 3,
+      "articles": [
+        {
+          "index": 1,
+          "title": "The case for adapting at runtime",
+          "slug": "the-case-for-adapting-at-runtime",
+          "level": "I",
+          "scope": "Estimates are wrong, runtime facts are exact, and the points in a query where it is safe to change course.",
+          "visual": null,
+          "path": "adaptive-execution/the-case-for-adapting-at-runtime",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Adaptive Query Execution in Spark",
+          "slug": "adaptive-query-execution-in-spark",
+          "level": "I",
+          "scope": "Re-planning at stage boundaries using shuffle statistics.",
+          "visual": "Plan changing between stages",
+          "path": "adaptive-execution/adaptive-query-execution-in-spark",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Coalescing shuffle partitions",
+          "slug": "coalescing-shuffle-partitions",
+          "level": "I",
+          "scope": "Merging small post-shuffle partitions to avoid task overhead.",
+          "visual": null,
+          "path": "adaptive-execution/coalescing-shuffle-partitions",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Handling skewed joins at runtime",
+          "slug": "handling-skewed-joins-at-runtime",
+          "level": "A",
+          "scope": "Detecting skewed partitions and splitting them.",
+          "visual": null,
+          "path": "adaptive-execution/handling-skewed-joins-at-runtime",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Switching join strategies at runtime",
+          "slug": "switching-join-strategies-at-runtime",
+          "level": "A",
+          "scope": "Converting sort-merge joins to broadcast joins when one side turns out small.",
+          "visual": null,
+          "path": "adaptive-execution/switching-join-strategies-at-runtime",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Runtime filters",
+          "slug": "runtime-filters",
+          "level": "I",
+          "scope": "Building a filter from the join build side and applying it to the probe side before the join.",
+          "visual": "Build side producing a filter that flows to the probe scan",
+          "path": "adaptive-execution/runtime-filters",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Runtime filter types: min/max, IN-list and bloom",
+          "slug": "runtime-filter-types-min-max-in-list-and-bloom",
+          "level": "A",
+          "scope": "Building, sizing and choosing each type, and their costs.",
+          "visual": null,
+          "path": "adaptive-execution/runtime-filter-types-min-max-in-list-and-bloom",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Pushing runtime filters into storage",
+          "slug": "pushing-runtime-filters-into-storage",
+          "level": "A",
+          "scope": "Using runtime filters for file, row-group and page pruning, not just row filtering.",
+          "visual": null,
+          "path": "adaptive-execution/pushing-runtime-filters-into-storage",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Dynamic partition pruning",
+          "slug": "dynamic-partition-pruning",
+          "level": "I",
+          "scope": "Pruning fact-table partitions using dimension filters at runtime.",
+          "visual": null,
+          "path": "adaptive-execution/dynamic-partition-pruning",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Adaptive aggregation",
+          "slug": "adaptive-aggregation",
+          "level": "A",
+          "scope": "Changing aggregation strategy based on observed reduction.",
+          "visual": null,
+          "path": "adaptive-execution/adaptive-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Re-optimizing mid-query",
+          "slug": "re-optimizing-mid-query",
+          "level": "E",
+          "scope": "Checkpoints for re-planning, materialization points, and research systems that re-optimize.",
+          "visual": null,
+          "path": "adaptive-execution/re-optimizing-mid-query",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Evaluating adaptive features honestly",
+          "slug": "evaluating-adaptive-features-honestly",
+          "level": "A",
+          "scope": "Designing benchmarks that show when adaptive features help and when they cost more than they save.",
+          "visual": null,
+          "path": "adaptive-execution/evaluating-adaptive-features-honestly",
+          "status": "planned"
+        }
+      ]
+    },
+    "15": {
+      "id": "15",
+      "slug": "shuffle-and-exchange",
+      "title": "Partitioning, exchange and shuffle",
+      "goal": "Understand how data moves between machines during a query, the dominant cost in distributed execution.",
+      "prereqs": [
+        "02",
+        "05"
+      ],
+      "outcomes": [
+        "Split a plan into stages at exchange boundaries",
+        "Compare hash, sort, push-based and remote shuffle designs",
+        "Choose blocking, pipelined or materialized exchange for a query shape"
+      ],
+      "part": 4,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Why distribute a query",
+          "slug": "why-distribute-a-query",
+          "level": "B",
+          "scope": "Data that doesn't fit, compute that isn't enough, and the coordination costs you pay instead.",
+          "visual": null,
+          "path": "shuffle-and-exchange/why-distribute-a-query",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Shared-nothing, shared-disk and disaggregated storage",
+          "slug": "shared-nothing-shared-disk-and-disaggregated-storage",
+          "level": "B",
+          "scope": "Architectures for distributed databases and why the cloud moved most engines to disaggregated storage.",
+          "visual": "Three architecture diagrams side by side",
+          "path": "shuffle-and-exchange/shared-nothing-shared-disk-and-disaggregated-storage",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Partitioning schemes: hash, range and round-robin",
+          "slug": "partitioning-schemes-hash-range-and-round-robin",
+          "level": "B",
+          "scope": "How rows are assigned to partitions and what each scheme guarantees downstream.",
+          "visual": "Rows routed to partitions by each scheme",
+          "path": "shuffle-and-exchange/partitioning-schemes-hash-range-and-round-robin",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Stages and the exchange operator",
+          "slug": "stages-and-the-exchange-operator",
+          "level": "I",
+          "scope": "Where plans split into stages, and the exchange operator as the boundary.",
+          "visual": "Plan cut into stages at exchanges",
+          "path": "shuffle-and-exchange/stages-and-the-exchange-operator",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Shuffle: the core mechanism",
+          "slug": "shuffle-the-core-mechanism",
+          "level": "I",
+          "scope": "Map-side partitioning, writing outputs, reduce-side fetching, the many-to-many data movement.",
+          "visual": "Mappers sending partitions to reducers",
+          "path": "shuffle-and-exchange/shuffle-the-core-mechanism",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Hash shuffle vs sort shuffle",
+          "slug": "hash-shuffle-vs-sort-shuffle",
+          "level": "I",
+          "scope": "File-per-partition vs sorted single-file outputs, and why Spark moved to sort-based shuffle.",
+          "visual": null,
+          "path": "shuffle-and-exchange/hash-shuffle-vs-sort-shuffle",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Shuffle file layout and indexes",
+          "slug": "shuffle-file-layout-and-indexes",
+          "level": "A",
+          "scope": "Data and index files, fetch granularity, and the small-file problem at scale.",
+          "visual": null,
+          "path": "shuffle-and-exchange/shuffle-file-layout-and-indexes",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Push-based shuffle",
+          "slug": "push-based-shuffle",
+          "level": "A",
+          "scope": "Mappers pushing blocks to merge locations, as in Spark's Magnet, and what it fixes.",
+          "visual": null,
+          "path": "shuffle-and-exchange/push-based-shuffle",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Remote shuffle services",
+          "slug": "remote-shuffle-services",
+          "level": "A",
+          "scope": "Celeborn and Uniffle, decoupling shuffle from executors, and the trade-offs.",
+          "visual": null,
+          "path": "shuffle-and-exchange/remote-shuffle-services",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Pipelined, blocking and materialized exchange",
+          "slug": "pipelined-blocking-and-materialized-exchange",
+          "level": "A",
+          "scope": "Streaming between stages vs writing everything first, fault tolerance vs latency.",
+          "visual": "Timeline comparing the three exchange modes",
+          "path": "shuffle-and-exchange/pipelined-blocking-and-materialized-exchange",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Backpressure and flow control",
+          "slug": "backpressure-and-flow-control",
+          "level": "A",
+          "scope": "Keeping fast producers from overwhelming slow consumers in pipelined exchanges.",
+          "visual": null,
+          "path": "shuffle-and-exchange/backpressure-and-flow-control",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Broadcast exchange",
+          "slug": "broadcast-exchange",
+          "level": "I",
+          "scope": "Sending a small input to every worker, and its memory and network costs.",
+          "visual": null,
+          "path": "shuffle-and-exchange/broadcast-exchange",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Serialization over the wire",
+          "slug": "serialization-over-the-wire",
+          "level": "I",
+          "scope": "Arrow IPC, Flight and engine-specific formats, and serialization cost in shuffles.",
+          "visual": null,
+          "path": "shuffle-and-exchange/serialization-over-the-wire",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Compression in shuffle",
+          "slug": "compression-in-shuffle",
+          "level": "I",
+          "scope": "When compression saves time vs spends it, by network and CPU balance.",
+          "visual": null,
+          "path": "shuffle-and-exchange/compression-in-shuffle",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "The cost model of a shuffle",
+          "slug": "the-cost-model-of-a-shuffle",
+          "level": "A",
+          "scope": "Bytes, connections, files and disk, and where real shuffles bottleneck.",
+          "visual": null,
+          "path": "shuffle-and-exchange/the-cost-model-of-a-shuffle",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Choosing an exchange strategy by query shape",
+          "slug": "choosing-an-exchange-strategy-by-query-shape",
+          "level": "E",
+          "scope": "Matching exchange mode to query shape, size and runtime conditions.",
+          "visual": null,
+          "path": "shuffle-and-exchange/choosing-an-exchange-strategy-by-query-shape",
+          "status": "planned"
+        },
+        {
+          "index": 17,
+          "title": "Exchange in MPP engines",
+          "slug": "exchange-in-mpp-engines",
+          "level": "A",
+          "scope": "How Trino and similar engines stream data between stages, and how this differs from batch engines.",
+          "visual": null,
+          "path": "shuffle-and-exchange/exchange-in-mpp-engines",
+          "status": "planned"
+        },
+        {
+          "index": 18,
+          "title": "Lab: a two-node shuffle over Arrow Flight",
+          "slug": "lab-a-two-node-shuffle-over-arrow-flight",
+          "level": "A",
+          "scope": "Build a hash-partitioned exchange between two processes using Arrow Flight, and measure throughput.",
+          "visual": null,
+          "path": "shuffle-and-exchange/lab-a-two-node-shuffle-over-arrow-flight",
+          "status": "planned"
+        }
+      ]
+    },
+    "16": {
+      "id": "16",
+      "slug": "distributed-joins-and-aggregation",
+      "title": "Distributed joins and aggregation",
+      "goal": "Run the heaviest operators across a cluster, including under skew.",
+      "prereqs": [
+        "08",
+        "09",
+        "15"
+      ],
+      "outcomes": [
+        "Choose between broadcast, shuffle and co-located joins",
+        "Mitigate skew in joins and aggregations",
+        "Implement distributed sort, top-K and windows"
+      ],
+      "part": 4,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Broadcast hash join",
+          "slug": "broadcast-hash-join",
+          "level": "I",
+          "scope": "Broadcasting the small side, size thresholds, and failure modes when estimates are wrong.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/broadcast-hash-join",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Shuffle hash join",
+          "slug": "shuffle-hash-join",
+          "level": "I",
+          "scope": "Co-partitioning both sides by join key and joining partition-wise.",
+          "visual": "Both sides shuffled into matching partitions",
+          "path": "distributed-joins-and-aggregation/shuffle-hash-join",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Shuffle sort-merge join",
+          "slug": "shuffle-sort-merge-join",
+          "level": "I",
+          "scope": "Shuffling then sorting partitions, and why it is the default for large joins in Spark.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/shuffle-sort-merge-join",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Co-located and bucketed joins",
+          "slug": "co-located-and-bucketed-joins",
+          "level": "A",
+          "scope": "Avoiding shuffles when data is already partitioned by the join key.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/co-located-and-bucketed-joins",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Storage-partitioned joins",
+          "slug": "storage-partitioned-joins",
+          "level": "A",
+          "scope": "Using table format partitioning, as in Iceberg, to avoid shuffles.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/storage-partitioned-joins",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Skew in distributed joins",
+          "slug": "skew-in-distributed-joins",
+          "level": "A",
+          "scope": "Hot keys, straggler tasks, and how to recognize skew in metrics.",
+          "visual": "Partition size bars with one hot partition",
+          "path": "distributed-joins-and-aggregation/skew-in-distributed-joins",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Salting and splitting skewed keys",
+          "slug": "salting-and-splitting-skewed-keys",
+          "level": "A",
+          "scope": "Manual and automatic techniques for spreading hot keys.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/salting-and-splitting-skewed-keys",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Distributed aggregation",
+          "slug": "distributed-aggregation",
+          "level": "I",
+          "scope": "Partial aggregation before the shuffle, final aggregation after.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/distributed-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Distributed distinct counts",
+          "slug": "distributed-distinct-counts",
+          "level": "A",
+          "scope": "Exact and approximate COUNT(DISTINCT) at scale, and multiple distinct aggregates.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/distributed-distinct-counts",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Distributed sort",
+          "slug": "distributed-sort",
+          "level": "A",
+          "scope": "Range partitioning with sampling, and global ordering of outputs.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/distributed-sort",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Distributed top-K and limit",
+          "slug": "distributed-top-k-and-limit",
+          "level": "I",
+          "scope": "Local top-K then global merge, and limit handling across partitions.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/distributed-top-k-and-limit",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Distributed window functions",
+          "slug": "distributed-window-functions",
+          "level": "A",
+          "scope": "Partitioning by window keys, and windows without partition keys.",
+          "visual": null,
+          "path": "distributed-joins-and-aggregation/distributed-window-functions",
+          "status": "planned"
+        }
+      ]
+    },
+    "17": {
+      "id": "17",
+      "slug": "scheduling-and-fault-tolerance",
+      "title": "Scheduling, fault tolerance and resources",
+      "goal": "Run distributed queries reliably on shared clusters.",
+      "prereqs": [
+        "15"
+      ],
+      "outcomes": [
+        "Explain DAG scheduling and task placement",
+        "Reason about recovery costs after failures",
+        "Describe multi-tenant resource management and query gateways"
+      ],
+      "part": 4,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Drivers, coordinators and workers",
+          "slug": "drivers-coordinators-and-workers",
+          "level": "B",
+          "scope": "Roles in distributed engines and what each process does.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/drivers-coordinators-and-workers",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "DAG scheduling of stages",
+          "slug": "dag-scheduling-of-stages",
+          "level": "I",
+          "scope": "Building the stage graph, scheduling ready stages, and stage dependencies.",
+          "visual": "Stage DAG executing over time",
+          "path": "scheduling-and-fault-tolerance/dag-scheduling-of-stages",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Task scheduling and locality",
+          "slug": "task-scheduling-and-locality",
+          "level": "I",
+          "scope": "Assigning tasks to executors, data locality, and delay scheduling.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/task-scheduling-and-locality",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Speculative execution",
+          "slug": "speculative-execution",
+          "level": "I",
+          "scope": "Launching backup copies of slow tasks, and when it helps or wastes resources.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/speculative-execution",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Fault tolerance through lineage",
+          "slug": "fault-tolerance-through-lineage",
+          "level": "I",
+          "scope": "Recomputing lost data from its inputs, the model behind Spark's RDDs.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/fault-tolerance-through-lineage",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Lost shuffle outputs and stage retries",
+          "slug": "lost-shuffle-outputs-and-stage-retries",
+          "level": "A",
+          "scope": "What happens when an executor holding shuffle files dies, and the cascade of recomputation.",
+          "visual": "Failure triggering recomputation of upstream stages",
+          "path": "scheduling-and-fault-tolerance/lost-shuffle-outputs-and-stage-retries",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Deterministic and nondeterministic stages",
+          "slug": "deterministic-and-nondeterministic-stages",
+          "level": "A",
+          "scope": "Why recomputation is only safe when outputs are deterministic, and the correctness bugs otherwise.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/deterministic-and-nondeterministic-stages",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Checkpointing and materialization for recovery",
+          "slug": "checkpointing-and-materialization-for-recovery",
+          "level": "A",
+          "scope": "Trading write cost for recovery cost.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/checkpointing-and-materialization-for-recovery",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Reusing shuffle outputs across attempts",
+          "slug": "reusing-shuffle-outputs-across-attempts",
+          "level": "E",
+          "scope": "Preserving completed, deterministic shuffle outputs so retries skip finished work, and the correctness conditions.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/reusing-shuffle-outputs-across-attempts",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Query-level vs task-level retry",
+          "slug": "query-level-vs-task-level-retry",
+          "level": "A",
+          "scope": "MPP engines restarting whole queries vs batch engines retrying tasks, and hybrid approaches such as fault-tolerant execution in Trino.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/query-level-vs-task-level-retry",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Resource managers: YARN and Kubernetes",
+          "slug": "resource-managers-yarn-and-kubernetes",
+          "level": "I",
+          "scope": "How engines obtain executors, and the Kubernetes model for Spark.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/resource-managers-yarn-and-kubernetes",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Dynamic allocation and autoscaling",
+          "slug": "dynamic-allocation-and-autoscaling",
+          "level": "A",
+          "scope": "Adding and removing executors during a job, and the shuffle data problem it creates.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/dynamic-allocation-and-autoscaling",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Multi-tenancy and admission control",
+          "slug": "multi-tenancy-and-admission-control",
+          "level": "A",
+          "scope": "Queues, quotas, admission policies, and isolating noisy neighbours.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/multi-tenancy-and-admission-control",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Query gateways and sessions",
+          "slug": "query-gateways-and-sessions",
+          "level": "I",
+          "scope": "Kyuubi, Thrift servers and Flight SQL, managing sessions and engines on behalf of clients.",
+          "visual": null,
+          "path": "scheduling-and-fault-tolerance/query-gateways-and-sessions",
+          "status": "planned"
+        }
+      ]
+    },
+    "18": {
+      "id": "18",
+      "slug": "table-formats",
+      "title": "Table formats and the lakehouse",
+      "goal": "Understand Iceberg, Delta and Hudi deeply enough to reason about read and write performance.",
+      "prereqs": [
+        "03",
+        "07"
+      ],
+      "outcomes": [
+        "Walk an Iceberg table's metadata tree by hand",
+        "Explain row-level delete strategies and their read cost",
+        "Plan table layout for effective pruning"
+      ],
+      "part": 5,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Why table formats exist",
+          "slug": "why-table-formats-exist",
+          "level": "B",
+          "scope": "Directories of files lack atomicity, schemas and statistics. What table formats add on top.",
+          "visual": null,
+          "path": "table-formats/why-table-formats-exist",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "The Apache Iceberg metadata tree",
+          "slug": "the-apache-iceberg-metadata-tree",
+          "level": "I",
+          "scope": "Metadata files, manifest lists, manifests and data files, and how a reader walks them.",
+          "visual": "Clickable metadata tree from table metadata down to data files",
+          "path": "table-formats/the-apache-iceberg-metadata-tree",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Snapshots and time travel",
+          "slug": "snapshots-and-time-travel",
+          "level": "I",
+          "scope": "Immutable snapshots, reading past versions, and snapshot expiry.",
+          "visual": null,
+          "path": "table-formats/snapshots-and-time-travel",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Manifest-level pruning",
+          "slug": "manifest-level-pruning",
+          "level": "I",
+          "scope": "Partition summaries and column statistics in manifests for skipping files before opening them.",
+          "visual": null,
+          "path": "table-formats/manifest-level-pruning",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Hidden partitioning and partition evolution",
+          "slug": "hidden-partitioning-and-partition-evolution",
+          "level": "I",
+          "scope": "Transforms such as day and bucket, and changing partitioning without rewriting data.",
+          "visual": null,
+          "path": "table-formats/hidden-partitioning-and-partition-evolution",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Schema evolution",
+          "slug": "schema-evolution",
+          "level": "I",
+          "scope": "Field IDs, adding, renaming and dropping columns safely.",
+          "visual": null,
+          "path": "table-formats/schema-evolution",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Row-level deletes: position and equality deletes",
+          "slug": "row-level-deletes-position-and-equality-deletes",
+          "level": "A",
+          "scope": "Iceberg v2 delete files, how readers apply them, and their cost.",
+          "visual": "Data file with position and equality deletes being applied",
+          "path": "table-formats/row-level-deletes-position-and-equality-deletes",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Deletion vectors",
+          "slug": "deletion-vectors",
+          "level": "A",
+          "scope": "Bitmap-based deletes in Delta and Iceberg v3, and why they replace position delete files.",
+          "visual": null,
+          "path": "table-formats/deletion-vectors",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Copy-on-write vs merge-on-read",
+          "slug": "copy-on-write-vs-merge-on-read",
+          "level": "A",
+          "scope": "Write amplification vs read amplification for updates and deletes.",
+          "visual": "Side-by-side update handled both ways",
+          "path": "table-formats/copy-on-write-vs-merge-on-read",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Commits and optimistic concurrency",
+          "slug": "commits-and-optimistic-concurrency",
+          "level": "A",
+          "scope": "Atomic swaps of metadata pointers, conflicts and retries.",
+          "visual": null,
+          "path": "table-formats/commits-and-optimistic-concurrency",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Catalogs: REST, Polaris, Glue and Hive",
+          "slug": "catalogs-rest-polaris-glue-and-hive",
+          "level": "I",
+          "scope": "What a catalog stores, the Iceberg REST catalog, and credential vending.",
+          "visual": null,
+          "path": "table-formats/catalogs-rest-polaris-glue-and-hive",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "The Delta Lake transaction log",
+          "slug": "the-delta-lake-transaction-log",
+          "level": "I",
+          "scope": "JSON log entries, checkpoints, and how readers reconstruct table state.",
+          "visual": null,
+          "path": "table-formats/the-delta-lake-transaction-log",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Apache Hudi",
+          "slug": "apache-hudi",
+          "level": "I",
+          "scope": "Timeline, file groups, and Hudi's approach to upserts.",
+          "visual": null,
+          "path": "table-formats/apache-hudi",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Compaction and table maintenance",
+          "slug": "compaction-and-table-maintenance",
+          "level": "A",
+          "scope": "Small files, rewriting data and manifests, and expiring snapshots.",
+          "visual": null,
+          "path": "table-formats/compaction-and-table-maintenance",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Sorting, clustering and Z-order",
+          "slug": "sorting-clustering-and-z-order",
+          "level": "A",
+          "scope": "Laying out data so statistics prune well, and space-filling curves.",
+          "visual": "Pruning effectiveness for linear sort vs Z-order on two-column filters",
+          "path": "table-formats/sorting-clustering-and-z-order",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Reading Iceberg from a native engine",
+          "slug": "reading-iceberg-from-a-native-engine",
+          "level": "A",
+          "scope": "iceberg-rust, planning file scans, applying deletes, and integration with DataFusion.",
+          "visual": null,
+          "path": "table-formats/reading-iceberg-from-a-native-engine",
+          "status": "planned"
+        }
+      ]
+    },
+    "19": {
+      "id": "19",
+      "slug": "engines",
+      "title": "Engines in depth",
+      "goal": "Recognize the design choices of production engines and the reasons behind them.",
+      "prereqs": [
+        "05",
+        "13",
+        "15"
+      ],
+      "outcomes": [
+        "Describe the execution model, optimizer and distribution strategy of major engines",
+        "Compare engines with a principled framework rather than marketing claims"
+      ],
+      "part": 6,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Spark SQL, Catalyst and Tungsten",
+          "slug": "spark-sql-catalyst-and-tungsten",
+          "level": "I",
+          "scope": "Spark's planner, optimizer rules, physical planning and memory management.",
+          "visual": "Spark plan stages from SQL to RDD DAG",
+          "path": "engines/spark-sql-catalyst-and-tungsten",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Whole-stage code generation in Spark",
+          "slug": "whole-stage-code-generation-in-spark",
+          "level": "A",
+          "scope": "How Spark fuses operators into generated Java code, and where it falls back.",
+          "visual": null,
+          "path": "engines/whole-stage-code-generation-in-spark",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Databricks Photon",
+          "slug": "databricks-photon",
+          "level": "A",
+          "scope": "A native vectorized engine inside Spark, as described in its published paper.",
+          "visual": null,
+          "path": "engines/databricks-photon",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Apache DataFusion architecture",
+          "slug": "apache-datafusion-architecture",
+          "level": "I",
+          "scope": "Crates, plans, execution with async streams, extensibility points.",
+          "visual": "Architecture diagram of DataFusion's layers",
+          "path": "engines/apache-datafusion-architecture",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "DataFusion Comet: native Spark acceleration",
+          "slug": "datafusion-comet-native-spark-acceleration",
+          "level": "A",
+          "scope": "Translating Spark plans to native DataFusion operators, JVM interop through Arrow, and fallbacks.",
+          "visual": null,
+          "path": "engines/datafusion-comet-native-spark-acceleration",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Ballista",
+          "slug": "ballista",
+          "level": "A",
+          "scope": "Distributed DataFusion, its scheduler, executors and shuffle.",
+          "visual": null,
+          "path": "engines/ballista",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "DuckDB",
+          "slug": "duckdb",
+          "level": "I",
+          "scope": "In-process analytics, push-based vectorized execution, morsel parallelism and out-of-core operators.",
+          "visual": null,
+          "path": "engines/duckdb",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Velox and Gluten",
+          "slug": "velox-and-gluten",
+          "level": "A",
+          "scope": "A reusable C++ execution library, and Gluten as a bridge from Spark.",
+          "visual": null,
+          "path": "engines/velox-and-gluten",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Trino and Presto",
+          "slug": "trino-and-presto",
+          "level": "I",
+          "scope": "MPP execution, connectors, pipelined exchanges, and the coordinator model.",
+          "visual": null,
+          "path": "engines/trino-and-presto",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Dremio and Arrow-native execution",
+          "slug": "dremio-and-arrow-native-execution",
+          "level": "A",
+          "scope": "An engine built on Arrow, its execution model and reflections, from public material.",
+          "visual": null,
+          "path": "engines/dremio-and-arrow-native-execution",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Snowflake",
+          "slug": "snowflake",
+          "level": "I",
+          "scope": "Separation of storage and compute, micro-partitions, and pruning, from its published papers.",
+          "visual": null,
+          "path": "engines/snowflake",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "ClickHouse",
+          "slug": "clickhouse",
+          "level": "I",
+          "scope": "MergeTree, sparse primary indexes, and a vectorized engine built for speed on a single table.",
+          "visual": null,
+          "path": "engines/clickhouse",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Umbra and compiled execution",
+          "slug": "umbra-and-compiled-execution",
+          "level": "E",
+          "scope": "Compilation with adaptive execution, and string handling ideas that spread to other engines.",
+          "visual": null,
+          "path": "engines/umbra-and-compiled-execution",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Polars",
+          "slug": "polars",
+          "level": "I",
+          "scope": "A DataFrame engine on Arrow-style memory, lazy query optimization and streaming execution.",
+          "visual": null,
+          "path": "engines/polars",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Apache Flink as a query engine",
+          "slug": "apache-flink-as-a-query-engine",
+          "level": "A",
+          "scope": "Streaming SQL, state, and how continuous queries differ from batch queries.",
+          "visual": null,
+          "path": "engines/apache-flink-as-a-query-engine",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Comparing engines with a decision framework",
+          "slug": "comparing-engines-with-a-decision-framework",
+          "level": "A",
+          "scope": "Dimensions that actually matter for choosing an engine, applied to the engines in this module.",
+          "visual": "Interactive comparison matrix",
+          "path": "engines/comparing-engines-with-a-decision-framework",
+          "status": "planned"
+        }
+      ]
+    },
+    "20": {
+      "id": "20",
+      "slug": "capstone-engine",
+      "title": "Capstone: build a query engine in Rust",
+      "goal": "Assemble everything into a working engine that runs TPC-H queries.",
+      "prereqs": [
+        "05",
+        "07",
+        "08",
+        "09",
+        "12"
+      ],
+      "outcomes": [
+        "Ship a working SQL engine with scan, filter, project, join, aggregate and sort",
+        "Add a rule-based optimizer and a simple cost model",
+        "Run and profile TPC-H queries"
+      ],
+      "part": 7,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Capstone overview and architecture",
+          "slug": "capstone-overview-and-architecture",
+          "level": "I",
+          "scope": "What you will build, the crate layout, and milestones.",
+          "visual": "Architecture diagram of the capstone engine",
+          "path": "capstone-engine/capstone-overview-and-architecture",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Project skeleton, crates and core traits",
+          "slug": "project-skeleton-crates-and-core-traits",
+          "level": "I",
+          "scope": "Setting up the workspace and defining the plan and operator traits.",
+          "visual": null,
+          "path": "capstone-engine/project-skeleton-crates-and-core-traits",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Record batches and schemas with arrow-rs",
+          "slug": "record-batches-and-schemas-with-arrow-rs",
+          "level": "I",
+          "scope": "The data model the engine uses throughout.",
+          "visual": null,
+          "path": "capstone-engine/record-batches-and-schemas-with-arrow-rs",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "CSV and Parquet scan operators",
+          "slug": "csv-and-parquet-scan-operators",
+          "level": "I",
+          "scope": "Reading files into batches with projection.",
+          "visual": null,
+          "path": "capstone-engine/csv-and-parquet-scan-operators",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Projection and filter operators",
+          "slug": "projection-and-filter-operators",
+          "level": "I",
+          "scope": "The first operators, and wiring them together.",
+          "visual": null,
+          "path": "capstone-engine/projection-and-filter-operators",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "The expression evaluator",
+          "slug": "the-expression-evaluator",
+          "level": "I",
+          "scope": "Vectorized expression evaluation with arrow kernels.",
+          "visual": null,
+          "path": "capstone-engine/the-expression-evaluator",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "The SQL frontend",
+          "slug": "the-sql-frontend",
+          "level": "I",
+          "scope": "Parsing SQL and binding it to the catalog.",
+          "visual": null,
+          "path": "capstone-engine/the-sql-frontend",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Logical plans and the plan builder",
+          "slug": "logical-plans-and-the-plan-builder",
+          "level": "I",
+          "scope": "Building logical plans from SQL and a DataFrame API.",
+          "visual": null,
+          "path": "capstone-engine/logical-plans-and-the-plan-builder",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "The physical planner",
+          "slug": "the-physical-planner",
+          "level": "A",
+          "scope": "Translating logical plans into executable operators.",
+          "visual": null,
+          "path": "capstone-engine/the-physical-planner",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Hash aggregation",
+          "slug": "hash-aggregation",
+          "level": "A",
+          "scope": "GROUP BY with partial and final phases.",
+          "visual": null,
+          "path": "capstone-engine/hash-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Hash join",
+          "slug": "hash-join",
+          "level": "A",
+          "scope": "Inner, outer, semi and anti hash joins.",
+          "visual": null,
+          "path": "capstone-engine/hash-join",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Sort and top-K",
+          "slug": "sort-and-top-k",
+          "level": "A",
+          "scope": "ORDER BY and ORDER BY with LIMIT.",
+          "visual": null,
+          "path": "capstone-engine/sort-and-top-k",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Limit, union and the remaining operators",
+          "slug": "limit-union-and-the-remaining-operators",
+          "level": "I",
+          "scope": "Completing the operator set.",
+          "visual": null,
+          "path": "capstone-engine/limit-union-and-the-remaining-operators",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "A rule-based optimizer",
+          "slug": "a-rule-based-optimizer",
+          "level": "A",
+          "scope": "Predicate pushdown, projection pruning and constant folding.",
+          "visual": null,
+          "path": "capstone-engine/a-rule-based-optimizer",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Statistics and a simple cost model",
+          "slug": "statistics-and-a-simple-cost-model",
+          "level": "A",
+          "scope": "Row count estimation and join ordering.",
+          "visual": null,
+          "path": "capstone-engine/statistics-and-a-simple-cost-model",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Parallel execution with partitions",
+          "slug": "parallel-execution-with-partitions",
+          "level": "A",
+          "scope": "Running operators across threads.",
+          "visual": null,
+          "path": "capstone-engine/parallel-execution-with-partitions",
+          "status": "planned"
+        },
+        {
+          "index": 17,
+          "title": "Memory limits and spilling",
+          "slug": "memory-limits-and-spilling",
+          "level": "E",
+          "scope": "Adding memory accounting and spilling to the join and aggregate.",
+          "visual": null,
+          "path": "capstone-engine/memory-limits-and-spilling",
+          "status": "planned"
+        },
+        {
+          "index": 18,
+          "title": "Running TPC-H",
+          "slug": "running-tpc-h",
+          "level": "A",
+          "scope": "Generating data, running all 22 queries, and checking results.",
+          "visual": null,
+          "path": "capstone-engine/running-tpc-h",
+          "status": "planned"
+        },
+        {
+          "index": 19,
+          "title": "Profiling and optimizing the engine",
+          "slug": "profiling-and-optimizing-the-engine",
+          "level": "A",
+          "scope": "Finding and fixing the biggest bottlenecks with profilers.",
+          "visual": null,
+          "path": "capstone-engine/profiling-and-optimizing-the-engine",
+          "status": "planned"
+        },
+        {
+          "index": 20,
+          "title": "Next steps: contributing to real engines",
+          "slug": "next-steps-contributing-to-real-engines",
+          "level": "I",
+          "scope": "Finding good first issues in DataFusion, Arrow and Iceberg, and how upstream review works.",
+          "visual": null,
+          "path": "capstone-engine/next-steps-contributing-to-real-engines",
+          "status": "planned"
+        }
+      ]
+    },
+    "21": {
+      "id": "21",
+      "slug": "performance-engineering",
+      "title": "Performance engineering",
+      "goal": "Measure, diagnose and report performance rigorously.",
+      "prereqs": [
+        "00",
+        "02"
+      ],
+      "outcomes": [
+        "Design benchmarks that separate signal from noise",
+        "Profile query engines at the system and microarchitecture level",
+        "Write up performance results with evidence and caveats"
+      ],
+      "part": 7,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Benchmark methodology",
+          "slug": "benchmark-methodology",
+          "level": "I",
+          "scope": "Defining the question, controlling variables, and avoiding the common benchmarking mistakes.",
+          "visual": "Checklist diagram of a sound benchmark design",
+          "path": "performance-engineering/benchmark-methodology",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "TPC-H, TPC-DS and ClickBench",
+          "slug": "tpc-h-tpc-ds-and-clickbench",
+          "level": "I",
+          "scope": "What each benchmark measures, their query shapes and their blind spots.",
+          "visual": null,
+          "path": "performance-engineering/tpc-h-tpc-ds-and-clickbench",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Micro vs end-to-end benchmarks",
+          "slug": "micro-vs-end-to-end-benchmarks",
+          "level": "I",
+          "scope": "When each answers the question you are asking, and why micro wins often vanish end to end.",
+          "visual": null,
+          "path": "performance-engineering/micro-vs-end-to-end-benchmarks",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Cold vs warm runs and cache effects",
+          "slug": "cold-vs-warm-runs-and-cache-effects",
+          "level": "I",
+          "scope": "Page cache, metadata caches and JIT warm-up, and how to control for them.",
+          "visual": null,
+          "path": "performance-engineering/cold-vs-warm-runs-and-cache-effects",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Statistics for benchmark results",
+          "slug": "statistics-for-benchmark-results",
+          "level": "A",
+          "scope": "Confidence intervals, distributions, outliers, and comparing two systems properly.",
+          "visual": "Two overlapping runtime distributions with confidence intervals",
+          "path": "performance-engineering/statistics-for-benchmark-results",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "CPU profiling and flame graphs",
+          "slug": "cpu-profiling-and-flame-graphs",
+          "level": "I",
+          "scope": "perf, sampling profilers and reading flame graphs for query engines.",
+          "visual": "Interactive flame graph of a query",
+          "path": "performance-engineering/cpu-profiling-and-flame-graphs",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Memory profiling",
+          "slug": "memory-profiling",
+          "level": "A",
+          "scope": "Heap profilers, tracking peak memory, and attributing allocations to operators.",
+          "visual": null,
+          "path": "performance-engineering/memory-profiling",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Reading query metrics",
+          "slug": "reading-query-metrics",
+          "level": "I",
+          "scope": "EXPLAIN ANALYZE and engine metrics, and what each operator's numbers mean.",
+          "visual": null,
+          "path": "performance-engineering/reading-query-metrics",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Diagnosing slow queries",
+          "slug": "diagnosing-slow-queries",
+          "level": "I",
+          "scope": "A systematic checklist from plan shape to I/O, skew and spilling.",
+          "visual": null,
+          "path": "performance-engineering/diagnosing-slow-queries",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Top-down microarchitecture analysis",
+          "slug": "top-down-microarchitecture-analysis",
+          "level": "E",
+          "scope": "Frontend, backend, bad speculation and retiring, and using them to target fixes.",
+          "visual": null,
+          "path": "performance-engineering/top-down-microarchitecture-analysis",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Performance regression testing",
+          "slug": "performance-regression-testing",
+          "level": "A",
+          "scope": "Running benchmarks in CI, detecting regressions, and handling noise.",
+          "visual": null,
+          "path": "performance-engineering/performance-regression-testing",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Writing up performance results",
+          "slug": "writing-up-performance-results",
+          "level": "I",
+          "scope": "Stating claims, showing evidence, and listing caveats so readers can trust the numbers.",
+          "visual": null,
+          "path": "performance-engineering/writing-up-performance-results",
+          "status": "planned"
+        }
+      ]
+    },
+    "00": {
+      "id": "00",
+      "slug": "orientation",
+      "title": "Orientation",
+      "goal": "Build a mental map of the whole field before going deep into any part of it.",
+      "prereqs": [],
+      "outcomes": [
+        "Trace a query from SQL text to result rows and name every stage in between",
+        "Place well-known engines on the embedded vs distributed and row vs column axes",
+        "Set up the Rust lab used throughout the guide"
+      ],
+      "part": 1,
+      "articles": [
+        {
+          "index": 1,
+          "title": "What a query engine actually does",
+          "slug": "what-a-query-engine-actually-does",
+          "level": "B",
+          "scope": "Follows one SQL query from text to parse tree, plan, optimized plan, running operators and result rows. Every later module zooms into one of these boxes.",
+          "visual": "Animated end-to-end pipeline where each stage lights up and links to its module",
+          "path": "orientation/what-a-query-engine-actually-does",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "A tour of real engines",
+          "slug": "a-tour-of-real-engines",
+          "level": "B",
+          "scope": "Spark, DuckDB, DataFusion, Trino, Snowflake, ClickHouse, Velox and Dremio, what each is built for and which design choices follow from that.",
+          "visual": "Landscape map with axes embedded↔distributed and interactive↔batch",
+          "path": "orientation/a-tour-of-real-engines",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "OLTP vs OLAP workloads",
+          "slug": "oltp-vs-olap-workloads",
+          "level": "B",
+          "scope": "Point lookups and small updates vs scans over billions of rows. Why analytical engines end up columnar, vectorized and scan-oriented.",
+          "visual": "Side-by-side heatmap of which bytes each workload touches",
+          "path": "orientation/oltp-vs-olap-workloads",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "How to read this guide",
+          "slug": "how-to-read-this-guide",
+          "level": "B",
+          "scope": "Levels, prerequisites, labs and the suggested paths for beginners, working engineers and interview preparation.",
+          "visual": "Roadmap graph of modules with prerequisite edges",
+          "path": "orientation/how-to-read-this-guide",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Setting up the Rust lab",
+          "slug": "setting-up-the-rust-lab",
+          "level": "B",
+          "scope": "Toolchain, the lab cargo workspace, arrow-rs and datafusion crates, criterion for benchmarks, and how lab exercises are structured.",
+          "visual": "Annotated repository tree",
+          "path": "orientation/setting-up-the-rust-lab",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Measuring things honestly",
+          "slug": "measuring-things-honestly",
+          "level": "B",
+          "scope": "Wall time vs CPU time, warm vs cold runs, variance, and why a single number from a single run usually misleads. Sets the standard every lab follows.",
+          "visual": "Distribution of 50 repeated runs with the single-run trap highlighted",
+          "path": "orientation/measuring-things-honestly",
+          "status": "planned"
+        }
+      ]
+    },
+    "01": {
+      "id": "01",
+      "slug": "relational-model-and-sql",
+      "title": "Relational model and SQL semantics",
+      "goal": "Know exactly what a query means before learning how to run it fast.",
+      "prereqs": [
+        "00"
+      ],
+      "outcomes": [
+        "Translate SQL into relational algebra by hand",
+        "Predict query results involving NULLs, duplicates and subqueries",
+        "State the algebraic equivalences that optimizers rely on"
+      ],
+      "part": 1,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Relations, tuples and attributes",
+          "slug": "relations-tuples-and-attributes",
+          "level": "B",
+          "scope": "The relational model from first principles, schemas, keys, and why tables are a convenient lie over bags of tuples.",
+          "visual": "Table morphing into a set-of-tuples view",
+          "path": "relational-model-and-sql/relations-tuples-and-attributes",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Relational algebra: selection, projection, rename",
+          "slug": "relational-algebra-selection-projection-rename",
+          "level": "B",
+          "scope": "The unary operators, their notation, and how each maps onto a SQL clause.",
+          "visual": "Interactive table where selection and projection highlight kept rows and columns",
+          "path": "relational-model-and-sql/relational-algebra-selection-projection-rename",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Joins in relational algebra",
+          "slug": "joins-in-relational-algebra",
+          "level": "B",
+          "scope": "Cartesian product, theta join, equi-join and natural join defined formally, with join as filtered product.",
+          "visual": "Product grid with matching pairs lit up",
+          "path": "relational-model-and-sql/joins-in-relational-algebra",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Set operations and bag semantics",
+          "slug": "set-operations-and-bag-semantics",
+          "level": "B",
+          "scope": "UNION, INTERSECT and EXCEPT under set vs bag semantics, and why SQL is a bag language that sometimes pretends otherwise.",
+          "visual": "Multiset diagram with duplicate counts",
+          "path": "relational-model-and-sql/set-operations-and-bag-semantics",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Grouping and aggregation semantics",
+          "slug": "grouping-and-aggregation-semantics",
+          "level": "B",
+          "scope": "GROUP BY as partition-then-reduce, HAVING, aggregates over empty input, and the extended algebra operator γ.",
+          "visual": "Rows sliding into group buckets, then collapsing",
+          "path": "relational-model-and-sql/grouping-and-aggregation-semantics",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "NULL and three-valued logic",
+          "slug": "null-and-three-valued-logic",
+          "level": "B",
+          "scope": "UNKNOWN as a truth value, NULL in comparisons, aggregates, GROUP BY, joins and NOT IN, and the classic bugs each causes.",
+          "visual": "Interactive three-valued truth table",
+          "path": "relational-model-and-sql/null-and-three-valued-logic",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Logical processing order of a query",
+          "slug": "logical-processing-order-of-a-query",
+          "level": "B",
+          "scope": "FROM, WHERE, GROUP BY, HAVING, SELECT, DISTINCT, ORDER BY, LIMIT, the order clauses take effect vs the order you write them.",
+          "visual": "Clause cards reordering from written to logical order",
+          "path": "relational-model-and-sql/logical-processing-order-of-a-query",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "ORDER BY, LIMIT and determinism",
+          "slug": "order-by-limit-and-determinism",
+          "level": "B",
+          "scope": "What ordering guarantees SQL actually gives, ties, stability, and why LIMIT without ORDER BY is non-deterministic.",
+          "visual": null,
+          "path": "relational-model-and-sql/order-by-limit-and-determinism",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Data types and their traps",
+          "slug": "data-types-and-their-traps",
+          "level": "B",
+          "scope": "Integers, decimals, floats, strings, dates and timestamps. Overflow, decimal precision and scale, float equality, collation and time zones.",
+          "visual": "Decimal precision/scale calculator",
+          "path": "relational-model-and-sql/data-types-and-their-traps",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Subqueries",
+          "slug": "subqueries",
+          "level": "I",
+          "scope": "Scalar, IN, EXISTS and correlated subqueries, their exact semantics, and the NULL edge cases of IN and NOT IN.",
+          "visual": "Correlated subquery re-evaluating per outer row",
+          "path": "relational-model-and-sql/subqueries",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Window function semantics",
+          "slug": "window-function-semantics",
+          "level": "I",
+          "scope": "PARTITION BY, ORDER BY and frames as a definition, independent of how engines compute them.",
+          "visual": "Moving frame over an ordered partition",
+          "path": "relational-model-and-sql/window-function-semantics",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "CTEs and recursive queries",
+          "slug": "ctes-and-recursive-queries",
+          "level": "I",
+          "scope": "Common table expressions, recursion as fixpoint iteration, termination, and UNION vs UNION ALL inside recursion.",
+          "visual": "Fixpoint iterations growing a hierarchy",
+          "path": "relational-model-and-sql/ctes-and-recursive-queries",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "From SQL to relational algebra by hand",
+          "slug": "from-sql-to-relational-algebra-by-hand",
+          "level": "I",
+          "scope": "Worked translations of progressively harder queries into algebra trees. The skill every later module assumes.",
+          "visual": "Side-by-side SQL and algebra tree with linked highlighting",
+          "path": "relational-model-and-sql/from-sql-to-relational-algebra-by-hand",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Equivalence rules of relational algebra",
+          "slug": "equivalence-rules-of-relational-algebra",
+          "level": "I",
+          "scope": "Commutativity and associativity of joins, pushing selections and projections, and the conditions under which each rule is valid.",
+          "visual": "Rewrite rule stepper on a plan tree",
+          "path": "relational-model-and-sql/equivalence-rules-of-relational-algebra",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Duplicate-sensitive and order-sensitive operators",
+          "slug": "duplicate-sensitive-and-order-sensitive-operators",
+          "level": "I",
+          "scope": "Which operators care about duplicates or order, and what that means for the rewrites an engine is allowed to do.",
+          "visual": null,
+          "path": "relational-model-and-sql/duplicate-sensitive-and-order-sensitive-operators",
+          "status": "planned"
+        }
+      ]
+    },
+    "02": {
+      "id": "02",
+      "slug": "hardware",
+      "title": "Hardware for query engines",
+      "goal": "Understand the machine well enough to explain why fast operators look the way they do.",
+      "prereqs": [
+        "00"
+      ],
+      "outcomes": [
+        "Estimate the cost of a memory access, branch or I/O from first principles",
+        "Explain cache behaviour and SIMD in terms of operator design",
+        "Profile a program with hardware counters"
+      ],
+      "part": 1,
+      "articles": [
+        {
+          "index": 1,
+          "title": "The memory hierarchy, from registers to object storage",
+          "slug": "the-memory-hierarchy-from-registers-to-object-storage",
+          "level": "B",
+          "scope": "Latency and bandwidth at each level, from registers and caches to DRAM, SSD, network and object storage, with orders of magnitude to memorize.",
+          "visual": "Log-scale latency ladder you can scale to human time",
+          "path": "hardware/the-memory-hierarchy-from-registers-to-object-storage",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "CPU caches, cache lines and locality",
+          "slug": "cpu-caches-cache-lines-and-locality",
+          "level": "B",
+          "scope": "Cache lines, associativity, spatial and temporal locality, and why sequential columnar scans are so fast.",
+          "visual": "Cache line grid simulation for sequential vs random access",
+          "path": "hardware/cpu-caches-cache-lines-and-locality",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Branch prediction and why branches hurt",
+          "slug": "branch-prediction-and-why-branches-hurt",
+          "level": "I",
+          "scope": "Pipelines, mispredictions and their cost, and how selectivity around 50% makes branchy filters slow.",
+          "visual": "Pipeline flush animation and a selectivity vs cycles curve",
+          "path": "hardware/branch-prediction-and-why-branches-hurt",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Instruction-level parallelism",
+          "slug": "instruction-level-parallelism",
+          "level": "I",
+          "scope": "Superscalar, out-of-order execution and dependency chains, and why tight loops over arrays run near peak.",
+          "visual": null,
+          "path": "hardware/instruction-level-parallelism",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "SIMD: one instruction, many values",
+          "slug": "simd-one-instruction-many-values",
+          "level": "I",
+          "scope": "Vector registers, lanes, widths (SSE, AVX2, AVX-512, NEON), and which operator loops vectorize well.",
+          "visual": "Lane diagram of a vectorized comparison",
+          "path": "hardware/simd-one-instruction-many-values",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "SIMD in Rust",
+          "slug": "simd-in-rust",
+          "level": "A",
+          "scope": "Auto-vectorization and how to check it, portable SIMD, intrinsics, and runtime feature detection.",
+          "visual": null,
+          "path": "hardware/simd-in-rust",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "TLBs, pages and huge pages",
+          "slug": "tlbs-pages-and-huge-pages",
+          "level": "I",
+          "scope": "Virtual memory translation, TLB misses on large hash tables, and when huge pages help.",
+          "visual": null,
+          "path": "hardware/tlbs-pages-and-huge-pages",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Prefetching and memory bandwidth",
+          "slug": "prefetching-and-memory-bandwidth",
+          "level": "I",
+          "scope": "Hardware and software prefetching, bandwidth as the ceiling for scans, and memory-level parallelism.",
+          "visual": null,
+          "path": "hardware/prefetching-and-memory-bandwidth",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Multicore, threads and false sharing",
+          "slug": "multicore-threads-and-false-sharing",
+          "level": "I",
+          "scope": "Cores, hyperthreads, cache coherence, false sharing, and why per-thread state wins.",
+          "visual": "Two cores bouncing a cache line",
+          "path": "hardware/multicore-threads-and-false-sharing",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Atomics and memory ordering for engine developers",
+          "slug": "atomics-and-memory-ordering-for-engine-developers",
+          "level": "A",
+          "scope": "Atomic operations, ordering in Rust, contention costs, and lock-free vs partitioned designs for shared hash tables.",
+          "visual": null,
+          "path": "hardware/atomics-and-memory-ordering-for-engine-developers",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "NUMA",
+          "slug": "numa",
+          "level": "A",
+          "scope": "Non-uniform memory access, remote memory cost, and NUMA-aware scheduling in morsel-driven engines.",
+          "visual": null,
+          "path": "hardware/numa",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Disks and SSDs",
+          "slug": "disks-and-ssds",
+          "level": "B",
+          "scope": "Sequential vs random I/O, queue depth, NVMe, and what the OS page cache does for and to a query engine.",
+          "visual": null,
+          "path": "hardware/disks-and-ssds",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Object storage for query engines",
+          "slug": "object-storage-for-query-engines",
+          "level": "I",
+          "scope": "S3, GCS and ADLS latency, throughput per connection, request costs, and why request size and parallelism dominate.",
+          "visual": "Request size vs effective throughput curve",
+          "path": "hardware/object-storage-for-query-engines",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Networks for data movement",
+          "slug": "networks-for-data-movement",
+          "level": "I",
+          "scope": "Bandwidth, latency, TCP behaviour, and where RDMA appears, framed as the cost model for shuffles.",
+          "visual": null,
+          "path": "hardware/networks-for-data-movement",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Measuring hardware with perf counters",
+          "slug": "measuring-hardware-with-perf-counters",
+          "level": "A",
+          "scope": "IPC, cache misses, branch misses and stalled cycles with perf stat, and how to read them for an operator.",
+          "visual": null,
+          "path": "hardware/measuring-hardware-with-perf-counters",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "The roofline model for query operators",
+          "slug": "the-roofline-model-for-query-operators",
+          "level": "A",
+          "scope": "Arithmetic intensity, compute vs memory-bound operators, and placing scans, hashing and sorting on a roofline.",
+          "visual": "Interactive roofline chart with operator points",
+          "path": "hardware/the-roofline-model-for-query-operators",
+          "status": "planned"
+        }
+      ]
+    },
+    "03": {
+      "id": "03",
+      "slug": "data-representation",
+      "title": "Data representation and file formats",
+      "goal": "Know how bytes are arranged in memory and on disk, and why that arrangement drives performance.",
+      "prereqs": [
+        "02"
+      ],
+      "outcomes": [
+        "Draw the Arrow buffers for any array, including nested and string types",
+        "Explain a Parquet file from footer to page",
+        "Choose encodings and compression for a column"
+      ],
+      "part": 1,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Row vs column layout",
+          "slug": "row-vs-column-layout",
+          "level": "B",
+          "scope": "N-ary storage vs decomposed storage, PAX, and which workloads each serves.",
+          "visual": "Toggle that rearranges the same table between layouts",
+          "path": "data-representation/row-vs-column-layout",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Apache Arrow: the columnar in-memory standard",
+          "slug": "apache-arrow-the-columnar-in-memory-standard",
+          "level": "B",
+          "scope": "Why a shared in-memory format matters, what Arrow standardizes, and the ecosystem built on it.",
+          "visual": null,
+          "path": "data-representation/apache-arrow-the-columnar-in-memory-standard",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Arrow physical layout",
+          "slug": "arrow-physical-layout",
+          "level": "I",
+          "scope": "Validity bitmaps, value buffers, offset buffers, alignment, and slicing without copying.",
+          "visual": "Buffer explorer that shows the bytes behind any array you type",
+          "path": "data-representation/arrow-physical-layout",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Arrow nested types",
+          "slug": "arrow-nested-types",
+          "level": "I",
+          "scope": "List, large list, struct, map and union layouts, and how nesting composes.",
+          "visual": "Nested value expanding into its child arrays",
+          "path": "data-representation/arrow-nested-types",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Dictionary and run-end encoded arrays",
+          "slug": "dictionary-and-run-end-encoded-arrays",
+          "level": "I",
+          "scope": "In-memory encodings, when kernels can operate on them directly, and when they must decode.",
+          "visual": null,
+          "path": "data-representation/dictionary-and-run-end-encoded-arrays",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "String layouts: offsets vs views",
+          "slug": "string-layouts-offsets-vs-views",
+          "level": "A",
+          "scope": "Offset-based strings vs the view layout with inline prefixes (StringView, the German string idea), and the operations each makes cheap.",
+          "visual": "Same strings in both layouts with comparison cost annotations",
+          "path": "data-representation/string-layouts-offsets-vs-views",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Selection vectors vs filtered copies",
+          "slug": "selection-vectors-vs-filtered-copies",
+          "level": "I",
+          "scope": "Representing filter results by index list, bitmap or materialized copy, and the trade-offs downstream.",
+          "visual": null,
+          "path": "data-representation/selection-vectors-vs-filtered-copies",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Lightweight encodings",
+          "slug": "lightweight-encodings",
+          "level": "I",
+          "scope": "RLE, bit-packing, delta, and frame-of-reference, with when each wins and how they combine.",
+          "visual": "Encoder playground showing encoded size for your input",
+          "path": "data-representation/lightweight-encodings",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Dictionary encoding in storage",
+          "slug": "dictionary-encoding-in-storage",
+          "level": "I",
+          "scope": "Dictionary pages, fallback when dictionaries grow too large, and filtering on dictionary codes.",
+          "visual": null,
+          "path": "data-representation/dictionary-encoding-in-storage",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "General-purpose compression",
+          "slug": "general-purpose-compression",
+          "level": "I",
+          "scope": "LZ4, Snappy and Zstd, compression ratio vs decode speed, and where compression sits in the I/O path.",
+          "visual": "Ratio vs decode throughput scatter",
+          "path": "data-representation/general-purpose-compression",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Anatomy of an Apache Parquet file",
+          "slug": "anatomy-of-an-apache-parquet-file",
+          "level": "I",
+          "scope": "Magic bytes, row groups, column chunks, pages and the footer metadata.",
+          "visual": "Exploded file diagram you can click through",
+          "path": "data-representation/anatomy-of-an-apache-parquet-file",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Parquet row groups, pages and statistics",
+          "slug": "parquet-row-groups-pages-and-statistics",
+          "level": "I",
+          "scope": "Sizing row groups and pages, min/max and null count statistics, and how readers use them.",
+          "visual": null,
+          "path": "data-representation/parquet-row-groups-pages-and-statistics",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Parquet nested data: repetition and definition levels",
+          "slug": "parquet-nested-data-repetition-and-definition-levels",
+          "level": "A",
+          "scope": "The Dremel encoding step by step, with worked examples for optional and repeated fields.",
+          "visual": "Stepper that shreds a nested record into levels",
+          "path": "data-representation/parquet-nested-data-repetition-and-definition-levels",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Parquet page index and bloom filters",
+          "slug": "parquet-page-index-and-bloom-filters",
+          "level": "A",
+          "scope": "Column and offset indexes for page-level skipping, and bloom filters for equality predicates.",
+          "visual": null,
+          "path": "data-representation/parquet-page-index-and-bloom-filters",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "ORC compared with Parquet",
+          "slug": "orc-compared-with-parquet",
+          "level": "I",
+          "scope": "Stripes, indexes and type system differences, and why ecosystems settled where they did.",
+          "visual": null,
+          "path": "data-representation/orc-compared-with-parquet",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Newer columnar file formats",
+          "slug": "newer-columnar-file-formats",
+          "level": "A",
+          "scope": "What formats such as Lance, Nimble and Vortex change about random access, encodings and wide schemas, and what remains unproven.",
+          "visual": null,
+          "path": "data-representation/newer-columnar-file-formats",
+          "status": "planned"
+        },
+        {
+          "index": 17,
+          "title": "Arrow IPC and Arrow Flight",
+          "slug": "arrow-ipc-and-arrow-flight",
+          "level": "I",
+          "scope": "The IPC stream and file formats, and Flight as RPC for moving record batches between processes.",
+          "visual": null,
+          "path": "data-representation/arrow-ipc-and-arrow-flight",
+          "status": "planned"
+        },
+        {
+          "index": 18,
+          "title": "What zero-copy really means",
+          "slug": "what-zero-copy-really-means",
+          "level": "I",
+          "scope": "Memory mapping, buffer sharing, the FFI C data interface, and the places where copies still happen.",
+          "visual": "Buffer ownership diagram across process boundaries",
+          "path": "data-representation/what-zero-copy-really-means",
+          "status": "planned"
+        }
+      ]
+    },
+    "04": {
+      "id": "04",
+      "slug": "query-frontend",
+      "title": "Query frontend: from SQL to logical plans",
+      "goal": "Turn SQL text into a correct, typed logical plan.",
+      "prereqs": [
+        "01"
+      ],
+      "outcomes": [
+        "Build a parser-to-logical-plan pipeline with sqlparser-rs",
+        "Explain binding, type coercion and function resolution",
+        "Read EXPLAIN output from several engines"
+      ],
+      "part": 2,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Lexing and parsing SQL",
+          "slug": "lexing-and-parsing-sql",
+          "level": "B",
+          "scope": "Tokens, grammars, recursive descent, and how real SQL parsers handle dialects.",
+          "visual": "Token stream assembling into an AST",
+          "path": "query-frontend/lexing-and-parsing-sql",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "The AST is not a plan",
+          "slug": "the-ast-is-not-a-plan",
+          "level": "B",
+          "scope": "What the syntax tree knows and doesn't, and why engines need a separate logical representation.",
+          "visual": null,
+          "path": "query-frontend/the-ast-is-not-a-plan",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Name resolution and binding",
+          "slug": "name-resolution-and-binding",
+          "level": "I",
+          "scope": "Resolving tables, columns, aliases and scopes, ambiguous names, and correlated references.",
+          "visual": "Scope chain highlighting where each name resolves",
+          "path": "query-frontend/name-resolution-and-binding",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Type checking, coercion and function resolution",
+          "slug": "type-checking-coercion-and-function-resolution",
+          "level": "I",
+          "scope": "Implicit casts, numeric promotion, overload resolution, and the bugs that come from loose coercion.",
+          "visual": null,
+          "path": "query-frontend/type-checking-coercion-and-function-resolution",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "The catalog",
+          "slug": "the-catalog",
+          "level": "I",
+          "scope": "Schemas, tables, views, functions and statistics as a service the planner queries.",
+          "visual": null,
+          "path": "query-frontend/the-catalog",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Logical plan operators",
+          "slug": "logical-plan-operators",
+          "level": "B",
+          "scope": "Scan, Filter, Projection, Join, Aggregate, Sort, Limit, Union, and the schema each produces.",
+          "visual": "Plan tree builder where you add operators and watch schemas flow",
+          "path": "query-frontend/logical-plan-operators",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Building logical plans from the AST",
+          "slug": "building-logical-plans-from-the-ast",
+          "level": "I",
+          "scope": "Walking the AST to emit plan nodes in the right order, including GROUP BY, HAVING and ORDER BY by alias.",
+          "visual": null,
+          "path": "query-frontend/building-logical-plans-from-the-ast",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Expression trees and canonical form",
+          "slug": "expression-trees-and-canonical-form",
+          "level": "I",
+          "scope": "Representing expressions, normalizing them, and comparing expressions for equality.",
+          "visual": null,
+          "path": "query-frontend/expression-trees-and-canonical-form",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Representing subqueries",
+          "slug": "representing-subqueries",
+          "level": "A",
+          "scope": "Subquery expressions, the apply or dependent join operator, and mark joins.",
+          "visual": null,
+          "path": "query-frontend/representing-subqueries",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Decorrelating subqueries",
+          "slug": "decorrelating-subqueries",
+          "level": "A",
+          "scope": "Turning correlated subqueries into joins and aggregates, including the general unnesting approach for arbitrary queries.",
+          "visual": "Before and after plans with the correlation edge removed",
+          "path": "query-frontend/decorrelating-subqueries",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "DataFrame APIs as plan builders",
+          "slug": "dataframe-apis-as-plan-builders",
+          "level": "I",
+          "scope": "How Spark, Polars and DataFusion DataFrames build the same logical plans as SQL.",
+          "visual": null,
+          "path": "query-frontend/dataframe-apis-as-plan-builders",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Plan serialization with Substrait",
+          "slug": "plan-serialization-with-substrait",
+          "level": "I",
+          "scope": "Cross-engine plan exchange, what Substrait covers, and where engine differences leak through.",
+          "visual": null,
+          "path": "query-frontend/plan-serialization-with-substrait",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Reading EXPLAIN output",
+          "slug": "reading-explain-output",
+          "level": "B",
+          "scope": "EXPLAIN and EXPLAIN ANALYZE in DuckDB, DataFusion, Spark and Trino, and what each tells you.",
+          "visual": null,
+          "path": "query-frontend/reading-explain-output",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Lab: a SQL-to-logical-plan frontend",
+          "slug": "lab-a-sql-to-logical-plan-frontend",
+          "level": "I",
+          "scope": "Build a small frontend on sqlparser-rs that binds names against a catalog and emits a typed logical plan.",
+          "visual": null,
+          "path": "query-frontend/lab-a-sql-to-logical-plan-frontend",
+          "status": "planned"
+        }
+      ]
+    },
+    "05": {
+      "id": "05",
+      "slug": "execution-models",
+      "title": "Execution models",
+      "goal": "Understand the main ways engines run plans and the hardware reasons behind each.",
+      "prereqs": [
+        "02",
+        "03",
+        "04"
+      ],
+      "outcomes": [
+        "Implement iterator, vectorized and push-based operators",
+        "Identify pipelines and pipeline breakers in any plan",
+        "Argue both sides of vectorization vs compilation"
+      ],
+      "part": 2,
+      "articles": [
+        {
+          "index": 1,
+          "title": "From logical to physical plans",
+          "slug": "from-logical-to-physical-plans",
+          "level": "B",
+          "scope": "Choosing algorithms for each logical operator, physical properties, and the physical plan as an executable artifact.",
+          "visual": "Logical node expanding into its physical alternatives",
+          "path": "execution-models/from-logical-to-physical-plans",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "The iterator (Volcano) model",
+          "slug": "the-iterator-volcano-model",
+          "level": "B",
+          "scope": "open, next and close, tuple-at-a-time execution, and why it composes so well.",
+          "visual": "Stepper showing next() calls travelling down the tree and tuples coming up",
+          "path": "execution-models/the-iterator-volcano-model",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "The cost of tuple-at-a-time execution",
+          "slug": "the-cost-of-tuple-at-a-time-execution",
+          "level": "I",
+          "scope": "Virtual calls, interpretation overhead and poor cache use per tuple, measured.",
+          "visual": null,
+          "path": "execution-models/the-cost-of-tuple-at-a-time-execution",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "The materialization model",
+          "slug": "the-materialization-model",
+          "level": "I",
+          "scope": "Operators that produce whole columns at once, as in MonetDB, and the memory cost of doing so.",
+          "visual": null,
+          "path": "execution-models/the-materialization-model",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Vectorized execution",
+          "slug": "vectorized-execution",
+          "level": "I",
+          "scope": "Batches of a few thousand values, tight loops per operator, and how this recovers cache and SIMD efficiency.",
+          "visual": "Tuple-at-a-time vs batch animation with call counts",
+          "path": "execution-models/vectorized-execution",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Choosing a batch size",
+          "slug": "choosing-a-batch-size",
+          "level": "I",
+          "scope": "Cache fit vs overhead amortization, and why most engines settle between 1K and 8K rows.",
+          "visual": "Illustrative throughput vs batch size curve",
+          "path": "execution-models/choosing-a-batch-size",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Query compilation with produce/consume",
+          "slug": "query-compilation-with-produce-consume",
+          "level": "A",
+          "scope": "Generating fused code per pipeline in the style of HyPer, and data-centric execution.",
+          "visual": "Plan pipeline turning into one fused loop",
+          "path": "execution-models/query-compilation-with-produce-consume",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Vectorization vs compilation",
+          "slug": "vectorization-vs-compilation",
+          "level": "A",
+          "scope": "What the research comparisons found, where each wins, and why many engines mix both.",
+          "visual": null,
+          "path": "execution-models/vectorization-vs-compilation",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Pipelines and pipeline breakers",
+          "slug": "pipelines-and-pipeline-breakers",
+          "level": "I",
+          "scope": "Which operators must see all input before producing output, and how plans split into pipelines.",
+          "visual": "Plan tree colored by pipeline",
+          "path": "execution-models/pipelines-and-pipeline-breakers",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Push vs pull execution",
+          "slug": "push-vs-pull-execution",
+          "level": "I",
+          "scope": "Control flow direction, its effect on scheduling and parallelism, and push-based engines such as DuckDB.",
+          "visual": "Same plan executed pull-style and push-style",
+          "path": "execution-models/push-vs-pull-execution",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Morsel-driven parallelism",
+          "slug": "morsel-driven-parallelism",
+          "level": "A",
+          "scope": "Splitting input into small morsels, work stealing, and elastic parallelism within a query.",
+          "visual": "Worker threads taking morsels from a shared queue",
+          "path": "execution-models/morsel-driven-parallelism",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Exchange-based parallelism",
+          "slug": "exchange-based-parallelism",
+          "level": "I",
+          "scope": "Volcano-style exchange operators inside a single machine, and their limits.",
+          "visual": null,
+          "path": "execution-models/exchange-based-parallelism",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Async streams as an execution model",
+          "slug": "async-streams-as-an-execution-model",
+          "level": "A",
+          "scope": "DataFusion's approach with Rust async streams and partitions, and what the async runtime does and doesn't give you.",
+          "visual": null,
+          "path": "execution-models/async-streams-as-an-execution-model",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Early vs late materialization",
+          "slug": "early-vs-late-materialization",
+          "level": "I",
+          "scope": "When to stitch columns into rows, and how late materialization saves work on selective queries.",
+          "visual": null,
+          "path": "execution-models/early-vs-late-materialization",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Operator fusion and specialization",
+          "slug": "operator-fusion-and-specialization",
+          "level": "A",
+          "scope": "Fusing adjacent operators, specializing on types and nullability, and the code-size cost.",
+          "visual": null,
+          "path": "execution-models/operator-fusion-and-specialization",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Lab: a tiny vectorized engine in Rust",
+          "slug": "lab-a-tiny-vectorized-engine-in-rust",
+          "level": "I",
+          "scope": "Build scan, filter, project and limit over Arrow record batches, then compare with a tuple-at-a-time version.",
+          "visual": null,
+          "path": "execution-models/lab-a-tiny-vectorized-engine-in-rust",
+          "status": "planned"
+        }
+      ]
+    },
+    "06": {
+      "id": "06",
+      "slug": "expression-evaluation",
+      "title": "Expression evaluation",
+      "goal": "Evaluate expressions over batches quickly and correctly.",
+      "prereqs": [
+        "05"
+      ],
+      "outcomes": [
+        "Write vectorized kernels with correct null handling",
+        "Implement conditional evaluation without wasted work",
+        "Explain how JIT expression compilation fits in"
+      ],
+      "part": 2,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Interpreting expression trees",
+          "slug": "interpreting-expression-trees",
+          "level": "B",
+          "scope": "Recursive evaluation, the overhead per node, and why per-row interpretation is slow.",
+          "visual": null,
+          "path": "expression-evaluation/interpreting-expression-trees",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Vectorized expression kernels",
+          "slug": "vectorized-expression-kernels",
+          "level": "I",
+          "scope": "Kernels that run one operation over a whole array, and composing them to evaluate a tree.",
+          "visual": "Expression tree evaluated column-at-a-time",
+          "path": "expression-evaluation/vectorized-expression-kernels",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Null handling in kernels",
+          "slug": "null-handling-in-kernels",
+          "level": "I",
+          "scope": "Combining validity bitmaps, computing over garbage in null slots, and when that is safe.",
+          "visual": "Validity bitmaps combining with AND",
+          "path": "expression-evaluation/null-handling-in-kernels",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Conditional expressions: CASE, AND, OR",
+          "slug": "conditional-expressions-case-and-or",
+          "level": "A",
+          "scope": "Short-circuiting, evaluating branches only on matching rows, and avoiding errors in unselected rows.",
+          "visual": null,
+          "path": "expression-evaluation/conditional-expressions-case-and-or",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Constant folding and simplification",
+          "slug": "constant-folding-and-simplification",
+          "level": "I",
+          "scope": "Folding constants, algebraic simplification, and the rules engines apply before execution.",
+          "visual": null,
+          "path": "expression-evaluation/constant-folding-and-simplification",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Common subexpression elimination",
+          "slug": "common-subexpression-elimination",
+          "level": "I",
+          "scope": "Finding repeated subexpressions and computing them once per batch.",
+          "visual": null,
+          "path": "expression-evaluation/common-subexpression-elimination",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Casts and type conversion",
+          "slug": "casts-and-type-conversion",
+          "level": "I",
+          "scope": "Cast kernels, overflow and invalid input handling, and safe vs unsafe casts.",
+          "visual": null,
+          "path": "expression-evaluation/casts-and-type-conversion",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "String functions at speed",
+          "slug": "string-functions-at-speed",
+          "level": "A",
+          "scope": "LIKE, substring, case conversion and regex over string arrays, and the tricks fast engines use.",
+          "visual": null,
+          "path": "expression-evaluation/string-functions-at-speed",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Decimal arithmetic",
+          "slug": "decimal-arithmetic",
+          "level": "A",
+          "scope": "Fixed-point representation, precision and scale rules, overflow, and 128-bit and 256-bit decimals.",
+          "visual": null,
+          "path": "expression-evaluation/decimal-arithmetic",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Date and timestamp arithmetic",
+          "slug": "date-and-timestamp-arithmetic",
+          "level": "I",
+          "scope": "Epoch-based representations, intervals, time zones and calendar operations.",
+          "visual": null,
+          "path": "expression-evaluation/date-and-timestamp-arithmetic",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "JIT-compiling expressions",
+          "slug": "jit-compiling-expressions",
+          "level": "A",
+          "scope": "LLVM-based expression compilation as in Gandiva, compile cost vs run cost, and caching.",
+          "visual": null,
+          "path": "expression-evaluation/jit-compiling-expressions",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "User-defined functions",
+          "slug": "user-defined-functions",
+          "level": "I",
+          "scope": "Scalar, aggregate and table UDFs, vectorized UDF interfaces, and the cost of crossing language boundaries.",
+          "visual": null,
+          "path": "expression-evaluation/user-defined-functions",
+          "status": "planned"
+        }
+      ]
+    },
+    "07": {
+      "id": "07",
+      "slug": "scans-and-pruning",
+      "title": "Scans, filters and pruning",
+      "goal": "Read as little data as possible and filter what you read efficiently.",
+      "prereqs": [
+        "03",
+        "05",
+        "06"
+      ],
+      "outcomes": [
+        "Implement projection, predicate and statistics-based pruning in a Parquet scan",
+        "Write branchless filter kernels",
+        "Plan efficient reads against object storage"
+      ],
+      "part": 2,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Reading a file end to end",
+          "slug": "reading-a-file-end-to-end",
+          "level": "B",
+          "scope": "Opening a file, reading metadata, decoding columns and producing batches, the full path of a scan.",
+          "visual": "Scan pipeline from bytes to record batches",
+          "path": "scans-and-pruning/reading-a-file-end-to-end",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Projection pushdown",
+          "slug": "projection-pushdown",
+          "level": "B",
+          "scope": "Reading only needed columns, and why this is the single biggest win of columnar formats.",
+          "visual": null,
+          "path": "scans-and-pruning/projection-pushdown",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Predicate pushdown",
+          "slug": "predicate-pushdown",
+          "level": "B",
+          "scope": "Moving filters into the scan, what can and can't be pushed, and exact vs inexact pushdown.",
+          "visual": "Filter node sliding down into the scan",
+          "path": "scans-and-pruning/predicate-pushdown",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Zone maps and min/max statistics",
+          "slug": "zone-maps-and-min-max-statistics",
+          "level": "I",
+          "scope": "Using min/max per block to skip data, and why sort order determines how well it works.",
+          "visual": "Interactive zone-map pruning on sorted vs unsorted data",
+          "path": "scans-and-pruning/zone-maps-and-min-max-statistics",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Bloom filters for pruning",
+          "slug": "bloom-filters-for-pruning",
+          "level": "I",
+          "scope": "Bloom filter basics, false positive rates, and where they help equality predicates.",
+          "visual": "Bloom filter bit array with inserts and lookups",
+          "path": "scans-and-pruning/bloom-filters-for-pruning",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Partition pruning",
+          "slug": "partition-pruning",
+          "level": "I",
+          "scope": "Directory and metadata partitioning, pruning by partition values, and the trap of over-partitioning.",
+          "visual": null,
+          "path": "scans-and-pruning/partition-pruning",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Late materialization in scans",
+          "slug": "late-materialization-in-scans",
+          "level": "A",
+          "scope": "Decoding filter columns first and fetching other columns only for surviving rows.",
+          "visual": null,
+          "path": "scans-and-pruning/late-materialization-in-scans",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Branchless filter evaluation",
+          "slug": "branchless-filter-evaluation",
+          "level": "A",
+          "scope": "Selection by predication, writing indexes unconditionally, and the selectivity crossover with branching.",
+          "visual": "Branching vs branchless cost across selectivity",
+          "path": "scans-and-pruning/branchless-filter-evaluation",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Bitmaps and selection vectors in filters",
+          "slug": "bitmaps-and-selection-vectors-in-filters",
+          "level": "I",
+          "scope": "Producing filter results as bitmaps vs index lists, and converting between them.",
+          "visual": null,
+          "path": "scans-and-pruning/bitmaps-and-selection-vectors-in-filters",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Async I/O and prefetching",
+          "slug": "async-i-o-and-prefetching",
+          "level": "A",
+          "scope": "Overlapping I/O with compute, read-ahead, and concurrency limits for object storage.",
+          "visual": "Timeline of serial vs overlapped I/O and compute",
+          "path": "scans-and-pruning/async-i-o-and-prefetching",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Coalescing range reads",
+          "slug": "coalescing-range-reads",
+          "level": "A",
+          "scope": "Merging nearby byte ranges to cut request count on object storage, and the waste-vs-requests trade-off.",
+          "visual": null,
+          "path": "scans-and-pruning/coalescing-range-reads",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Caching metadata and data",
+          "slug": "caching-metadata-and-data",
+          "level": "I",
+          "scope": "Footer and metadata caches, local data caches, and invalidation.",
+          "visual": null,
+          "path": "scans-and-pruning/caching-metadata-and-data",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Limit pushdown and early termination",
+          "slug": "limit-pushdown-and-early-termination",
+          "level": "I",
+          "scope": "Stopping scans early for LIMIT, and how parallel scans complicate it.",
+          "visual": null,
+          "path": "scans-and-pruning/limit-pushdown-and-early-termination",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Lab: a Parquet scanner with pruning",
+          "slug": "lab-a-parquet-scanner-with-pruning",
+          "level": "I",
+          "scope": "Build a scan with projection, row-group and page pruning, then measure bytes read and time across query shapes.",
+          "visual": null,
+          "path": "scans-and-pruning/lab-a-parquet-scanner-with-pruning",
+          "status": "planned"
+        }
+      ]
+    },
+    "08": {
+      "id": "08",
+      "slug": "joins",
+      "title": "Joins",
+      "goal": "Master every join algorithm an analytical engine uses and when each wins.",
+      "prereqs": [
+        "05",
+        "06"
+      ],
+      "outcomes": [
+        "Implement nested loop, sort-merge and hash joins for all join types",
+        "Design cache-efficient join hash tables",
+        "Handle skew, spilling and non-equi joins"
+      ],
+      "part": 2,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Join types: inner, outer, semi, anti, mark",
+          "slug": "join-types-inner-outer-semi-anti-mark",
+          "level": "B",
+          "scope": "Each join type defined by example, including the semi and anti joins that come from subqueries.",
+          "visual": "Row-level view of which pairs each join type keeps",
+          "path": "joins/join-types-inner-outer-semi-anti-mark",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Nested loop join",
+          "slug": "nested-loop-join",
+          "level": "B",
+          "scope": "The simplest join, its cost, block nested loops, and when it is still the right choice.",
+          "visual": "Stepper over outer and inner loops",
+          "path": "joins/nested-loop-join",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Index nested loop join",
+          "slug": "index-nested-loop-join",
+          "level": "I",
+          "scope": "Probing an index per outer row, and why analytical engines rarely do this.",
+          "visual": null,
+          "path": "joins/index-nested-loop-join",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Sort-merge join",
+          "slug": "sort-merge-join",
+          "level": "I",
+          "scope": "Sorting both inputs and merging, handling duplicates, and when pre-sorted input makes it the best choice.",
+          "visual": "Two cursors advancing through sorted inputs",
+          "path": "joins/sort-merge-join",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Hash join: build and probe",
+          "slug": "hash-join-build-and-probe",
+          "level": "B",
+          "scope": "Building a hash table on the smaller side and probing it with the larger, the workhorse of analytics.",
+          "visual": "Build phase filling buckets, then probe rows finding matches",
+          "path": "joins/hash-join-build-and-probe",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Hash tables for joins: chaining vs open addressing",
+          "slug": "hash-tables-for-joins-chaining-vs-open-addressing",
+          "level": "I",
+          "scope": "Collision strategies, load factors, and what each does to cache misses.",
+          "visual": "Same keys inserted into a chained and an open-addressing table",
+          "path": "joins/hash-tables-for-joins-chaining-vs-open-addressing",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Hash functions for query engines",
+          "slug": "hash-functions-for-query-engines",
+          "level": "I",
+          "scope": "Speed vs quality, hashing multiple columns, and hashing strings.",
+          "visual": null,
+          "path": "joins/hash-functions-for-query-engines",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Join hash table layout and cache behavior",
+          "slug": "join-hash-table-layout-and-cache-behavior",
+          "level": "A",
+          "scope": "Separating keys from payloads, tagged pointers, bucket arrays, and counting cache misses per probe.",
+          "visual": null,
+          "path": "joins/join-hash-table-layout-and-cache-behavior",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Vectorized hash join probing",
+          "slug": "vectorized-hash-join-probing",
+          "level": "A",
+          "scope": "Probing a batch at a time, separating hash, lookup and compare phases, and gathering payloads.",
+          "visual": null,
+          "path": "joins/vectorized-hash-join-probing",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "Outer, semi and anti joins in a hash join",
+          "slug": "outer-semi-and-anti-joins-in-a-hash-join",
+          "level": "I",
+          "scope": "Tracking matched build rows, emitting unmatched rows, and stopping early for semi joins.",
+          "visual": null,
+          "path": "joins/outer-semi-and-anti-joins-in-a-hash-join",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Null-aware anti join",
+          "slug": "null-aware-anti-join",
+          "level": "A",
+          "scope": "Why NOT IN with NULLs needs special handling, and how engines implement it correctly.",
+          "visual": null,
+          "path": "joins/null-aware-anti-join",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Duplicate keys and skew in hash joins",
+          "slug": "duplicate-keys-and-skew-in-hash-joins",
+          "level": "A",
+          "scope": "Long chains from duplicate keys, output explosion, and probe-side skew.",
+          "visual": null,
+          "path": "joins/duplicate-keys-and-skew-in-hash-joins",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "Grace hash join",
+          "slug": "grace-hash-join",
+          "level": "I",
+          "scope": "Partitioning both sides so each partition's build fits in memory.",
+          "visual": "Inputs fanning out into partition pairs",
+          "path": "joins/grace-hash-join",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Hybrid hash join",
+          "slug": "hybrid-hash-join",
+          "level": "A",
+          "scope": "Keeping one partition in memory while spilling the others, and recursive partitioning.",
+          "visual": null,
+          "path": "joins/hybrid-hash-join",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Radix-partitioned hash join",
+          "slug": "radix-partitioned-hash-join",
+          "level": "A",
+          "scope": "Partitioning to cache-sized pieces first, multi-pass radix partitioning, and when it beats a non-partitioned join.",
+          "visual": null,
+          "path": "joins/radix-partitioned-hash-join",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Spilling hash joins",
+          "slug": "spilling-hash-joins",
+          "level": "A",
+          "scope": "Detecting memory pressure, choosing what to spill, and reading partitions back.",
+          "visual": null,
+          "path": "joins/spilling-hash-joins",
+          "status": "planned"
+        },
+        {
+          "index": 17,
+          "title": "Join ordering basics",
+          "slug": "join-ordering-basics",
+          "level": "I",
+          "scope": "Why join order changes cost by orders of magnitude, left-deep vs bushy trees, with a pointer to the optimizer module.",
+          "visual": null,
+          "path": "joins/join-ordering-basics",
+          "status": "planned"
+        },
+        {
+          "index": 18,
+          "title": "Range, inequality and band joins",
+          "slug": "range-inequality-and-band-joins",
+          "level": "A",
+          "scope": "Non-equi joins, sort-based and interval-based approaches, and IEJoin.",
+          "visual": null,
+          "path": "joins/range-inequality-and-band-joins",
+          "status": "planned"
+        },
+        {
+          "index": 19,
+          "title": "As-of joins",
+          "slug": "as-of-joins",
+          "level": "A",
+          "scope": "Matching each row to the most recent row on the other side, used in time series analytics.",
+          "visual": null,
+          "path": "joins/as-of-joins",
+          "status": "planned"
+        },
+        {
+          "index": 20,
+          "title": "Worst-case optimal joins",
+          "slug": "worst-case-optimal-joins",
+          "level": "E",
+          "scope": "Multi-way joins such as triangle queries, the AGM bound, and Leapfrog Triejoin in brief.",
+          "visual": null,
+          "path": "joins/worst-case-optimal-joins",
+          "status": "planned"
+        }
+      ]
+    },
+    "09": {
+      "id": "09",
+      "slug": "aggregation",
+      "title": "Aggregation",
+      "goal": "Compute GROUP BY fast, at any cardinality, within a memory budget.",
+      "prereqs": [
+        "05",
+        "08"
+      ],
+      "outcomes": [
+        "Implement hash and sort-based aggregation with partial and final phases",
+        "Choose strategies by group cardinality",
+        "Use sketches for approximate distinct counts and quantiles"
+      ],
+      "part": 2,
+      "articles": [
+        {
+          "index": 1,
+          "title": "Decomposable and holistic aggregates",
+          "slug": "decomposable-and-holistic-aggregates",
+          "level": "B",
+          "scope": "Which aggregates can be split into partial states (SUM, COUNT, AVG) and which can't (MEDIAN), and why it matters.",
+          "visual": null,
+          "path": "aggregation/decomposable-and-holistic-aggregates",
+          "status": "planned"
+        },
+        {
+          "index": 2,
+          "title": "Ungrouped aggregation",
+          "slug": "ungrouped-aggregation",
+          "level": "B",
+          "scope": "Aggregating a whole input into one row, vectorized and in parallel.",
+          "visual": null,
+          "path": "aggregation/ungrouped-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 3,
+          "title": "Hash aggregation",
+          "slug": "hash-aggregation",
+          "level": "I",
+          "scope": "Group keys into a hash table of accumulator states, update per batch, emit at the end.",
+          "visual": "Groups filling a hash table as batches arrive",
+          "path": "aggregation/hash-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 4,
+          "title": "Sort-based aggregation",
+          "slug": "sort-based-aggregation",
+          "level": "I",
+          "scope": "Aggregating sorted input with a running group, and when sorted input makes it free.",
+          "visual": null,
+          "path": "aggregation/sort-based-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 5,
+          "title": "Partial and final aggregation",
+          "slug": "partial-and-final-aggregation",
+          "level": "I",
+          "scope": "Two-phase aggregation within and across threads, and combining partial states.",
+          "visual": "Threads producing partials that merge into finals",
+          "path": "aggregation/partial-and-final-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 6,
+          "title": "Vectorized aggregate updates",
+          "slug": "vectorized-aggregate-updates",
+          "level": "A",
+          "scope": "Computing group indexes for a batch, then updating accumulators column by column.",
+          "visual": null,
+          "path": "aggregation/vectorized-aggregate-updates",
+          "status": "planned"
+        },
+        {
+          "index": 7,
+          "title": "Designing the aggregation hash table",
+          "slug": "designing-the-aggregation-hash-table",
+          "level": "A",
+          "scope": "Key storage, fixed vs variable width keys, accumulator layout, and resize cost.",
+          "visual": null,
+          "path": "aggregation/designing-the-aggregation-hash-table",
+          "status": "planned"
+        },
+        {
+          "index": 8,
+          "title": "Low vs high cardinality grouping",
+          "slug": "low-vs-high-cardinality-grouping",
+          "level": "A",
+          "scope": "Perfect hashing for small domains, cache effects of large tables, and adaptive strategies.",
+          "visual": null,
+          "path": "aggregation/low-vs-high-cardinality-grouping",
+          "status": "planned"
+        },
+        {
+          "index": 9,
+          "title": "Spilling aggregation",
+          "slug": "spilling-aggregation",
+          "level": "A",
+          "scope": "Partitioning groups to disk, merging spilled states, and sort-based fallback.",
+          "visual": null,
+          "path": "aggregation/spilling-aggregation",
+          "status": "planned"
+        },
+        {
+          "index": 10,
+          "title": "DISTINCT aggregates",
+          "slug": "distinct-aggregates",
+          "level": "A",
+          "scope": "COUNT(DISTINCT), multiple distinct aggregates in one query, and rewriting them into two-level aggregation.",
+          "visual": null,
+          "path": "aggregation/distinct-aggregates",
+          "status": "planned"
+        },
+        {
+          "index": 11,
+          "title": "Approximate distinct counts with HyperLogLog",
+          "slug": "approximate-distinct-counts-with-hyperloglog",
+          "level": "I",
+          "scope": "Registers and leading zeros, error bounds, and mergeable sketches.",
+          "visual": "HLL register simulation with live estimate and error",
+          "path": "aggregation/approximate-distinct-counts-with-hyperloglog",
+          "status": "planned"
+        },
+        {
+          "index": 12,
+          "title": "Approximate quantiles",
+          "slug": "approximate-quantiles",
+          "level": "A",
+          "scope": "t-digest and KLL sketches, their accuracy guarantees and mergeability.",
+          "visual": null,
+          "path": "aggregation/approximate-quantiles",
+          "status": "planned"
+        },
+        {
+          "index": 13,
+          "title": "GROUPING SETS, ROLLUP and CUBE",
+          "slug": "grouping-sets-rollup-and-cube",
+          "level": "I",
+          "scope": "Semantics, the expand-then-aggregate implementation, and grouping IDs.",
+          "visual": null,
+          "path": "aggregation/grouping-sets-rollup-and-cube",
+          "status": "planned"
+        },
+        {
+          "index": 14,
+          "title": "Aggregation pushdown below joins",
+          "slug": "aggregation-pushdown-below-joins",
+          "level": "A",
+          "scope": "Eager aggregation, when pre-aggregating before a join is valid, and when it pays.",
+          "visual": null,
+          "path": "aggregation/aggregation-pushdown-below-joins",
+          "status": "planned"
+        },
+        {
+          "index": 15,
+          "title": "Skipping partial aggregation adaptively",
+          "slug": "skipping-partial-aggregation-adaptively",
+          "level": "A",
+          "scope": "Detecting when partial aggregation isn't reducing rows and passing data through.",
+          "visual": null,
+          "path": "aggregation/skipping-partial-aggregation-adaptively",
+          "status": "planned"
+        },
+        {
+          "index": 16,
+          "title": "Lab: a vectorized hash aggregate in Rust",
+          "slug": "lab-a-vectorized-hash-aggregate-in-rust",
+          "level": "I",
+          "scope": "Build hash aggregation over Arrow batches with partial/final phases, and measure across group cardinalities.",
+          "visual": null,
+          "path": "aggregation/lab-a-vectorized-hash-aggregate-in-rust",
+          "status": "planned"
+        }
+      ]
+    }
+  }
+}
