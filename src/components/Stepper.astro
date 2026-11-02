@@ -116,4 +116,24 @@ const { caption } = Astro.props;
     font-size: 0.875rem;
     color: var(--sl-color-gray-2);
   }
+  @media (max-width: 49.99rem) {
+    .qe-stepper {
+      margin-inline: var(--qe-bleed);
+      padding: 1rem;
+      border-radius: 0;
+      border-inline: 0;
+    }
+    .controls {
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .label {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      text-align: left;
+    }
+    button {
+      min-height: 2.75rem;
+    }
+  }
 </style>

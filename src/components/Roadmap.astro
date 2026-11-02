@@ -32,7 +32,7 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
                     <span class="mnum">{m.id}</span>
                     <span class="mtitle">{m.title}</span>
                     <span class="mmeta">
-                      <span>{m.articles.length}</span>
+                      <span>{m.articles.length} articles</span>
                       <LevelSpread articles={m.articles} />
                     </span>
                   </a>
@@ -45,7 +45,7 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
     }
   </ol>
 
-  <section class="index" aria-labelledby="index-title">
+  <section class="index" aria-labelledby="index-title" data-pagefind-ignore>
     <h2 id="index-title">Find an article</h2>
     <div class="controls">
       <label class="search">
@@ -337,8 +337,30 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
     white-space: nowrap;
   }
   @media (max-width: 50rem) {
+    .roadmap {
+      gap: 3rem;
+    }
+    .parts {
+      gap: 2.25rem;
+    }
     .part {
       grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    .modules a {
+      grid-template-columns: 2rem 1fr;
+      grid-template-areas:
+        'num title'
+        '. meta';
+      row-gap: 0.3rem;
+      align-items: baseline;
+      padding: 0.8rem 0;
+    }
+    .mnum { grid-area: num; }
+    .mtitle { grid-area: title; }
+    .mmeta { grid-area: meta; }
+    .results a {
+      padding: 0.6rem 0;
     }
   }
 </style>

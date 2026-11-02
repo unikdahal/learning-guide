@@ -25,6 +25,15 @@ const { caption, wide = false } = Astro.props;
   .wide .frame {
     margin-inline: clamp(-4rem, -4vw, 0rem);
   }
+  @media (max-width: 49.99rem) {
+    .frame,
+    .wide .frame {
+      margin-inline: var(--qe-bleed);
+      padding: 1rem;
+      border-radius: 0;
+      border-inline: 0;
+    }
+  }
   figcaption {
     margin-top: 0.6rem;
     font-family: var(--sl-font);

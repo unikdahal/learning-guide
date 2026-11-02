@@ -41,5 +41,9 @@ See `syllabus/README.md` for the fields.
 
 ## Deploy
 
-Pushing to `main` builds and deploys through GitHub Actions. In the repository settings,
-under **Pages**, set the source to **GitHub Actions** once.
+Deploys are manual, so pushing to `main` uses no Actions minutes.
+
+1. Once: in **Settings → Pages**, set **Source** to **GitHub Actions**.
+2. Each time you want to publish: **Actions → Deploy to GitHub Pages → Run workflow**.
+
+A deploy takes about a minute.

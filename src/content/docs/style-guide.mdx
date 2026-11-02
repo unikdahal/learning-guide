@@ -37,11 +37,11 @@ Blue is a build or upstream pipeline, teal is the main probe pipeline, violet is
 Amber is reserved for spilling, warnings and failure.
 
 <Figure caption="Edges and batches use the diagram kit classes: qe-edge, qe-batch and a pipeline class.">
-  <svg class="qe-diagram" viewBox="0 0 520 90" role="img" aria-label="Four colored batches, one per pipeline class">
-    <g class="build"><rect class="qe-batch" x="20" y="35" width="40" height="18" rx="3" /><text x="70" y="49">build</text></g>
-    <g class="probe"><rect class="qe-batch" x="150" y="35" width="40" height="18" rx="3" /><text x="200" y="49">probe</text></g>
-    <g class="emit"><rect class="qe-batch" x="280" y="35" width="40" height="18" rx="3" /><text x="330" y="49">emit</text></g>
-    <g class="warn"><rect class="qe-batch" x="400" y="35" width="40" height="18" rx="3" /><text x="450" y="49">spill</text></g>
+  <svg class="qe-diagram" width="300" viewBox="0 0 300 76" role="img" aria-label="Four colored batches, one per pipeline class">
+    <g class="build"><rect class="qe-batch" x="10" y="8" width="40" height="18" rx="3" /><text x="60" y="22">build</text></g>
+    <g class="probe"><rect class="qe-batch" x="160" y="8" width="40" height="18" rx="3" /><text x="210" y="22">probe</text></g>
+    <g class="emit"><rect class="qe-batch" x="10" y="48" width="40" height="18" rx="3" /><text x="60" y="62">emit</text></g>
+    <g class="warn"><rect class="qe-batch" x="160" y="48" width="40" height="18" rx="3" /><text x="210" y="62">spill</text></g>
   </svg>
 </Figure>
 
@@ -53,7 +53,7 @@ in order.
 
 <Stepper caption="Example: the iterator model pulling one tuple through Projection, Filter and Scan.">
   <div data-step="The consumer calls next() on Projection">
-    <svg class="qe-diagram" viewBox="0 0 640 220" role="img" aria-label="Projection highlighted as next is called">
+    <svg class="qe-diagram" width="330" viewBox="236 10 248 200" role="img" aria-label="Projection highlighted as next is called">
       <rect class="qe-node qe-highlight" x="250" y="20" width="140" height="36" rx="5" /><text x="320" y="43" text-anchor="middle">Projection</text>
       <rect class="qe-node" x="250" y="92" width="140" height="36" rx="5" /><text x="320" y="115" text-anchor="middle">Filter</text>
       <rect class="qe-node" x="250" y="164" width="140" height="36" rx="5" /><text x="320" y="187" text-anchor="middle">Scan</text>
@@ -62,7 +62,7 @@ in order.
     </svg>
   </div>
   <div data-step="Projection calls next() on Filter">
-    <svg class="qe-diagram" viewBox="0 0 640 220" role="img" aria-label="Filter highlighted as next is called">
+    <svg class="qe-diagram" width="330" viewBox="236 10 248 200" role="img" aria-label="Filter highlighted as next is called">
       <rect class="qe-node" x="250" y="20" width="140" height="36" rx="5" /><text x="320" y="43" text-anchor="middle">Projection</text>
       <rect class="qe-node qe-highlight" x="250" y="92" width="140" height="36" rx="5" /><text x="320" y="115" text-anchor="middle">Filter</text>
       <rect class="qe-node" x="250" y="164" width="140" height="36" rx="5" /><text x="320" y="187" text-anchor="middle">Scan</text>
@@ -71,7 +71,7 @@ in order.
     </svg>
   </div>
   <div data-step="Scan returns a tuple; Filter checks it">
-    <svg class="qe-diagram" viewBox="0 0 640 220" role="img" aria-label="A tuple moving from Scan to Filter">
+    <svg class="qe-diagram" width="330" viewBox="236 10 248 200" role="img" aria-label="A tuple moving from Scan to Filter">
       <rect class="qe-node" x="250" y="20" width="140" height="36" rx="5" /><text x="320" y="43" text-anchor="middle">Projection</text>
       <rect class="qe-node qe-highlight" x="250" y="92" width="140" height="36" rx="5" /><text x="320" y="115" text-anchor="middle">Filter</text>
       <rect class="qe-node" x="250" y="164" width="140" height="36" rx="5" /><text x="320" y="187" text-anchor="middle">Scan</text>
@@ -81,7 +81,7 @@ in order.
     </svg>
   </div>
   <div data-step="The tuple passes and reaches Projection">
-    <svg class="qe-diagram" viewBox="0 0 640 220" role="img" aria-label="The tuple reaching Projection">
+    <svg class="qe-diagram" width="330" viewBox="236 10 248 200" role="img" aria-label="The tuple reaching Projection">
       <rect class="qe-node qe-highlight" x="250" y="20" width="140" height="36" rx="5" /><text x="320" y="43" text-anchor="middle">Projection</text>
       <rect class="qe-node" x="250" y="92" width="140" height="36" rx="5" /><text x="320" y="115" text-anchor="middle">Filter</text>
       <rect class="qe-node" x="250" y="164" width="140" height="36" rx="5" /><text x="320" y="187" text-anchor="middle">Scan</text>
@@ -123,7 +123,8 @@ When a visual needs real interaction, such as a zone-map explorer or a hash tabl
 into, write it as an Astro component in `src/components/visuals/` and import it into the
 article. Follow these rules:
 
-- Draw SVG at roughly 1:1 with the text column: a viewBox about 640 units wide keeps 13px labels at 13px.
+- Crop the SVG viewBox tight to the drawing and set a `width` attribute for its large-screen size. On phones it
+  scales down, so keep labelled diagrams under about 380 units wide, and turn anything wider into a stepper.
 - Use theme tokens (`--sl-color-*`, `--qe-pipe-*`), never hard-coded colors, so dark and light both work.
 - Respect `prefers-reduced-motion` and provide a pause control for anything that loops.
 - Give every SVG a role and an accessible label that states what it shows.

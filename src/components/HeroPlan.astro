@@ -30,10 +30,10 @@ const visible = (at: number, until = 9.9) => ({
 ---
 
 <figure class="hero-plan" aria-labelledby="hero-plan-caption">
-  <svg viewBox="0 0 500 420" role="img" aria-labelledby="hero-plan-title hero-plan-desc">
+  <svg viewBox="16 14 448 392" role="img" aria-labelledby="hero-plan-title hero-plan-desc">
     <title id="hero-plan-title">A hash join plan executing</title>
     <desc id="hero-plan-desc">
-      Record batches flow up from two table scans. Customer batches shrink as they pass the filter and fill the
+      Record batches flow up from two table scans. Customer batches shrink as they pass the filter on segment = retail and fill the
       join's hash table. Then order batches probe the hash table and fill aggregate groups. Finally one result batch
       leaves the aggregate.
     </desc>
@@ -45,48 +45,6 @@ const visible = (at: number, until = 9.9) => ({
       <path d="M380,360 L264,214" class="edge probe" />
       <path d="M250,186 L250,144" class="edge probe" />
       <path d="M250,102 L250,62" class="edge emit" />
-    </g>
-
-    <!-- nodes -->
-    <g class="node">
-      <rect x="40" y="360" width="140" height="34" rx="5" />
-      <text x="110" y="382">Scan customer</text>
-    </g>
-    <g class="node">
-      <rect x="30" y="272" width="160" height="34" rx="5" />
-      <text x="110" y="294">Filter segment = retail</text>
-    </g>
-    <g class="node">
-      <rect x="315" y="360" width="130" height="34" rx="5" />
-      <text x="380" y="382">Scan orders</text>
-    </g>
-    <g class="node join">
-      <rect x="196" y="174" width="108" height="42" rx="5" />
-      <text x="250" y="190">Hash join</text>
-      {buckets.map((b) => <rect class="slot" x={b.x} y="198" width="14" height="10" rx="1.5" />)}
-      {
-        buckets.map((b) => (
-          <rect class="slot-fill build" x={b.x} y="198" width="14" height="10" rx="1.5" opacity="0">
-            <animate attributeName="opacity" dur={`${CYCLE}s`} repeatCount="indefinite" {...visible(b.at)} />
-          </rect>
-        ))
-      }
-    </g>
-    <g class="node agg">
-      <rect x="196" y="102" width="108" height="42" rx="5" />
-      <text x="250" y="118">Aggregate</text>
-      {groups.map((g) => <rect class="slot" x={g.x} y="126" width="14" height="10" rx="1.5" />)}
-      {
-        groups.map((g) => (
-          <rect class="slot-fill probe" x={g.x} y="126" width="14" height="10" rx="1.5" opacity="0">
-            <animate attributeName="opacity" dur={`${CYCLE}s`} repeatCount="indefinite" {...visible(g.at)} />
-          </rect>
-        ))
-      }
-    </g>
-    <g class="node out">
-      <rect x="205" y="26" width="90" height="34" rx="5" />
-      <text x="250" y="48">Result</text>
     </g>
 
     <!-- record batches -->
@@ -131,6 +89,49 @@ const visible = (at: number, until = 9.9) => ({
         ))
       }
     </g>
+
+    <!-- nodes -->
+    <g class="node">
+      <rect x="40" y="360" width="140" height="34" rx="5" />
+      <text x="110" y="382">Scan customer</text>
+    </g>
+    <g class="node">
+      <rect x="40" y="272" width="140" height="34" rx="5" />
+      <text x="110" y="294">Filter: retail</text>
+    </g>
+    <g class="node">
+      <rect x="315" y="360" width="130" height="34" rx="5" />
+      <text x="380" y="382">Scan orders</text>
+    </g>
+    <g class="node join">
+      <rect x="196" y="174" width="108" height="42" rx="5" />
+      <text x="250" y="190">Hash join</text>
+      {buckets.map((b) => <rect class="slot" x={b.x} y="198" width="14" height="10" rx="1.5" />)}
+      {
+        buckets.map((b) => (
+          <rect class="slot-fill build" x={b.x} y="198" width="14" height="10" rx="1.5" opacity="0">
+            <animate attributeName="opacity" dur={`${CYCLE}s`} repeatCount="indefinite" {...visible(b.at)} />
+          </rect>
+        ))
+      }
+    </g>
+    <g class="node agg">
+      <rect x="196" y="102" width="108" height="42" rx="5" />
+      <text x="250" y="118">Aggregate</text>
+      {groups.map((g) => <rect class="slot" x={g.x} y="126" width="14" height="10" rx="1.5" />)}
+      {
+        groups.map((g) => (
+          <rect class="slot-fill probe" x={g.x} y="126" width="14" height="10" rx="1.5" opacity="0">
+            <animate attributeName="opacity" dur={`${CYCLE}s`} repeatCount="indefinite" {...visible(g.at)} />
+          </rect>
+        ))
+      }
+    </g>
+    <g class="node out">
+      <rect x="205" y="26" width="90" height="34" rx="5" />
+      <text x="250" y="48">Result</text>
+    </g>
+
   </svg>
 
   <figcaption id="hero-plan-caption">
@@ -189,7 +190,7 @@ const visible = (at: number, until = 9.9) => ({
   }
   .node text {
     font-family: var(--sl-font);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     fill: var(--sl-color-white);
     text-anchor: middle;
@@ -242,5 +243,19 @@ const visible = (at: number, until = 9.9) => ({
   .pause:focus-visible {
     outline: 2px solid var(--sl-color-accent);
     outline-offset: 2px;
+  }
+  @media (max-width: 40rem) {
+    svg {
+      max-width: none;
+      width: calc(100% + 1rem);
+      margin-inline: -0.5rem;
+    }
+    .node text {
+      font-size: 16.5px;
+    }
+    figcaption {
+      justify-content: flex-start;
+      gap: 0.5rem 1rem;
+    }
   }
 </style>

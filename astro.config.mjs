@@ -45,21 +45,16 @@ export default defineConfig({
       ],
       editLink: { baseUrl: 'https://github.com/unikdahal/learning-guide/edit/main/' },
       lastUpdated: true,
-      customCss: ['./src/styles/theme.css'],
-      head: [
-        { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' } },
-        { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' } },
-        {
-          tag: 'link',
-          attrs: {
-            rel: 'stylesheet',
-            href: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&display=swap',
-          },
-        },
+      customCss: [
+        '@fontsource-variable/bricolage-grotesque/opsz.css',
+        '@fontsource-variable/source-serif-4/opsz.css',
+        '@fontsource-variable/source-serif-4/opsz-italic.css',
+        '@fontsource-variable/jetbrains-mono/wght.css',
+        './src/styles/theme.css',
       ],
       expressiveCode: {
         themes: ['github-dark-dimmed', 'github-light'],
-        styleOverrides: { borderRadius: '6px', codeFontFamily: "'JetBrains Mono', ui-monospace, monospace" },
+        styleOverrides: { borderRadius: '6px', codeFontFamily: "'JetBrains Mono Variable', ui-monospace, monospace", codeFontSize: '0.875rem' },
       },
       sidebar,
     }),

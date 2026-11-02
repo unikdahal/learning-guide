@@ -16,7 +16,7 @@ const neighbours = m.articles;
 ---
 
 <div class="plan not-content" style={`--part: ${part.color}`}>
-  <div class="where">
+  <div class="where" data-pagefind-ignore>
     <a href={url(`${m.slug}/`)} class="module-link">
       <span class="part">Part {part.id}, {part.title}</span>
       <span class="module">Module {m.id}: {m.title}</span>
@@ -24,30 +24,30 @@ const neighbours = m.articles;
     <LevelMeter level={a.level} />
   </div>
 
-  <p class="status">
+  <p class="status" data-pagefind-ignore>
     This article is planned and not written yet. Below is what it will cover.
   </p>
 
   <dl class="facts">
     <div>
-      <dt>Scope</dt>
+      <dt data-pagefind-ignore>Scope</dt>
       <dd>{a.scope}</dd>
     </div>
     {
       a.visual && (
         <div>
-          <dt>Planned visual</dt>
+          <dt data-pagefind-ignore>Planned visual</dt>
           <dd>{a.visual}</dd>
         </div>
       )
     }
-    <div>
+    <div data-pagefind-ignore>
       <dt>Module goal</dt>
       <dd>{m.goal}</dd>
     </div>
     {
       prereqs.length > 0 && (
-        <div>
+        <div data-pagefind-ignore>
           <dt>Read first</dt>
           <dd>
             <ul class="inline">
@@ -65,7 +65,7 @@ const neighbours = m.articles;
     }
   </dl>
 
-  <details class="sequence">
+  <details class="sequence" data-pagefind-ignore>
     <summary>Article {a.index} of {neighbours.length} in this module</summary>
     <ol>
       {

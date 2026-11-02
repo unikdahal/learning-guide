@@ -1,16 +1,17 @@
 /*
-  Query Execution — theme tokens.
-  Cool slate paper, ink, and a teal taken from the "batch" color in the hero plan.
-  Part colors encode which of the seven Parts a module belongs to; pipeline colors are used in diagrams.
+  Query Execution — theme.
+  Cool slate paper and ink, with a teal taken from the "batch" color in the hero plan.
+  Part colors say which of the seven Parts a module belongs to; pipeline colors are for diagrams.
+  Written phone-first: base rules target a ~390px screen, media queries add room on larger ones.
 */
 
 :root {
-  --sl-font: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
-  --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --qe-font-prose: 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+  --sl-font: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sl-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --qe-font-prose: 'Source Serif 4 Variable', 'Iowan Old Style', Charter, Georgia, serif;
 
-  --sl-content-width: 46rem;
-  --sl-text-h1: 2.5rem;
+  --sl-content-width: 44rem;
+  --sl-text-h1: 2.125rem;
 
   /* Dark theme (Starlight default) */
   --sl-color-accent-low: #0c312d;
@@ -19,11 +20,14 @@
   --sl-color-white: #eaf2f0;
   --sl-color-gray-1: #cfdbd8;
   --sl-color-gray-2: #a7b7b3;
-  --sl-color-gray-3: #7b8e89;
+  --sl-color-gray-3: #849792;
   --sl-color-gray-4: #4f615d;
   --sl-color-gray-5: #313f3c;
   --sl-color-gray-6: #1f2a29;
   --sl-color-black: #141c1e;
+
+  --qe-prose: #d3dedb;
+  --qe-link: #7fd8cc;
 
   --qe-pipe-build: #6ea8e8;
   --qe-pipe-probe: #2fb3a4;
@@ -34,6 +38,8 @@
   --qe-level-2: #6fd2c4;
   --qe-level-3: #2b9e91;
   --qe-level-4: #146a61;
+
+  --qe-bleed: calc(-1 * var(--sl-content-pad-x, 1rem));
 }
 
 :root[data-theme='light'] {
@@ -43,12 +49,15 @@
   --sl-color-white: #16232a;
   --sl-color-gray-1: #24343b;
   --sl-color-gray-2: #3d4e55;
-  --sl-color-gray-3: #5f7077;
+  --sl-color-gray-3: #5a6b72;
   --sl-color-gray-4: #8d9ba0;
   --sl-color-gray-5: #c6d0d1;
   --sl-color-gray-6: #e2e9e8;
   --sl-color-gray-7: #ecf1f0;
   --sl-color-black: #f3f6f5;
+
+  --qe-prose: #22323a;
+  --qe-link: #0b6a61;
 
   --qe-pipe-build: #2f6fb0;
   --qe-pipe-probe: #0e7c72;
@@ -61,45 +70,103 @@
   --qe-level-4: #07433d;
 }
 
-/* ---------- Typography ---------- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-white);
+}
+
+/* ---------- Page title ---------- */
+
+.content-panel h1 {
+  font-family: var(--sl-font);
+  font-size: clamp(2rem, 1.5rem + 2.4vw, 2.75rem);
+  font-weight: 750;
+  font-variation-settings: 'opsz' 96;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+/* ---------- Reading typography ---------- */
 
 .sl-markdown-content {
   font-family: var(--qe-font-prose);
-  font-size: 1.1rem;
-  line-height: 1.72;
+  font-size: 1.0625rem; /* 17px on phones */
+  line-height: 1.7;
+  color: var(--qe-prose);
   font-optical-sizing: auto;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
 }
 
-.sl-markdown-content :is(h1, h2, h3, h4, h5, h6),
-.content-panel h1 {
-  font-family: var(--sl-font);
-  letter-spacing: -0.015em;
-  line-height: 1.15;
-}
-
-.content-panel h1 {
-  font-weight: 750;
-  font-variation-settings: 'opsz' 96;
-}
-
-.sl-markdown-content h2 {
-  font-weight: 700;
-  margin-top: 2.5em;
-}
-
-.sl-markdown-content h3 {
-  font-weight: 650;
+@media (min-width: 50rem) {
+  .sl-markdown-content {
+    font-size: 1.125rem; /* 18px */
+    line-height: 1.72;
+  }
 }
 
 .sl-markdown-content :is(p, li):not(:where(.not-content *)) {
   max-width: 68ch;
+  text-wrap: pretty;
 }
 
-.sl-markdown-content code:not(pre code) {
-  font-size: 0.86em;
-  padding: 0.1em 0.3em;
-  border-radius: 3px;
-  background: var(--sl-color-gray-6);
+.sl-markdown-content > :is(p, ul, ol) + :is(p, ul, ol) {
+  margin-top: 1.1em;
+}
+
+.sl-markdown-content li:not(:where(.not-content *)) + li {
+  margin-top: 0.35em;
+}
+
+.sl-markdown-content :is(h2, h3, h4) {
+  font-family: var(--sl-font);
+  color: var(--sl-color-white);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.sl-markdown-content h2 {
+  font-size: 1.5rem;
+  font-weight: 720;
+  margin-top: 2.4em;
+}
+
+.sl-markdown-content h3 {
+  font-size: 1.1875rem;
+  font-weight: 660;
+  margin-top: 1.9em;
+}
+
+.sl-markdown-content h4 {
+  font-size: 1.0625rem;
+  font-weight: 650;
+}
+
+@media (min-width: 50rem) {
+  .sl-markdown-content h2 { font-size: 1.75rem; }
+  .sl-markdown-content h3 { font-size: 1.3125rem; }
+}
+
+.sl-markdown-content a:not(:where(.not-content *)) {
+  color: var(--qe-link);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: color-mix(in srgb, var(--qe-link) 45%, transparent);
+}
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+  text-decoration-color: currentColor;
 }
 
 .sl-markdown-content strong {
@@ -107,12 +174,52 @@
   color: var(--sl-color-white);
 }
 
-/* Starlight's description under the title: set in the prose face. */
-.content-panel .sl-container > p:first-of-type {
-  font-family: var(--qe-font-prose);
+.sl-markdown-content code:not(pre code) {
+  font-size: 0.84em;
+  padding: 0.12em 0.32em;
+  border-radius: 4px;
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-white);
+  overflow-wrap: anywhere;
+}
+
+/* Code blocks run edge to edge on phones so lines aren't cramped. */
+@media (max-width: 49.99rem) {
+  .sl-markdown-content .expressive-code {
+    margin-inline: var(--qe-bleed);
+  }
+  .sl-markdown-content .expressive-code :is(.frame, figure, pre) {
+    border-radius: 0 !important;
+    border-inline: 0 !important;
+  }
+}
+
+/* ---------- Page navigation ---------- */
+
+.pagination-links a {
+  box-shadow: none;
+  border-color: var(--sl-color-gray-5);
+}
+.pagination-links a:hover {
+  border-color: var(--sl-color-accent);
+}
+.pagination-links .link-title {
+  font-size: 1.0625rem;
+  line-height: 1.3;
+  font-weight: 650;
+  text-wrap: balance;
+}
+@media (min-width: 50rem) {
+  .pagination-links .link-title {
+    font-size: 1.1875rem;
+  }
 }
 
 /* ---------- Sidebar ---------- */
+
+nav.sidebar {
+  --sl-sidebar-item-padding-y: 0.3em;
+}
 
 /* Planned articles read lighter, with an open ring; written ones look normal. */
 nav.sidebar a[data-status='planned'] {
@@ -121,19 +228,32 @@ nav.sidebar a[data-status='planned'] {
 nav.sidebar a[data-status='planned']::after {
   content: '';
   display: inline-block;
-  vertical-align: middle;
+  vertical-align: 0.1em;
   width: 6px;
   height: 6px;
   margin-inline-start: 0.45em;
   border: 1.5px solid currentColor;
   border-radius: 50%;
-  opacity: 0.55;
+  opacity: 0.6;
 }
 nav.sidebar a[data-status='planned'][aria-current='page'] {
   color: var(--sl-color-white);
 }
 
-/* ---------- Focus ---------- */
+/* Bigger touch targets in the phone menu. */
+@media (max-width: 49.99rem) {
+  nav.sidebar :is(a, summary) {
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+  }
+  nav.sidebar a[data-status='planned']::after {
+    margin-inline-start: auto;
+    flex-shrink: 0;
+  }
+}
+
+/* ---------- Focus and motion ---------- */
 
 :focus-visible {
   outline-color: var(--sl-color-accent);
@@ -147,14 +267,28 @@ nav.sidebar a[data-status='planned'][aria-current='page'] {
   }
 }
 
+/* ---------- Landing page ---------- */
+
+/* The Home component draws its own title, so hide Starlight's. */
+.content-panel:has(> .sl-container > h1#_top):has(+ .content-panel .home) {
+  display: none;
+}
+.content-panel:has(.home) {
+  border-top: 0;
+}
+
 /* ---------- Diagram kit ----------
    Shared classes for hand-drawn SVG in articles, so every figure speaks the same visual language.
-   Usage: <svg class="qe-diagram" viewBox="…"> with .qe-node, .qe-edge, .qe-batch and a pipeline class.
+   Usage: <svg class="qe-diagram" width="W" viewBox="0 0 W H"> with .qe-node, .qe-edge, .qe-batch and a pipeline class.
+   Crop the viewBox tight to the drawing. The width attribute is the size on a large screen; on phones it scales down,
+   so keep W under about 380 for anything with labels, or split wide diagrams into steps.
 */
 
 .qe-diagram {
-  width: 100%;
+  display: block;
+  max-width: 100%;
   height: auto;
+  margin-inline: auto;
   font-family: var(--sl-font);
 }
 .qe-diagram .qe-node rect,
@@ -195,10 +329,19 @@ nav.sidebar a[data-status='planned'][aria-current='page'] {
   stroke: var(--sl-color-accent);
 }
 
-/* Landing page: the Home component draws its own title, so hide Starlight's. */
-.content-panel:has(> .sl-container > h1#_top):has(+ .content-panel .home) {
-  display: none;
+/* ---------- Sidebar hierarchy ----------
+   Part headings are small and quiet; modules carry the weight; articles are regular. */
+nav.sidebar .top-level > li > details > summary .large {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--sl-color-gray-3);
+  letter-spacing: 0.01em;
 }
-.content-panel:has(.home) {
-  border-top: 0;
+nav.sidebar .top-level > li + li {
+  margin-top: 0.35rem;
+}
+nav.sidebar .top-level > li > details > ul > li > details > summary .large {
+  font-size: 0.9375rem;
+  font-weight: 620;
+  color: var(--sl-color-white);
 }
