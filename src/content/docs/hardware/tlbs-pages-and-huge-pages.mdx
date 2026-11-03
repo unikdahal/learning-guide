@@ -1,16 +1,188 @@
 ---
-title: "TLBs, pages and huge pages"
-description: "Virtual memory translation, TLB misses on large hash tables, and when huge pages help."
+title: TLBs, pages and huge pages
+description: Virtual memory translation, TLB misses on large hash tables, and when huge pages help.
 level: I
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 7
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import MeasuredChart from '@components/visuals/MeasuredChart.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="tlbs-pages-and-huge-pages" />
+<ArticleMeta module="02" slug="tlbs-pages-and-huge-pages" minutes={13} lab="m02-hardware/examples/pages.rs" />
+
+In the [memory hierarchy article](../the-memory-hierarchy-from-registers-to-object-storage/), main memory got
+slower as the working set grew, from 128 ns at 16 MiB to 175 ns at 1 GiB, even though it was the same memory.
+Running the same test on 2 MiB pages instead of 4 KiB pages removed almost all of that growth. The difference
+was the cost of something every memory access pays and almost nobody thinks about: translating the address.
+
+## The question
+
+What does address translation cost, when does it become a bottleneck, and what do huge pages change?
+
+## Virtual addresses and pages
+
+Programs never see physical memory addresses. Each process has its own **virtual** address space, and the
+operating system maps it onto physical memory in fixed-size blocks called **pages**, 4 KiB by default on x86-64
+Linux. The mapping lives in a **page table**, a tree the CPU walks to turn a virtual address into a physical one:
+on x86-64, several levels, each indexed by a slice of the address bits.
+
+Walking that tree on every load would multiply the cost of memory access, so the CPU caches recent translations
+in the **translation lookaside buffer**, the TLB. A hit costs nothing noticeable. A miss triggers a **page walk**,
+in which hardware reads page table entries, themselves memory that may or may not be in cache, before the real
+access can start.
+
+## TLB reach
+
+A TLB has a fixed number of entries, so it can cover only so much memory at once: its **reach**, entries times
+page size. A TLB of 1,000 entries for 4 KiB pages reaches 4 MiB; the same entries for 2 MiB pages reach 2 GiB.
+A program whose random accesses spread over more memory than the reach misses the TLB on most of them.
+
+The lab tried to ask the CPU for its TLB sizes, through CPUID leaf 0x18, which Intel processors use to describe
+their TLBs. Under this VM's hypervisor the leaf came back empty, so the reach is unknown. The measurements show
+its effects instead.
+
+## Measured: the pointer chase on both page sizes
+
+The chase visits one cache line per step, in a random cycle, and allocates its memory with `mmap`, aligned to 2
+MiB and advised with `madvise(MADV_HUGEPAGE)` for the huge-page runs. Reading `AnonHugePages` from
+`/proc/self/smaps_rollup` confirmed the kernel backed 100% of the memory with huge pages.
+
+<MeasuredChart
+  title="Pointer chase latency, 4 KiB vs 2 MiB pages"
+  caption="Measured on the lab VM, median of 3 to 5 runs. One dependent load at a time over a random cycle."
+  x={{ label: 'working set', log: true, ticks: [1048576, 4194304, 16777216, 67108864, 268435456, 1073741824], format: 'bytes' }}
+  y={{ label: 'ns per load', ticks: [0, 50, 100, 150, 200], format: 'ns' }}
+  series={[
+    { name: '4 KiB pages', points: [[1048576, 8.28], [2097152, 26.19], [4194304, 36.92], [8388608, 37.66], [16777216, 126.68], [33554432, 138.05], [67108864, 135.58], [134217728, 144.72], [268435456, 153.2], [536870912, 161.96], [1073741824, 178.92]] },
+    { name: '2 MiB huge pages', points: [[1048576, 8.13], [2097152, 11.81], [4194304, 34.26], [8388608, 33.39], [16777216, 121.72], [33554432, 121.01], [67108864, 124.4], [134217728, 120.58], [268435456, 126.19], [536870912, 125.01], [1073741824, 131.04]] },
+  ]}
+/>
+
+Two separate effects show up. The step from about 35 to about 125 ns between 8 and 16 MiB happens on both page
+sizes, so it is a cache boundary. On top of it, 4 KiB pages add a cost that grows with the working set: 5 ns at
+16 MiB, 27 ns at 256 MiB, 48 ns at 1 GiB. That growing gap is translation: the more memory the random accesses
+cover, the fewer of them hit the TLB, and the more of the page table itself falls out of cache, so walks get
+slower too. With huge pages, 512 times fewer translations cover the same memory, and the curve stays flat.
+
+The 2 MiB point is a translation effect alone: 26 ns on small pages against 12 ns on huge ones, within what fits
+in L2. A 2 MiB working set is 512 pages of 4 KiB, likely more than the first-level TLB holds, and every miss
+there costs time even when the data itself is in cache.
+
+## Measured: a hash-table-like gather
+
+A pointer chase is the worst case: one access at a time. A hash table probe looks more like a gather: many
+independent random reads, which the core can overlap. The lab gathers 16 million random positions from tables
+of increasing size:
+
+```text title="cargo run --release -p m02-hardware --example pages (trimmed)"
+  table size   4 KiB pages   2 MiB pages   speedup
+       1 MiB       0.89 ns       0.93 ns     0.95x
+       4 MiB       2.77 ns       2.72 ns     1.02x
+      16 MiB       4.58 ns       3.78 ns     1.21x
+      64 MiB       7.06 ns       4.13 ns     1.71x
+     256 MiB       6.50 ns       4.72 ns     1.38x
+       1 GiB       5.79 ns       4.16 ns     1.39x
+```
+
+<MeasuredChart
+  title="Random gather, speedup from huge pages"
+  caption="Time per value on 4 KiB pages divided by time on 2 MiB pages. Above 1 means huge pages were faster."
+  x={{ label: 'table size', log: true, ticks: [1048576, 4194304, 16777216, 67108864, 268435456, 1073741824], format: 'bytes' }}
+  y={{ label: 'speedup', ticks: [0, 0.5, 1, 1.5, 2], format: 'x' }}
+  series={[{ name: 'speedup', points: [[1048576, 0.95], [4194304, 1.02], [16777216, 1.21], [67108864, 1.71], [268435456, 1.38], [1073741824, 1.39]] }]}
+/>
+
+Small tables gain nothing: their pages fit in the TLB anyway. From 16 MiB up, huge pages made the same gather
+1.2 to 1.7 times faster. The gather overlaps many accesses, so absolute times are far lower than the chase's,
+but translation still sits on the critical path of each one. (The 4 KiB times don't grow smoothly with size:
+256 MiB and 1 GiB were measured faster than 64 MiB. The runs were repeated five times each, and the lab has no
+counters to explain the shape, so read the trend, not individual points.)
+
+## Huge pages in practice
+
+Linux offers huge pages two ways:
+
+- **Transparent huge pages (THP)** let the kernel back ordinary anonymous memory with 2 MiB pages when it can.
+  A system-wide setting chooses whether it does this for all memory, only for regions a program marks with
+  `madvise(MADV_HUGEPAGE)`, or never. The lab VM is set to `madvise`, which is why the lab advises its
+  allocations explicitly:
+
+  ```text title="/sys/kernel/mm/transparent_hugepage/enabled"
+  always [madvise] never
+  ```
+
+- **Explicit huge pages** (`hugetlbfs`) are reserved in advance by the administrator, including 1 GiB pages on
+  CPUs that support them, and mapped by programs that ask for them. They are guaranteed, but must be planned.
+
+<Aside type="caution" title="Huge pages are not free">
+A 2 MiB page is allocated whole, so a program that touches one byte of it holds 2 MiB of memory; sparse access
+patterns can use much more memory than with 4 KiB pages. Finding 2 MiB of contiguous physical memory can
+require the kernel to compact memory, which can add latency at unpredictable moments. Whether THP should be on
+for a given database or service is a real trade-off, and engines' operations guides differ; measure on your
+workload.
+</Aside>
+
+## What this means for query engines
+
+The operators that suffer are the ones that touch memory randomly across a large area: hash joins and hash
+aggregations with big tables, and anything that looks rows up by position across a large buffer. Three
+responses are common:
+
+- **Allocate large structures on huge pages**, for example by advising the hash table's memory or using an
+  allocator configured for it.
+- **Keep random access local**, by partitioning: a radix-partitioned hash join splits the build side into pieces
+  whose tables fit not just in cache but in the TLB's reach, which is part of why it beats a single big table
+  ([Module 08](../../joins/)).
+- **Prefer sequential access**: a scan touches each page once, in order, so a few thousand TLB misses spread over
+  gigabytes cost almost nothing.
+
+## Costs and trade-offs
+
+**Translation is invisible until it isn't.** It doesn't show up in a profile as a function; it shows up as
+memory that seems slower than it should be. Comparing the same code on 4 KiB and 2 MiB pages, as the lab did, is
+the most direct test.
+
+**Bigger pages trade memory for speed.** They waste memory on sparse data and can cost latency to set up. For
+large, densely used structures, the trade is usually good.
+
+**Reach matters more than size.** What counts is whether a structure's random accesses fit within the TLB's
+reach, which depends on page size, not on the cache sizes the rest of this module has been about.
+
+## Check yourself
+
+<details>
+<summary>A TLB holds 1,536 entries. What is its reach with 4 KiB pages, and with 2 MiB pages?</summary>
+
+1,536 × 4 KiB = 6 MiB with small pages; 1,536 × 2 MiB = 3 GiB with huge pages.
+</details>
+
+<details>
+<summary>In the chase, huge pages removed most of the growth from 16 MiB to 1 GiB but not the step at 16 MiB. What does that separate?</summary>
+
+The step is a cache boundary: the data no longer fits in the faster cache level, whatever the page size. The
+growth on 4 KiB pages is translation cost: TLB misses and slower page walks as the working set spreads over more
+pages.
+</details>
+
+<details>
+<summary>Why did huge pages help the 1 MiB gather not at all, and the 64 MiB gather by 1.7 times?</summary>
+
+A 1 MiB table is only 256 pages of 4 KiB, which the TLB can cover, so translations already hit. A 64 MiB table
+is 16,384 small pages, far beyond the reach, so most accesses missed the TLB until each entry covered 2 MiB.
+</details>
+
+<details>
+<summary>A sequential scan of 1 GiB on 4 KiB pages takes how many TLB misses, roughly, and why doesn't it matter much?</summary>
+
+About 262,144, one per page, since each page is visited once in order. Spread over a gigabyte read at several
+GB/s, that is a small cost per byte: one walk per 4,096 bytes read, instead of one per access.
+</details>
+
+## Further reading
+
+- The Linux kernel documentation: [transparent hugepage support](https://www.kernel.org/doc/html/latest/admin-guide/mm/transhuge.html).
+- Ulrich Drepper, [What Every Programmer Should Know About Memory](https://www.akkadia.org/drepper/cpumemory.pdf),
+  section 4 on virtual memory.

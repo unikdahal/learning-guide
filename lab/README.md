@@ -55,6 +55,11 @@ Each article's code is an example in its module crate's `examples/` folder. Shar
 | The memory hierarchy, from registers to object storage | `cargo run --release -p m02-hardware --example latency`, then `--example tlb` and `--example storage` |
 | CPU caches, cache lines and locality | `cargo run --release -p m02-hardware --example caches` |
 | Branch prediction and why branches hurt | `cargo run --release -p m02-hardware --example branches` |
+| Instruction-level parallelism | `cargo run --release -p m02-hardware --example ilp` |
+| SIMD: one instruction, many values | `cargo run --release -p m02-hardware --example simd` |
+| SIMD in Rust | `cargo run --release -p m02-hardware --example simd`, then `objdump -d --no-show-raw-insn target/release/examples/simd` |
+| TLBs, pages and huge pages | `cargo run --release -p m02-hardware --example pages` (and `--example tlb`) |
+| Prefetching and memory bandwidth | `cargo run --release -p m02-hardware --example prefetch` |
 
 The Module 02 examples measure the hardware, so run them one at a time on an otherwise idle machine; `storage` writes a 1 GiB file under `data/`. Timings depend on your machine. The articles say what hardware produced theirs; compare shapes and
 ratios, not absolute numbers.

@@ -1,0 +1,76 @@
+---
+// A measured line chart for articles, driven entirely by props. Wraps src/scripts/linechart.ts
+// (crosshair tooltip, legend for two or more series, table view). Series colours come from the
+// validated --qe-series-N tokens, in fixed order.
+//
+// <MeasuredChart title="..." caption="..." x={{ label, log, ticks, format }} y={{ ... }}
+//   series={[{ name, points: [[x, y], ...] }]} markers={[{ x, label }]} />
+type Format = 'bytes' | 'ns' | 'int' | 'pct' | 'x' | 'gbs';
+type Axis = { label: string; log?: boolean; ticks: number[]; format: Format; unit?: string };
+interface Props {
+  title: string;
+  caption?: string;
+  x: Axis;
+  y: Axis;
+  series: { name: string; points: [number, number][] }[];
+  markers?: { x: number; label: string }[];
+  height?: number;
+}
+const p = Astro.props;
+---
+
+<qe-measured class="qe-lab qe-measured not-content" data-props={JSON.stringify(p)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">{p.title}</p>
+    {p.caption && <p class="qe-lab-cap">{p.caption}</p>}
+    <div data-chart></div>
+  </section>
+</qe-measured>
+
+<script>
+  import { renderLineChart } from '../../scripts/linechart';
+
+  type Format = 'bytes' | 'ns' | 'int' | 'pct' | 'x' | 'gbs';
+  const fmt = (f: Format, v: number, short = false): string => {
+    switch (f) {
+      case 'bytes':
+        if (v >= 1 << 30) return `${v / (1 << 30)}${short ? '' : ' '}GiB`;
+        if (v >= 1 << 20) return `${v / (1 << 20)}${short ? '' : ' '}MiB`;
+        return `${v / 1024}${short ? '' : ' '}KiB`;
+      case 'ns':
+        return short ? `${v}` : `${v < 10 ? v.toFixed(2) : v.toFixed(1)} ns`;
+      case 'pct':
+        return `${v}%`;
+      case 'x':
+        return short ? `${v}` : `${v.toFixed(2)}×`;
+      case 'gbs':
+        return short ? `${v}` : `${v.toFixed(1)} GB/s`;
+      default:
+        return `${v}`;
+    }
+  };
+
+  class QeMeasured extends HTMLElement {
+    connectedCallback() {
+      const p = JSON.parse(this.dataset.props!);
+      renderLineChart(this.querySelector('[data-chart]')!, {
+        series: p.series.map((s: { name: string; points: [number, number][] }, i: number) => ({
+          name: s.name,
+          color: `var(--qe-series-${i + 1})`,
+          points: s.points,
+        })),
+        xLog: p.x.log,
+        yLog: p.y.log,
+        xTicks: p.x.ticks.map((v: number) => ({ v, label: fmt(p.x.format, v, true) })),
+        yTicks: p.y.ticks.map((v: number) => ({ v, label: fmt(p.y.format, v, true) })),
+        xLabel: p.x.label,
+        yLabel: p.y.label,
+        fmtX: (v) => fmt(p.x.format, v),
+        fmtY: (v) => fmt(p.y.format, v),
+        markers: p.markers,
+        height: p.height ?? 260,
+      });
+    }
+  }
+  if (!customElements.get('qe-measured')) customElements.define('qe-measured', QeMeasured);
+</script>

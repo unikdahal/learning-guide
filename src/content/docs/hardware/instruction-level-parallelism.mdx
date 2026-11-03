@@ -1,16 +1,176 @@
 ---
-title: "Instruction-level parallelism"
-description: "Superscalar, out-of-order execution and dependency chains, and why tight loops over arrays run near peak."
+title: Instruction-level parallelism
+description: Superscalar, out-of-order execution and dependency chains, and why tight loops over arrays run near peak.
 level: I
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 4
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import IlpTimeline from '@components/visuals/hardware/IlpTimeline.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="instruction-level-parallelism" />
+<ArticleMeta module="02" slug="instruction-level-parallelism" minutes={13} lab="m02-hardware/examples/ilp.rs" />
+
+A CPU core looks sequential from the outside: instructions in a program run one after another, and each sees
+the results of the ones before. Inside, a modern core is a crowd of execution units working at once, starting
+several instructions per cycle and finishing them out of order, while keeping up the appearance that they ran in
+sequence. How much of that crowd a loop can use depends on one thing the programmer controls: which
+instructions need which other instructions' results.
+
+The [branch prediction article](../branch-prediction-and-why-branches-hurt/) showed what happens when the core
+runs ahead down the wrong path. This one is about the gains when it runs ahead down the right one.
+
+## The question
+
+How many instructions can a core run at once, what stops it from running more, and how does the shape of a
+loop decide which limit applies?
+
+## Two numbers per instruction
+
+Every instruction has a **latency**, the number of cycles from when it starts until its result can be used by
+another instruction, and a **throughput**, how often the core can start a new one of that kind. For a 64-bit
+integer multiply on recent Intel cores, Agner Fog's instruction tables list a latency of 3 cycles and a
+throughput of one per cycle: a multiply takes three cycles to finish, but a new, independent one can start on
+every cycle, like cars on an assembly line.
+
+Whether a loop runs at the latency or the throughput rate depends on its **dependency chains**. If each
+operation needs the previous one's result, it must wait out the full latency, and the multiplier sits idle in
+between. If several independent operations are available, the core starts them back to back, and only
+throughput limits it.
+
+## How the core finds independent work
+
+Three features let a core exploit independence without the program asking for it:
+
+- **Pipelining** splits each instruction into stages, so many instructions can be in different stages at once.
+- **Superscalar** execution provides several execution units, so more than one instruction can start per cycle.
+- **Out-of-order** execution looks ahead in the instruction stream, in a window of hundreds of instructions, and
+  starts any instruction whose inputs are ready, rather than strictly in program order. Results are still
+  committed in order, so the program can't tell.
+
+The out-of-order window can find independence the programmer never thought about. But it can't create it. A
+long chain of dependent operations is sequential, however many execution units sit beside it.
+
+## Measured: the same work, different dependencies
+
+The lab runs 240 million multiply-adds, `x = x * a + c`, split over K independent chains. Every chain does
+the same arithmetic; only the number of chains changes:
+
+```text title="cargo run --release -p m02-hardware --example ilp"
+ chains   ns per op    speedup
+      1       1.292      1.00x
+      2       0.658      1.96x
+      3       0.420      3.07x
+      4       0.317      4.08x
+      6       0.310      4.17x
+      8       0.324      3.99x
+     12       0.359      3.60x
+```
+
+The speedup tracks the number of chains exactly up to four, then stops. That shape is what the two numbers
+predict. One multiply-add step is a multiply (latency 3) followed by an add (latency 1): 4 cycles before the
+next step of the same chain can start. With one chain, the core starts one operation every 4 cycles. With four
+chains, while one chain waits, the other three have work ready, and the multiplier starts something every
+cycle. Beyond four, there is nothing left to gain: the multiplier is busy every cycle, and the limit is now its
+throughput, not the dependencies.
+
+The numbers also cross-check each other. If one step is 4 cycles, 1.29 ns per step implies a clock of about 3.1
+GHz; if the throughput is one multiply per cycle, 0.31 ns per operation implies about 3.2 GHz. The lab VM's
+CPU reports a base clock of 2.1 GHz, so the core was most likely running at a turbo frequency. That is an
+inference from published instruction timings, not a measurement of the clock.
+
+<IlpTimeline />
+
+<Aside type="caution" title="Check what you're measuring">
+The first version of this experiment used literal constants, and reported a "dependent chain" at 0.167 ns per
+operation, faster than any real dependency chain can run. The machine code showed why:
+
+```text title="objdump of the first version"
+317c30:  imul   %rdx,%rax
+317c34:  add    %rsi,%rax
+317c37:  add    $0xfffffffffffffff8,%rcx    # loop counter goes down by 8
+317c3b:  jne    317c30
+```
+
+Wrapping integer arithmetic is associative, so the compiler had combined eight steps of `x * a + c` into one
+multiply-add with precomputed constants, a perfectly legal rewrite. The current version passes the constants
+through `black_box`, so the compiler can't precompute them, and the machine code has one `imul` and one `add`
+per step. A float version of the experiment had the opposite problem: the compiler packed neighbouring chains
+into SIMD registers, mixing a second effect into the measurement. Benchmarks of tiny loops need their machine
+code checked.
+</Aside>
+
+## Why tight array loops run near peak
+
+A loop over an array that processes each element independently, such as `out[i] = a[i] * b[i]` or a filter
+writing a selection vector, has no chain linking one iteration to the next. The out-of-order window sees many
+iterations at once and overlaps them, so the loop runs at the throughput of its busiest unit. That is why
+simple loops over columns are fast even before SIMD, and why vectorized engines process data in batches of
+hundreds or thousands of values: a batch gives every operator a long run of independent work.
+
+The loops that run slowly are the ones with a chain through them:
+
+- **Reductions** carry an accumulator from one iteration to the next. A sum of floats is a chain of additions,
+  which the compiler can't break up on its own because reordering float additions changes the result. Splitting
+  it into several partial sums, as the [SIMD article](../simd-one-instruction-many-values/) does, breaks the
+  chain.
+- **Pointer chasing**, such as walking a linked list or a hash bucket chain, makes each load depend on the
+  previous one, the latency-bound pattern of the
+  [memory hierarchy article](../the-memory-hierarchy-from-registers-to-object-storage/).
+- **Data-dependent control flow**, where each step decides what the next one does, combines both problems with
+  branch mispredictions.
+
+## Costs and trade-offs
+
+**More chains need more registers.** Each independent accumulator lives in a register; past the number the
+architecture has, the compiler spills to memory and the gains vanish. The lab's 12-chain version was already a
+little slower than the 4-chain one.
+
+**Breaking a chain can change the answer.** For integers it doesn't. For floats it does, slightly, because
+rounding depends on the order of additions. Engines accept that for sums, and say so.
+
+**The window is big but finite.** Out-of-order execution covers a few hundred instructions. Independence that
+only appears thousands of instructions apart, such as between one batch and the next, has to be created by the
+program's structure.
+
+## Check yourself
+
+<details>
+<summary>An operation has latency 4 and throughput one per cycle. How many independent chains are needed to keep it busy, and what happens with 16?</summary>
+
+Four: each chain can start an operation every 4 cycles, so four chains together start one per cycle. With 16
+chains the unit is still limited to one start per cycle; the extra chains add register pressure without adding
+speed.
+</details>
+
+<details>
+<summary>Why can the compiler split an integer sum into partial sums on its own, but not a float sum?</summary>
+
+Integer addition, including wrapping addition, is associative, so any grouping gives the same result. Float
+addition rounds after each step, so a different grouping can give a different result, and the compiler may not
+change the program's answer.
+</details>
+
+<details>
+<summary>A benchmark reports a dependent loop running faster than the instruction's latency allows. What should you suspect?</summary>
+
+That the loop being measured isn't the one written: the compiler has removed, combined or vectorized the work.
+Check the machine code, and pass inputs through something like `black_box` so they can't be precomputed.
+</details>
+
+<details>
+<summary>Which is likely faster per element on a large array: computing out[i] = a[i] * 3 + 1, or walking a linked list of the same length doing the same arithmetic? Why?</summary>
+
+The array loop. Its iterations are independent, so the core overlaps many of them; the list walk's next address
+depends on the current node, so each step waits for a load, and loads that miss cache cost far more than the
+arithmetic.
+</details>
+
+## Further reading
+
+- Agner Fog, [instruction tables](https://www.agner.org/optimize/instruction_tables.pdf): latency and throughput
+  for each instruction on many processor families.
+- John L. Hennessy and David A. Patterson, *Computer Architecture: A Quantitative Approach*, the chapter on
+  instruction-level parallelism.

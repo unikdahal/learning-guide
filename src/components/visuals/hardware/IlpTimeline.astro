@@ -1,0 +1,159 @@
+---
+// A cycle-by-cycle schedule of multiply-adds split over K independent chains, under the simple
+// model the lab's measurements fit: each multiply-add takes 4 cycles before its result can be
+// used (imul 3 + add 1), and the core can start one multiply per cycle. The measured sweep is
+// from lab/crates/m02-hardware/examples/ilp.rs.
+const measured = [
+  [1, 1.2917], [2, 0.6578], [3, 0.4203], [4, 0.317], [6, 0.3101], [8, 0.3238], [12, 0.3587],
+];
+---
+
+<qe-ilp class="qe-lab qe-ilp not-content" data-m={JSON.stringify(measured)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Twelve multiply-adds, scheduled cycle by cycle</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Independent chains">
+      <button type="button" data-k="1" aria-pressed="true">1 chain</button>
+      <button type="button" data-k="2" aria-pressed="false">2 chains</button>
+      <button type="button" data-k="4" aria-pressed="false">4 chains</button>
+      <button type="button" data-k="6" aria-pressed="false">6 chains</button>
+    </div>
+    <p class="qe-lab-cap model">Model: a result is ready 4 cycles after its operation starts; one multiply can start per cycle.</p>
+    <div class="sched" data-sched role="img"></div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Measured: 240M multiply-adds on the lab VM</p>
+    <p class="qe-lab-cap">Median of 5 runs per point. The machine code was checked: scalar imul and add, no vector instructions.</p>
+    <div data-chart></div>
+  </section>
+</qe-ilp>
+
+<script>
+  import { renderLineChart } from '../../../scripts/linechart';
+
+  const OPS = 12;
+  const LAT = 4;
+
+  class QeIlp extends HTMLElement {
+    k = 1;
+
+    connectedCallback() {
+      this.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.k = Number(b.dataset.k);
+          this.querySelectorAll('[data-k]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.render();
+        }),
+      );
+      this.render();
+      const m: [number, number][] = JSON.parse(this.dataset.m!);
+      renderLineChart(this.querySelector('[data-chart]')!, {
+        series: [{ name: 'measured', color: 'var(--qe-series-1)', points: m }],
+        xTicks: [1, 2, 4, 6, 8, 12].map((v) => ({ v, label: String(v) })),
+        yTicks: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5].map((v) => ({ v, label: String(v) })),
+        xLabel: 'independent chains',
+        yLabel: 'ns per multiply-add',
+        fmtX: (x) => `${x} chain${x === 1 ? '' : 's'}`,
+        fmtY: (y) => `${y.toFixed(3)} ns`,
+        height: 240,
+      });
+    }
+
+    /** Greedy schedule: each cycle, start the next op of the chain that has waited longest. */
+    schedule(): { chain: number; start: number }[] {
+      const per = Math.ceil(OPS / this.k);
+      const ready = Array(this.k).fill(0);
+      const left = Array.from({ length: this.k }, (_, c) => Math.min(per, OPS - c * per));
+      const out: { chain: number; start: number }[] = [];
+      let cycle = 0;
+      while (out.length < OPS) {
+        let pick = -1;
+        for (let c = 0; c < this.k; c++) {
+          if (left[c] > 0 && ready[c] <= cycle && (pick < 0 || ready[c] < ready[pick])) pick = c;
+        }
+        if (pick >= 0) {
+          out.push({ chain: pick, start: cycle });
+          ready[pick] = cycle + LAT;
+          left[pick]--;
+        }
+        cycle++;
+      }
+      return out;
+    }
+
+    render() {
+      const ops = this.schedule();
+      const end = Math.max(...ops.map((o) => o.start)) + LAT;
+      const rows = Array.from({ length: this.k }, (_, c) => {
+        const cells = ops
+          .filter((o) => o.chain === c)
+          .map((o) => `<span class="op" style="grid-column:${o.start + 1} / span ${LAT}">×+</span>`)
+          .join('');
+        return `<div class="row"><span class="lab">chain ${c + 1}</span><div class="track" style="grid-template-columns:repeat(${end},1fr)">${cells}</div></div>`;
+      }).join('');
+      const axis = `<div class="row axis"><span class="lab">cycle</span><div class="track" style="grid-template-columns:repeat(${end},1fr)">${Array.from({ length: end }, (_, i) => `<span>${(i + 1) % 4 === 0 || i === 0 ? i + 1 : ''}</span>`).join('')}</div></div>`;
+      const sched = this.querySelector<HTMLElement>('[data-sched]')!;
+      sched.innerHTML = rows + axis;
+      sched.setAttribute('aria-label', `${OPS} operations over ${this.k} chains finish in ${end} cycles`);
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      const perOp = (end / OPS).toFixed(1);
+      note.textContent =
+        this.k === 1
+          ? `One chain: every operation waits for the previous result, so the core starts one operation every 4 cycles and sits idle in between. ${end} cycles for 12 operations.`
+          : this.k < 4
+            ? `${this.k} chains: while one chain waits for its result, the core starts another chain's operation. ${end} cycles, ${perOp} per operation.`
+            : this.k === 4
+              ? `4 chains fill the 4-cycle wait exactly: a new multiply starts every cycle. ${end} cycles. The measured speedup at 4 chains was 4.08×.`
+              : `More chains than the latency doesn't help: the multiplier already starts one operation per cycle, the limit is now throughput, not dependencies. ${end} cycles. The measured curve went flat at 4.`;
+    }
+  }
+  if (!customElements.get('qe-ilp')) customElements.define('qe-ilp', QeIlp);
+</script>
+
+<style is:global>
+  .qe-ilp .model {
+    margin-top: 0.7rem;
+  }
+  .qe-ilp .sched {
+    display: grid;
+    gap: 4px;
+    margin-top: 0.4rem;
+  }
+  .qe-ilp .row {
+    display: grid;
+    grid-template-columns: 3.6rem 1fr;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .qe-ilp .lab {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-ilp .track {
+    display: grid;
+    gap: 1px;
+    min-height: 1.6rem;
+    border-radius: 4px;
+    background: var(--sl-color-black);
+  }
+  .qe-ilp .op {
+    display: grid;
+    place-items: center;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--qe-series-1) 35%, var(--sl-color-black));
+    border-left: 3px solid var(--qe-series-1);
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-ilp .axis .track {
+    background: none;
+    min-height: 1rem;
+  }
+  .qe-ilp .axis .track span {
+    font-size: 0.625rem;
+    color: var(--sl-color-gray-3);
+    text-align: center;
+  }
+</style>

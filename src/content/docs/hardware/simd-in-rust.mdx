@@ -1,16 +1,223 @@
 ---
-title: "SIMD in Rust"
-description: "Auto-vectorization and how to check it, portable SIMD, intrinsics, and runtime feature detection."
+title: SIMD in Rust
+description: Auto-vectorization and how to check it, portable SIMD, intrinsics, and runtime feature detection.
 level: A
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 6
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="simd-in-rust" />
+<ArticleMeta module="02" slug="simd-in-rust" minutes={14} lab="m02-hardware/examples/simd.rs" />
+
+The [previous article](../simd-one-instruction-many-values/) measured what SIMD buys: 3.9 to 7.8 times on a
+filter loop in cache. This one is about getting it in Rust, which offers four routes with different trade-offs:
+let the compiler vectorize plain code, tell it which instruction sets it may use, write vector instructions
+yourself with intrinsics, or use the portable SIMD types that are still on their way to stable Rust. Every
+route needs the same habit: check the machine code, because a loop that looks vectorizable may not be, and a
+benchmark of the wrong code measures nothing.
+
+All the code here is in the lab's `simd.rs`; the timings are from the previous article.
+
+## The question
+
+How do you get vector instructions out of Rust, how do you know you got them, and how do you ship code that
+uses them without crashing on CPUs that lack them?
+
+## Route 1: auto-vectorization
+
+LLVM, the compiler backend Rust uses, vectorizes loops it can prove are safe to vectorize. Plain iterator code
+is often enough:
+
+```rust
+pub fn count_auto(data: &[u32], t: u32) -> u64 {
+    data.iter().map(|&x| (x < t) as u32).sum::<u32>() as u64
+}
+```
+
+The conditions are the ones from the previous article: contiguous data, independent iterations, no branches
+the compiler can't turn into masks, and no reordering it isn't allowed to do. That last one is why the same
+pattern over `f32` stays scalar: summing floats in vector lanes changes the order of additions, so LLVM won't
+do it unless the code spells out partial sums.
+
+Two things block vectorization surprisingly often. Bounds checks inside the loop, when the compiler can't prove
+an index is in range, add a branch per element; iterating over slices, or slicing once before the loop, avoids
+them. And possible aliasing between input and output pointers can force a scalar loop; Rust's borrowing rules
+help here, because a `&mut` slice can't alias a `&` slice.
+
+## How to check
+
+Compile in release mode, then disassemble and look for vector registers: `xmm` (128-bit), `ymm` (256-bit) and
+`zmm` (512-bit). The lab marks its functions `#[unsafe(no_mangle)]` so their names survive into the binary:
+
+```text
+objdump -d --no-show-raw-insn target/release/examples/simd | less
+```
+
+Counting register mentions per function is a crude but useful first check:
+
+```text title="vector registers used, per function (lab binary)"
+count_scalar       xmm  0   ymm  0   zmm  0
+count_auto         xmm 22   ymm  0   zmm  0     ← SSE2 only: the default target
+count_avx2         xmm 22   ymm 34   zmm  0
+count_avx512       xmm 19   ymm  7   zmm 15
+count_intrinsics   xmm 38   ymm 36   zmm  0
+fsum_in_order      xmm 12   ymm  0   zmm  0     ← scalar vaddss, despite AVX2 being enabled
+fsum_lanes         xmm 48   ymm 12   zmm  0
+```
+
+`xmm` registers also appear in scalar float code, so look at the instructions, not just the names: `vaddss` is a
+scalar float add that uses one lane, `vaddps` a packed add of all lanes. Tools like `cargo-show-asm` and the
+Compiler Explorer website make this faster for a single function.
+
+## Route 2: target features
+
+By default, `rustc` targets the baseline x86-64 instruction set, which includes SSE2 but not AVX2, so `count_auto`
+can only use 128-bit registers. There are two ways to allow more.
+
+**For the whole program**, pass `-C target-cpu=native` or `-C target-feature=+avx2` (for example in
+`.cargo/config.toml`). The compiler then uses AVX2 everywhere, and the binary may crash with an illegal
+instruction on a CPU without it. That's fine for code built and run on the same machine, and wrong for anything
+you distribute.
+
+**For one function**, use the `target_feature` attribute:
+
+```rust
+#[target_feature(enable = "avx2")]
+pub fn count_avx2(data: &[u32], t: u32) -> u64 {
+    data.iter().map(|&x| (x < t) as u32).sum::<u32>() as u64
+}
+```
+
+The body is identical to `count_auto`; only the attribute differs, and the compiler emits 256-bit instructions
+for it. The catch: calling it on a CPU without AVX2 is undefined behaviour. Rust therefore treats a call from code
+not compiled with the feature as `unsafe`, and the caller must check first.
+
+## Runtime dispatch
+
+The standard library's `is_x86_feature_detected!` macro asks the CPU, at runtime, what it supports. Combine it
+with `target_feature` functions and the binary can run everywhere and still use the best instructions available:
+
+```rust
+fn count(data: &[u32], t: u32) -> u64 {
+    if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512bw") {
+        // SAFETY: the CPU supports the features count_avx512 was compiled for.
+        unsafe { count_avx512(data, t) }
+    } else if is_x86_feature_detected!("avx2") {
+        // SAFETY: as above, for AVX2.
+        unsafe { count_avx2(data, t) }
+    } else {
+        count_auto(data, t) // SSE2, always present on x86-64
+    }
+}
+```
+
+The detection result is cached after the first call, so the check is cheap, but it is still a branch per call:
+dispatch per batch of values, not per value. Crates such as `multiversion` generate this boilerplate from one
+function body.
+
+## Route 3: intrinsics
+
+`std::arch` exposes each vector instruction as a function, named as in Intel's documentation. This is the lab's
+hand-written AVX2 counter:
+
+```rust
+#[target_feature(enable = "avx2")]
+pub fn count_intrinsics(data: &[u32], t: u32) -> u64 {
+    // Values here are 0..100, so a signed compare is correct.
+    let thr = _mm256_set1_epi32(t as i32);          // t in all 8 lanes
+    let mut acc = _mm256_setzero_si256();           // 8 counters
+    let chunks = data.chunks_exact(8);
+    let rest = chunks.remainder();
+    for c in chunks {
+        let v = unsafe { _mm256_loadu_si256(c.as_ptr() as *const __m256i) };
+        let lt = _mm256_cmpgt_epi32(thr, v);        // -1 where t > x
+        acc = _mm256_sub_epi32(acc, lt);            // +1 in those lanes
+    }
+    let mut lanes = [0u32; 8];
+    unsafe { _mm256_storeu_si256(lanes.as_mut_ptr() as *mut __m256i, acc) };
+    lanes.iter().map(|&x| x as u64).sum::<u64>()
+        + rest.iter().filter(|&&x| x < t).count() as u64   // the scalar tail
+}
+```
+
+In cache it took about 25% less time than the compiler’s AVX2 version (0.057 against 0.076 ns per value), and the
+machine code shows why:
+
+```text title="objdump: the inner loops"
+count_avx2 (compiler):                      count_intrinsics (by hand):
+vpmaxud  %ymm1,%ymm7,%ymm11                 vpcmpgtd (%r8),%ymm1,%ymm3
+vpcmpeqd %ymm7,%ymm11,%ymm7                 vpsubd   %ymm3,%ymm2,%ymm2
+vpaddd   %ymm7,%ymm3,%ymm3
+```
+
+AVX2 has no unsigned integer compare, and `x < t` on `u32` is unsigned, so the compiler builds one from a
+maximum and an equality test: two instructions per comparison. The hand-written version uses the signed compare,
+one instruction, which is only correct because the programmer knows the values fit in 31 bits. The compiler
+can't know that. That is the general case for intrinsics: they let you use facts about your data that the type
+system doesn't express. The price is code that only runs on one instruction set, has `unsafe` loads and stores,
+and has to handle the tail by hand.
+
+## Route 4: portable SIMD
+
+`std::simd` offers vector types such as `u32x8` with ordinary operators, compiled to the best instructions for
+the target, on any architecture. It isn't stable yet. On the lab's Rust 1.97, `use std::simd::u32x8;` fails
+with "use of unstable library feature `portable_simd`", so it needs a nightly compiler. When it stabilizes, it
+will cover the middle ground between hoping the compiler vectorizes and writing per-architecture intrinsics.
+
+<Aside type="note" title="What columnar libraries tend to do">
+Most of a query engine's vectorizable work is simple loops over Arrow arrays: compare, add, filter, cast. Those
+are exactly the loops LLVM vectorizes well, so plain Rust, compiled with the right target features, gets most of
+the benefit. Hand-written intrinsics earn their cost in a few hot kernels, such as hashing, decoding compressed
+data or string search, where data-specific tricks like the signed compare above matter.
+</Aside>
+
+## Costs and trade-offs
+
+**Auto-vectorization is fragile.** A small edit, an added bounds check, a changed type, a function that doesn't
+inline, can turn a vectorized loop scalar, silently. Benchmarks and machine code are the only guard.
+
+**Wider isn't always enabled.** A binary built for the baseline target uses SSE2 everywhere, leaving AVX2 and
+AVX-512 hardware idle. Runtime dispatch fixes that at the cost of code size and some complexity.
+
+**Unsafe at the edges.** Intrinsics and `target_feature` calls need `unsafe`, with the obligation to check CPU
+features and keep loads in bounds. Keep those blocks small and the checks next to them.
+
+## Check yourself
+
+<details>
+<summary>count_auto and count_avx2 have identical bodies. Why did they compile to different instructions?</summary>
+
+`count_avx2` carries `#[target_feature(enable = "avx2")]`, which allows the compiler to use AVX2 instructions in
+it. `count_auto` is compiled for the default x86-64 target, which only guarantees SSE2.
+</details>
+
+<details>
+<summary>Why must a call to a #[target_feature(enable = "avx2")] function from ordinary code be unsafe?</summary>
+
+The function may contain AVX2 instructions, and running them on a CPU without AVX2 is undefined behaviour. The
+caller has to guarantee the CPU supports the feature, typically by checking `is_x86_feature_detected!` first.
+</details>
+
+<details>
+<summary>The hand-written version used a signed compare on unsigned data. When would that give wrong answers?</summary>
+
+When values or the threshold are 2³¹ or more: their top bit is set, so as signed integers they are negative and
+compare as smaller than they are. The lab's values are below 100, so the trick is correct there.
+</details>
+
+<details>
+<summary>You see xmm registers in a function's machine code. Does that prove it was vectorized?</summary>
+
+No. Scalar float instructions such as `vaddss` also use `xmm` registers, one lane of them. Look for packed
+instructions (such as `vaddps`, `vpaddd` or `vpcmpgtd`) operating on whole registers, or `ymm`/`zmm` registers.
+</details>
+
+## Further reading
+
+- The Rust standard library: [`std::arch`](https://doc.rust-lang.org/std/arch/index.html), on intrinsics,
+  `target_feature` and runtime detection.
+- Intel, [Intrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html).
+- The Rust reference: [the `target_feature` attribute](https://doc.rust-lang.org/reference/attributes/codegen.html#the-target_feature-attribute).

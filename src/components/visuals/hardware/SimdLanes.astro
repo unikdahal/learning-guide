@@ -1,0 +1,265 @@
+---
+// Part 1: counting values below a threshold one register at a time, at the four widths the lab
+// machine supports. Each step is one load, one compare and one add per register, as in the
+// machine code of the lab's count functions. Part 2: the measured speeds from
+// lab/crates/m02-hardware/examples/simd.rs, as bars on a linear scale from zero.
+const values = [12, 87, 45, 3, 66, 51, 29, 90, 8, 49, 73, 35, 50, 17, 98, 41];
+const measured = {
+  cache: [
+    ['scalar', 0.4442],
+    ['SSE2, 4 lanes', 0.1134],
+    ['AVX2, 8 lanes', 0.076],
+    ['AVX-512, 16 lanes', 0.0644],
+    ['AVX2 intrinsics', 0.0571],
+  ],
+  memory: [
+    ['scalar', 0.7487],
+    ['SSE2, 4 lanes', 0.5124],
+    ['AVX2, 8 lanes', 0.4758],
+    ['AVX-512, 16 lanes', 0.2671],
+    ['AVX2 intrinsics', 0.3858],
+  ],
+};
+---
+
+<qe-simd class="qe-lab qe-simd not-content" data-v={JSON.stringify(values)} data-m={JSON.stringify(measured)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Count the values below 50, one register at a time</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Register width">
+      <button type="button" data-w="1" aria-pressed="false">Scalar</button>
+      <button type="button" data-w="4" aria-pressed="false">SSE2, 128-bit</button>
+      <button type="button" data-w="8" aria-pressed="true">AVX2, 256-bit</button>
+      <button type="button" data-w="16" aria-pressed="false">AVX-512</button>
+    </div>
+    <div class="grid" data-grid></div>
+    <dl class="counters" data-counters aria-live="polite"></dl>
+    <div class="qe-lab-row controls">
+      <button type="button" class="qe-lab-btn" data-step>Next step</button>
+      <button type="button" class="qe-lab-btn quiet" data-reset>Reset</button>
+    </div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Measured on the lab VM: ns per value</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Data size">
+      <button type="button" data-size="cache" aria-pressed="true">64 KiB, in cache</button>
+      <button type="button" data-size="memory" aria-pressed="false">256 MiB, from memory</button>
+    </div>
+    <ul class="bars" data-bars></ul>
+    <p class="qe-lab-note" data-barnote aria-live="polite"></p>
+  </section>
+</qe-simd>
+
+<script>
+  const T = 50;
+
+  class QeSimd extends HTMLElement {
+    vals: number[] = [];
+    m: Record<string, [string, number][]> = {};
+    w = 8;
+    at = 0; // values processed
+    size = 'cache';
+
+    connectedCallback() {
+      this.vals = JSON.parse(this.dataset.v!);
+      this.m = JSON.parse(this.dataset.m!);
+      this.querySelectorAll<HTMLButtonElement>('[data-w]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.w = Number(b.dataset.w);
+          this.querySelectorAll('[data-w]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.at = 0;
+          this.render();
+        }),
+      );
+      this.querySelector('[data-step]')!.addEventListener('click', () => {
+        this.at = Math.min(this.vals.length, this.at + this.w);
+        this.render();
+      });
+      this.querySelector('[data-reset]')!.addEventListener('click', () => {
+        this.at = 0;
+        this.render();
+      });
+      this.querySelectorAll<HTMLButtonElement>('[data-size]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.size = b.dataset.size!;
+          this.querySelectorAll('[data-size]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.bars();
+        }),
+      );
+      this.render();
+      this.bars();
+    }
+
+    render() {
+      const n = this.vals.length;
+      const cur = this.at === 0 ? -1 : Math.floor((this.at - 1) / this.w);
+      const lanes = this.vals
+        .map((v, i) => {
+          const reg = Math.floor(i / this.w);
+          const done = i < this.at;
+          const cls = [reg === cur ? 'cur' : '', done ? 'done' : '', done && v < T ? 'yes' : '', reg % 2 ? 'odd' : 'even'].join(' ');
+          return `<div class="lane ${cls}"><span class="v">${v}</span><span class="m">${done ? (v < T ? '1' : '0') : ''}</span></div>`;
+        })
+        .join('');
+      this.querySelector<HTMLElement>('[data-grid]')!.innerHTML = `<div class="regs" style="--w:${this.w}">${lanes}</div>`;
+      const steps = Math.ceil(this.at / this.w);
+      const count = this.vals.slice(0, this.at).filter((v) => v < T).length;
+      const stats: [string, string][] = [
+        ['values done', `${this.at} of ${n}`],
+        ['instructions', `${steps * 3}`],
+        ['count so far', String(count)],
+      ];
+      this.querySelector('[data-counters]')!.innerHTML = stats.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+      (this.querySelector('[data-step]') as HTMLButtonElement).disabled = this.at >= n;
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      const total = Math.ceil(n / this.w) * 3;
+      if (this.at === 0) {
+        note.textContent =
+          this.w === 1
+            ? 'Scalar code handles one value per instruction: load it, compare it, add 0 or 1. Three instructions per value.'
+            : `A ${this.w * 32}-bit register holds ${this.w} values of 32 bits. One load fills all ${this.w} lanes, one compare tests them all at once, one add updates ${this.w} counters.`;
+      } else if (this.at < n) {
+        note.textContent = `The compare produced a mask, 1 for each lane below ${T}. Adding the mask to a register of counters counts all ${this.w} lanes in one instruction; the lanes are summed once, at the end.`;
+      } else {
+        note.textContent = `Done: ${count} of ${n} values are below ${T}, in ${total} instructions (${n * 3} for scalar code). Fewer instructions for the same work is the whole idea; whether it turns into speed depends on what else limits the loop.`;
+      }
+    }
+
+    bars() {
+      const rows = this.m[this.size];
+      const max = Math.max(...rows.map((r) => r[1]));
+      const base = rows[0][1];
+      this.querySelector('[data-bars]')!.innerHTML = rows
+        .map(
+          ([name, v]) =>
+            `<li title="${name}: ${v.toFixed(3)} ns per value"><span class="name">${name}</span><span class="bar"><i style="width:${(v / max) * 100}%"></i></span><b>${v.toFixed(3)} ns</b><em>${(base / v).toFixed(1)}×</em></li>`,
+        )
+        .join('');
+      this.querySelector<HTMLElement>('[data-barnote]')!.textContent =
+        this.size === 'cache'
+          ? 'In cache, the loop is limited by instructions, and wider registers mean fewer of them: 3.9× for 4 lanes, 5.8× for 8, 6.9× for 16. Each step up gains less, because other costs, such as the loop itself and the final sums, don’t shrink.'
+          : 'From main memory, the loop mostly waits for data, so the gains shrink: SSE2 and AVX2 reach 7.8 and 8.4 GB/s, close to the 9.6 GB/s one thread got from a plain sequential sum. The AVX-512 version reached 15 GB/s; one possible reason, not verified here, is that its loads, each a full cache line, let the core keep more lines in flight.';
+    }
+  }
+  if (!customElements.get('qe-simd')) customElements.define('qe-simd', QeSimd);
+</script>
+
+<style is:global>
+  .qe-simd .grid {
+    margin-top: 0.9rem;
+  }
+  .qe-simd .regs {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 3px;
+  }
+  .qe-simd .lane {
+    display: grid;
+    place-items: center;
+    gap: 1px;
+    min-height: 2.8rem;
+    padding: 0.2rem 0;
+    border-radius: 4px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    font-family: var(--sl-font-mono);
+    transition: background-color 0.2s, border-color 0.2s;
+  }
+  .qe-simd .lane.odd {
+    background: var(--sl-color-gray-6);
+  }
+  .qe-simd .lane .v {
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-simd .lane .m {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    color: var(--sl-color-gray-3);
+    min-height: 1em;
+  }
+  .qe-simd .lane.cur {
+    border-color: var(--sl-color-accent);
+    box-shadow: inset 0 0 0 1px var(--sl-color-accent);
+  }
+  .qe-simd .lane.yes {
+    background: color-mix(in srgb, var(--qe-series-1) 28%, var(--sl-color-black));
+  }
+  .qe-simd .lane.yes .m {
+    color: var(--sl-color-white);
+  }
+  .qe-simd .counters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+  }
+  .qe-simd .counters div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-simd .counters dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-simd .counters dd {
+    margin: 0;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-simd .controls {
+    margin-top: 0.9rem;
+  }
+  .qe-simd .bars {
+    list-style: none;
+    margin: 0.8rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.45rem;
+  }
+  .qe-simd .bars li {
+    margin: 0 !important;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas: 'name val x' 'bar bar bar';
+    gap: 0.15rem 0.6rem;
+    font-size: 0.8125rem;
+  }
+  .qe-simd .bars .name {
+    grid-area: name;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-simd .bars b {
+    grid-area: val;
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-simd .bars em {
+    grid-area: x;
+    font-style: normal;
+    color: var(--sl-color-gray-3);
+    font-variant-numeric: tabular-nums;
+    min-width: 2.6rem;
+    text-align: right;
+  }
+  .qe-simd .bars .bar {
+    grid-area: bar;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--sl-color-black);
+  }
+  .qe-simd .bars .bar i {
+    display: block;
+    height: 100%;
+    border-radius: 0 4px 4px 0;
+    background: var(--qe-series-1);
+    transition: width 0.3s;
+  }
+  @media (min-width: 40rem) {
+    .qe-simd .regs {
+      grid-template-columns: repeat(16, 1fr);
+    }
+  }
+</style>

@@ -2372,7 +2372,7 @@
           "scope": "Superscalar, out-of-order execution and dependency chains, and why tight loops over arrays run near peak.",
           "visual": null,
           "path": "hardware/instruction-level-parallelism",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 5,
@@ -2382,7 +2382,7 @@
           "scope": "Vector registers, lanes, widths (SSE, AVX2, AVX-512, NEON), and which operator loops vectorize well.",
           "visual": "Lane diagram of a vectorized comparison",
           "path": "hardware/simd-one-instruction-many-values",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 6,
@@ -2392,7 +2392,7 @@
           "scope": "Auto-vectorization and how to check it, portable SIMD, intrinsics, and runtime feature detection.",
           "visual": null,
           "path": "hardware/simd-in-rust",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 7,
@@ -2402,7 +2402,7 @@
           "scope": "Virtual memory translation, TLB misses on large hash tables, and when huge pages help.",
           "visual": null,
           "path": "hardware/tlbs-pages-and-huge-pages",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 8,
@@ -2412,7 +2412,7 @@
           "scope": "Hardware and software prefetching, bandwidth as the ceiling for scans, and memory-level parallelism.",
           "visual": null,
           "path": "hardware/prefetching-and-memory-bandwidth",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 9,

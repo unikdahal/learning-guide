@@ -1,16 +1,216 @@
 ---
-title: "Prefetching and memory bandwidth"
-description: "Hardware and software prefetching, bandwidth as the ceiling for scans, and memory-level parallelism."
+title: Prefetching and memory bandwidth
+description: Hardware and software prefetching, bandwidth as the ceiling for scans, and memory-level parallelism.
 level: I
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 8
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import MeasuredChart from '@components/visuals/MeasuredChart.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="prefetching-and-memory-bandwidth" />
+<ArticleMeta module="02" slug="prefetching-and-memory-bandwidth" minutes={14} lab="m02-hardware/examples/prefetch.rs" />
+
+Main memory on the lab machine takes about 130 to 190 ns to answer a single request. If every request waited
+for the one before, one core could read 64 bytes per answer, about half a gigabyte per second. Yet a plain
+sequential sum read 9.6 GB/s, twenty times more, from the same memory. The difference isn't faster memory. It
+is more requests in flight at once, issued early enough that their waits overlap.
+
+This article measures how many requests one core can keep in flight, what the hardware prefetchers do with a
+predictable access pattern, what software prefetching adds, and what that means for a query engine's scans.
+
+## The question
+
+How does a core turn a memory system with 150 ns latency into one that delivers gigabytes per second, and where
+does that stop?
+
+## Little's law
+
+Throughput, latency and concurrency are tied together by a rule from queueing theory, **Little's law**: the
+average number of requests in flight equals the rate at which they complete times how long each takes. For
+memory:
+
+```text
+bandwidth = (bytes in flight) / latency
+```
+
+With 64-byte cache lines and about 190 ns per access, one line at a time gives 64 B / 190 ns, about 0.34 GB/s.
+Reaching 10 GB/s at the same latency needs about 30 lines in flight continuously. Every mechanism in this
+article, out-of-order execution, prefetching, multiple threads, is a way of raising the number of requests in
+flight.
+
+## Measured: how many misses can one core overlap?
+
+The lab follows K independent random cycles through 1 GiB in lockstep. Within each chain, every load depends on
+the previous one, as in a linked list. Between chains there is no dependency, so the core can have up to K misses
+outstanding at once:
+
+```text title="cargo run --release -p m02-hardware --example prefetch"
+ chains     ns per step     ns per access
+      1           192.1            192.15
+      2           186.4             93.21
+      4           186.2             46.54
+      8           189.1             23.64
+     12           198.0             16.50
+     16           234.0             14.63
+     24           355.3             14.81
+     32           492.6             15.39
+```
+
+<MeasuredChart
+  title="Memory-level parallelism on the lab VM"
+  caption="Time per access with K independent pointer chases over 1 GiB. Median of 3 runs. Both axes logarithmic."
+  x={{ label: 'independent chains', log: true, ticks: [1, 2, 4, 8, 16, 32], format: 'int' }}
+  y={{ label: 'ns per access', log: true, ticks: [10, 20, 50, 100, 200], format: 'ns' }}
+  series={[{ name: 'measured', points: [[1, 192.15], [2, 93.21], [4, 46.54], [8, 23.64], [12, 16.5], [16, 14.63], [24, 14.81], [32, 15.39]] }]}
+/>
+
+Up to eight chains, each step takes the same 186 to 192 ns however many chains there are: the misses overlap
+completely, and the time per access halves with every doubling. Around 12 to 16 chains the improvement stops at
+about 14.6 ns per access, and beyond that a step simply takes longer. Little's law says how many misses were in
+flight at the floor: 192 ns / 14.6 ns ≈ 13. That a single core saturates at roughly a dozen outstanding misses
+is consistent with the fixed number of miss-handling slots (line fill buffers) a core has for its L1 cache;
+without performance counters, the lab can't confirm that's the limit it hit.
+
+At the floor, random accesses deliver 64 B / 14.6 ns ≈ 4.4 GB/s. A sequential scan did better, 9.6 GB/s, so
+sequential access must keep even more requests in flight. That is the prefetchers' doing.
+
+## Hardware prefetching
+
+CPUs watch the stream of cache misses and, when they recognize a pattern, request lines before the program
+asks for them. Sequential access is the easiest pattern; constant strides are usually recognized too, within a
+page. A prefetched line can arrive while the program is still working on the previous ones, so the program sees
+cache hits instead of misses, and the number of lines in flight is set by the prefetcher, not by how far ahead the
+out-of-order window reaches.
+
+The [cache article](../cpu-caches-cache-lines-and-locality/) showed the result without naming it: reading a
+256 MiB matrix row by row took 46 ms, column by column 661 ms. Both touch the same lines; only the row-by-row walk
+is a pattern the prefetcher can follow ahead of time.
+
+Prefetchers can't predict data-dependent addresses: the next node of a list, the bucket a hash function picks,
+the row id read from an index. For those, the only overlap comes from the out-of-order window, which is why the
+single chain above got none at all.
+
+## Software prefetching
+
+When the program knows an address before it needs the data, it can say so. On x86, `_mm_prefetch` asks for a
+line without waiting for it; it never faults, even for a bad address. The lab adds it to a random gather of 64
+million values from 256 MiB, prefetching the element `dist` iterations ahead:
+
+```rust
+// lab/crates/m02-hardware/examples/prefetch.rs
+for i in 0..n {
+    if dist > 0 && i + dist < n {
+        let p = data.as_ptr().wrapping_add(idx[i + dist] as usize) as *const i8;
+        unsafe { _mm_prefetch::<_MM_HINT_T0>(p) };
+    }
+    s += data[idx[i] as usize] as u64;
+}
+```
+
+```text title="cargo run --release -p m02-hardware --example prefetch"
+prefetch distance   0:  12.33 ns per value   noise ±7.9%
+prefetch distance   4:  13.94 ns per value   noise ±3.3%
+prefetch distance   8:  12.66 ns per value   noise ±5.5%
+prefetch distance  16:  13.17 ns per value   noise ±9.2%
+prefetch distance  32:  11.43 ns per value   noise ±9.3%
+prefetch distance  64:  11.76 ns per value   noise ±5.1%
+prefetch distance 128:  11.29 ns per value   noise ±7.2%
+```
+
+No clear gain: the best distances were about 8% faster than none, within the run-to-run noise, and short
+distances were slower, paying for the extra instructions without getting ahead. The reason is the previous
+section's result. A gather's loads are independent, since every index is already in the `idx` array, so the
+out-of-order window was already issuing many of them at once. The software prefetch asked for lines the core
+was about to request anyway.
+
+Software prefetching pays off where the core can't look ahead by itself: when each access depends on a previous
+one, or when there is a lot of work between accesses so the window can't reach the next one. A hash join probe
+that follows bucket chains is the classic case. Chen, Ailamaki, Gibbons and Mowry's "Improving Hash Join
+Performance through Prefetching" (ICDE 2004) processes probes in groups, prefetching each group's buckets before
+following any of them, which turns a dependent pattern into an overlapped one.
+
+<Aside type="note" title="A negative result is a result">
+It would have been easy to report only the best prefetch distance as a speedup. Across repeated runs, it isn't
+one. Whether software prefetching helps is a property of the access pattern and of how much the hardware
+already overlaps, so it has to be measured per case.
+</Aside>
+
+## Bandwidth: the ceiling for scans
+
+With a predictable pattern, the limit is no longer latency but bandwidth: how many bytes per second the memory
+system can deliver. The lab measures one thread and two:
+
+```text title="cargo run --release -p m02-hardware --example prefetch"
+1 thread :   9.6 GB/s
+2 threads:  17.2 GB/s
+```
+
+One thread didn't saturate the memory: a second thread, on the second core, nearly doubled the total. A single
+core is limited by how many requests it can keep in flight; the memory system as a whole can serve more. That is
+general on servers: one core can rarely use all of a socket's memory bandwidth, so bandwidth-bound work, such as
+scanning, scales with threads until the memory itself is the limit. On a 2-core VM, the lab can't find where
+that limit is.
+
+For a query engine, this sets a hard ceiling. A scan that reads 1 GiB from memory takes at least 0.1 seconds on
+one of these cores, however simple the per-value work. That ceiling is why scans are made to read fewer bytes:
+
+- **Columnar formats** read only the columns a query uses.
+- **Compression** trades CPU time for bytes, a good trade when the CPU would otherwise wait on memory.
+- **Pruning** skips whole blocks using metadata, before any of their bytes are read
+  ([Module 07](../../scans-and-pruning/)).
+- **Narrow types**, such as dictionary codes instead of strings, move less per value.
+
+[The roofline model](../the-roofline-model-for-query-operators/) later in this module turns this into a way to
+tell which operators are bandwidth-bound and which are compute-bound.
+
+## Costs and trade-offs
+
+**Concurrency is the currency.** Bandwidth is bytes in flight divided by latency. Independent accesses,
+predictable patterns, prefetching and threads all buy concurrency; dependent accesses spend it.
+
+**Prefetching can waste bandwidth.** Hardware prefetchers that guess wrong fetch lines nobody uses, and software
+prefetches issued too early can evict data still in use. Both cost bandwidth that a bandwidth-bound operator
+needs.
+
+**Per-core and per-socket limits differ.** One thread's bandwidth says little about what a whole machine can do.
+Measure with the number of threads the engine will actually run.
+
+## Check yourself
+
+<details>
+<summary>Memory latency is 100 ns and cache lines are 64 bytes. How many lines must be in flight to sustain 12.8 GB/s?</summary>
+
+By Little's law: 12.8 GB/s × 100 ns = 1,280 bytes in flight, which is 20 lines of 64 bytes.
+</details>
+
+<details>
+<summary>Why did 8 independent chases take the same time per step as 1?</summary>
+
+The chains don't depend on each other, so the core issues all eight misses together and waits for them in
+parallel. Each step still costs one memory latency, but it completes eight accesses instead of one.
+</details>
+
+<details>
+<summary>Software prefetching gave no clear gain on the lab's random gather. Give a case where it would help, and why.</summary>
+
+Following hash bucket chains or linked structures, where each address depends on a previous load: the core
+can't issue the next load early, but the program can prefetch the starting buckets of several upcoming probes,
+so their misses overlap.
+</details>
+
+<details>
+<summary>A second thread almost doubled bandwidth from memory. What does that say about the single-thread limit?</summary>
+
+The single thread was limited by its own core, by how many requests it could keep in flight, not by the memory
+system, which had spare capacity for the second core's requests.
+</details>
+
+## Further reading
+
+- Shimin Chen, Anastassia Ailamaki, Phillip B. Gibbons and Todd C. Mowry, "Improving Hash Join Performance
+  through Prefetching", ICDE 2004.
+- Ulrich Drepper, [What Every Programmer Should Know About Memory](https://www.akkadia.org/drepper/cpumemory.pdf),
+  section 6.3 on prefetching.

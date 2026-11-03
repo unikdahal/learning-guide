@@ -1,16 +1,189 @@
 ---
 title: "SIMD: one instruction, many values"
-description: "Vector registers, lanes, widths (SSE, AVX2, AVX-512, NEON), and which operator loops vectorize well."
+description: Vector registers, lanes, widths (SSE, AVX2, AVX-512, NEON), and which operator loops vectorize well.
 level: I
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 5
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import SimdLanes from '@components/visuals/hardware/SimdLanes.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="simd-one-instruction-many-values" />
+<ArticleMeta module="02" slug="simd-one-instruction-many-values" minutes={15} lab="m02-hardware/examples/simd.rs" />
+
+[Instruction-level parallelism](../instruction-level-parallelism/) lets a core run several instructions at
+once. **SIMD**, single instruction, multiple data, multiplies again: one instruction operates on a whole vector
+of values. Compare sixteen 32-bit integers against a threshold, add sixteen pairs of numbers, select lanes by a
+mask, each in one instruction. For the column-at-a-time loops that make up most of a query engine's work, this
+is the difference between processing a value per instruction and processing a cache line per instruction.
+
+## The question
+
+What does a vector instruction do, which loops can use one, and how much faster does it make them in practice?
+
+## Registers, lanes and widths
+
+A SIMD register is a wide register divided into **lanes**. A 128-bit register holds four 32-bit integers, two
+64-bit floats or sixteen bytes; a vector add adds lane 0 to lane 0, lane 1 to lane 1, and so on, all at once.
+The width depends on the instruction set:
+
+| Instruction set | Register width | 32-bit lanes | Where |
+| --- | --- | --- | --- |
+| SSE2 | 128 bits | 4 | every x86-64 CPU; the default target for Rust and C compilers |
+| AVX2 | 256 bits | 8 | most x86-64 CPUs since about 2013 |
+| AVX-512 | 512 bits | 16 | many Intel server CPUs and recent AMD |
+| NEON | 128 bits | 4 | every 64-bit ARM CPU |
+
+ARM also has SVE, whose register width varies by implementation. The lab machine's CPU reports AVX2 and AVX-512
+(`avx512f`, `avx512bw` and more in `/proc/cpuinfo`), so the lab can compare all the x86 widths on one core.
+
+## Conditions become masks
+
+A filter has an `if` in it, and lanes can't branch individually. SIMD handles conditions by computing them for
+every lane and producing a **mask**: all ones in the lanes where the condition held, zeros elsewhere. The mask is
+then used as data: to blend two vectors, to select lanes, or, for counting, as a number. All-ones read as a
+signed integer is −1, so subtracting the mask from a vector of counters adds 1 exactly in the lanes that passed.
+That is the [branch-free filter](../branch-prediction-and-why-branches-hurt/) idea, applied to many lanes at
+once. Step through it:
+
+<SimdLanes />
+
+## Measured: one loop, five ways
+
+The lab counts the values below 50 in a column of 32-bit integers, written five ways: a forced scalar loop; the
+same plain Rust iterator compiled for three targets, the default (SSE2), AVX2 and AVX-512; and a hand-written
+version using AVX2 intrinsics. First, with the data in cache, so memory isn't the limit:
+
+```text title="cargo run --release -p m02-hardware --example simd (trimmed)"
+== Counting values < 50: 64 KiB of u32, in L2, repeated 4,000 times ==
+scalar (no SIMD)                 0.444 ns/value      9.0 GB/s
+auto, default target (SSE2)      0.113 ns/value     35.3 GB/s
+auto, AVX2                       0.076 ns/value     52.6 GB/s
+auto, AVX-512                    0.064 ns/value     62.1 GB/s
+intrinsics, AVX2                 0.057 ns/value     70.1 GB/s
+```
+
+Four lanes gave 3.9 times the scalar speed, eight gave 5.8 times, sixteen gave 6.9 times. Each doubling of the
+width gains less, because the rest of the loop, its counter, its branch, the final sum across lanes, doesn't get
+wider. The hand-written AVX2 version beat the compiler's AVX2 version by a little; the next article looks at
+why.
+
+The machine code confirms each version used the width claimed. The AVX-512 loop compares four full cache lines
+per iteration into mask registers, then does a masked subtract:
+
+```text title="objdump: count_avx512 (excerpt)"
+vpcmpnleud (%rdi,%r9,1),%zmm0,%k1         # 16 compares: t > x, into mask k1
+vpcmpnleud 0x40(%rdi,%r9,1),%zmm0,%k2     # the next 64 bytes, into k2
+...
+vpsubd     %zmm2,%zmm1,%zmm1{%k1}         # counters -= (-1) where k1 is set
+```
+
+The SSE2 version shows a detail of older instruction sets: SSE2 has no unsigned integer compare, so the
+compiler flips the top bit of both operands with an `xor` and uses the signed compare instead.
+
+## When memory is the limit
+
+The same five loops over 256 MiB, which has to come from main memory:
+
+```text title="cargo run --release -p m02-hardware --example simd (trimmed)"
+== Counting values < 50: 256 MiB of u32, from main memory ==
+scalar (no SIMD)                 0.749 ns/value      5.3 GB/s
+auto, default target (SSE2)      0.512 ns/value      7.8 GB/s
+auto, AVX2                       0.476 ns/value      8.4 GB/s
+auto, AVX-512                    0.267 ns/value     15.0 GB/s
+intrinsics, AVX2                 0.386 ns/value     10.4 GB/s
+```
+
+The gap closes. SSE2 and AVX2 reach 7.8 and 8.4 GB/s, close to the 9.6 GB/s one thread drew from a plain
+sequential sum in the [prefetching article](../prefetching-and-memory-bandwidth/): once a loop is waiting on
+memory, doing its arithmetic faster doesn't help. The AVX-512 version is the exception, at 15 GB/s. The lab
+can't say why without performance counters. One plausible explanation is that each of its loads covers a whole
+cache line, so the same window of in-flight instructions reaches further ahead and keeps more memory requests
+outstanding. Treat that as a hypothesis.
+
+## The float sum, again
+
+The [ILP article](../instruction-level-parallelism/) said that a float sum is a chain the compiler won't break,
+because reordering float additions changes the result. The same is true for SIMD: a vector sum is a reordering.
+The lab compiles both versions for AVX2:
+
+```text title="cargo run --release -p m02-hardware --example simd"
+== Summing 64 KiB of f32, repeated 4,000 times ==
+in order (as written)      0.653 ns/value   result 49146880
+16 partial sums            0.038 ns/value   result 49146880
+```
+
+Written as a plain sum, the compiler emits a chain of scalar `vaddss` instructions, one lane of an AVX register,
+each waiting for the last. Written with 16 partial sums, which is a different order of additions chosen by the
+programmer, the compiler maps them onto vector registers: 17 times faster. Here the results happen to agree
+exactly, because the values are small multiples of 0.25; in general they would differ in the last digits, the
+order-sensitivity covered in [Module 01](../../relational-model-and-sql/duplicate-sensitive-and-order-sensitive-operators/).
+
+## Which loops vectorize well
+
+The pattern from these measurements generalizes:
+
+- **Contiguous data.** A vector load reads consecutive values. Columnar layouts give operators exactly that;
+  row layouts scatter one column's values across memory.
+- **Independent iterations.** Each lane computes its own result. Reductions need partial sums per lane,
+  combined at the end.
+- **Simple control flow.** Conditions become masks; loops with complicated branches or early exits vectorize
+  poorly or not at all.
+- **Narrow types.** Lanes are fixed-width, so smaller values mean more lanes: sixteen 32-bit values, but
+  sixty-four bytes, in an AVX-512 register. Compact encodings help twice, in memory and in registers.
+- **Not gathers.** Loading values from scattered addresses, as a hash table probe does, is possible on AVX2 and
+  AVX-512 but loses most of the advantage, because each lane still needs its own memory access.
+
+That list describes scans, filters, projections, arithmetic and many aggregations very well, and hash joins and
+sorts less well, which is why research such as Polychroniou, Raghavan and Ross's "Rethinking SIMD Vectorization
+for In-Memory Databases" (SIGMOD 2015) has worked out vectorized forms of the harder operators.
+
+## Costs and trade-offs
+
+**Portability.** Code compiled for AVX2 crashes on a CPU without it. Binaries either target the lowest common
+denominator (SSE2 on x86-64) or detect features at runtime and choose a code path, which is the subject of
+[SIMD in Rust](../simd-in-rust/).
+
+**Diminishing returns.** Wider registers help only while the loop is limited by instructions. Data from memory,
+branches the compiler can't remove, or scalar work around the loop put a ceiling on the gain.
+
+**Edges.** Arrays rarely divide evenly into vectors, so every vectorized loop has a scalar tail, and some
+operations need aligned memory or careful handling of the last partial vector.
+
+## Check yourself
+
+<details>
+<summary>How many 32-bit values fit in an AVX2 register, and how many bytes?</summary>
+
+256 bits: eight 32-bit values, or thirty-two bytes.
+</details>
+
+<details>
+<summary>How does SIMD code handle `if x < t { count += 1 }` without branching per lane?</summary>
+
+It compares all lanes at once, producing a mask of all ones where the condition held and zeros elsewhere, then
+uses the mask as data, for example subtracting it (−1) from a vector of counters.
+</details>
+
+<details>
+<summary>Why did AVX2 help 5.8 times on data in cache but only about 1.6 times on data from main memory?</summary>
+
+In cache, the loop was limited by instructions, and AVX2 needed far fewer. From memory, the loop mostly waited
+for data, which wider instructions don't speed up.
+</details>
+
+<details>
+<summary>The compiler vectorized an integer sum on its own but not a float sum. Why, and how can you get the float sum vectorized?</summary>
+
+Vectorizing a sum reorders its additions. That is harmless for integers but changes float results, so the
+compiler won't do it unasked. Write the sum with several partial accumulators, which makes the reordering
+explicit and part of the program.
+</details>
+
+## Further reading
+
+- Intel, [Intrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html): every x86
+  vector instruction and its intrinsic.
+- Orestis Polychroniou, Arun Raghavan and Kenneth A. Ross, [Rethinking SIMD Vectorization for In-Memory Databases](https://15721.courses.cs.cmu.edu/spring2016/papers/p1493-polychroniou.pdf), SIGMOD 2015.
