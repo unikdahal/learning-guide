@@ -1,0 +1,174 @@
+---
+// One column of 12 values stored three ways: plain strings, dictionary encoded and run-end
+// encoded, as loaded or sorted. Shows the physical buffers and their bytes, and how a tapped
+// value is found. The measured counterpart at 10M rows is
+// lab/crates/m03-representation/examples/dict_ree.rs.
+const column = ['ASIA', 'EUROPE', 'ASIA', 'AFRICA', 'ASIA', 'EUROPE', 'AMERICA', 'ASIA', 'AFRICA', 'EUROPE', 'ASIA', 'AMERICA'];
+---
+
+<qe-encoding class="qe-lab qe-enc not-content" data-c={JSON.stringify(column)}>
+  <section class="qe-lab-part">
+    <div class="qe-lab-chips prose" role="group" aria-label="Encoding">
+      <button type="button" data-enc="plain" aria-pressed="true">Plain</button>
+      <button type="button" data-enc="dict" aria-pressed="false">Dictionary</button>
+      <button type="button" data-enc="ree" aria-pressed="false">Run-end encoded</button>
+    </div>
+    <div class="qe-lab-chips prose ord" role="group" aria-label="Row order">
+      <button type="button" data-ord="load" aria-pressed="true">As loaded</button>
+      <button type="button" data-ord="sorted" aria-pressed="false">Sorted</button>
+    </div>
+    <p class="qe-lab-cap lbl">Logical column: tap a row</p>
+    <div class="cells" data-logical></div>
+    <div data-phys></div>
+    <p class="bytes" data-bytes aria-live="polite"></p>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-encoding>
+
+<script>
+  class QeEncoding extends HTMLElement {
+    base: string[] = [];
+    enc = 'plain';
+    ord = 'load';
+    sel = 4;
+
+    connectedCallback() {
+      this.base = JSON.parse(this.dataset.c!);
+      const group = (sel: string, f: (b: HTMLButtonElement) => void) =>
+        this.querySelectorAll<HTMLButtonElement>(sel).forEach((b) =>
+          b.addEventListener('click', () => {
+            this.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            f(b);
+            this.render();
+          }),
+        );
+      group('[data-enc]', (b) => (this.enc = b.dataset.enc!));
+      group('[data-ord]', (b) => (this.ord = b.dataset.ord!));
+      this.querySelector('[data-logical]')!.addEventListener('click', (e) => {
+        const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-i]');
+        if (!b) return;
+        this.sel = Number(b.dataset.i);
+        this.render();
+      });
+      this.render();
+    }
+
+    render() {
+      const col = this.ord === 'sorted' ? [...this.base].sort() : this.base;
+      const n = col.length;
+      const cell = (txt: string, cls = '', small = '') => `<span class="c ${cls}">${small ? `<small>${small}</small>` : ''}${txt}</span>`;
+      this.querySelector('[data-logical]')!.innerHTML = col
+        .map((v, i) => `<button type="button" class="c lv${i === this.sel ? ' hit' : ''}" data-i="${i}"><small>${i}</small>${v}</button>`)
+        .join('');
+      const v = col[this.sel];
+      let html = '';
+      let bytes = 0;
+      let note = '';
+      if (this.enc === 'plain') {
+        const offs = [0];
+        col.forEach((s) => offs.push(offs[offs.length - 1] + s.length));
+        bytes = (n + 1) * 4 + offs[n];
+        html =
+          `<p class="qe-lab-cap lbl">Offsets, ${n + 1} × 4 bytes</p><div class="cells">${offs.map((o, k) => cell(String(o), k === this.sel || k === this.sel + 1 ? 'hit' : '')).join('')}</div>` +
+          `<p class="qe-lab-cap lbl">Data, ${offs[n]} bytes</p><div class="cells">${col.map((s, k) => cell(s, k === this.sel ? 'hit' : 'dim')).join('')}</div>`;
+        note = `Every row stores its own copy of the string: "${v}" is the bytes from offsets[${this.sel}] to offsets[${this.sel + 1}]. Comparing or grouping means working with string bytes for every row.`;
+      } else if (this.enc === 'dict') {
+        const dict: string[] = [];
+        const keys = col.map((s) => {
+          let k = dict.indexOf(s);
+          if (k < 0) k = dict.push(s) - 1;
+          return k;
+        });
+        const dbytes = (dict.length + 1) * 4 + dict.join('').length;
+        bytes = n + dbytes;
+        html =
+          `<p class="qe-lab-cap lbl">Keys, ${n} × 1 byte (Int8)</p><div class="cells">${keys.map((k, i) => cell(String(k), i === this.sel ? 'hit' : '', String(i))).join('')}</div>` +
+          `<p class="qe-lab-cap lbl">Dictionary: ${dict.length} distinct values, ${dbytes} bytes</p><div class="cells">${dict.map((s, k) => cell(s, k === keys[this.sel] ? 'hit' : '', String(k))).join('')}</div>`;
+        note = `Row ${this.sel} stores only the key ${keys[this.sel]}, which indexes the dictionary to give "${v}". A filter region = '${v}' can look the constant up once and compare small integers; a count by region can use the key as an array index instead of hashing strings.`;
+      } else {
+        const ends: number[] = [];
+        const vals: string[] = [];
+        col.forEach((s, i) => {
+          if (vals.length && vals[vals.length - 1] === s) ends[ends.length - 1] = i + 1;
+          else {
+            vals.push(s);
+            ends.push(i + 1);
+          }
+        });
+        const run = ends.findIndex((e) => this.sel < e);
+        bytes = ends.length * 4 + (vals.length + 1) * 4 + vals.join('').length;
+        html =
+          `<p class="qe-lab-cap lbl">Run ends, ${ends.length} × 4 bytes</p><div class="cells">${ends.map((e, k) => cell(String(e), k === run ? 'hit' : '', `run ${k}`)).join('')}</div>` +
+          `<p class="qe-lab-cap lbl">Values, one per run</p><div class="cells">${vals.map((s, k) => cell(s, k === run ? 'hit' : '', `run ${k}`)).join('')}</div>`;
+        note =
+          this.ord === 'sorted'
+            ? `Sorted, the column is ${vals.length} runs. Row ${this.sel} is found by a binary search for the first run end greater than ${this.sel}: run ${run}, "${v}". Twelve rows or ten million, the size depends only on the number of runs.`
+            : `As loaded, almost every row starts a new run: ${vals.length} runs for ${n} rows, and run-end encoding is larger than plain. It only pays when equal values are adjacent, typically after sorting.`;
+      }
+      const plain = (n + 1) * 4 + col.join('').length;
+      this.querySelector('[data-phys]')!.innerHTML = html;
+      this.querySelector('[data-bytes]')!.innerHTML = `<b>${bytes} bytes</b> <span>(plain: ${plain} bytes)</span>`;
+      this.querySelector<HTMLElement>('[data-note]')!.textContent = note;
+    }
+  }
+  if (!customElements.get('qe-encoding')) customElements.define('qe-encoding', QeEncoding);
+</script>
+
+<style is:global>
+  .qe-enc .ord {
+    margin-top: 0.45rem;
+  }
+  .qe-enc .lbl {
+    margin-top: 0.9rem;
+  }
+  .qe-enc .cells {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .qe-enc .c {
+    display: grid;
+    align-content: center;
+    min-height: 2.1rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 5px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-2);
+    text-align: left;
+    transition: background-color 0.2s, color 0.2s;
+  }
+  .qe-enc .c small {
+    font-size: 0.5625rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-enc .lv {
+    cursor: pointer;
+    background: var(--sl-color-black);
+    border-color: var(--sl-color-gray-5);
+    color: var(--sl-color-white);
+  }
+  .qe-enc .c.hit {
+    background: var(--qe-series-1);
+    border-color: var(--qe-series-1);
+    color: var(--sl-color-black);
+    font-weight: 700;
+  }
+  .qe-enc .c.hit small {
+    color: var(--sl-color-black);
+  }
+  .qe-enc .c.dim {
+    opacity: 0.7;
+  }
+  .qe-enc .bytes {
+    margin: 0.9rem 0 0;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .qe-enc .bytes span {
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+</style>

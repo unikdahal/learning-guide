@@ -1,0 +1,228 @@
+---
+// How Arrow's nested types are built from buffers and child arrays. Pick a type, then tap a
+// logical value to light up every buffer entry that stores it. The same arrays are printed by
+// lab/crates/m03-representation/examples/nested.rs.
+type Row = { label: string; kind: 'meta' | 'child'; cells: string[] };
+type T = { key: string; name: string; logical: string[]; rows: Row[]; map: [number, number][][]; note: string };
+const types: T[] = [
+  {
+    key: 'list',
+    name: 'List<Int32>',
+    logical: ['[1, 2]', '[]', 'null', '[3, 4, 5]'],
+    rows: [
+      { label: 'validity', kind: 'meta', cells: ['1', '1', '0', '1'] },
+      { label: 'offsets (Int32)', kind: 'meta', cells: ['0', '2', '2', '2', '5'] },
+      { label: 'child: Int32 values', kind: 'child', cells: ['1', '2', '3', '4', '5'] },
+    ],
+    map: [
+      [[0, 0], [1, 0], [1, 1], [2, 0], [2, 1]],
+      [[0, 1], [1, 1], [1, 2]],
+      [[0, 2], [1, 2], [1, 3]],
+      [[0, 3], [1, 3], [1, 4], [2, 2], [2, 3], [2, 4]],
+    ],
+    note: 'A list is an offsets buffer over one child array holding every element of every list, run together. List i is child[offsets[i] .. offsets[i + 1]]. An empty list and a null list both have an empty range; the validity bit tells them apart. LargeList is identical with 64-bit offsets, for children of more than about 2 billion elements.',
+  },
+  {
+    key: 'struct',
+    name: 'Struct<name: Utf8, qty: Int32>',
+    logical: ['{bolt, 10}', '{nut, 250}', '{gear, 3}'],
+    rows: [
+      { label: 'child: name (Utf8)', kind: 'child', cells: ['bolt', 'nut', 'gear'] },
+      { label: 'child: qty (Int32)', kind: 'child', cells: ['10', '250', '3'] },
+    ],
+    map: [
+      [[0, 0], [1, 0]],
+      [[0, 1], [1, 1]],
+      [[0, 2], [1, 2]],
+    ],
+    note: 'A struct has no buffers of its own besides an optional validity bitmap: it is one child array per field, all the same length. It is a small table stored by column, so reading one field of a struct reads only that child.',
+  },
+  {
+    key: 'map',
+    name: 'Map<Utf8, Int32>',
+    logical: ['{a: 1, b: 2}', '{}', '{c: 3}'],
+    rows: [
+      { label: 'offsets (Int32)', kind: 'meta', cells: ['0', '2', '2', '3'] },
+      { label: 'entries.keys (Utf8)', kind: 'child', cells: ['a', 'b', 'c'] },
+      { label: 'entries.values (Int32)', kind: 'child', cells: ['1', '2', '3'] },
+    ],
+    map: [
+      [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1]],
+      [[0, 1], [0, 2]],
+      [[0, 2], [0, 3], [1, 2], [2, 2]],
+    ],
+    note: 'A map is a list of key-value structs: an offsets buffer over a struct child with a keys field and a values field. Nothing in the layout makes lookups fast; finding a key means scanning that row’s entries.',
+  },
+  {
+    key: 'dense',
+    name: 'Dense union of Int32 | Utf8',
+    logical: ['5', '"x"', '7', '"yz"'],
+    rows: [
+      { label: 'type ids (Int8)', kind: 'meta', cells: ['0', '1', '0', '1'] },
+      { label: 'offsets (Int32)', kind: 'meta', cells: ['0', '0', '1', '1'] },
+      { label: 'child 0: Int32', kind: 'child', cells: ['5', '7'] },
+      { label: 'child 1: Utf8', kind: 'child', cells: ['x', 'yz'] },
+    ],
+    map: [
+      [[0, 0], [1, 0], [2, 0]],
+      [[0, 1], [1, 1], [3, 0]],
+      [[0, 2], [1, 2], [2, 1]],
+      [[0, 3], [1, 3], [3, 1]],
+    ],
+    note: 'Each value can be of a different type. A type id per value picks the child, and an offset per value says where in that child the value is. Children hold only their own values. Unions have no validity bitmap of their own: a null is a null in the chosen child.',
+  },
+  {
+    key: 'sparse',
+    name: 'Sparse union of Int32 | Utf8',
+    logical: ['5', '"x"', '7', '"yz"'],
+    rows: [
+      { label: 'type ids (Int8)', kind: 'meta', cells: ['0', '1', '0', '1'] },
+      { label: 'child 0: Int32', kind: 'child', cells: ['5', '·', '7', '·'] },
+      { label: 'child 1: Utf8', kind: 'child', cells: ['·', 'x', '·', 'yz'] },
+    ],
+    map: [
+      [[0, 0], [1, 0]],
+      [[0, 1], [2, 1]],
+      [[0, 2], [1, 2]],
+      [[0, 3], [2, 3]],
+    ],
+    note: 'A sparse union drops the offsets: every child is as long as the union, and value i is child[type_id[i]][i]. Unused slots waste space, but each child lines up with the union row for row, which makes some vectorized processing simpler.',
+  },
+];
+---
+
+<qe-nested class="qe-lab qe-nest not-content" data-t={JSON.stringify(types)}>
+  <section class="qe-lab-part">
+    <div class="qe-lab-chips prose" role="group" aria-label="Nested type">
+      {types.map((t, i) => <button type="button" data-k={t.key} aria-pressed={String(i === 0)}>{t.name.split('<')[0].replace(' of Int32 | Utf8', '')}</button>)}
+    </div>
+    <p class="qe-lab-cap lbl" data-name></p>
+    <div class="logical" data-logical role="group" aria-label="Logical values"></div>
+    <div class="rows" data-rows></div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-nested>
+
+<script>
+  type Row = { label: string; kind: 'meta' | 'child'; cells: string[] };
+  type T = { key: string; name: string; logical: string[]; rows: Row[]; map: [number, number][][]; note: string };
+
+  class QeNested extends HTMLElement {
+    t: T[] = [];
+    cur = 0;
+    sel = 0;
+
+    connectedCallback() {
+      this.t = JSON.parse(this.dataset.t!);
+      this.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b, i) =>
+        b.addEventListener('click', () => {
+          this.querySelectorAll('[data-k]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.cur = i;
+          this.sel = 0;
+          this.render();
+        }),
+      );
+      this.querySelector('[data-logical]')!.addEventListener('click', (e) => {
+        const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-i]');
+        if (!b) return;
+        this.sel = Number(b.dataset.i);
+        this.render();
+      });
+      this.render();
+    }
+
+    render() {
+      const t = this.t[this.cur];
+      this.querySelector('[data-name]')!.textContent = `${t.name}: tap a value to see where it is stored`;
+      this.querySelector('[data-logical]')!.innerHTML = t.logical
+        .map((v, i) => `<button type="button" class="lv${i === this.sel ? ' sel' : ''}" data-i="${i}" aria-current="${i === this.sel}"><small>${i}</small>${v}</button>`)
+        .join('');
+      const hit = new Set(t.map[this.sel].map(([r, c]) => `${r}:${c}`));
+      this.querySelector('[data-rows]')!.innerHTML = t.rows
+        .map(
+          (row, r) =>
+            `<div class="row ${row.kind}"><p class="rl">${row.label}</p><div class="cells">${row.cells
+              .map((c, k) => `<span class="cell${hit.has(`${r}:${k}`) ? ' hit' : ''}${c === '·' ? ' unused' : ''}">${c}</span>`)
+              .join('')}</div></div>`,
+        )
+        .join('');
+      this.querySelector<HTMLElement>('[data-note]')!.textContent = t.note;
+    }
+  }
+  if (!customElements.get('qe-nested')) customElements.define('qe-nested', QeNested);
+</script>
+
+<style is:global>
+  .qe-nest .lbl {
+    margin-top: 0.9rem;
+  }
+  .qe-nest .logical,
+  .qe-nest .cells {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .qe-nest .lv {
+    display: grid;
+    min-height: 2.6rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  .qe-nest .lv small {
+    font-size: 0.5625rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-nest .lv.sel {
+    border-color: var(--qe-series-1);
+    box-shadow: inset 0 0 0 1px var(--qe-series-1);
+  }
+  .qe-nest .rows {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.9rem;
+  }
+  .qe-nest .row {
+    padding-left: 0.55rem;
+    border-left: 3px solid var(--sl-color-gray-5);
+  }
+  .qe-nest .row.child {
+    border-left-color: var(--qe-series-2);
+  }
+  .qe-nest .rl {
+    margin: 0 0 0.2rem;
+    font-size: 0.6875rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-nest .cell {
+    display: grid;
+    place-items: center;
+    min-width: 2rem;
+    height: 1.9rem;
+    padding: 0 0.4rem;
+    border-radius: 5px;
+    background: var(--sl-color-gray-6);
+    border: 1px solid var(--sl-color-gray-5);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-2);
+    transition: background-color 0.2s, color 0.2s;
+  }
+  .qe-nest .cell.unused {
+    background: transparent;
+    border: 1px dotted var(--sl-color-gray-5);
+  }
+  .qe-nest .cell.hit {
+    border-color: var(--qe-series-1);
+    background: var(--qe-series-1);
+    color: var(--sl-color-black);
+    font-weight: 700;
+  }
+</style>

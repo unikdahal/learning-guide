@@ -1,0 +1,201 @@
+---
+// Type two strings and see each one's 16-byte view (length, then either up to 12 inline bytes or
+// a 4-byte prefix, buffer index and offset), and how much of a comparison the views alone can
+// decide. Layout as printed by lab/crates/m03-representation/examples/string_views.rs.
+const presets = [
+  ['hash', 'sort'],
+  ['SKU04242', 'SKU04243'],
+  ['customer-account-04242', 'customer-account-91234'],
+  ['04242-customer-account', '91234-customer-account'],
+];
+---
+
+<qe-strview class="qe-lab qe-sv not-content" data-p={JSON.stringify(presets)}>
+  <section class="qe-lab-part">
+    <div class="inputs">
+      <label>String A <input type="text" maxlength="40" data-a value="customer-account-04242" spellcheck="false" autocomplete="off" /></label>
+      <label>String B <input type="text" maxlength="40" data-b value="customer-account-91234" spellcheck="false" autocomplete="off" /></label>
+    </div>
+    <div class="qe-lab-chips" role="group" aria-label="Examples">
+      {presets.map((p) => <button type="button" data-preset={JSON.stringify(p)}>{p[0]} / {p[1]}</button>)}
+    </div>
+    <div data-views></div>
+    <dl class="verdict" data-verdict aria-live="polite"></dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-strview>
+
+<script>
+  const enc = new TextEncoder();
+
+  class QeStrView extends HTMLElement {
+    connectedCallback() {
+      const a = this.querySelector<HTMLInputElement>('[data-a]')!;
+      const b = this.querySelector<HTMLInputElement>('[data-b]')!;
+      a.addEventListener('input', () => this.render());
+      b.addEventListener('input', () => this.render());
+      this.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((btn) =>
+        btn.addEventListener('click', () => {
+          const [x, y] = JSON.parse(btn.dataset.preset!);
+          a.value = x;
+          b.value = y;
+          this.render();
+        }),
+      );
+      this.render();
+    }
+
+    view(s: string, offset: number) {
+      const bytes = enc.encode(s);
+      const len = bytes.length;
+      const cells: { t: string; cls: string }[] = [];
+      const le = (v: number) => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+      le(len).forEach((x) => cells.push({ t: x.toString(16).padStart(2, '0'), cls: 'len' }));
+      const ch = (x: number) => (x >= 32 && x < 127 ? String.fromCharCode(x) : x.toString(16).padStart(2, '0'));
+      if (len <= 12) {
+        for (let i = 0; i < 12; i++) cells.push(i < len ? { t: ch(bytes[i]), cls: 'inl' } : { t: '00', cls: 'zero' });
+      } else {
+        for (let i = 0; i < 4; i++) cells.push({ t: ch(bytes[i]), cls: 'pre' });
+        le(0).forEach((x) => cells.push({ t: x.toString(16).padStart(2, '0'), cls: 'buf' }));
+        le(offset).forEach((x) => cells.push({ t: x.toString(16).padStart(2, '0'), cls: 'off' }));
+      }
+      return { bytes, len, cells };
+    }
+
+    render() {
+      const A = this.querySelector<HTMLInputElement>('[data-a]')!.value;
+      const B = this.querySelector<HTMLInputElement>('[data-b]')!.value;
+      const va = this.view(A, 0);
+      const vb = this.view(B, va.len > 12 ? va.len : 0);
+      const row = (name: string, v: ReturnType<QeStrView['view']>) => {
+        const groups =
+          v.len <= 12
+            ? [['length', 0, 4], ['inline data, padded with zeros', 4, 16]]
+            : [['length', 0, 4], ['prefix', 4, 8], ['buffer', 8, 12], ['offset', 12, 16]];
+        return `<div class="view"><p class="qe-lab-cap">${name}: ${v.len} bytes, ${v.len <= 12 ? 'stored inline' : 'prefix in the view, bytes in data buffer 0'}</p><div class="groups">${groups
+          .map(
+            ([label, s, e]) =>
+              `<div class="g"><div class="cells">${v.cells
+                .slice(s as number, e as number)
+                .map((c) => `<span class="c ${c.cls}">${c.t}</span>`)
+                .join('')}</div><small>${label}</small></div>`,
+          )
+          .join('')}</div></div>`;
+      };
+      this.querySelector('[data-views]')!.innerHTML = row('A', va) + row('B', vb);
+
+      let eq: string;
+      let ord: string;
+      const pa = va.bytes.slice(0, 4).join(',');
+      const pb = vb.bytes.slice(0, 4).join(',');
+      const bothInline = va.len <= 12 && vb.len <= 12;
+      if (va.len !== vb.len) eq = 'decided by the lengths alone: not equal';
+      else if (bothInline) eq = `decided by comparing the two 16-byte views: ${A === B ? 'equal' : 'not equal'}`;
+      else if (pa !== pb) eq = 'decided by the prefixes: not equal';
+      else eq = `needs the data buffer: lengths and prefixes match, the remaining ${va.len - 4} bytes must be compared`;
+      if (bothInline) ord = 'decided from the views: both strings are inline';
+      else if (pa !== pb) ord = 'decided by the 4-byte prefixes';
+      else ord = 'needs the data buffer: the prefixes are equal';
+      this.querySelector('[data-verdict]')!.innerHTML = `<div><dt>A = B?</dt><dd>${eq}</dd></div><div><dt>A &lt; B?</dt><dd>${ord}</dd></div>`;
+      this.querySelector<HTMLElement>('[data-note]')!.textContent =
+        'In the offset layout, every one of these comparisons reads both strings’ bytes from the data buffer, a separate memory access per string. A view keeps the length and the first bytes next to each other in 16 bytes, so many comparisons finish without leaving the views array. When strings share a long prefix, as in the third example, the prefix decides nothing and views pay an extra indirection.';
+    }
+  }
+  if (!customElements.get('qe-strview')) customElements.define('qe-strview', QeStrView);
+</script>
+
+<style is:global>
+  .qe-sv .inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+  .qe-sv label {
+    display: grid;
+    gap: 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-sv input {
+    min-width: 0;
+    min-height: 2.4rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 7px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+  }
+  .qe-sv .view {
+    margin-top: 0.9rem;
+  }
+  .qe-sv .groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+  .qe-sv .g small {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.625rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-sv .cells {
+    display: flex;
+    gap: 2px;
+  }
+  .qe-sv .c {
+    display: grid;
+    place-items: center;
+    width: 1.3rem;
+    height: 1.75rem;
+    border-radius: 4px;
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+  }
+  .qe-sv .c.len {
+    background: var(--sl-color-gray-5);
+    color: var(--sl-color-white);
+  }
+  .qe-sv .c.inl,
+  .qe-sv .c.pre {
+    border-color: var(--qe-series-1);
+    background: var(--qe-series-1);
+    color: var(--sl-color-black);
+    font-weight: 700;
+  }
+  .qe-sv .c.buf,
+  .qe-sv .c.off {
+    background: color-mix(in srgb, var(--qe-series-2) 35%, var(--sl-color-gray-6));
+    color: var(--sl-color-white);
+  }
+  .qe-sv .c.zero {
+    color: var(--sl-color-gray-4);
+  }
+  .qe-sv .verdict {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0.9rem 0 0;
+  }
+  .qe-sv .verdict div {
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-sv .verdict dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-sv .verdict dd {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--sl-color-white);
+  }
+</style>

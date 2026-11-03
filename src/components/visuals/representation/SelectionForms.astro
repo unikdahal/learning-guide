@@ -1,0 +1,128 @@
+---
+// One filter result in three representations: a bitmap, a selection vector of row indices, and a
+// filtered copy of the columns. Pick a predicate to change the selectivity and see what each
+// representation costs to hold. Measured at 10M rows in
+// lab/crates/m03-representation/examples/selection.rs.
+const rows = {
+  amount: [250, 40, 90, 610, 75, 120, 15, 980, 300, 55, 410, 8, 130, 700, 66, 95],
+  region: ['ASIA', 'EUROPE', 'ASIA', 'AFRICA', 'AFRICA', 'EUROPE', 'ASIA', 'AMERICA', 'ASIA', 'EUROPE', 'AFRICA', 'ASIA', 'AMERICA', 'EUROPE', 'ASIA', 'AFRICA'],
+};
+---
+
+<qe-selection class="qe-lab qe-sel not-content" data-r={JSON.stringify(rows)}>
+  <section class="qe-lab-part">
+    <div class="qe-lab-chips" role="group" aria-label="Predicate">
+      <button type="button" data-t="900" aria-pressed="false">WHERE amount &gt; 900</button>
+      <button type="button" data-t="200" aria-pressed="true">WHERE amount &gt; 200</button>
+      <button type="button" data-t="20" aria-pressed="false">WHERE amount &gt; 20</button>
+    </div>
+    <p class="qe-lab-cap lbl">Input batch: 16 rows of amount and region</p>
+    <div class="grid" data-input></div>
+    <div class="forms" data-forms></div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-selection>
+
+<script>
+  type R = { amount: number[]; region: string[] };
+
+  class QeSelection extends HTMLElement {
+    r!: R;
+    t = 200;
+
+    connectedCallback() {
+      this.r = JSON.parse(this.dataset.r!);
+      this.querySelectorAll<HTMLButtonElement>('[data-t]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.querySelectorAll('[data-t]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.t = Number(b.dataset.t);
+          this.render();
+        }),
+      );
+      this.render();
+    }
+
+    render() {
+      const n = this.r.amount.length;
+      const keep = this.r.amount.map((a) => a > this.t);
+      const idx = keep.flatMap((k, i) => (k ? [i] : []));
+      this.querySelector('[data-input]')!.innerHTML = this.r.amount
+        .map((a, i) => `<span class="c${keep[i] ? ' on' : ''}"><small>${i}</small>${a}</span>`)
+        .join('');
+      const form = (title: string, size: string, body: string) =>
+        `<div class="form"><p class="qe-lab-cap">${title} <span>${size}</span></p><div class="grid">${body}</div></div>`;
+      const bitmap = keep.map((k) => `<span class="c bit${k ? ' on' : ''}">${k ? 1 : 0}</span>`).join('');
+      const sv = idx.length ? idx.map((i) => `<span class="c on">${i}</span>`).join('') : '<span class="empty">empty</span>';
+      const copy = idx.length
+        ? idx.map((i) => `<span class="c on wide"><small>${this.r.region[i]}</small>${this.r.amount[i]}</span>`).join('')
+        : '<span class="empty">empty</span>';
+      this.querySelector('[data-forms]')!.innerHTML =
+        form('Bitmap', `${n} bits, always`, bitmap) +
+        form('Selection vector', `${idx.length} × 4 bytes`, sv) +
+        form('Filtered copy', `${idx.length} rows × every column`, copy);
+      const pct = Math.round((idx.length / n) * 100);
+      this.querySelector<HTMLElement>('[data-note]')!.textContent =
+        `${idx.length} of ${n} rows pass (${pct}%). The bitmap costs one bit per input row whatever passes, but whoever uses it still visits every row. The selection vector costs in proportion to the rows that pass and lets later operators touch only those, at the price of jumping through indices. The copy moves every column of every passing row once, after which everything downstream is a dense, simple loop.`;
+    }
+  }
+  if (!customElements.get('qe-selection')) customElements.define('qe-selection', QeSelection);
+</script>
+
+<style is:global>
+  .qe-sel .lbl {
+    margin-top: 0.9rem;
+  }
+  .qe-sel .grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+  .qe-sel .forms {
+    display: grid;
+    gap: 0.8rem;
+    margin-top: 0.9rem;
+  }
+  .qe-sel .form .qe-lab-cap span {
+    font-weight: 500;
+    color: var(--sl-color-gray-4);
+  }
+  .qe-sel .c {
+    display: grid;
+    align-content: center;
+    min-width: 2.1rem;
+    min-height: 2rem;
+    padding: 0.1rem 0.3rem;
+    border-radius: 5px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+    transition: background-color 0.2s, color 0.2s;
+  }
+  .qe-sel .c small {
+    font-size: 0.5rem;
+    color: var(--sl-color-gray-4);
+  }
+  .qe-sel .c.bit {
+    min-width: 1.2rem;
+    justify-items: center;
+  }
+  .qe-sel .c.on {
+    border-color: var(--qe-series-1);
+    background: var(--qe-series-1);
+    color: var(--sl-color-black);
+    font-weight: 700;
+  }
+  .qe-sel .c.on small {
+    color: var(--sl-color-black);
+    font-weight: 500;
+  }
+  .qe-sel .c.wide {
+    min-width: 3.6rem;
+  }
+  .qe-sel .empty {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-4);
+  }
+</style>

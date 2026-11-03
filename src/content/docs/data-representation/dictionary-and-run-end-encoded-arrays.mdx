@@ -2,15 +2,171 @@
 title: "Dictionary and run-end encoded arrays"
 description: "In-memory encodings, when kernels can operate on them directly, and when they must decode."
 level: I
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 5
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import EncodingToggle from '@components/visuals/representation/EncodingToggle.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="dictionary-and-run-end-encoded-arrays" />
+<ArticleMeta module="03" slug="dictionary-and-run-end-encoded-arrays" minutes={13} lab="m03-representation/examples/dict_ree.rs" />
+
+Most columns in analytical data are repetitive. A region column has five distinct values across a billion
+rows; a date column, sorted by date, repeats each day for millions of rows. Storing every value in full, as
+the plain layouts of the [physical layout article](../arrow-physical-layout/) do, moves the same bytes over
+and over. Arrow has two encodings that remove the repetition while staying in memory and staying usable:
+**dictionary** encoding and **run-end** encoding. The question for an engine is not only how much they save,
+but which operations can run on the encoded form directly.
+
+## The question
+
+How do dictionary and run-end encoded arrays work, what do they save, and when can a kernel use them without
+decoding?
+
+## Two ways to remove repetition
+
+A **dictionary array** stores each distinct value once, in a dictionary, and replaces every row with a small
+integer **key**, the dictionary index. Its type is written `Dictionary(key type, value type)`, for example
+`Dictionary(Int8, Utf8)` for up to 128 distinct strings.
+
+A **run-end encoded array**, added to the Arrow format in 2023, stores each run of equal adjacent values once,
+with the logical index where the run ends. Its type has two children: `run_ends`, a 16-, 32- or 64-bit integer
+array, and `values`, one per run. Value i belongs to the first run whose end is greater than i.
+
+Pick an encoding and an order, then tap a row to see how it's found:
+
+<EncodingToggle />
+
+The difference is what each depends on. A dictionary's size depends on the number of distinct values and on
+the row count, since every row still has a key. A run-end array's size depends only on the number of runs, so
+it can be tiny, or larger than plain if the data isn't sorted.
+
+## Measured: a dictionary-encoded region column
+
+The lab builds 10 million rows of a region column with 5 values in random order, plain and as dictionaries
+with 32-bit and 8-bit keys:
+
+```text title="cargo run --release -p m03-representation --example dict_ree"
+plain Utf8:             174.22 MB
+dictionary, Int32 keys:  40.00 MB
+dictionary, Int8 keys:   10.00 MB
+```
+
+(Sizes are arrow-rs's `get_array_memory_size`, which counts allocated capacity, so the plain figure includes
+some unused space reserved by the builder.) Then it filters on `region = 'ASIA'` and counts rows per region:
+
+```text title="cargo run --release -p m03-representation --example dict_ree"
+plain strings, eq kernel:           38.84 ms
+dictionary, eq kernel:              15.07 ms
+dictionary, compare Int32 codes:    10.56 ms
+dictionary, compare Int8 codes:      9.88 ms
+
+plain, hash map on strings:   299.20 ms
+dictionary, array of counters:  6.37 ms
+
+cast Dictionary(Int32, Utf8) -> Utf8: 110.28 ms
+```
+
+Three things stand out.
+
+**Operating on codes.** The fastest filter looks up `'ASIA'` in the five-entry dictionary once and then
+compares integer keys: 3.7 times faster than comparing strings. arrow-rs's comparison kernel accepts the
+dictionary array directly and lands in between at 15 ms. The 8-bit keys are a quarter the bytes of 32-bit keys
+but filter only slightly faster, so at this size the comparison loop, not reading the keys, seems to be the
+limit; the lab hasn't confirmed what in that loop dominates.
+
+**Grouping on codes.** Counting rows per region with a hash map of strings took 299 ms. With keys in the range 0
+to 4, the count is an array of five counters indexed by key: 6.4 ms, 47 times faster. Hash aggregation on
+dictionary columns can do the same thing in general, hashing each distinct value once instead of each row.
+
+**Decoding is expensive.** Turning the dictionary back into plain strings took 110 ms, longer than the plain
+filter and more than six times the code filter and the count combined. An engine gains the most from
+dictionaries by keeping data encoded through filters and grouping and decoding as late as possible, ideally
+only the rows that reach the result.
+
+<Aside type="note" title="Where dictionaries come from">
+Columnar files encode low-cardinality columns with dictionaries on disk
+([dictionary encoding in storage](../dictionary-encoding-in-storage/)). A reader can decode them into plain
+arrays or hand them on as Arrow dictionary arrays; keeping them encoded avoids the decode cost above. In Arrow
+IPC, dictionaries travel separately from the batches that refer to them and can be replaced or extended
+between batches.
+</Aside>
+
+## Measured: a run-end encoded date column
+
+A date column, sorted, 10 million rows over 1,000 days, plain and run-end encoded:
+
+```text title="cargo run --release -p m03-representation --example dict_ree"
+plain Int64:         80.000 MB
+run-end encoded:      0.012 MB  (1000 runs, logical length 10000000)
+
+sum, plain:                          9.756 ms
+sum, run-end encoded (per run):      0.001 ms
+1M random reads, plain:               7.37 ms
+1M random reads, run-end encoded:    16.13 ms  (binary search over run ends)
+decode run-end encoded -> Int64:     75.31 ms
+```
+
+The encoded column is 6,700 times smaller, and an operation that can work per run does work per run: the sum
+multiplies each run's value by its length, 1,000 multiplications instead of 10 million additions, about 1 µs.
+Random access is the price. Reading value i means a binary search over the run ends, about 10 steps for 1,000
+runs, and it took twice as long as indexing a plain array. Decoding back to plain took 75 ms, nearly eight times
+the plain sum.
+
+## Operate or decode
+
+Every kernel facing an encoded array has the same choice. Some operations map naturally onto the encoding:
+
+| Operation | Dictionary | Run-end encoded |
+| --- | --- | --- |
+| Compare to a constant | Look up the constant once, compare keys | Compare each run's value, expand to rows |
+| Group by, count distinct | Keys are ready-made group ids | Runs are groups of adjacent rows |
+| Sum, min, max | Through keys, or per distinct value with counts | Per run, weighted by length |
+| Take, filter rows | Copy keys, share the dictionary | Possible but awkward: runs split |
+| Sort, join on the column | Needs key order to match value order, or decode | Already sorted, typically |
+
+Where a kernel doesn't support the encoding, it has to decode first, and the measurements show that decoding
+can cost more than the work itself. Support varies by library and version: arrow-rs's comparison and
+arithmetic kernels handle dictionary arrays widely, while run-end encoded arrays are newer and handled by fewer
+kernels, so engines often decode them on arrival.
+
+## Costs and trade-offs
+
+**Dictionaries win on low cardinality.** Five regions, a few hundred country codes, status values: keys are tiny
+and operations on them are fast. With millions of distinct values the dictionary is as big as the data and the
+keys are extra.
+
+**Run-end encoding wins on long runs, and only then.** Sorted or clustered columns compress enormously; unsorted
+ones get larger. Random access becomes a binary search.
+
+**Encoded data must stay encoded to pay off.** The savings in the lab, 3.7 times for a filter and 47 times for a
+count, would be erased by decoding first. The engine's kernels decide how much of the gain is real.
+
+## Check yourself
+
+<details>
+<summary>A column of 1 billion rows has 200 distinct strings averaging 10 bytes. Roughly how large is it plain, and as a dictionary with Int8 keys?</summary>
+
+Plain: about 10 GB of string data plus 4 GB of 32-bit offsets, around 14 GB. Int8 keys can't index 200 values
+(they go to 127), so it needs Int16 keys: 2 GB of keys plus a dictionary of about 3 KB.
+</details>
+
+<details>
+<summary>A run-end encoded array has run_ends [3, 4, 7] and values [10, 20, 30]. What is value 5?</summary>
+
+The first run end greater than 5 is 7, the third run, so value 5 is 30. The array is [10, 10, 10, 20, 30, 30, 30].
+</details>
+
+<details>
+<summary>Why did counting rows per region get 47 times faster with a dictionary?</summary>
+
+The keys are already small integers identifying each region, so the count is an array of counters indexed by key.
+The plain version hashes and compares a string for every row.
+</details>
+
+## Further reading
+
+- Apache Arrow, [Arrow Columnar Format](https://arrow.apache.org/docs/format/Columnar.html): the sections on
+  dictionary-encoded and run-end encoded layouts.

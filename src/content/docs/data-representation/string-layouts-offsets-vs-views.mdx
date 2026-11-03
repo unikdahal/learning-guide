@@ -1,16 +1,176 @@
 ---
 title: "String layouts: offsets vs views"
 description: "Offset-based strings vs the view layout with inline prefixes (StringView, the German string idea), and the operations each makes cheap."
-level: A
-status: planned
+level: I
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 6
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import StringViewInspector from '@components/visuals/representation/StringViewInspector.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="string-layouts-offsets-vs-views" />
+<ArticleMeta module="03" slug="string-layouts-offsets-vs-views" minutes={13} lab="m03-representation/examples/string_views.rs" />
+
+Strings are the awkward type in a columnar engine. Numbers have a fixed width, so value i is at a computable
+position; strings don't. Arrow's original answer, an offsets buffer over one buffer of bytes
+([physical layout](../arrow-physical-layout/)), is compact and simple, but every operation on a string has to
+follow an offset into the data, and copying strings means copying their bytes. A second layout, the
+**string view**, keeps a fixed-size 16-byte entry per string with the start of the string inside it. Each makes
+different operations cheap.
+
+## The question
+
+How do the offset and view layouts store strings, and which operations does each make cheap?
+
+## Offsets: compact and contiguous
+
+In the offset layout, string i is `data[offsets[i] .. offsets[i + 1]]`. The bytes of all strings sit back to
+back in order, with 4 bytes of offset per string. That is close to the minimum possible size and ideal for
+scanning every string in order.
+
+It is less good at everything else. Comparing two strings always reads their bytes from the data buffer.
+Filtering or reordering rows, as `take` and sort do, must copy every selected string's bytes into a new buffer,
+because the data has to stay in row order. And strings can't share storage: the same value appearing twice is
+stored twice.
+
+## Views: 16 bytes per string, prefix inline
+
+The view layout comes from the Umbra database at the Technical University of Munich, described by Thomas Neumann
+and Michael Freitag in 2020, and is often called the "German string". Arrow added it as `StringView` and
+`BinaryView` in 2023, and DuckDB, Velox and Polars use the same or very similar layouts.
+
+Every string gets a 16-byte view:
+
+- the first 4 bytes are the **length**;
+- a string of up to 12 bytes is stored **inline** in the remaining 12 bytes, with no separate data at all;
+- a longer string stores its first 4 bytes as a **prefix**, then a 4-byte **buffer index** and a 4-byte
+  **offset** pointing to the full bytes in one of several data buffers.
+
+Type two strings to see their views and how much of a comparison the views decide on their own:
+
+<StringViewInspector />
+
+The lab prints the views behind three strings:
+
+```text title="cargo run --release -p m03-representation --example string_views"
+value 0: "hash"
+  bytes: 04 00 00 00 68 61 73 68 00 00 00 00 00 00 00 00
+  length 4, inline data "hash"
+value 1: "a string longer than twelve"
+  bytes: 1b 00 00 00 61 20 73 74 00 00 00 00 00 00 00 00
+  length 27, prefix "a st", buffer 0, offset 0
+data buffers: 1 (27 bytes: only the long string)
+```
+
+Because views point into data buffers rather than requiring the bytes in row order, many views can point to
+the same bytes, views can be reordered without touching the data, and an array can have several data
+buffers, so new batches can reference existing buffers instead of copying them.
+
+## Measured: offsets against views
+
+The lab stores 5 million strings in both layouts, for three kinds of data: 8-byte product codes that fit
+inline, 22-byte strings whose first characters differ, and 22-byte strings that all begin with the same 17
+characters. For each, it measures an equality filter against a constant, `take` of 2.5 million random rows,
+and a sort:
+
+```text title="cargo run --release -p m03-representation --example string_views"
+== 5000000 strings: short codes (8 bytes) ==
+size:     offsets    87.1 MB   views    80.0 MB
+eq:       offsets   21.62 ms   views   16.33 ms
+take n/2: offsets   63.44 ms   views   17.79 ms
+sort:     offsets    2322 ms   views     378 ms
+
+== 5000000 strings: long, distinct prefixes ==
+size:     offsets   154.2 MB   views   191.1 MB
+eq:       offsets   26.15 ms   views   21.12 ms
+take n/2: offsets   72.80 ms   views   19.33 ms
+sort:     offsets    1286 ms   views    1326 ms
+
+== 5000000 strings: long, shared prefix ==
+size:     offsets   154.2 MB   views   191.1 MB
+eq:       offsets   28.05 ms   views   31.12 ms
+take n/2: offsets   72.29 ms   views   19.02 ms
+sort:     offsets    2399 ms   views    3192 ms
+```
+
+**Take is where views always win**, 3.5 to 3.8 times faster in every data set. Taking rows from a view array
+copies 16-byte views and shares the data buffers; taking from an offset array copies every selected string's
+bytes and rebuilds the offsets. Filters, joins and sorts all end in a take, so this matters across a whole
+engine.
+
+**Sorting short strings is the big win**: 6.1 times faster. With every string inline, a comparison is two
+16-byte loads and a compare, without touching a data buffer.
+
+**Prefixes help only when they differ.** With long strings whose first bytes differ, the prefix usually decides
+a comparison, and views sort about as fast as offsets. When every string shares a long prefix, the prefix
+decides nothing, every comparison follows a pointer anyway, and views were a third slower than offsets at
+sorting and slightly slower at the equality filter. The offset layout also sorted the shared-prefix data
+nearly twice as slowly as the distinct-prefix data, consistent with each comparison having to read further
+into the strings before finding a difference.
+
+**Views cost space for long strings.** At 22 bytes per string, views take 191 MB against 154: 16 bytes of view
+per string instead of 4 bytes of offset. For strings that fit inline, views are about the same size or smaller,
+because there is no separate data at all.
+
+<Aside type="caution" title="Garbage in the data buffers">
+Because filtered and taken view arrays share their data buffers, a small result can keep large buffers alive,
+full of bytes no view refers to any more. Implementations offer a compaction step that copies the referenced
+strings into fresh buffers; in arrow-rs it is `StringViewArray::gc`. Engines run it when the wasted fraction
+grows, which is a cost the offset layout never pays, because it copies on every take instead.
+</Aside>
+
+## Which operations each makes cheap
+
+| Operation | Offsets | Views |
+| --- | --- | --- |
+| Scan every string in order | Best: one contiguous buffer | Good: views, then data |
+| Equality, ordering | Always reads the bytes | Length and prefix often decide |
+| Take, filter, reorder | Copies the bytes | Copies 16-byte views |
+| Short strings, up to 12 bytes | 4 bytes of offset plus the bytes | Inline, no data buffer |
+| Long strings with shared prefixes | Reads the bytes | Prefix decides nothing, extra indirection |
+| Space for long strings | Smallest | 12 extra bytes per string |
+| Building from existing buffers | Must copy into one buffer | Can reference several buffers |
+
+## Costs and trade-offs
+
+**Views move cost from copying to indirection.** They make reordering and short comparisons cheap and make each
+long-string access go through a view and a buffer index.
+
+**The data decides.** Codes, identifiers, short categories and anything up to 12 bytes favor views strongly.
+Long strings with common prefixes, URLs or paths, may not benefit at all.
+
+**Interoperability.** Older Arrow readers and some file formats only know the offset layout, so engines that
+use views internally convert at the boundaries. Parquet, for example, has no notion of views; readers build
+them from the plain strings on disk.
+
+## Check yourself
+
+<details>
+<summary>What is in the 16-byte view of "query-execution" (15 bytes)?</summary>
+
+Length 15 in the first 4 bytes; then the prefix "quer"; then the index of the data buffer holding the full
+string, and its offset in that buffer.
+</details>
+
+<details>
+<summary>Why was take 3.5 to 3.8 times faster with views in every data set?</summary>
+
+Taking rows from a view array copies only the 16-byte views and reuses the data buffers. The offset layout has
+to copy every selected string's bytes into a new buffer and build new offsets.
+</details>
+
+<details>
+<summary>All strings in a column start with "https://www.". Will views speed up sorting it?</summary>
+
+Probably not. The 4-byte prefixes are all "http", so they never decide a comparison; every comparison follows the
+pointer to the full bytes, and views add an indirection. The lab's shared-prefix data sorted a third slower with
+views.
+</details>
+
+## Further reading
+
+- Thomas Neumann and Michael Freitag, "Umbra: A Disk-Based System with In-Memory Performance", CIDR 2020.
+- Apache Arrow, [Arrow Columnar Format](https://arrow.apache.org/docs/format/Columnar.html): the section on
+  variable-size binary view layout.

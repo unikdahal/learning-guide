@@ -2,15 +2,169 @@
 title: "Arrow nested types"
 description: "List, large list, struct, map and union layouts, and how nesting composes."
 level: I
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 4
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import NestedLayout from '@components/visuals/representation/NestedLayout.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="arrow-nested-types" />
+<ArticleMeta module="03" slug="arrow-nested-types" minutes={12} lab="m03-representation/examples/nested.rs" />
+
+Real data is rarely flat. An order has a list of line items, an event has a struct of device details, a JSON
+document has maps and mixed types. A columnar format has to store these without giving up what makes columns
+fast. Arrow does it with one idea used repeatedly: a nested array is a small amount of structure, offsets or
+type ids, over **child arrays** that are ordinary columnar arrays themselves. Nesting composes because a child
+can be nested too.
+
+## The question
+
+How does Arrow lay out lists, structs, maps and unions, and what does each layout make cheap or expensive?
+
+## Five layouts
+
+Pick a type and tap a value to see every buffer entry that stores it:
+
+<NestedLayout />
+
+The lab builds the same arrays with arrow-rs and prints their buffers:
+
+```text title="cargo run --release -p m03-representation --example nested"
+== List<Int32>: [[1, 2], [], null, [3, 4, 5]] ==
+offsets:  [0, 2, 2, 2, 5]
+validity: [1, 1, 0, 1]
+child:    ScalarBuffer([1, 2, 3, 4, 5])  (one flat Int32 array)
+offset width: List 4 bytes, LargeList 8 bytes
+
+== Dense union of Int32 | Utf8: [5, "x", 7, "yz"] ==
+type ids: ScalarBuffer([0, 1, 0, 1])
+offsets:  ScalarBuffer([0, 0, 1, 1])  (index into the chosen child)
+children: Int32 ScalarBuffer([5, 7]), Utf8 ["x", "yz"]
+```
+
+### List and large list
+
+A list array is an offsets buffer, an optional validity bitmap and one child array. The child holds every
+element of every list, back to back; list i is `child[offsets[i] .. offsets[i + 1]]`. It is the same scheme
+as strings in the [physical layout article](../arrow-physical-layout/), with an array of any type in place of
+the bytes. A list of strings is offsets over a string array that has its own offsets over its own bytes.
+
+`List` uses 32-bit offsets, so one array's child can hold up to about 2 billion elements; `LargeList` uses 64-bit
+offsets. Arrow also has `FixedSizeList`, where every list has the same length, for vectors such as embeddings,
+which needs no offsets at all, and `ListView`, which stores an offset and a size per list so lists can appear in
+any order or share elements.
+
+### Struct
+
+A struct array is one child array per field, all of the same length, plus an optional validity bitmap for the
+struct itself. That makes a struct column a small table stored by column: reading one field reads only that
+child, and projecting it out of the struct copies nothing:
+
+```text title="cargo run --release -p m03-representation --example nested"
+child name Utf8: 3 values, own buffers
+child qty  Int32: 3 values, own buffers
+projecting qty shares its buffer: true
+```
+
+A null struct and a struct whose fields are null are different things. The struct's bitmap says whether the
+row's struct exists; each child's bitmap says whether a field is null within it.
+
+### Map
+
+A map is defined as a list of structs with two fields, `keys` and `values`. The layout gives no help with
+lookups: finding a key means scanning that row's entries. Keys can't be null, and the type can record whether
+keys within each map are sorted.
+
+### Unions
+
+A union lets each value have a different type, chosen from a fixed set. Every union has a buffer of 8-bit
+**type ids** naming each value's child. A **dense** union adds a 32-bit offset per value into that child, and
+children hold only their own values. A **sparse** union has no offsets: every child is as long as the union and
+value i is at position i of its chosen child, which wastes space but keeps all children aligned row for row.
+Since Arrow 1.0, unions have no validity bitmap of their own; a null is represented by a null in the chosen child.
+
+## How nesting composes
+
+Because children are ordinary arrays, the layouts stack. A column of type `List<Struct<sku: Utf8, qty: Int32>>`,
+line items of orders, is:
+
+```text
+List         validity, offsets         one entry per order
+└─ Struct    validity                  one entry per line item, across all orders
+   ├─ Utf8   validity, offsets, data   every sku of every order
+   └─ Int32  validity, values          every quantity of every order
+```
+
+Every leaf is a plain column over all the line items in the batch. Summing every quantity in the batch is a
+scan of one `Int32` buffer, without looking at the orders at all. Parquet stores nested data with a different
+scheme, repetition and definition levels, that readers convert to and from this one
+([Parquet nested data](../parquet-nested-data-repetition-and-definition-levels/)).
+
+## Measured: working with lists
+
+The lab builds one million lists of `Int64` with 0 to 20 elements each, 10 million elements in all, and sums
+every element three ways:
+
+```text title="cargo run --release -p m03-representation --example nested"
+one pass over the child array:        10.14 ms
+per list, slicing by offsets:         23.29 ms
+per list, list.value(i) as ArrayRef: 106.73 ms
+```
+
+If the operation doesn't care which list an element belongs to, the fastest code ignores the lists entirely and
+scans the child, between the first and last offset. Per-list work, such as a sum per order, follows the offsets
+and stays within 2.3 times of that. The convenient API, asking for list i as an array of its own, costs ten
+times the flat scan here: each call builds a new array object, a sliced view with its reference-counted
+buffers: about 80 ns more per list than slicing by offsets, (106.7 − 23.3) ms over a million lists, which
+dwarfs summing its ten elements. Kernels in
+arrow-rs and DataFusion work on offsets and children directly for this reason.
+
+<Aside type="caution" title="Slices of nested arrays">
+A sliced list array keeps the whole child array and an offsets buffer whose first entry may not be 0. Code that
+assumes the child starts at element 0 of the list, or uses the child's full length, gets the wrong answer on a
+slice. The lab's flat scan reads from `offsets[0]` to `offsets[len]` for that reason.
+</Aside>
+
+## Costs and trade-offs
+
+**Leaves stay columnar.** Any field at any depth is a dense column, so filters and aggregates over nested fields
+run at flat-column speed.
+
+**Rows are spread out.** Reconstructing one complete nested record means visiting every child at every level:
+nested data inherits the column layout's weakness at fetching whole records.
+
+**Lookups inside a value are scans.** Maps are lists of pairs, and finding an element of a list means scanning
+it. Engines that query nested data heavily sometimes flatten or index it instead.
+
+**Unions trade space for simplicity.** Dense unions are compact; sparse unions are larger but let kernels process
+each child as if it were a plain column of the union's length.
+
+## Check yourself
+
+<details>
+<summary>A List&lt;Utf8&gt; holds [["a", "bc"], null, ["d"]]. What are its offsets, and its child's offsets and data?</summary>
+
+List offsets [0, 2, 2, 3], with validity 1, 0, 1. The child string array has offsets [0, 1, 3, 4] and data
+"abcd".
+</details>
+
+<details>
+<summary>Why can a query read one field of a struct column without touching the others?</summary>
+
+A struct array is one child array per field. Each field's values are in that child's own buffers, so reading one
+field reads only its child, exactly like reading one column of a table.
+</details>
+
+<details>
+<summary>When would you choose a sparse union over a dense one?</summary>
+
+When simple processing matters more than space: every child has the union's length and value i is at index i in
+its child, so kernels need no offset lookups. Dense unions use less memory when the types are mixed unevenly.
+</details>
+
+## Further reading
+
+- Apache Arrow, [Arrow Columnar Format](https://arrow.apache.org/docs/format/Columnar.html): the sections on
+  variable-size list, struct, map and union layouts.

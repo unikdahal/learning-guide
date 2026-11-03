@@ -2,15 +2,187 @@
 title: "Arrow physical layout"
 description: "Validity bitmaps, value buffers, offset buffers, alignment, and slicing without copying."
 level: I
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 3
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import ArrowBuffers from '@components/visuals/representation/ArrowBuffers.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="arrow-physical-layout" />
+<ArticleMeta module="03" slug="arrow-physical-layout" minutes={13} lab="m03-representation/examples/physical_layout.rs" />
+
+The [previous article](../apache-arrow-the-columnar-in-memory-standard/) said Arrow fixes the layout of
+every type down to the byte. This one goes down to those bytes: how nulls are recorded, where the values
+sit, how variable-length strings are found, why buffers are aligned and padded, and how an array can be cut
+into pieces without copying anything. Every operator in an Arrow-based engine, DataFusion's included, is
+written against this layout.
+
+## The question
+
+What exactly is in memory behind an Arrow array, and what does each part cost?
+
+## An array is a few buffers and some numbers
+
+An Arrow array consists of:
+
+- a **data type**,
+- a **length**, the number of values,
+- a **null count**, stored so readers don't have to count,
+- an **offset**, how many values to skip at the start of the buffers, normally 0,
+- a list of **buffers**, contiguous blocks of bytes whose number and meaning depend on the type,
+- for nested types, **child arrays** ([Arrow nested types](../arrow-nested-types/)).
+
+A 32-bit integer array has two buffers: a validity bitmap and the values. A string array has three: validity,
+offsets and data. Tap values below to make them null, and slice the array:
+
+<ArrowBuffers />
+
+## The validity bitmap
+
+Nulls are recorded separately from values, one bit per value: 1 means present, 0 means null. Bits are
+numbered least significant first, so value i is bit `i % 8` of byte `i / 8`, and byte 0 covers values 0 to 7
+starting from its lowest bit. Written the usual way, most significant bit on the left, each byte reads right
+to left:
+
+```text title="cargo run --release -p m03-representation --example physical_layout"
+values (logical): [Some(7), None, Some(-1), Some(42), None, Some(5), Some(6), Some(8), Some(9), None]
+validity bytes:   11101101 00000001   (bit i of byte i/8 is value i; read each byte right to left)
+value buffer:     [7, 0, -1, 42, 0, 5, 6, 8, 9, 0]   (null slots hold whatever the builder wrote)
+  null_count stored with the array: 3
+```
+
+Byte 0, `11101101`, read from the right: values 0, 2, 3, 5, 6 and 7 present, 1 and 4 null. Byte 1 holds
+values 8 and 9, and its six unused bits are 0.
+
+Two details matter to kernels. First, a null still has a slot in the value buffer, holding some value: here
+the builder wrote 0, but the specification leaves it undefined, so a reader must never rely on it. That
+sounds wasteful, but it keeps value i at a fixed position, `i × width`, so a kernel can process all values
+with a simple vectorized loop and apply the bitmap afterwards. Second, if an array has no nulls, the bitmap
+may be left out entirely, and a kernel can take a faster path that ignores it.
+
+Booleans use the same trick for values: one bit each, not a byte. Ten booleans take 2 bytes.
+
+## Variable-length values: offsets and data
+
+A string array can't put value i at a fixed position, because values have different lengths. Instead it has
+an **offsets buffer** of length + 1 integers and a **data buffer** with all the bytes run together. Value i
+is `data[offsets[i] .. offsets[i + 1]]`:
+
+```text title="cargo run --release -p m03-representation --example physical_layout"
+offsets: [0, 4, 4, 4, 8, 12]
+data:    "joinsorthash"
+  empty string "" and null both have zero-length ranges; only the bitmap tells them apart
+```
+
+The second value is the empty string and the third is null: both are the range 4 to 4. Finding value i takes
+two reads, the offsets and then the bytes, wherever they are. That indirection is what the
+[string views](../string-layouts-offsets-vs-views/) layout attacks.
+
+`Utf8` and `Binary` use 32-bit offsets, which limits one array to about 2 GiB of data. `LargeUtf8` and
+`LargeBinary` use 64-bit offsets, at 4 more bytes per value.
+
+## Alignment and padding
+
+The [specification](https://arrow.apache.org/docs/format/Columnar.html) asks for buffers aligned to at least
+8 bytes and recommends 64, with lengths padded to a multiple of 64 bytes. A 64-byte boundary matches a cache
+line and an AVX-512 register, and padding means a SIMD loop can always read whole blocks without a separate
+scalar loop for the leftover values at the end.
+
+Implementations differ in how they apply the recommendation. The lab printed each buffer's address modulo 64
+and its allocated size:
+
+```text title="cargo run --release -p m03-representation --example physical_layout"
+  validity: 2 bytes used, 64 allocated, address mod 64 = 0
+  values: 40 bytes used, 40 allocated, address mod 64 = 32
+  offsets: 24 bytes used, 24 allocated, address mod 64 = 48
+  data: 12 bytes used, 1024 allocated, address mod 64 = 16
+```
+
+The bitmap was allocated by arrow-rs's `MutableBuffer`, which uses 64-byte boundaries and rounds sizes up to
+64 bytes on x86-64. The other three buffers were not: the values came from an ordinary Rust vector, converted
+without copying, and all three sit on 16- or 32-byte boundaries. arrow-rs accepts that as long as the alignment
+suits the value type, so in practice its buffers are aligned for their type and often, not always, to 64 bytes.
+The string builder also reserved a kilobyte for data it expected to grow. When arrays are written out in the
+[IPC format](../arrow-ipc-and-arrow-flight/), each buffer is padded to keep the next one aligned.
+
+## Slicing without copying
+
+Because an array carries an offset, a slice is just the same buffers with a different offset and length:
+
+```text title="cargo run --release -p m03-representation --example physical_layout"
+slice(3, 5) = [Some(42), None, Some(5), Some(6), Some(8)]
+  validity: same bytes, bit offset 3 (shared: true)
+  values start 12 bytes into the original buffer
+  null_count of the slice: 1 (recounted from the bits)
+```
+
+Slicing a 10-million-row array costs the same as slicing a 10-row one. Engines rely on this constantly: to cut
+batches into smaller ones, to hand a range of rows to a thread, or to return the first k rows of a sort.
+
+The bitmap of a slice may start at any bit, not just at a byte boundary, so kernels that read bitmaps a word at
+a time have to handle a bit offset by shifting. And the slice's null count isn't stored anywhere; it is
+recounted from the bits the slice covers, a fast popcount but not free.
+
+## Measured: what nulls cost
+
+The lab sums 10 million `Int64` values with arrow-rs's `sum` kernel, with no nulls and with 1%, 10% and 50% of
+them null:
+
+```text title="cargo run --release -p m03-representation --example physical_layout"
+  0% nulls:  10.71 ms   bitmap: false  memory  80.00 MB
+  1% nulls:  16.25 ms   bitmap: true   memory  81.25 MB
+ 10% nulls:  16.28 ms   bitmap: true   memory  81.25 MB
+ 50% nulls:  16.23 ms   bitmap: true   memory  81.25 MB
+```
+
+The bitmap adds 1.25 MB, one bit per 64-bit value, about 1.6%. Having one at all costs the sum about half again
+in time on this machine; the fraction of nulls doesn't matter. That flat line is what branch-free code looks
+like: if the kernel branched on each value's bit, 50% nulls in random positions would be the slowest case, as
+the [branch prediction article](../../hardware/branch-prediction-and-why-branches-hurt/) showed. Instead it
+combines the values with the bitmap a word at a time, doing the same work whatever the bits say. The faster
+path at 0% is the kernel noticing there is no bitmap and skipping that work entirely.
+
+<Aside type="tip" title="Declare columns non-nullable when they are">
+A column that can't contain nulls, declared as such in the schema, lets builders skip the bitmap and kernels
+take the faster path. The lab's 10.7 versus 16.2 ms is that difference for a sum.
+</Aside>
+
+## Costs and trade-offs
+
+**Fixed positions over compactness.** Nulls keep their slots, so values stay at computable positions and loops
+stay simple. A layout that removed nulls would save space and cost every kernel an index calculation.
+
+**Bitmaps are cheap but not free.** One bit per value in space, and in this lab about 50% on the time of the
+simplest kernel. Heavier kernels notice them less.
+
+**Slices share, so memory is held.** A small slice of a large array keeps the whole buffer alive. An engine
+holding many small slices of big batches may need to copy them out, compacting, to release memory.
+
+## Check yourself
+
+<details>
+<summary>An array of 12 values has values 0, 5 and 11 null. What are its two validity bytes?</summary>
+
+Byte 0 covers values 0 to 7, with value 0 in the lowest bit: bits 0 and 5 are 0, the rest 1, giving
+`11011110`. Byte 1 covers values 8 to 11: value 11 is null, giving `00000111`.
+</details>
+
+<details>
+<summary>A string array has offsets [0, 3, 3, 8] and data "catzebra", and no validity bitmap. What are its values?</summary>
+
+"cat", "" and "zebra". Without a bitmap nothing is null, so the zero-length second value is the empty string.
+</details>
+
+<details>
+<summary>Why did the sum take the same time with 1% and 50% nulls?</summary>
+
+The kernel doesn't branch on each value's validity bit. It combines values with the bitmap a word at a time, so
+it does the same work whatever the bits are. Only removing the bitmap altogether made it faster.
+</details>
+
+## Further reading
+
+- Apache Arrow, [Arrow Columnar Format](https://arrow.apache.org/docs/format/Columnar.html): the sections on
+  buffer alignment, validity bitmaps and variable-size binary layout.

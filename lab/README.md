@@ -25,7 +25,7 @@ version of DataFusion (55.2) for every crate, so plans and outputs match the art
 | `m00-orientation` | Module 00: embedding DataFusion, query stages, row vs column, honest measurement |
 | `m01-relational` | Module 01: a tiny relational algebra engine (`Relation`), a bag engine (`Bag`), three-valued logic (`Truth`), and DataFusion comparisons |
 | `m02-hardware` | Module 02: kernels that expose the machine: pointer chasing, scans, strides, gathers, branchy and branch-free filters, huge pages, direct disk reads, loopback TCP, perf_event_open, a roofline sweep |
-| `m03-representation` | Module 03: row and column layouts of the same table, Arrow buffers and IPC, and a pyarrow reader in `python/` |
+| `m03-representation` | Module 03: row and column layouts of the same table, Arrow buffers and IPC, nested types, dictionary and run-end encoding, string views, selection vectors, and a pyarrow reader in `python/` |
 
 Each article's code is an example in its module crate's `examples/` folder. Shared code lives in the crate's
 `src/`. Benchmarks use Criterion and live in `benches/`.
@@ -69,6 +69,11 @@ Each article's code is an example in its module crate's `examples/` folder. Shar
 | The roofline model for query operators | `cargo run --release -p m02-hardware --example roofline` (x86-64 with AVX-512 and FMA) |
 | Row vs column layout | `cargo run --release -p m03-representation --example layout` |
 | Apache Arrow: the columnar in-memory standard | `cargo run --release -p m03-representation --example arrow_ipc`, then `pip install pyarrow` and `python3 crates/m03-representation/python/read_arrow.py` |
+| Arrow physical layout | `cargo run --release -p m03-representation --example physical_layout` |
+| Arrow nested types | `cargo run --release -p m03-representation --example nested` |
+| Dictionary and run-end encoded arrays | `cargo run --release -p m03-representation --example dict_ree` |
+| String layouts: offsets vs views | `cargo run --release -p m03-representation --example string_views` |
+| Selection vectors vs filtered copies | `cargo run --release -p m03-representation --example selection` |
 
 The Module 02 examples measure the hardware, so run them one at a time on an otherwise idle machine; `storage` writes a 1 GiB file under `data/`. Timings depend on your machine. The articles say what hardware produced theirs; compare shapes and
 ratios, not absolute numbers.

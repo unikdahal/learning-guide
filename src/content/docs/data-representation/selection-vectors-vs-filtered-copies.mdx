@@ -2,15 +2,150 @@
 title: "Selection vectors vs filtered copies"
 description: "Representing filter results by index list, bitmap or materialized copy, and the trade-offs downstream."
 level: I
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 7
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import SelectionForms from '@components/visuals/representation/SelectionForms.astro';
+import MeasuredChart from '@components/visuals/MeasuredChart.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="selection-vectors-vs-filtered-copies" />
+<ArticleMeta module="03" slug="selection-vectors-vs-filtered-copies" minutes={13} lab="m03-representation/examples/selection.rs" />
+
+A filter decides, for each row of a batch, whether it continues. The decision is cheap: a comparison per row,
+producing one bit. What happens next is the real design question. The engine can copy the passing rows of
+every column into a new, smaller batch, or it can keep the original batch and pass along a description of
+which rows survived: a bitmap, or a list of row indices called a **selection vector**. Each choice moves cost
+somewhere else, and which is best depends on how many rows pass and what comes next.
+
+## The question
+
+How can a filter's result be represented, and what does each representation cost the operators that follow?
+
+## Three representations
+
+- **A bitmap**, one bit per input row. It's what the comparison produces anyway, so it costs nothing extra to
+  make. Every later operator still visits every row and checks or applies its bit.
+- **A selection vector**, the indices of the passing rows, typically 32-bit. It costs time to build from the
+  bitmap and space in proportion to the rows that pass, and later operators touch only those rows, through the
+  indices.
+- **A filtered copy**: new arrays holding only the passing values of every column. It costs one copy of every
+  column of every passing row. Afterwards, everything downstream works on dense arrays with simple loops.
+
+Pick a predicate to change how many rows pass:
+
+<SelectionForms />
+
+## Measured: one filter, several strategies
+
+The lab builds a batch of 10 million rows with three `Int64` columns and one string column, and random masks
+that keep 0.1% to 90% of rows. It measures making a filtered copy of the whole batch with arrow-rs's
+`filter_record_batch`, building a selection vector, and computing `sum(a)` over the selected rows three ways:
+filter column a and sum it, gather a through the selection vector, or apply the bitmap directly to all of a.
+
+```text title="cargo run --release -p m03-representation --example selection"
+ select   copy batch   mask->idx      take a   copy a+sum    idx+sum a   bitmap sum
+   0.1%      0.82 ms     0.29 ms     0.06 ms      0.46 ms      0.06 ms     16.21 ms
+     1%      6.44 ms     1.14 ms     0.34 ms      1.26 ms      0.27 ms     17.87 ms
+    10%     52.28 ms     3.72 ms     7.60 ms     10.12 ms      6.37 ms     16.17 ms
+    50%    143.20 ms    10.45 ms    19.69 ms     31.03 ms     18.08 ms     18.59 ms
+    90%    304.91 ms    33.44 ms    51.51 ms     59.92 ms     15.47 ms     17.11 ms
+```
+
+<MeasuredChart
+  title="sum(a) over the rows a filter selected, 10M-row batch"
+  caption="Median of 7 runs, lab VM. The selection-vector line includes building the vector from the bitmap; filtering a copy of column a and summing it (copy a+sum in the table) tracks it closely. Both axes logarithmic."
+  x={{ label: 'rows selected', log: true, ticks: [0.1, 1, 10, 90], format: 'pct' }}
+  y={{ label: 'ms', log: true, ticks: [0.1, 1, 10, 100], format: 'ms' }}
+  series={[
+    { name: 'selection vector, then sum', points: [[0.1, 0.35], [1, 1.41], [10, 10.09], [50, 28.53], [90, 48.91]] },
+    { name: 'bitmap applied to all of a', points: [[0.1, 16.21], [1, 17.87], [10, 16.17], [50, 18.59], [90, 17.11]] },
+  ]}
+/>
+
+<Aside type="caution" title="Run-to-run variation">
+The middle columns moved by up to about two times between runs; one earlier run had `idx+sum a` at 9.6 ms for
+50%, another at 17.7. The shapes, and the crossover between 10% and 50%, held in every run.
+</Aside>
+
+**At low selectivity, touch only what passed.** With 0.1% of rows passing, gathering 10,000 values through a
+selection vector took 0.06 ms, while the bitmap-driven sum still read all 80 MB of column a: 270 times slower.
+Building the vector cost more than using it, but even together they were 46 times cheaper.
+
+**At high selectivity, skip the indirection.** The bitmap sum costs the same at every selectivity, about 16 to
+18 ms, because it always reads the whole column and does the same branch-free work per value. Somewhere between
+10% and 50% of rows passing, it overtakes both alternatives, which pay per selected row and then some.
+
+**Copies cost per column.** Copying all four columns took up to 305 ms, against 60 ms for copying column a alone.
+A filtered copy pays for every column whether or not anything downstream reads it. The string column is the
+most expensive part: its bytes must be copied too, and its offsets rebuilt.
+
+**Large copies can pay the operating system as well.** At 90%, the copy holds 369 MB, and that one copy took
+81,320 page faults; at 50% and below it took none, reusing memory already mapped. At the 2.2 µs per fault
+measured in the [perf counters article](../../hardware/measuring-hardware-with-perf-counters/), that is roughly
+180 ms of the 305: likely most of the jump from 50% to 90%. Why the allocator returned that memory at one size
+and not another wasn't investigated.
+
+## What engines do
+
+Engines don't pick one representation for everything.
+
+**arrow-rs's filter kernel** produces copies but chooses how: when more than 80% of rows pass it copies runs of
+consecutive passing rows as slices, and otherwise it iterates the indices of set bits. DataFusion builds on it,
+so its filters materialize a new batch, and it later merges small filtered batches into larger ones so
+downstream operators don't process many tiny batches.
+
+**Vectorized engines in the Vectorwise tradition**, and DuckDB and Velox today, carry selection vectors between
+operators instead. A column can be wrapped with a selection vector, in effect a
+[dictionary array](../dictionary-and-run-end-encoded-arrays/) whose keys are row indices into the unfiltered
+column, so a filter followed by another filter or an aggregation never copies the data at all.
+
+**Late materialization** generalizes the idea: carry row positions through filters and joins, and copy values
+of the other columns only for the rows that reach the end. It is one of the techniques Abadi, Madden and Hachem
+found responsible for much of column stores' advantage ([row vs column layout](../row-vs-column-layout/)).
+
+## Costs and trade-offs
+
+**Bitmaps cost per input row.** Free to produce and branch-free to apply, they are the best choice when most rows
+pass, and wasteful when few do.
+
+**Selection vectors cost per passing row, plus indirection.** Ideal for selective filters, they make every later
+access a gather, and every operator must understand them.
+
+**Copies cost per passing row per column, once.** They are expensive with many or wide columns and simple for
+everything downstream: kernels see plain dense arrays and nothing else.
+
+**The best choice can change batch by batch.** The same filter may pass 1% of one batch and 90% of the next;
+engines that decide per batch, as arrow-rs's filter does between slices and indices, track that.
+
+## Check yourself
+
+<details>
+<summary>A filter passes 0.5% of rows and the next operator sums one column. Which representation fits, and why?</summary>
+
+A selection vector, or a copy of just that column. Both touch only the passing rows; a bitmap would make the sum
+read the whole column to use half a percent of it.
+</details>
+
+<details>
+<summary>A filter passes 95% of a 30-column batch, and the next operator reads two columns. Why is a full copy a poor choice?</summary>
+
+It would copy 95% of all 30 columns to save reading 5% of two. Keeping the bitmap, or copying only the two columns
+used, does far less work.
+</details>
+
+<details>
+<summary>Why was the bitmap-driven sum about the same speed at every selectivity?</summary>
+
+It reads every value of the column and combines each with its bit without branching, so the work doesn't depend on
+how many bits are set.
+</details>
+
+## Further reading
+
+- Peter Boncz, Marcin Zukowski and Niels Nes, "MonetDB/X100: Hyper-Pipelining Query Execution", CIDR 2005: the
+  vectorized execution model that popularized selection vectors.
+- Daniel Abadi, Daniel Myers, David DeWitt and Samuel Madden, "Materialization Strategies in a Column-Oriented
+  DBMS", ICDE 2007.

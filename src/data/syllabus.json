@@ -2539,7 +2539,7 @@
           "scope": "Validity bitmaps, value buffers, offset buffers, alignment, and slicing without copying.",
           "visual": "Buffer explorer that shows the bytes behind any array you type",
           "path": "data-representation/arrow-physical-layout",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 4,
@@ -2549,7 +2549,7 @@
           "scope": "List, large list, struct, map and union layouts, and how nesting composes.",
           "visual": "Nested value expanding into its child arrays",
           "path": "data-representation/arrow-nested-types",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 5,
@@ -2559,7 +2559,7 @@
           "scope": "In-memory encodings, when kernels can operate on them directly, and when they must decode.",
           "visual": null,
           "path": "data-representation/dictionary-and-run-end-encoded-arrays",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 6,
@@ -2569,7 +2569,7 @@
           "scope": "Offset-based strings vs the view layout with inline prefixes (StringView, the German string idea), and the operations each makes cheap.",
           "visual": "Same strings in both layouts with comparison cost annotations",
           "path": "data-representation/string-layouts-offsets-vs-views",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 7,
@@ -2579,7 +2579,7 @@
           "scope": "Representing filter results by index list, bitmap or materialized copy, and the trade-offs downstream.",
           "visual": null,
           "path": "data-representation/selection-vectors-vs-filtered-copies",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 8,

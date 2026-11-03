@@ -5,7 +5,7 @@
 //
 // <MeasuredChart title="..." caption="..." x={{ label, log, ticks, format }} y={{ ... }}
 //   series={[{ name, points: [[x, y], ...] }]} markers={[{ x, label }]} />
-type Format = 'bytes' | 'ns' | 'int' | 'pct' | 'x' | 'gbs' | 'kilo' | 'mbs' | 'us';
+type Format = 'bytes' | 'ns' | 'int' | 'pct' | 'x' | 'gbs' | 'kilo' | 'mbs' | 'us' | 'ms';
 type Axis = { label: string; log?: boolean; ticks: number[]; format: Format; unit?: string };
 interface Props {
   title: string;
@@ -30,7 +30,7 @@ const p = Astro.props;
 <script>
   import { renderLineChart } from '../../scripts/linechart';
 
-  type Format = 'bytes' | 'ns' | 'int' | 'pct' | 'x' | 'gbs' | 'kilo' | 'mbs' | 'us';
+  type Format = 'bytes' | 'ns' | 'int' | 'pct' | 'x' | 'gbs' | 'kilo' | 'mbs' | 'us' | 'ms';
   const fmt = (f: Format, v: number, short = false): string => {
     switch (f) {
       case 'bytes':
@@ -51,6 +51,8 @@ const p = Astro.props;
         return short ? `${v.toLocaleString('en-US')}` : `${Math.round(v).toLocaleString('en-US')} MB/s`;
       case 'us':
         return short ? `${v}` : `${v.toFixed(1)} µs`;
+      case 'ms':
+        return short ? `${v}` : `${v < 10 ? v.toFixed(2) : v.toFixed(1)} ms`;
       default:
         return `${v}`;
     }
