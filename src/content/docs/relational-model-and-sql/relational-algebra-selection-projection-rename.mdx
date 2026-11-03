@@ -1,16 +1,338 @@
 ---
 title: "Relational algebra: selection, projection, rename"
-description: "The unary operators, their notation, and how each maps onto a SQL clause."
+description: The unary operators, their notation, and how each maps onto a SQL clause.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 2
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import AlgebraPlayground from '@components/visuals/relational/AlgebraPlayground.astro';
+import PlanTree from '@components/visuals/PlanTree.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="relational-algebra-selection-projection-rename" />
+<ArticleMeta module="01" slug="relational-algebra-selection-projection-rename" minutes={15} />
+
+Arithmetic works because its operators are closed: add two numbers and you get a number, which you
+can then multiply, subtract or add again. That is why `(3 + 4) × 2` means something, and why
+`(3 + 4) × 2` and `3 × 2 + 4 × 2` can be proven equal.
+
+Relational algebra does the same for relations. Each operator takes one or two relations and returns
+a relation, so operators nest into expressions of any size, and expressions can be proven equal. Every
+logical plan in every engine you will meet is one of these expressions. In DataFusion the plan nodes
+are even named after the operators.
+
+This article covers the three operators that work on one relation at a time: selection, projection
+and rename. The [next article](../joins-in-relational-algebra/) combines two.
+
+## The question
+
+What exactly do selection, projection and rename do, how do they map to SQL, and which rearrangements
+of them are guaranteed not to change the answer?
+
+## Selection: keep some tuples
+
+Selection, written **σ** (sigma), keeps the tuples that satisfy a condition:
+
+```text
+σ segment = 'retail' (customer)
+```
+
+The condition, or **predicate**, is tested against each tuple on its own, using that tuple's
+attribute values. Tuples where it is true stay; the rest go. The heading is unchanged.
+
+Codd called this operator **restriction**, a better name in some ways, since SQL later used "select"
+for something else. In SQL, selection is the `WHERE` clause.
+
+Two facts about selection drive a great deal of optimizer design:
+
+- **It can only shrink a relation.** The output has between zero and all of the input's tuples. The
+  fraction kept is the predicate's **selectivity**. In the lab's 150,000 customers, 29,792 are in the
+  retail segment, a selectivity of about 20%.
+- **Conditions split apart.** A selection on `p AND q` is the same as selecting on `p` and then on
+  `q`, in either order:
+
+```text
+σ p ∧ q (R)  =  σ p (σ q (R))  =  σ q (σ p (R))
+```
+
+Optimizers rely on this constantly. They split a `WHERE` clause into its conjuncts and move each one
+separately, as far down the plan as it can go, so that rows are thrown away as early as possible.
+
+## Projection: keep some attributes
+
+Projection, written **π** (pi), keeps the named attributes and drops the rest:
+
+```text
+π name, region (customer)
+```
+
+The heading shrinks to the listed attributes. Here is the subtle part: in the relational model the
+result is a set, so if two tuples become identical once the other attributes are gone, they merge.
+**A projection can return fewer tuples than it was given.** The six sample customers come from three
+regions, so `π region (customer)` has three tuples, not six.
+
+In SQL, the `SELECT` list is projection, with one difference: SQL projection works on bags and keeps
+duplicates. `SELECT region FROM customer` returns one row per customer. To get the relational result
+you write `SELECT DISTINCT region`.
+
+Real engines also use an **extended projection**, which computes new attributes from expressions:
+`SELECT amount * 1.1 AS with_tax`. The plan node is still called a projection; it just computes as
+well as chooses.
+
+## Rename: change a name
+
+Rename, written **ρ** (rho), changes attribute names and leaves the tuples alone:
+
+```text
+ρ id → cust_id (customer)
+```
+
+It looks like bookkeeping, and it is, but the algebra cannot do without it. Operators that combine
+two relations need the names to line up, or not to clash: the product of `customer` and `orders` is
+undefined if both have an attribute called `id`. And a **self-join**, such as pairing each employee
+with their manager from the same `employee` relation, is impossible unless one copy is renamed, since
+otherwise every attribute appears twice.
+
+In SQL, renaming is `AS`: `id AS cust_id` renames a column, and `FROM customer AS c` renames a whole
+table, which qualifies each of its attributes as `c.id`, `c.name` and so on.
+
+## Try it
+
+Choose a selection, a projection and a rename. The playground shows the algebra expression, the
+equivalent SQL, which input cells survive, and the output:
+
+<AlgebraPlayground />
+
+Two moments are worth producing on purpose. Select retail customers and project only `region`: four
+rows pass the selection, but two of them become `ASIA`, and a set keeps one, so the result has three
+tuples. Then turn on bag semantics, and all four rows come back, which is what SQL does without
+`DISTINCT`.
+
+Now select a region and remove `region` from the projection. The playground tells you the selection
+must run before the projection, since the projection throws away the attribute the selection needs.
+
+## Expressions and the laws that rearrange them
+
+Because each operator returns a relation, operators nest. Written as a tree, with data flowing up from
+the leaves, the names of Asian customers look like this:
+
+<PlanTree
+  nodes={[
+    {
+      op: 'π name',
+      detail: 'keep one attribute',
+      children: [
+        {
+          op: "σ region = 'ASIA'",
+          detail: 'keep matching tuples',
+          children: [{ op: 'customer', detail: 'a base relation' }],
+        },
+      ],
+    },
+  ]}
+/>
+
+Different trees can compute the same relation. The laws below say exactly when two trees are
+interchangeable. The lab's tests check each one on the sample customers.
+
+| Law | Holds when | Why an optimizer cares |
+| --- | --- | --- |
+| `σ p∧q (R) = σ p (σ q (R))` | Always | Split a `WHERE` clause and move each part on its own |
+| `σ p (σ q (R)) = σ q (σ p (R))` | Always | Apply the cheapest or most selective test first |
+| `π A (π B (R)) = π A (R)` | A is a subset of B | Collapse stacked projections into one |
+| `π A (σ p (R)) = σ p (π A (R))` | p uses only attributes in A | Drop unused columns as early as possible |
+| `ρ` then `π`, or `π` then `ρ` | Names are adjusted to match | Renames can move anywhere; they cost nothing |
+
+The fourth law has a condition, and the playground showed why: if the predicate needs an attribute
+that the projection removes, the selection has to come first. Optimizers handle this by projecting
+down to "the attributes the query keeps, plus the ones later operators still need", and narrowing
+further once those operators have run.
+
+<Aside type="note" title="Bags change the laws a little">
+Over bags, the selection laws above all still hold. Projection is where bags and sets part ways: over
+sets, π removes duplicates; over bags it does not, so `π A (R)` and `DISTINCT` are different
+operators, and an engine must know which one a plan means. The last article of this module goes
+through which rewrites survive bag semantics.
+</Aside>
+
+## In real engines
+
+The lab's `algebra_ops` example asks DataFusion for its plans. Here is a selection with a projection:
+
+```text title="SELECT region FROM customer WHERE segment = 'retail'"
+Logical plan:
+Projection: customer.region
+  Filter: customer.segment = Utf8("retail")
+    TableScan: customer
+
+Optimized:
+Projection: customer.region
+  Filter: customer.segment = Utf8View("retail")
+    TableScan: customer projection=[segment, region], partial_filters=[customer.segment = Utf8View("retail")]
+```
+
+`Filter` is σ and `Projection` is π. The optimizer applied both laws from the table: it pushed a
+projection all the way into the scan, which now reads two of the four columns, `segment` because the
+filter still needs it and `region` because the query returns it. It also copied the filter into the
+scan as `partial_filters`, so the Parquet reader can skip row groups whose statistics rule out
+`retail`. The word "partial" matters: the scan may not remove every non-matching row, so the `Filter`
+stays above it to finish the job.
+
+Adding `DISTINCT` asks for set semantics, and the plan grows a step:
+
+```text title="SELECT DISTINCT region FROM customer WHERE segment = 'retail'"
+Logical plan:
+Distinct:
+  Projection: customer.region
+    Filter: customer.segment = Utf8("retail")
+      TableScan: customer
+
+Optimized:
+Aggregate: groupBy=[[customer.region]], aggr=[[]]
+  Projection: customer.region
+    Filter: customer.segment = Utf8View("retail")
+      TableScan: customer projection=[segment, region], partial_filters=[customer.segment = Utf8View("retail")]
+```
+
+The optimizer rewrote `Distinct` as a grouping with no aggregate functions: removing duplicates is
+the same as forming one group per distinct value. That turns set-semantics projection into a hash
+aggregation, the same machinery `GROUP BY` uses. On the lab's data, the bag projection returns 29,792
+rows and the set projection 5.
+
+Rename appears in two forms. A column alias stays inside the projection; a table alias becomes its own
+node:
+
+```text title="SELECT c.id AS cust_id, c.name FROM customer AS c"
+Projection: c.id AS cust_id, c.name
+  SubqueryAlias: c
+    TableScan: customer projection=[id, name]
+```
+
+`SubqueryAlias` is ρ applied to a whole relation, qualifying every attribute with `c`. It does no work
+at execution time; it exists so that names resolve correctly.
+
+## Costs and trade-offs
+
+**Selection costs a test per row, and saves everything downstream.** Evaluating a predicate on each
+row is cheap per row and adds up over billions; [Module 06](../../expression-evaluation/) is about
+doing it fast. The bigger win is not reading rows at all, using statistics to skip whole blocks, which
+is [Module 07](../../scans-and-pruning/). Either way, every row a selection removes is a row no later
+join or aggregation has to touch.
+
+**Projection is nearly free in a column store.** Dropping a column means not reading it. In a row
+store, every row is still read whole and the unwanted values are discarded, as the
+[OLTP vs OLAP article](../../orientation/oltp-vs-olap-workloads/) showed.
+
+**Duplicate removal is not free.** Set-semantics projection needs a hash table or a sort over the
+result, with memory proportional to the number of distinct values. That is why SQL keeps bags by
+default and why `DISTINCT` should be written only when duplicates are actually possible and unwanted.
+
+**Rename costs nothing at run time.** It exists only in the plan.
+
+## In Rust
+
+The lab's tiny engine implements each operator as directly as its definition:
+
+```rust title="lab/crates/m01-relational/src/lib.rs"
+/// σ, selection (Codd: restriction). Keeps the tuples for which `pred` is true.
+pub fn select(&self, pred: impl Fn(&Row) -> bool) -> Relation {
+    let tuples = self
+        .tuples
+        .iter()
+        .filter(|t| {
+            pred(&Row {
+                attrs: &self.attrs,
+                values: t,
+            })
+        })
+        .cloned()
+        .collect();
+    Relation::from_parts(self.attrs.clone(), tuples)
+}
+
+/// π, projection. Keeps the named attributes. Tuples that become identical merge into one,
+/// so a projection can return fewer tuples than its input.
+pub fn project(&self, names: &[&str]) -> Relation {
+    let idx: Vec<usize> = names.iter().map(|n| self.index_of(n)).collect();
+    let tuples = self
+        .tuples
+        .iter()
+        .map(|t| idx.iter().map(|&i| t[i].clone()).collect())
+        .collect();
+    Relation::from_parts(names.iter().map(|n| n.to_string()).collect(), tuples)
+}
+
+/// ρ, rename. Changes one attribute's name; the tuples are untouched.
+pub fn rename(&self, from: &str, to: &str) -> Relation {
+    let i = self.index_of(from);
+    let mut attrs = self.attrs.clone();
+    attrs[i] = to.to_string();
+    Relation::from_parts(attrs, self.tuples.clone())
+}
+```
+
+Projection removes duplicates without a single line of code for it: collecting into a `BTreeSet`
+does it. That is set semantics in one data structure, and also its cost, since every tuple has to be
+compared and placed in order. The example prints:
+
+```text title="cargo run --release -p m01-relational --example algebra_ops"
+σ segment = 'retail' (customer)
+
+  id  name   segment  region
+  --  -----  -------  ------
+  1   Asha   retail   ASIA
+  3   Chen   retail   ASIA
+  4   Dara   retail   AFRICA
+  6   Farah  retail   EUROPE
+  (4 tuples)
+
+π region (σ segment = 'retail' (customer))
+
+  region
+  ------
+  AFRICA
+  ASIA
+  EUROPE
+  (3 tuples)
+```
+
+## Check yourself
+
+<details>
+<summary>R has 1,000 tuples. What are the smallest and largest possible cardinalities of σ p (R), of π A (R) under set semantics, and of the SQL query SELECT A FROM R?</summary>
+
+σ p (R): from 0 to 1,000. π A (R) as a set: from 1 to 1,000, since a non-empty relation keeps at
+least one tuple and duplicates merge. `SELECT A FROM R` keeps duplicates, so it always has exactly
+1,000 rows.
+</details>
+
+<details>
+<summary>Can the projection in π name (σ region = 'ASIA' (customer)) be moved below the selection?</summary>
+
+Not as written, because the selection needs `region` and the projection removes it. The optimizer can
+instead push a wider projection, π name, region, below the selection, and keep π name on top.
+</details>
+
+<details>
+<summary>Why did DataFusion rewrite DISTINCT as an Aggregate with no aggregate functions?</summary>
+
+Removing duplicates is the same as grouping by every output column and emitting one row per group.
+Rewriting it that way lets the engine reuse its hash aggregation operator instead of maintaining a
+separate one for `DISTINCT`.
+</details>
+
+<details>
+<summary>Why does a self-join need rename?</summary>
+
+Joining a relation with itself combines two copies with identical headings. Without renaming at
+least one copy, every attribute name would appear twice and conditions such as "employee's manager_id
+equals manager's id" could not say which copy they mean. In SQL, table aliases do the renaming.
+</details>
+
+## Further reading
+
+- E. F. Codd, [Relational Completeness of Data Base Sublanguages](https://www.inf.unibz.it/~franconi/teaching/2006/kbdb/Codd72a.pdf), 1972, which defined the algebra and proved it as expressive as the relational calculus.
+- The [DataFusion LogicalPlan documentation](https://docs.rs/datafusion/latest/datafusion/logical_expr/enum.LogicalPlan.html), listing every plan node.
+- The lab's [m01-relational crate](https://github.com/unikdahal/learning-guide/tree/main/lab/crates/m01-relational), whose tests check every law in the table above.

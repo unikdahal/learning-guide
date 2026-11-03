@@ -1,0 +1,353 @@
+---
+// One data set, two readings. As an SQL table: numbered rows, a left-to-right column order, and
+// a duplicate row that is allowed to stay. As a relation: a set of tuples whose attributes are
+// identified by name, so the duplicate merges and no ordering means anything.
+import { customers, customerAttrs } from './data';
+
+// The table version carries one exact duplicate, as an SQL table may.
+const tableRows = [...customers.slice(0, 3), customers[0], ...customers.slice(3)];
+const attrs = customerAttrs;
+---
+
+<qe-tvr class="qe-tvr not-content">
+  <div class="mode" role="group" aria-label="View as">
+    <button type="button" data-mode="table" aria-pressed="true">As an SQL table</button>
+    <button type="button" data-mode="relation" aria-pressed="false">As a relation</button>
+  </div>
+
+  <div class="pane" data-pane="table">
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="rn" scope="col"><span class="sr-only">row</span></th>
+            {
+              attrs.map((a, i) => (
+                <th scope="col">
+                  <span class="pos">{i + 1}</span>
+                  {a}
+                </th>
+              ))
+            }
+          </tr>
+        </thead>
+        <tbody data-rows>
+          {
+            tableRows.map((r, i) => (
+              <tr class:list={{ dup: i === 3 }}>
+                <td class="rn">{i + 1}</td>
+                {attrs.map((a) => (
+                  <td>{r[a]}</td>
+                ))}
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <ul class="notes">
+      <li><strong>7 rows</strong>, and rows 1 and 4 are identical. SQL keeps both.</li>
+      <li>Columns have positions: <code>SELECT *</code> returns them in this left-to-right order.</li>
+      <li>Rows are printed in an order, but SQL promises none unless you write <code>ORDER BY</code>.</li>
+    </ul>
+  </div>
+
+  <div class="pane" data-pane="relation" hidden>
+    <div class="set" aria-label="A set of 6 tuples">
+      <span class="brace" aria-hidden="true">{'{'}</span>
+      <ul class="tuples" data-tuples>
+        {
+          customers.map((c) => (
+            <li class:list={['tuple', { merged: c.id === 1 }]} data-id={c.id}>
+              {attrs.map((a) => (
+                <span class="pair" data-attr={a}>
+                  <span class="k">{a}</span>
+                  <span class="v">{c[a]}</span>
+                </span>
+              ))}
+              {c.id === 1 && <span class="badge">given twice, stored once</span>}
+            </li>
+          ))
+        }
+      </ul>
+      <span class="brace" aria-hidden="true">{'}'}</span>
+    </div>
+    <button type="button" class="shuffle" data-shuffle>Shuffle tuples and attributes</button>
+    <p class="verdict" data-verdict aria-live="polite">
+      <strong>6 tuples.</strong> The duplicate is gone: a set cannot contain the same element twice.
+    </p>
+  </div>
+</qe-tvr>
+
+<script>
+  class QeTvr extends HTMLElement {
+    shuffles = 0;
+    connectedCallback() {
+      const modes = [...this.querySelectorAll<HTMLButtonElement>('[data-mode]')];
+      const panes = [...this.querySelectorAll<HTMLElement>('[data-pane]')];
+      modes.forEach((b) =>
+        b.addEventListener('click', () => {
+          modes.forEach((m) => m.setAttribute('aria-pressed', String(m === b)));
+          panes.forEach((p) => (p.hidden = p.dataset.pane !== b.dataset.mode));
+        }),
+      );
+      this.querySelector('[data-shuffle]')!.addEventListener('click', () => this.shuffle());
+    }
+
+    shuffle() {
+      const list = this.querySelector<HTMLElement>('[data-tuples]')!;
+      const shuffled = <T,>(xs: T[]) => {
+        const a = [...xs];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+      const apply = () => {
+        const tuples = shuffled([...list.children] as HTMLElement[]);
+        list.replaceChildren(...tuples);
+        // Every tuple gets the same new attribute order, which is how a heading would be rewritten.
+        const order = shuffled(['id', 'name', 'segment', 'region']);
+        for (const t of tuples) {
+          const pairs = order.map((a) => t.querySelector(`[data-attr="${a}"]`)!);
+          const badge = t.querySelector('.badge');
+          t.replaceChildren(...pairs, ...(badge ? [badge] : []));
+        }
+      };
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+      if (doc.startViewTransition && !reduce) doc.startViewTransition(apply);
+      else apply();
+      this.shuffles++;
+      this.querySelector('[data-verdict]')!.innerHTML =
+        `<strong>Shuffled ${this.shuffles} time${this.shuffles > 1 ? 's' : ''}. Still the same relation.</strong> Tuples are found by their values and attributes by their names, so no order carries meaning.`;
+    }
+  }
+  if (!customElements.get('qe-tvr')) customElements.define('qe-tvr', QeTvr);
+</script>
+
+<style is:global>
+  .qe-tvr {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-tvr .mode {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    margin-bottom: 1rem;
+  }
+  .qe-tvr .mode button {
+    min-height: 2.5rem;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .qe-tvr .mode button[aria-pressed='true'] {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-tvr button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-tvr .tablewrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+  }
+  .qe-tvr table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    display: table;
+    margin: 0;
+  }
+  .qe-tvr th,
+  .qe-tvr td {
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    background: transparent;
+    white-space: nowrap;
+  }
+  .qe-tvr th {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-tvr th .pos {
+    display: inline-grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-right: 0.35rem;
+    border-radius: 4px;
+    background: var(--sl-color-gray-5);
+    color: var(--sl-color-white);
+    font-family: var(--sl-font);
+    font-size: 0.6875rem;
+  }
+  .qe-tvr .rn {
+    width: 2rem;
+    color: var(--sl-color-gray-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-tvr tr.dup td {
+    background: color-mix(in srgb, var(--qe-warn) 18%, transparent);
+  }
+  .qe-tvr tbody tr:nth-child(1) td {
+    background: color-mix(in srgb, var(--qe-warn) 18%, transparent);
+  }
+  .qe-tvr .notes {
+    margin: 0.9rem 0 0;
+    padding-left: 1.1rem;
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-tvr .notes li + li {
+    margin-top: 0.3rem;
+  }
+  .qe-tvr .notes code {
+    font-size: 0.85em;
+    padding: 0.08em 0.3em;
+    border-radius: 3px;
+    background: var(--sl-color-black);
+  }
+  .qe-tvr .set {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.4rem;
+    align-items: stretch;
+  }
+  .qe-tvr .brace {
+    display: grid;
+    align-items: center;
+    font-family: var(--qe-font-prose);
+    font-size: 3.5rem;
+    font-weight: 300;
+    line-height: 1;
+    color: var(--sl-color-accent);
+  }
+  .qe-tvr .tuples {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+    gap: 0.5rem;
+  }
+  .qe-tvr .tuple {
+    position: relative;
+    margin: 0 !important;
+    display: grid;
+    gap: 0.15rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    view-transition-name: var(--vt);
+  }
+  .qe-tvr .tuple[data-id='1'] { --vt: qe-tuple-1; }
+  .qe-tvr .tuple[data-id='2'] { --vt: qe-tuple-2; }
+  .qe-tvr .tuple[data-id='3'] { --vt: qe-tuple-3; }
+  .qe-tvr .tuple[data-id='4'] { --vt: qe-tuple-4; }
+  .qe-tvr .tuple[data-id='5'] { --vt: qe-tuple-5; }
+  .qe-tvr .tuple[data-id='6'] { --vt: qe-tuple-6; }
+  .qe-tvr .tuple.merged {
+    border-color: var(--qe-warn);
+  }
+  .qe-tvr .pair {
+    display: grid;
+    grid-template-columns: 4.25rem 1fr;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+  .qe-tvr .pair .k {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-tvr .pair .v {
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+  .qe-tvr .badge {
+    margin-top: 0.3rem;
+    font-size: 0.6875rem;
+    font-weight: 650;
+    color: var(--qe-warn);
+  }
+  .qe-tvr .shuffle {
+    margin-top: 0.9rem;
+    min-height: 2.75rem;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .qe-tvr .verdict {
+    margin: 0.75rem 0 0;
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 3em;
+  }
+  .qe-tvr .verdict strong {
+    font-family: var(--sl-font);
+    color: var(--sl-color-white);
+  }
+  .qe-tvr .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  @media (max-width: 49.99rem) {
+    .qe-tvr {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-tvr .brace {
+      font-size: 2.5rem;
+    }
+    .qe-tvr .tuples {
+      grid-template-columns: 1fr 1fr;
+    }
+    .qe-tvr .pair {
+      grid-template-columns: 1fr;
+    }
+    .qe-tvr .pair .k {
+      font-size: 0.6875rem;
+    }
+  }
+</style>

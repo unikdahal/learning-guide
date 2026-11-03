@@ -2107,6 +2107,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "m01-relational"
+version = "0.1.0"
+dependencies = [
+ "datafusion",
+ "labkit",
+ "tokio",
+]
+
+[[package]]
 name = "md-5"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

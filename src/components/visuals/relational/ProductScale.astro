@@ -1,0 +1,144 @@
+---
+// Why no engine computes the product: sizes at the lab's scale on a log axis, then a real
+// measurement of a join that can use equality against one that cannot.
+const sizes = [
+  { label: 'customer', n: 150_000, tone: 'build' },
+  { label: 'orders', n: 1_500_000, tone: 'build' },
+  { label: 'customer × orders', n: 225_000_000_000, tone: 'warn' },
+  { label: 'customer ⋈ orders (on id)', n: 1_500_000, tone: 'probe' },
+];
+const maxExp = 12; // axis runs from 10^0 to 10^12
+const pos = (n: number) => (Math.log10(n) / maxExp) * 100;
+const fmt = (n: number) => n.toLocaleString('en-US');
+
+// Measured by lab/crates/m01-relational/examples/joins.rs on a 2-core cloud VM, 15 warm runs.
+const timings = [
+  { label: 'ON a.k = b.k: hash join', ms: 1.189 },
+  { label: 'ON a.k + b.k = 5001: nested loop', ms: 39.974 },
+  { label: 'ON b.k = 5001 - a.k: hash join', ms: 1.384 },
+];
+const maxMs = Math.max(...timings.map((t) => t.ms));
+---
+
+<figure class="qe-ps not-content">
+  <p class="title">Rows at the lab’s scale, logarithmic axis</p>
+  <ul class="bars">
+    {
+      sizes.map((s) => (
+        <li>
+          <span class="k">{s.label}</span>
+          <span class="track">
+            <span class={`fill ${s.tone}`} style={`width:${pos(s.n)}%`} />
+          </span>
+          <span class="v">{fmt(s.n)}</span>
+        </li>
+      ))
+    }
+  </ul>
+  <p class="axis">
+    Bar lengths are logarithmic: each extra twelfth of the width means ten times more rows. The product’s bar looks
+    under twice as long as the join’s, yet it is 150,000 times larger.
+  </p>
+
+  <p class="title second">Same 5,000 output rows from two 5,000-row tables, median of 15 runs</p>
+  <ul class="bars linear">
+    {
+      timings.map((t, i) => (
+        <li>
+          <span class="k">{t.label}</span>
+          <span class="track">
+            <span class={`fill ${i === 1 ? 'warn' : 'probe'}`} style={`width:${Math.max(1.5, (t.ms / maxMs) * 100)}%`} />
+          </span>
+          <span class="v">{t.ms.toFixed(1)} ms</span>
+        </li>
+      ))
+    }
+  </ul>
+  <figcaption>
+    Measured with DataFusion 55.2 by the lab’s <code>joins</code> example on a 2-core cloud VM. An equality between the
+    two sides lets the engine build a hash table and look up only matching rows. The expression
+    <code>a.k + b.k = 5001</code> mixes both sides, so the engine tests all 25 million pairs. The same condition,
+    rearranged so each side uses one table, gets a hash join again. Times are from one machine; the roughly 30× gap is
+    what matters.
+  </figcaption>
+</figure>
+
+<style>
+  .qe-ps {
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .title {
+    margin: 0 0 0.7rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .title.second {
+    margin-top: 1.4rem;
+  }
+  .bars {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .bars li {
+    margin: 0 !important;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: 'k v' 't t';
+    gap: 0.25rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-1);
+  }
+  .k { grid-area: k; font-family: var(--sl-font-mono); font-size: 0.75rem; }
+  .v {
+    grid-area: v;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+  }
+  .track {
+    grid-area: t;
+    height: 0.85rem;
+    border-radius: 4px;
+    background: var(--sl-color-black);
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+  }
+  .fill.build { background: var(--qe-pipe-build); }
+  .fill.probe { background: var(--sl-color-accent); }
+  .fill.warn { background: var(--qe-warn); }
+  .axis {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  figcaption {
+    margin-top: 1rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-3);
+  }
+  figcaption code {
+    font-size: 0.9em;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-ps {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+  }
+</style>

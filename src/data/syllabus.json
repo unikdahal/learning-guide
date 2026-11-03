@@ -2175,7 +2175,7 @@
           "scope": "The relational model from first principles, schemas, keys, and why tables are a convenient lie over bags of tuples.",
           "visual": "Table morphing into a set-of-tuples view",
           "path": "relational-model-and-sql/relations-tuples-and-attributes",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 2,
@@ -2185,7 +2185,7 @@
           "scope": "The unary operators, their notation, and how each maps onto a SQL clause.",
           "visual": "Interactive table where selection and projection highlight kept rows and columns",
           "path": "relational-model-and-sql/relational-algebra-selection-projection-rename",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 3,
@@ -2195,7 +2195,7 @@
           "scope": "Cartesian product, theta join, equi-join and natural join defined formally, with join as filtered product.",
           "visual": "Product grid with matching pairs lit up",
           "path": "relational-model-and-sql/joins-in-relational-algebra",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 4,

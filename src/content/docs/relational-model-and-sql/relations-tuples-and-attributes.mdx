@@ -1,16 +1,303 @@
 ---
-title: "Relations, tuples and attributes"
-description: "The relational model from first principles, schemas, keys, and why tables are a convenient lie over bags of tuples."
+title: Relations, tuples and attributes
+description: The relational model from first principles, schemas, keys, and why tables are a convenient lie over bags of tuples.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 1
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import DomainProduct from '@components/visuals/relational/DomainProduct.astro';
+import TableVsRelation from '@components/visuals/relational/TableVsRelation.astro';
+import KeyExplorer from '@components/visuals/relational/KeyExplorer.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="relations-tuples-and-attributes" />
+<ArticleMeta module="01" slug="relations-tuples-and-attributes" minutes={15} />
+
+In 1970, most databases were maps of pointers. A program that wanted a customer's orders started
+at the customer record and followed a chain from record to record, in the order the records
+happened to be stored, through whatever links the database designer had built. Change the storage
+order, remove a link, reorganise the file, and programs broke.
+
+That year Edgar Codd, a mathematician at IBM, published a short paper proposing that programs
+should never see any of that. Data would be presented as **relations**, a concept from set theory,
+and programs would say what they wanted from them, not how to walk the storage to find it. Every
+query engine in this guide exists because of that idea: if programs don't name the access path,
+the engine is free to choose one.
+
+This article builds the model from the ground up, and then shows exactly where SQL departs from it,
+because those departures shape what an engine is and isn't allowed to do.
+
+## The question
+
+What is a relation, precisely, and why is an SQL table not quite one?
+
+## Domains, tuples and relations
+
+Start with **domains**: sets of possible values. The set of customer segments, say
+`{retail, wholesale, government}`, or the set of all integers.
+
+An **attribute** is a named use of a domain: `segment`, drawing values from the segment domain;
+`region`, drawing from the region domain. A **tuple** gives one value for each attribute, such as
+`(segment: retail, region: ASIA)`.
+
+Codd's definition of a relation, in his own terms: given sets S₁, S₂, …, Sₙ, a relation on them is
+a set of n-tuples, each with its first element from S₁, its second from S₂, and so on. In a footnote
+he put it in one line: a relation is a subset of the Cartesian product S₁ × S₂ × … × Sₙ.
+
+<DomainProduct />
+
+The product holds every tuple that *could* exist. The relation holds the ones that *do*. That is the
+whole idea, and two consequences follow directly from "a relation is a set":
+
+1. **No duplicates.** A set cannot contain the same element twice.
+2. **No order.** A set has no first or last element.
+
+Codd also gave names to the two sizes of a relation. The number of attributes is its **degree**.
+The number of tuples is its **cardinality**. Modern texts also split a relation into a **heading**,
+the set of attribute names and their domains, and a **body**, the set of tuples. In SQL terms, the
+heading is the schema.
+
+## Columns by name, not by position
+
+Codd's 1970 paper listed the properties of a relation drawn as a table: each row is a tuple, the
+order of rows is immaterial, all rows are distinct, the order of columns is significant, and each
+column is labelled with its domain.
+
+Column order mattered in that first definition, because a tuple was an ordered list. Codd saw the
+problem immediately: users should not have to remember that segment is the third column. In the
+same paper he proposed working with the "domain-unordered" form, where each column is identified by
+a name, and when the same domain appears twice, a **role name** tells them apart: a parts relation
+might have `sub.part` and `super.part`. Relational theory since has used named attributes, so a
+tuple is a set of name–value pairs, and attribute order means nothing either.
+
+Switch between the two readings of the same data:
+
+<TableVsRelation />
+
+## Keys
+
+If tuples can't be found by position, they must be found by value. A **key** is a set of attributes
+whose values identify every tuple.
+
+- A **superkey** is any set of attributes on which no two tuples agree.
+- A **candidate key** is a superkey with nothing to spare: remove any attribute and it stops
+  identifying tuples. Codd called this property "nonredundant".
+- A **primary key** is the candidate key chosen as the main way to refer to tuples.
+- A **foreign key** is an attribute whose values are primary-key values of some relation, possibly
+  the same one. It is how one relation refers to another: an order's `cust_id` refers to a customer's
+  `id`.
+
+Try some attribute sets on the sample customers:
+
+<KeyExplorer />
+
+The explorer finds two keys in this data, `{id}` and `{name}`. Only `{id}` is a real key. Six
+customers happen to have different names today; the seventh might be another Asha. A key is a
+promise about **every** state the data could ever be in, a constraint that is part of the schema,
+not a pattern that holds in one snapshot. Finding uniqueness in current data tells you a candidate
+might exist; only the meaning of the data tells you it does.
+
+## Where SQL departs from the model
+
+SQL, designed at IBM a few years after Codd's paper, kept the vocabulary and changed the rules.
+
+**SQL tables are bags.** A table may contain the same row twice, and a query keeps duplicates unless
+you write `DISTINCT`. A set has no duplicates; a **bag**, or multiset, does. Most of SQL is defined
+over bags.
+
+**SQL columns have positions.** `SELECT *` returns columns in the order the table declared them, and
+`INSERT INTO t VALUES (…)` matches values to columns by position. Hugh Darwen, a long-time member of
+the relational theory community, listed this among SQL's "fatal flaws": operations like `UNION` match
+columns by position, so they behave differently depending on the order columns were declared in. His
+remedy was simply to map columns by name.
+
+**SQL rows have no order, and nothing promises one.** This part SQL kept. PostgreSQL's documentation
+is blunt about it: without `ORDER BY`, "the rows will be returned in an unspecified order", which
+depends on the scan and join plan and the order on disk, and "must not be relied on".
+
+**SQL has NULL.** A missing value is a marker, not a value from a domain, and it brings three-valued
+logic with it. It gets [its own article](../null-and-three-valued-logic/) in this module.
+
+Here is all of this on a real engine. The lab's `relations` example declares a primary key in
+DataFusion and inserts the same row twice; counts the rows of `SELECT region FROM customer` and of
+`SELECT DISTINCT region FROM customer` over the lab's 150,000 customers; then runs one grouping query
+five times. One run printed:
+
+```text title="cargo run --release -p m01-relational --example relations"
+== An SQL table is a bag of rows ==
+
++----+------+
+| id | name |
++----+------+
+| 1  | Asha |
+| 1  | Asha |
++----+------+
++-----------+
+| rows_kept |
++-----------+
+| 150000    |
++-----------+
++-----------+
+| rows_kept |
++-----------+
+| 5         |
++-----------+
+
+== Without ORDER BY, row order is whatever the plan produces ==
+
+run 1: AFRICA, MIDDLE EAST, EUROPE, ASIA, AMERICA
+run 2: AMERICA, AFRICA, MIDDLE EAST, EUROPE, ASIA
+run 3: AFRICA, MIDDLE EAST, EUROPE, ASIA, AMERICA
+run 4: AMERICA, AFRICA, MIDDLE EAST, EUROPE, ASIA
+run 5: AFRICA, MIDDLE EAST, EUROPE, ASIA, AMERICA
+```
+
+Three things to see. The table declared `id` as a primary key and accepted two rows with `id = 1`.
+Projecting one column out of 150,000 rows keeps all 150,000, duplicates and all, until `DISTINCT`
+asks for set semantics. And the same query, run five times in a row on the same data, returned its
+rows in two different orders. Running the example again gave a different pattern of orders. On this
+2-core machine the plan computes the final groups in two partitions, one per core, and merges them
+as each finishes, so the order depends on which thread wins.
+
+<Aside type="caution" title="A real bug, waiting to happen">
+Code that reads "the first row" of a query without `ORDER BY`, or a test that compares query output
+row by row in order, will pass for months and then fail when the engine, the data size or the thread
+count changes. If order matters to you, ask for it.
+</Aside>
+
+## In real engines
+
+**Analytical engines often declare keys without enforcing them.** In the lab, DataFusion stored a
+duplicate primary key without complaint, and its documentation says declared constraints are
+"provided for informational purposes": it enforces nullability, and leaves uniqueness to whoever
+supplies the data. Snowflake's documentation says it "doesn't enforce PRIMARY KEY, UNIQUE, and
+FOREIGN KEY constraints on standard tables", though it does enforce NOT NULL and CHECK, and its
+hybrid tables enforce all of them. BigQuery doesn't enforce primary or foreign keys either.
+
+The usual reason is cost. Checking uniqueness means comparing every new row against every existing
+key, which needs an index and coordination on every write. That is cheap for a transactional
+database writing one row at a time, and expensive for a warehouse loading millions of rows in
+parallel across many machines.
+
+**Unenforced keys still matter, because optimizers use them.** BigQuery's documentation explains that
+it can use declared keys to remove joins entirely, for example dropping a join whose only purpose was
+to check a foreign key, and to choose join orders. It also warns that "queries over tables with
+violated constraints might return incorrect results". A key you declare but don't keep true is not
+documentation. It is a lie the optimizer will believe.
+
+**The model is why engines can parallelise freely.** Because a relation has no order, an engine may
+split a table into pieces, process them on different threads in any order, and combine the results.
+The run-to-run order change above is that freedom made visible. Because duplicates are allowed in
+SQL, engines skip the cost of removing them unless asked; the
+[next article](../relational-algebra-selection-projection-rename/) shows the extra plan step `DISTINCT` adds.
+
+## Costs and trade-offs
+
+**Sets are cleaner; bags are cheaper.** With set semantics, every projection would have to find and
+remove duplicates, which means hashing or sorting the whole result. With bag semantics, projection
+just drops columns. SQL's designers chose cheap by default and let you opt into sets with
+`DISTINCT`. The price is that two queries that are equal over sets may give different answers over
+bags, which limits which rewrites an optimizer may apply. The
+[last article in this module](../duplicate-sensitive-and-order-sensitive-operators/) is about exactly that.
+
+**Enforced keys protect data; unenforced keys protect load speed.** Enforcing means every write pays.
+Not enforcing means correctness is your pipeline's job, and an optimizer that trusts declared keys
+can turn a dirty load into wrong answers.
+
+## In Rust
+
+The lab's Module 01 crate contains a tiny relational algebra engine, written to follow the
+definitions exactly. A relation is a heading and a set of tuples:
+
+```rust title="lab/crates/m01-relational/src/lib.rs"
+pub struct Relation {
+    /// Attribute names. Stored in a fixed order only so tuples can be stored compactly; no
+    /// operation's meaning depends on this order.
+    attrs: Vec<String>,
+    /// The body: a set of tuples, each with one value per attribute in `attrs` order.
+    tuples: BTreeSet<Vec<Value>>,
+}
+```
+
+Because the body is a `BTreeSet`, inserting the same tuple twice stores it once. Equality ignores
+attribute order, by comparing both relations with their attributes sorted by name. Keys fall out of
+projection: a set of attributes is a superkey exactly when projecting onto it loses no tuples.
+
+```rust title="lab/crates/m01-relational/src/lib.rs"
+/// True if no two tuples agree on all of `names`: the attributes identify every tuple.
+pub fn is_superkey(&self, names: &[&str]) -> bool {
+    self.project(names).len() == self.len()
+}
+
+/// True if `names` is a superkey and no attribute can be dropped from it: a candidate key.
+pub fn is_candidate_key(&self, names: &[&str]) -> bool {
+    self.is_superkey(names)
+        && (0..names.len()).all(|skip| {
+            let smaller: Vec<&str> = names
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i != skip)
+                .map(|(_, n)| *n)
+                .collect();
+            smaller.is_empty() || !self.is_superkey(&smaller)
+        })
+}
+```
+
+The `relations` example runs both on the sample customers:
+
+```text title="cargo run --release -p m01-relational --example relations"
+Two identical rows given, tuples stored: 1
+Same relation with attributes in another order? true
+
+["id"]                 superkey: true   candidate key: true
+["name"]               superkey: true   candidate key: true
+["region"]             superkey: false  candidate key: false
+["id", "region"]       superkey: true   candidate key: false
+["segment", "region"]  superkey: false  candidate key: false
+```
+
+The crate's tests check the algebraic laws the next two articles rely on. Run them with
+`cargo test --release -p m01-relational`.
+
+## Check yourself
+
+<details>
+<summary>A relation has attributes (a, b) and its body contains (1, x), (2, x) and (1, x). What is its cardinality?</summary>
+
+Two. The body is a set, so (1, x) appears once however many times it is written down. As an SQL
+table, the same data would have three rows.
+</details>
+
+<details>
+<summary>In current data, every customer has a different email address. Is `{email}` a candidate key?</summary>
+
+Not from that evidence alone. It is a superkey of the current data, and minimal, but a key is a
+constraint on every state the data may take. If two customers could ever share an email, for example
+a family account, it is not a key. Only the meaning of the attribute settles it.
+</details>
+
+<details>
+<summary>Why can an engine return the rows of `SELECT region, count(*) FROM customer GROUP BY region` in a different order each time?</summary>
+
+The result is a relation, which has no order, and SQL promises none without `ORDER BY`. The engine
+computes groups in parallel and emits each partition's results as they finish, so the order depends
+on thread timing.
+</details>
+
+<details>
+<summary>A warehouse declares `order_id` as a primary key but a pipeline bug loads some orders twice. What can go wrong beyond duplicate rows?</summary>
+
+An optimizer that trusts the declared key may rewrite queries on the assumption that `order_id` is
+unique, for example removing a join or a duplicate-elimination step. Those rewrites are only correct
+if the key holds, so queries can return wrong results, as BigQuery's documentation warns.
+</details>
+
+## Further reading
+
+- E. F. Codd, [A Relational Model of Data for Large Shared Data Banks](https://web.eecs.umich.edu/~michjc/eecs584/Papers/codd_1970.pdf), Communications of the ACM, 1970. Short and readable; section 1 is this article.
+- Hugh Darwen, [The Askew Wall: SQL and The Relational Model](https://www.dcs.warwick.ac.uk/%7Ehugh/TTM/TTM-TheAskewWall-printable.pdf), on SQL's departures from the model.
+- [PostgreSQL: sorting rows](https://www.postgresql.org/docs/18/queries-order.html), on unspecified order.
+- Constraint documentation for [DataFusion](https://datafusion.apache.org/library-user-guide/table-constraints.html), [Snowflake](https://docs.snowflake.com/en/sql-reference/constraints-overview) and [BigQuery](https://docs.cloud.google.com/bigquery/docs/primary-foreign-keys).

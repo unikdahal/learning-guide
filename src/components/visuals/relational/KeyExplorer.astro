@@ -1,0 +1,241 @@
+---
+// Pick attributes and see whether they identify every tuple. Shows superkeys, candidate keys
+// (minimal superkeys) and, when a choice fails, the exact tuples that collide.
+import { customers, customerAttrs } from './data';
+---
+
+<qe-keys class="qe-keys not-content" data-rows={JSON.stringify(customers)}>
+  <p class="prompt">Choose attributes. Do they identify every customer?</p>
+  <div class="chips" role="group" aria-label="Attributes in the candidate key">
+    {
+      customerAttrs.map((a) => (
+        <button type="button" data-attr={a} aria-pressed={a === 'id' ? 'true' : 'false'}>
+          {a}
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="verdict" data-verdict aria-live="polite"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          {customerAttrs.map((a) => <th scope="col" data-col={a}>{a}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {
+          customers.map((c) => (
+            <tr data-row={c.id}>
+              {customerAttrs.map((a) => (
+                <td data-col={a}>{c[a]}</td>
+              ))}
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="foot">
+    Keys found in this data: <strong>{'{id}'}</strong> and <strong>{'{name}'}</strong>. Only one of them should be
+    trusted. Read on to see why.
+  </p>
+</qe-keys>
+
+<script>
+  type Row = Record<string, string | number>;
+
+  class QeKeys extends HTMLElement {
+    rows: Row[] = [];
+    connectedCallback() {
+      this.rows = JSON.parse(this.dataset.rows!);
+      this.querySelectorAll<HTMLButtonElement>('[data-attr]').forEach((b) =>
+        b.addEventListener('click', () => {
+          b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+          this.render();
+        }),
+      );
+      this.render();
+    }
+
+    chosen(): string[] {
+      return [...this.querySelectorAll<HTMLButtonElement>('[data-attr][aria-pressed="true"]')].map(
+        (b) => b.dataset.attr!,
+      );
+    }
+
+    /** Groups rows by their values on `attrs`; returns groups with more than one row. */
+    collisions(attrs: string[]): Row[][] {
+      const groups = new Map<string, Row[]>();
+      for (const r of this.rows) {
+        const k = JSON.stringify(attrs.map((a) => r[a]));
+        groups.set(k, [...(groups.get(k) ?? []), r]);
+      }
+      return [...groups.values()].filter((g) => g.length > 1);
+    }
+
+    render() {
+      const attrs = this.chosen();
+      const v = this.querySelector<HTMLElement>('[data-verdict]')!;
+      this.querySelectorAll('[data-col]').forEach((el) =>
+        el.classList.toggle('on', attrs.includes((el as HTMLElement).dataset.col!)),
+      );
+      this.querySelectorAll('tr[data-row]').forEach((tr) => tr.classList.remove('clash'));
+
+      const set = `{${attrs.join(', ')}}`;
+      if (!attrs.length) {
+        v.dataset.tone = 'meh';
+        v.innerHTML = '<strong>Nothing chosen.</strong> The empty set of attributes cannot tell six customers apart.';
+        return;
+      }
+      const clashes = this.collisions(attrs);
+      if (clashes.length) {
+        for (const g of clashes) for (const r of g) this.querySelector(`tr[data-row="${r.id}"]`)!.classList.add('clash');
+        const g = clashes[0];
+        const vals = attrs.map((a) => g[0][a]).join(', ');
+        v.dataset.tone = 'bad';
+        v.innerHTML = `<strong>${set} is not a key.</strong> ${g.map((r) => r.name).join(' and ')} share the values (${vals}), so they can’t be told apart.`;
+        return;
+      }
+      // A superkey. Is it minimal: does every attribute matter?
+      const removable = attrs.filter((a) => !this.collisions(attrs.filter((x) => x !== a)).length && attrs.length > 1);
+      if (removable.length) {
+        v.dataset.tone = 'meh';
+        v.innerHTML = `<strong>${set} is a superkey, but not a candidate key.</strong> It identifies every tuple, but you can drop <code>${removable[0]}</code> and it still does. A candidate key has nothing to spare.`;
+      } else {
+        v.dataset.tone = 'ok';
+        v.innerHTML = `<strong>${set} is a candidate key.</strong> No two customers agree on it, and removing any attribute would break that.`;
+      }
+    }
+  }
+  if (!customElements.get('qe-keys')) customElements.define('qe-keys', QeKeys);
+</script>
+
+<style is:global>
+  .qe-keys {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-keys .prompt {
+    margin: 0 0 0.6rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .qe-keys .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .qe-keys .chips button {
+    min-height: 2.5rem;
+    min-width: 4.5rem;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .qe-keys .chips button[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-keys .chips button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-keys .verdict {
+    margin: 0.9rem 0;
+    padding: 0.75rem 0.9rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 4.6em;
+  }
+  .qe-keys .verdict strong {
+    font-family: var(--sl-font);
+    color: var(--sl-color-white);
+  }
+  .qe-keys .verdict code {
+    font-size: 0.85em;
+  }
+  .qe-keys .verdict[data-tone='ok'] { border-left-color: var(--sl-color-accent); }
+  .qe-keys .verdict[data-tone='bad'] { border-left-color: var(--qe-warn); }
+  .qe-keys .verdict[data-tone='meh'] { border-left-color: var(--qe-pipe-emit); }
+  .qe-keys .tablewrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+  }
+  .qe-keys table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    display: table;
+    margin: 0;
+  }
+  .qe-keys th,
+  .qe-keys td {
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    background: transparent;
+    white-space: nowrap;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-keys th {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+  }
+  .qe-keys .on {
+    color: var(--sl-color-white);
+    font-weight: 650;
+    background: color-mix(in srgb, var(--sl-color-accent) 12%, transparent);
+  }
+  .qe-keys tr.clash td {
+    background: color-mix(in srgb, var(--qe-warn) 22%, transparent);
+  }
+  .qe-keys tr.clash td.on {
+    color: var(--sl-color-white);
+  }
+  .qe-keys .foot {
+    margin: 0.75rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-keys .foot strong {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+  }
+  @media (max-width: 49.99rem) {
+    .qe-keys {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-keys .chips button {
+      flex: 1 1 0;
+      min-width: 0;
+      padding-inline: 0.4rem;
+    }
+  }
+</style>

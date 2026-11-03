@@ -1,0 +1,385 @@
+---
+// σ, π and ρ on one small relation. Choose a selection, a projection and a rename; see the
+// algebra expression, the equivalent SQL, which cells survive, and what set vs bag semantics do
+// to the result.
+import { customers, customerAttrs } from './data';
+---
+
+<qe-algebra class="qe-alg not-content" data-rows={JSON.stringify(customers)}>
+  <div class="controls">
+    <fieldset>
+      <legend>σ Selection: keep rows where</legend>
+      <div class="chips" data-group="segment">
+        <span class="lbl">segment</span>
+        {['any', 'retail', 'wholesale', 'government'].map((v) => (
+          <button type="button" data-v={v} aria-pressed={v === 'retail' ? 'true' : 'false'}>{v}</button>
+        ))}
+      </div>
+      <div class="chips" data-group="region">
+        <span class="lbl">region</span>
+        {['any', 'ASIA', 'EUROPE', 'AFRICA'].map((v) => (
+          <button type="button" data-v={v} aria-pressed={v === 'any' ? 'true' : 'false'}>{v}</button>
+        ))}
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>π Projection: keep columns</legend>
+      <div class="chips" data-group="cols">
+        {customerAttrs.map((a) => (
+          <button type="button" data-v={a} aria-pressed={a === 'region' ? 'true' : 'false'}>{a}</button>
+        ))}
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>ρ Rename and semantics</legend>
+      <div class="chips" data-group="opts">
+        <button type="button" data-v="rename" aria-pressed="false">rename id → cust_id</button>
+        <button type="button" data-v="bag" aria-pressed="false">SQL bag semantics</button>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="exprs">
+    <p class="expr"><span class="tag">Algebra</span><code data-algebra></code></p>
+    <p class="expr"><span class="tag">SQL</span><code data-sql></code></p>
+  </div>
+
+  <div class="stage">
+    <div class="side">
+      <p class="cap">Input: customer, 6 tuples</p>
+      <div class="tablewrap">
+        <table data-input>
+          <thead>
+            <tr>{customerAttrs.map((a) => <th scope="col" data-col={a}>{a}</th>)}</tr>
+          </thead>
+          <tbody>
+            {customers.map((c) => (
+              <tr data-row={c.id}>{customerAttrs.map((a) => <td data-col={a}>{c[a]}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="side">
+      <p class="cap" data-outcap></p>
+      <div class="tablewrap">
+        <table data-output></table>
+      </div>
+    </div>
+  </div>
+  <p class="note" data-note aria-live="polite"></p>
+</qe-algebra>
+
+<script>
+  type Row = Record<string, string | number>;
+  const ATTRS = ['id', 'name', 'segment', 'region'];
+
+  class QeAlgebra extends HTMLElement {
+    rows: Row[] = [];
+    connectedCallback() {
+      this.rows = JSON.parse(this.dataset.rows!);
+      for (const group of this.querySelectorAll<HTMLElement>('[data-group]')) {
+        const single = group.dataset.group === 'segment' || group.dataset.group === 'region';
+        group.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+          b.addEventListener('click', () => {
+            if (single) group.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            else b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+            this.render();
+          }),
+        );
+      }
+      this.render();
+    }
+
+    pick(group: string): string[] {
+      return [...this.querySelectorAll<HTMLButtonElement>(`[data-group="${group}"] button[aria-pressed="true"]`)].map(
+        (b) => b.dataset.v!,
+      );
+    }
+
+    render() {
+      const seg = this.pick('segment')[0];
+      const reg = this.pick('region')[0];
+      const cols = this.pick('cols');
+      const opts = this.pick('opts');
+      const rename = opts.includes('rename');
+      const bag = opts.includes('bag');
+      const out = (a: string) => (rename && a === 'id' ? 'cust_id' : a);
+
+      // Expressions.
+      const conds: string[] = [];
+      if (seg !== 'any') conds.push(`segment = '${seg}'`);
+      if (reg !== 'any') conds.push(`region = '${reg}'`);
+      const pred = conds.join(' ∧ ');
+      let alg = 'customer';
+      if (rename) alg = `ρ id→cust_id (${alg})`;
+      if (pred) alg = `σ ${pred} (${alg})`;
+      const projList = cols.map(out).join(', ');
+      if (cols.length && cols.length < 4) alg = `π ${projList} (${alg})`;
+      if (!cols.length) alg = `π ∅ (${alg})`;
+      this.querySelector('[data-algebra]')!.textContent = alg + (bag ? '   (as a bag)' : '');
+
+      const selectList = cols.length
+        ? cols.map((a) => (rename && a === 'id' ? 'id AS cust_id' : a)).join(', ')
+        : '…';
+      const where = conds.length ? ` WHERE ${conds.join(' AND ')}` : '';
+      this.querySelector('[data-sql]')!.textContent = `SELECT ${bag ? '' : 'DISTINCT '}${selectList} FROM customer${where}`;
+
+      // Input highlighting.
+      const keep = (r: Row) => (seg === 'any' || r.segment === seg) && (reg === 'any' || r.region === reg);
+      for (const tr of this.querySelectorAll<HTMLTableRowElement>('[data-input] tbody tr')) {
+        const r = this.rows.find((x) => String(x.id) === tr.dataset.row)!;
+        tr.classList.toggle('out', !keep(r));
+      }
+      this.querySelectorAll<HTMLElement>('[data-input] [data-col]').forEach((c) =>
+        c.classList.toggle('drop', !cols.includes(c.dataset.col!)),
+      );
+      this.querySelectorAll<HTMLElement>('[data-input] th[data-col="id"]').forEach(
+        (th) => (th.textContent = rename ? 'cust_id' : 'id'),
+      );
+
+      // Output.
+      const kept = this.rows.filter(keep).map((r) => cols.map((a) => String(r[a])));
+      const counts = new Map<string, { vals: string[]; n: number }>();
+      for (const v of kept) {
+        const k = JSON.stringify(v);
+        const e = counts.get(k);
+        if (e) e.n++;
+        else counts.set(k, { vals: v, n: 1 });
+      }
+      const result = bag ? kept.map((v) => ({ vals: v, n: 1 })) : [...counts.values()];
+      const table = this.querySelector<HTMLTableElement>('[data-output]')!;
+      const head = `<thead><tr>${cols.map((a) => `<th scope="col">${out(a)}</th>`).join('')}${bag ? '' : '<th scope="col" class="nn"><span class="sr">merged</span></th>'}</tr></thead>`;
+      const body = result
+        .map(
+          (r) =>
+            `<tr>${r.vals.map((v) => `<td>${v}</td>`).join('')}${bag ? '' : `<td class="nn">${r.n > 1 ? `×${r.n} merged` : ''}</td>`}</tr>`,
+        )
+        .join('');
+      table.innerHTML = cols.length ? head + `<tbody>${body}</tbody>` : '';
+
+      const unit = bag ? 'row' : 'tuple';
+      this.querySelector('[data-outcap]')!.textContent = `Output: ${result.length} ${unit}${result.length === 1 ? '' : 's'}`;
+
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      const merged = kept.length - counts.size;
+      const predCols = [seg !== 'any' ? 'segment' : '', reg !== 'any' ? 'region' : ''].filter(Boolean);
+      const lost = predCols.filter((c) => !cols.includes(c));
+      const parts: string[] = [];
+      if (!cols.length) {
+        parts.push('Keep at least one column. (In the algebra, projecting onto no attributes is allowed: the result is either one empty tuple or nothing at all.)');
+      } else {
+        if (!bag && merged > 0) {
+          parts.push(`${kept.length} rows passed the selection, but projection made some of them identical, and a set keeps one copy: ${kept.length} rows became ${counts.size} tuples. Turn on bag semantics to see what SQL does without <code>DISTINCT</code>.`);
+        } else if (bag && merged > 0) {
+          parts.push(`As a bag, all ${kept.length} rows stay, duplicates included. That is SQL’s default; <code>SELECT DISTINCT</code> asks for set semantics, and costs the engine extra work to find duplicates.`);
+        } else {
+          parts.push(`Selection kept ${kept.length} of 6 rows; projection kept ${cols.length} of 4 columns. No duplicates appeared, so set and bag semantics agree here.`);
+        }
+        if (lost.length) {
+          parts.push(`Order matters too: the selection uses <code>${lost.join(', ')}</code>, which the projection drops, so σ must run before π.`);
+        }
+      }
+      note.innerHTML = parts.map((p) => `<span>${p}</span>`).join(' ');
+    }
+  }
+  if (!customElements.get('qe-algebra')) customElements.define('qe-algebra', QeAlgebra);
+</script>
+
+<style is:global>
+  .qe-alg {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-alg .controls {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .qe-alg fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .qe-alg legend {
+    padding: 0;
+    margin-bottom: 0.4rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-alg .chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .qe-alg .lbl {
+    width: 4.5rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-alg .chips button {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .qe-alg .chips button[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-alg .chips button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-alg .exprs {
+    display: grid;
+    gap: 0.4rem;
+    margin: 1rem 0;
+  }
+  .qe-alg .expr {
+    line-height: 1.5;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 4.25rem 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-alg .expr .tag {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--sl-color-accent-high);
+  }
+  .qe-alg .expr code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    color: var(--sl-color-white);
+    background: none;
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+  .qe-alg .stage {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 0.9rem;
+  }
+  .qe-alg .cap {
+    margin: 0 0 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-alg .tablewrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    min-height: 2.5rem;
+  }
+  .qe-alg table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+    display: table;
+    margin: 0;
+  }
+  .qe-alg th,
+  .qe-alg td {
+    padding: 0.4rem 0.55rem;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    background: transparent;
+    white-space: nowrap;
+    color: var(--sl-color-white);
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+  }
+  .qe-alg th {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-alg [data-input] tr.out td {
+    opacity: 0.25;
+    text-decoration: line-through;
+    text-decoration-color: var(--qe-warn);
+  }
+  .qe-alg [data-input] .drop {
+    opacity: 0.25;
+  }
+  .qe-alg [data-input] tr:not(.out) td:not(.drop) {
+    background: color-mix(in srgb, var(--sl-color-accent) 14%, transparent);
+  }
+  .qe-alg .nn {
+    color: var(--qe-warn);
+    font-size: 0.6875rem;
+    font-weight: 650;
+  }
+  .qe-alg .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .qe-alg .note {
+    margin: 0.9rem 0 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--qe-pipe-emit);
+    background: var(--sl-color-black);
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 4.6em;
+  }
+  .qe-alg .note code {
+    font-size: 0.85em;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qe-alg th,
+    .qe-alg td {
+      transition: none;
+    }
+  }
+  @media (max-width: 49.99rem) {
+    .qe-alg {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-alg .stage {
+      grid-template-columns: 1fr;
+    }
+    .qe-alg .lbl {
+      width: 100%;
+    }
+    .qe-alg .expr {
+      grid-template-columns: 1fr;
+      gap: 0.15rem;
+    }
+  }
+</style>

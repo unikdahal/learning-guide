@@ -112,6 +112,24 @@ pub fn repeat<R>(warmup: usize, runs: usize, mut f: impl FnMut() -> R) -> Vec<Du
         .collect()
 }
 
+/// Like [`repeat`], for async work such as running a query.
+pub async fn repeat_async<R, F, Fut>(warmup: usize, runs: usize, mut f: F) -> Vec<Duration>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = R>,
+{
+    for _ in 0..warmup {
+        std::hint::black_box(f().await);
+    }
+    let mut out = Vec::with_capacity(runs);
+    for _ in 0..runs {
+        let t0 = Instant::now();
+        std::hint::black_box(f().await);
+        out.push(t0.elapsed());
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

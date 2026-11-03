@@ -1,0 +1,384 @@
+---
+// The Cartesian product as a grid: one cell per (customer, order) pair. Choose a join condition
+// and the cells that satisfy it light up. A join is exactly the lit cells of the product.
+// The natural-join panel shows how one extra shared column silently changes the answer.
+import { customers, orders } from './data';
+---
+
+<qe-joingrid class="qe-jg not-content" data-c={JSON.stringify(customers)} data-o={JSON.stringify(orders)}>
+  <div class="conds" role="group" aria-label="Join condition">
+    <button type="button" data-cond="none" aria-pressed="false">No condition: ×</button>
+    <button type="button" data-cond="equi" aria-pressed="true">c.id = o.cust_id</button>
+    <button type="button" data-cond="theta" aria-pressed="false">o.amount &gt; 100 ∧ c.segment = 'retail'</button>
+    <button type="button" data-cond="natural" aria-pressed="false">NATURAL JOIN</button>
+  </div>
+
+  <div class="trap" data-trap hidden>
+    <label>
+      <input type="checkbox" data-updated />
+      <span>Both tables also have an <code>updated_at</code> column</span>
+    </label>
+    <p class="shared" data-shared></p>
+  </div>
+
+  <p class="expr"><code data-expr></code></p>
+
+  <div class="gridwrap">
+    <div class="grid" data-grid aria-hidden="true"></div>
+  </div>
+
+  <dl class="stats" aria-live="polite">
+    <div><dt>Pairs in the product</dt><dd>36</dd></div>
+    <div><dt>Pairs kept</dt><dd data-kept></dd></div>
+    <div><dt>Share kept</dt><dd data-share></dd></div>
+  </dl>
+  <p class="note" data-note></p>
+
+  <details class="result">
+    <summary>Show the result rows</summary>
+    <div class="tablewrap"><table data-result></table></div>
+  </details>
+</qe-joingrid>
+
+<script>
+  type C = { id: number; name: string; segment: string; region: string; updated_at: string };
+  type O = { order_id: number; cust_id: number; amount: number; updated_at: string };
+
+  class QeJoinGrid extends HTMLElement {
+    cs: C[] = [];
+    os: O[] = [];
+    cond = 'equi';
+
+    connectedCallback() {
+      this.cs = JSON.parse(this.dataset.c!);
+      this.os = JSON.parse(this.dataset.o!);
+      this.querySelectorAll<HTMLButtonElement>('[data-cond]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.cond = b.dataset.cond!;
+          this.querySelectorAll('[data-cond]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.render();
+        }),
+      );
+      this.querySelector('[data-updated]')!.addEventListener('change', () => this.render());
+      this.render();
+    }
+
+    test(c: C, o: O): boolean {
+      const withUpdated = (this.querySelector('[data-updated]') as HTMLInputElement).checked;
+      switch (this.cond) {
+        case 'none':
+          return true;
+        case 'equi':
+          return c.id === o.cust_id;
+        case 'theta':
+          return o.amount > 100 && c.segment === 'retail';
+        default:
+          // Natural join: customer's id is named cust_id here, so it is shared with orders.
+          return c.id === o.cust_id && (!withUpdated || c.updated_at === o.updated_at);
+      }
+    }
+
+    render() {
+      const grid = this.querySelector<HTMLElement>('[data-grid]')!;
+      const withUpdated = (this.querySelector('[data-updated]') as HTMLInputElement).checked;
+      this.querySelector<HTMLElement>('[data-trap]')!.hidden = this.cond !== 'natural';
+
+      const cells: string[] = ['<span class="corner"></span>'];
+      for (const o of this.os) cells.push(`<span class="colh"><b>${o.order_id}</b><i>cust ${o.cust_id}</i></span>`);
+      let kept = 0;
+      const rows: [C, O][] = [];
+      for (const c of this.cs) {
+        const rowHits = this.os.filter((o) => this.test(c, o)).length;
+        cells.push(`<span class="rowh${rowHits ? '' : ' dangling'}"><b>${c.id} ${c.name}</b><i>${c.segment}</i></span>`);
+        for (const o of this.os) {
+          const hit = this.test(c, o);
+          if (hit) {
+            kept++;
+            rows.push([c, o]);
+          }
+          cells.push(`<span class="cell${hit ? ' hit' : ''}"></span>`);
+        }
+      }
+      grid.innerHTML = cells.join('');
+      // Mark orders that matched nobody.
+      this.os.forEach((o, j) => {
+        if (!this.cs.some((c) => this.test(c, o))) grid.children[1 + j].classList.add('dangling');
+      });
+
+      this.querySelector('[data-kept]')!.textContent = String(kept);
+      this.querySelector('[data-share]')!.textContent = `${Math.round((kept / 36) * 100)}%`;
+
+      const shared = withUpdated ? ['cust_id', 'updated_at'] : ['cust_id'];
+      this.querySelector('[data-shared]')!.innerHTML = `Shared column names: ${shared
+        .map((s) => `<code>${s}</code>`)
+        .join(' and ')}. NATURAL JOIN requires a match on every one of them.`;
+
+      const expr: Record<string, string> = {
+        none: 'customer × orders',
+        equi: 'customer ⋈ c.id = o.cust_id orders  =  σ c.id = o.cust_id (customer × orders)',
+        theta: "customer ⋈ o.amount > 100 ∧ c.segment = 'retail' orders",
+        natural: `ρ id→cust_id (customer) ⋈ orders, matching on ${shared.join(', ')}`,
+      };
+      this.querySelector('[data-expr]')!.textContent = expr[this.cond];
+
+      const notes: Record<string, string> = {
+        none: 'Every customer paired with every order: 6 × 6 = 36 rows, almost none of them meaningful. The product is the raw material every join is cut from.',
+        equi: 'Five pairs match. Bruno and Emeka have no orders, and order 106 belongs to a customer who doesn’t exist: these dangling rows vanish from an inner join. Outer joins, in Module 08, keep them.',
+        theta:
+          'Any condition can cut the product, not just equality. Here three orders over 100 each pair with all four retail customers, 12 pairs, and none of them needs the customer to have placed the order.',
+        natural: withUpdated
+          ? 'Zero rows, and no error. The new column happens to share a name, so NATURAL JOIN also demands equal timestamps, which never happens. The query is now silently wrong.'
+          : 'With customer’s id renamed to cust_id, the only shared name is cust_id, and NATURAL JOIN gives the same five pairs as the equi-join, with cust_id kept once.',
+      };
+      this.querySelector('[data-note]')!.textContent = notes[this.cond];
+      this.querySelector<HTMLElement>('[data-note]')!.dataset.tone = this.cond === 'natural' && withUpdated ? 'bad' : '';
+
+      const head = '<thead><tr><th>c.id</th><th>name</th><th>order_id</th><th>cust_id</th><th>amount</th></tr></thead>';
+      const body = rows
+        .map(([c, o]) => `<tr><td>${c.id}</td><td>${c.name}</td><td>${o.order_id}</td><td>${o.cust_id}</td><td>${o.amount}</td></tr>`)
+        .join('');
+      this.querySelector('[data-result]')!.innerHTML = rows.length
+        ? head + `<tbody>${body}</tbody>`
+        : '<tbody><tr><td>No rows.</td></tr></tbody>';
+    }
+  }
+  if (!customElements.get('qe-joingrid')) customElements.define('qe-joingrid', QeJoinGrid);
+</script>
+
+<style is:global>
+  .qe-jg {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-jg .conds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .qe-jg .conds button {
+    min-height: 2.5rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+  }
+  .qe-jg .conds button[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-jg button:focus-visible,
+  .qe-jg summary:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-jg .trap {
+    margin-top: 0.8rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border: 1px dashed var(--qe-warn);
+  }
+  .qe-jg .trap[hidden] {
+    display: none;
+  }
+  .qe-jg .trap label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.25rem;
+    font-size: 0.875rem;
+    font-weight: 650;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .qe-jg .trap input {
+    width: 1.15rem;
+    height: 1.15rem;
+    accent-color: var(--qe-warn);
+  }
+  .qe-jg .trap code,
+  .qe-jg .shared code {
+    font-size: 0.85em;
+  }
+  .qe-jg .shared {
+    margin: 0.3rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-jg .expr {
+    line-height: 1.5;
+    margin: 0.9rem 0;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-jg .expr code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    color: var(--sl-color-white);
+    background: none;
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+  .qe-jg .gridwrap {
+    overflow-x: auto;
+  }
+  .qe-jg .grid {
+    display: grid;
+    grid-template-columns: 6.5rem repeat(6, minmax(2.6rem, 1fr));
+    gap: 4px;
+    min-width: 21rem;
+  }
+  .qe-jg .colh,
+  .qe-jg .rowh {
+    display: grid;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    color: var(--sl-color-white);
+  }
+  .qe-jg .colh {
+    justify-items: center;
+    text-align: center;
+    padding-bottom: 0.25rem;
+  }
+  .qe-jg .rowh {
+    align-content: center;
+  }
+  .qe-jg .colh b,
+  .qe-jg .rowh b {
+    font-weight: 700;
+  }
+  .qe-jg .colh i,
+  .qe-jg .rowh i {
+    font-style: normal;
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-jg .dangling b {
+    color: var(--qe-warn);
+  }
+  .qe-jg .cell {
+    aspect-ratio: 1.3;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    transition: background-color 0.18s ease, border-color 0.18s ease;
+  }
+  .qe-jg .cell.hit {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+  }
+  .qe-jg .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0 0;
+  }
+  .qe-jg .stats div {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .qe-jg dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-jg dd {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+  }
+  .qe-jg .note {
+    margin: 0.8rem 0 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--sl-color-accent);
+    background: var(--sl-color-black);
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 4.6em;
+  }
+  .qe-jg .note[data-tone='bad'] {
+    border-left-color: var(--qe-warn);
+  }
+  .qe-jg .result {
+    margin-top: 0.8rem;
+  }
+  .qe-jg .result summary {
+    cursor: pointer;
+    min-height: 2.25rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-jg .tablewrap {
+    margin-top: 0.4rem;
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+  }
+  .qe-jg table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+    display: table;
+    margin: 0;
+  }
+  .qe-jg th,
+  .qe-jg td {
+    padding: 0.4rem 0.55rem;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    background: transparent;
+    white-space: nowrap;
+    color: var(--sl-color-white);
+  }
+  .qe-jg th {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-2);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qe-jg .cell {
+      transition: none;
+    }
+  }
+  @media (max-width: 49.99rem) {
+    .qe-jg {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-jg .grid {
+      grid-template-columns: 5.25rem repeat(6, minmax(0, 1fr));
+      gap: 3px;
+      min-width: 0;
+    }
+    .qe-jg .colh i {
+      font-size: 0.625rem;
+    }
+    .qe-jg .rowh i {
+      display: none;
+    }
+  }
+</style>

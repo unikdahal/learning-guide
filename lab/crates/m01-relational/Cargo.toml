@@ -1,0 +1,11 @@
+[package]
+name = "m01-relational"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+description = "Module 01 lab: a tiny relational algebra engine, and the same ideas in DataFusion."
+
+[dependencies]
+labkit.workspace = true
+datafusion.workspace = true
+tokio.workspace = true

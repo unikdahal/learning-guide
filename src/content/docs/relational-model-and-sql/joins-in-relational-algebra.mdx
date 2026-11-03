@@ -1,16 +1,337 @@
 ---
-title: "Joins in relational algebra"
-description: "Cartesian product, theta join, equi-join and natural join defined formally, with join as filtered product."
+title: Joins in relational algebra
+description: Cartesian product, theta join, equi-join and natural join defined formally, with join as filtered product.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 3
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import JoinGrid from '@components/visuals/relational/JoinGrid.astro';
+import ProductScale from '@components/visuals/relational/ProductScale.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="joins-in-relational-algebra" />
+<ArticleMeta module="01" slug="joins-in-relational-algebra" minutes={16} />
+
+Normalised data is split up on purpose. Customers live in one relation, orders in another, and each
+order carries only its customer's `id`. To ask "how much did retail customers in Asia spend", the two
+have to be put back together. That operation, the join, is where most of a query engine's time and
+cleverness go: [Module 08](../../joins/) has twenty articles on how to run it.
+
+Its definition, though, fits in one line. A join is a product, filtered. Everything else in this
+article is a consequence of that sentence.
+
+## The question
+
+What exactly is a join, what kinds are there, and why does no engine ever compute one the way the
+definition says?
+
+## The Cartesian product
+
+The **Cartesian product** R × S pairs every tuple of R with every tuple of S. Each output tuple
+carries all of R's attributes followed by all of S's:
+
+- **Cardinality** multiplies: |R × S| = |R| × |S|.
+- **Degree** adds: R's attributes plus S's.
+
+Because a tuple can't have two attributes with the same name, the headings must not overlap. If both
+relations have an `id`, one must be renamed first, which is one reason the algebra needs ρ. In SQL,
+`FROM customer c, orders o` and `FROM customer c CROSS JOIN orders o` both compute the product, with
+the table aliases doing the renaming. PostgreSQL's documentation states the size plainly: if the
+tables have N and M rows, "the joined table will have N * M rows".
+
+On its own the product is almost never what anyone wants. Pairing each customer with every order,
+including the orders of other customers, mostly produces noise. Its purpose is to be the raw material.
+
+## The theta join: a filtered product
+
+A **theta join** keeps the pairs of the product that satisfy a condition θ:
+
+```text
+R ⋈θ S  =  σθ (R × S)
+```
+
+That equation is from Codd's 1972 paper, which defined the theta join as "definable in terms of
+Cartesian product" and restriction. It is the most important identity in this module, because it says
+a join is not a new kind of operation. It is a product and a selection, and every law about selection
+applies.
+
+θ can be any condition on the combined tuple: `o.amount > c.credit_limit`, `a.start <= b.time AND
+b.time < a.end`, anything. When θ is an equality between attributes, `c.id = o.cust_id`, the result is
+called an **equi-join**. Equi-joins are by far the most common, and, as you will see, by far the
+cheapest to compute.
+
+In SQL, a theta join is `JOIN … ON θ`.
+
+## The natural join
+
+The **natural join** R ⋈ S needs no condition written down. It pairs tuples that agree on **every
+attribute name the two relations share**, and keeps each shared attribute once. Codd defined it in his
+1970 paper for binary relations, in roughly this form:
+
+```text
+R ⋈ S = { (a, b, c) : R(a, b) and S(b, c) }
+```
+
+Natural join follows from the earlier operators: rename the shared attributes apart, take the
+product, select the pairs where the renamed attributes are equal, then project the duplicates away.
+The lab's tests check that this four-step recipe gives exactly the same relation as the direct natural
+join. Two edge cases fall out of the definition:
+
+- **No shared names**: there is nothing to agree on, so every pair qualifies and the natural join is
+  the product.
+- **All names shared**: tuples must agree on everything, so the natural join is the intersection.
+
+Natural join is the most elegant join on paper and the most dangerous in SQL. The next section shows
+why.
+
+## See it on the grid
+
+Each cell is one pair of the product: a customer down the side, an order across the top. Pick a join
+condition and the pairs that satisfy it light up. A join is exactly the lit cells.
+
+<JoinGrid />
+
+Look at three things. First, with the equality, five cells of thirty-six light up. Most of the
+product is waste, and on real data the waste grows far faster than the answer. Second, some rows and
+columns never light at all: Bruno and Emeka placed no orders, and order 106 refers to a customer who
+does not exist. These **dangling tuples** vanish from the joins defined here. Keeping them, padded with
+NULLs, is what outer joins do; [Module 08](../../joins/join-types-inner-outer-semi-anti-mark/) covers
+them. Third, choose `NATURAL JOIN` and tick the `updated_at` box.
+
+## The natural join trap
+
+In the grid, both tables gain an `updated_at` column, a perfectly ordinary audit column. Nobody meant
+it to take part in the join. But `NATURAL JOIN` matches on every shared column name, so it now also
+requires a customer's last update time to equal an order's, which never happens. The query still runs.
+It returns nothing, and raises no error.
+
+This is not a hypothetical. The lab's `joins` example builds exactly these tables in DataFusion and
+asks for the plan:
+
+```text title="SELECT * FROM customer2 NATURAL JOIN orders"
+Projection: customer2.cust_id, customer2.name, customer2.updated_at, orders.order_id, orders.amount
+  Inner Join: customer2.cust_id = orders.cust_id, customer2.updated_at = orders.updated_at
+    SubqueryAlias: customer2
+      Projection: customer.id AS cust_id, customer.name, customer.updated_at
+        TableScan: customer projection=[id, name, updated_at]
+    TableScan: orders projection=[order_id, cust_id, amount, updated_at]
+```
+
+The join condition the engine built has two equalities, and the result is empty. The same query
+written with `ON c.id = o.cust_id` returns the three expected rows. PostgreSQL's documentation warns
+about exactly this: `USING` "is reasonably safe from column changes", while `NATURAL` "is considerably
+more risky since any schema changes to either relation that cause a new matching column name to be
+present will cause the join to combine that new column as well".
+
+<Aside type="caution" title="In practice">
+Write join conditions explicitly with `ON`, or name the columns with `USING (cust_id)`. Reserve
+`NATURAL JOIN` for throwaway exploration. A query whose meaning changes when someone adds a column to a
+table is a bug that hasn't happened yet.
+</Aside>
+
+## Laws of joins
+
+Because joins are built from product and selection, they inherit laws that optimizers depend on:
+
+- **Commutative**: R ⋈ S and S ⋈ R contain the same tuples. Attributes come out in a different order,
+  which in the named-attribute model doesn't matter, and an engine fixes with a projection.
+- **Associative**: (R ⋈ S) ⋈ T = R ⋈ (S ⋈ T), for natural joins and for inner theta joins whose
+  conditions are moved along with them.
+- **Selections move through joins**: a condition that only mentions R's attributes can be applied to R
+  before the join instead of after it. This is predicate pushdown, which you saw the optimizer do in
+  [Module 00](../../orientation/what-a-query-engine-actually-does/).
+
+Commutativity and associativity together mean a query joining n relations can be evaluated in many
+orders, and the orders differ wildly in cost. Choosing among them is the optimizer's hardest job, the
+subject of [Module 13](../../cost-based-optimization/). These laws hold for inner joins. Outer joins
+break several of them, which is why optimizers treat them with great care.
+
+## Why no engine computes the product
+
+The definition says: build R × S, then filter. Here is what that would mean on the lab's data:
+
+<ProductScale />
+
+The lab has 150,000 customers and 1.5 million orders. Their product has 225 billion pairs. The
+equi-join on `id` returns 1.5 million rows, one per order. Building the product first would mean
+generating 150,000 rows for every row of the answer.
+
+So engines treat the definition as a specification of the **result**, never as the algorithm. You can
+watch DataFusion make that move. The lab's `joins` example writes the join the old way, as a product
+with a `WHERE` clause:
+
+```text title="SELECT c.name, o.amount FROM customer c, orders o WHERE c.id = o.cust_id"
+Logical plan:
+Projection: c.name, o.amount
+  Filter: c.id = o.cust_id
+    Cross Join:
+      SubqueryAlias: c
+        TableScan: customer
+      SubqueryAlias: o
+        TableScan: orders
+
+Optimized:
+Projection: c.name, o.amount
+  Inner Join: c.id = o.cust_id
+    SubqueryAlias: c
+      TableScan: customer projection=[id, name]
+    SubqueryAlias: o
+      TableScan: orders projection=[cust_id, amount]
+```
+
+The logical plan is the definition exactly: a `Filter` on top of a `Cross Join`. The optimizer rule
+that rewrites it, named `eliminate_cross_join` in DataFusion's source, recognises σθ(R × S) and
+replaces it with a join that carries θ as its condition. That is the theta-join identity, applied in
+reverse.
+
+Once the condition is part of the join, the engine can pick an algorithm that never looks at most
+pairs. With an equality it builds a hash table on one side, then looks up each row of the other side
+directly, touching only matching pairs. When the condition gives it no equality to hash on, it has no
+choice but to test every pair, a **nested loop join**. The timing in the figure above is that
+difference, measured: the same 5,000-row answer from two 5,000-row tables in a median of 1.2
+milliseconds with a hash join, and 40.0 milliseconds with a nested loop over 25 million pairs.
+
+The lab printed which operator each query got:
+
+```text title="cargo run --release -p m01-relational --example joins"
+equality   HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(k@0, k@0)], projection=[]
+           runs  15  min   1.132ms  median   1.189ms  p95   1.400ms  max   1.400ms  noise ±6.4%
+
+expression NestedLoopJoinExec: join_type=Inner, filter=k@0 + k@1 = 5001, projection=[]
+           runs  15  min  39.380ms  median  39.974ms  p95  61.708ms  max  61.708ms  noise ±17.2%
+
+rewritten  HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(k@0, Int64(5001) - a.k@1)], projection=[]
+           runs  15  min   1.341ms  median   1.384ms  p95   1.513ms  max   1.513ms  noise ±3.5%
+```
+
+Notice that `a.k + b.k = 5001` is an equality, yet it got a nested loop. A hash join needs an equality
+between something computed from one side alone and something computed from the other side alone, so it
+can hash each side separately. The third query says the same thing as the second, rearranged as
+`b.k = 5001 - a.k`, and DataFusion gives it a hash join, keyed on `5001 - a.k`. DataFusion 55.2 did
+not make that rearrangement itself. Whether an engine does is something to check in its plan, never to
+assume.
+
+## In real engines
+
+Engines expose the algebra's joins under SQL's names, and pick among several algorithms for each.
+
+| Algebra | SQL | Typical algorithms |
+| --- | --- | --- |
+| R × S | `CROSS JOIN`, or a comma in `FROM` | Nested loop over every pair |
+| R ⋈θ S, θ an equality | `JOIN … ON a = b`, `USING (…)` | Hash join, sort-merge join |
+| R ⋈θ S, θ anything else | `JOIN … ON a < b` and other conditions | Nested loop; special algorithms for ranges and bands |
+| R ⋈ S | `NATURAL JOIN` | Rewritten to an equi-join on the shared columns, as in the plan above |
+
+Module 08 takes each algorithm apart: [nested loop](../../joins/nested-loop-join/),
+[sort-merge](../../joins/sort-merge-join/), [hash join](../../joins/hash-join-build-and-probe/), and
+the [range and band joins](../../joins/range-inequality-and-band-joins/) that exist precisely because
+non-equality conditions are so expensive done naively.
+
+## Costs and trade-offs
+
+**The definition's cost is |R| × |S|; good algorithms approach |R| + |S| + |output|.** A hash join
+reads each input once and produces each output row once. A nested loop tests every pair. The gap is the
+product's size divided by the inputs' sizes, which grows without bound as tables grow.
+
+**The condition decides what is possible.** Equalities between the two sides allow hashing and sorting.
+Inequalities and arbitrary expressions often force a nested loop, unless the engine has a specialised
+algorithm for that shape. How you write a condition can change which algorithm is available.
+
+**Join output can be larger than either input.** If a customer has a thousand orders, their row appears
+a thousand times in the join. With duplicate keys on both sides, the output can approach the product's
+size even with an equality. [Module 08](../../joins/duplicate-keys-and-skew-in-hash-joins/) covers
+what that does to memory.
+
+## In Rust
+
+The lab's engine defines product and theta join exactly as the algebra does:
+
+```rust title="lab/crates/m01-relational/src/lib.rs"
+/// ×, Cartesian product. Every tuple of `self` paired with every tuple of `other`.
+/// The headings must not overlap; rename first if they do.
+pub fn product(&self, other: &Relation) -> Relation {
+    let mut attrs = self.attrs.clone();
+    attrs.extend(other.attrs.iter().cloned());
+    let tuples = self
+        .tuples
+        .iter()
+        .flat_map(|a| {
+            other.tuples.iter().map(move |b| {
+                let mut t = a.clone();
+                t.extend(b.iter().cloned());
+                t
+            })
+        })
+        .collect();
+    Relation::from_parts(attrs, tuples)
+}
+
+/// ⋈θ, theta join. By definition, a product followed by a selection.
+pub fn theta_join(&self, other: &Relation, pred: impl Fn(&Row) -> bool) -> Relation {
+    self.product(other).select(pred)
+}
+```
+
+`theta_join` is one line, and it is precisely the expensive plan this article warned against: it
+materialises the whole product before filtering. That is the right choice for a reference
+implementation whose job is to be obviously correct, and the wrong choice for an engine. Its tests are
+what you would use to check a fast implementation: whatever algorithm you write in Module 08 must
+produce the same relation as this one.
+
+```text title="cargo run --release -p m01-relational --example joins"
+c × o has 6 × 6 = 36 tuples
+
+c ⋈ c.id = o.cust_id o
+  c.name  o.order_id  o.amount
+  ------  ----------  --------
+  Asha    101         250
+  Asha    103         90
+  Chen    102         40
+  Dara    104         610
+  Farah   105         75
+  (5 tuples)
+
+c ⋈ (o.amount > 100 ∧ c.segment = 'retail') o: 12 tuples
+```
+
+## Check yourself
+
+<details>
+<summary>R has 1,000 tuples and S has 2,000. What are the cardinality and degree of R × S, if R has 3 attributes and S has 5?</summary>
+
+Cardinality 1,000 × 2,000 = 2,000,000. Degree 3 + 5 = 8, assuming no attribute names are shared, as
+the product requires.
+</details>
+
+<details>
+<summary>What is the natural join of two relations that share no attribute names? And of two with identical headings?</summary>
+
+With no shared names, every pair agrees on all (zero) shared attributes, so the natural join is the
+product. With identical headings, tuples must agree on every attribute, so the result is the
+intersection of the two relations.
+</details>
+
+<details>
+<summary>A query used NATURAL JOIN for two years. Yesterday it started returning no rows, and nobody changed it. What is the most likely cause?</summary>
+
+Someone added a column to one of the tables whose name matches a column in the other, such as
+`updated_at` or `status`. NATURAL JOIN silently added it to the join condition. Rewriting the join with
+an explicit `ON` or `USING` fixes it.
+</details>
+
+<details>
+<summary>Why did a.k + b.k = 5001 get a nested loop join while a.k = b.k got a hash join?</summary>
+
+A hash join hashes one side's key and looks up the other side's key, so each key must be computable
+from one side alone. In `a.k + b.k = 5001` the expression mixes both sides, so neither side has a key
+to hash. The equivalent `b.k = 5001 - a.k` has the right shape, and in the lab it got a hash join.
+</details>
+
+## Further reading
+
+- E. F. Codd, [Relational Completeness of Data Base Sublanguages](https://www.inf.unibz.it/~franconi/teaching/2006/kbdb/Codd72a.pdf), 1972, where the theta join is defined as a restricted product.
+- E. F. Codd, [A Relational Model of Data for Large Shared Data Banks](https://web.eecs.umich.edu/~michjc/eecs584/Papers/codd_1970.pdf), 1970, section 2.1 for the natural join.
+- [PostgreSQL: joined tables](https://www.postgresql.org/docs/19/queries-table-expressions.html), for SQL's join syntax and the warning about NATURAL.
+- DataFusion's [`eliminate_cross_join` rule](https://github.com/apache/datafusion/blob/main/datafusion/optimizer/src/eliminate_cross_join.rs), which turns filtered products into joins.
