@@ -1,16 +1,287 @@
 ---
-title: "Subqueries"
-description: "Scalar, IN, EXISTS and correlated subqueries, their exact semantics, and the NULL edge cases of IN and NOT IN."
+title: Subqueries
+description: Scalar, IN, EXISTS and correlated subqueries, their exact semantics, and the NULL edge cases of IN and NOT IN.
 level: I
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 10
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import CorrelatedSubquery from '@components/visuals/relational/CorrelatedSubquery.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="subqueries" />
+<ArticleMeta module="01" slug="subqueries" minutes={16} lab="m01-relational/examples/subqueries.rs" />
+
+A subquery is a query written inside another query, in parentheses. It is how SQL says "orders larger than
+the average", "customers who have ordered", or "each customer's total" without spelling out how to compute
+it. It reads naturally, which is why it is everywhere. It also hides three things that are easy to get
+wrong: what happens when the inner query returns no rows or more than one, what NULL does to `IN`, and how an
+engine avoids running the inner query again for every outer row.
+
+This article defines each kind of subquery exactly, then shows how DataFusion turns them into the joins of
+the earlier articles, and where that translation stops.
+
+## The question
+
+What does each kind of subquery mean, row by row, and how does an engine compute it without running the
+inner query over and over?
+
+## Four kinds, by what they produce
+
+The kinds differ in what the outer query does with the inner result.
+
+**A scalar subquery** produces a single value, used wherever a value can go. PostgreSQL's documentation
+states both edge cases: "It is an error to use a query that returns more than one row or more than one column
+as a scalar subquery. (But if, during a particular execution, the subquery returns no rows, there is no error;
+the scalar result is taken to be null.)" The lab tries all three cases on the module's six orders:
+
+```text title="cargo run --release -p m01-relational --example subqueries"
+> SELECT order_id, amount FROM orders WHERE amount > (SELECT avg(amount) FROM orders) ORDER BY order_id
++----------+--------+
+| order_id | amount |
++----------+--------+
+| 101      | 250    |
+| 104      | 610    |
++----------+--------+
+
+> SELECT name, (SELECT amount FROM orders WHERE cust_id = 5) AS emeka_order FROM customer WHERE id = 1
+| Asha |             |
+
+> SELECT name, (SELECT amount FROM orders WHERE cust_id = 1) AS asha_order FROM customer WHERE id = 1
+error: Execution error: Scalar subquery returned more than one row
+```
+
+Emeka has no orders, so the second query returns NULL. Asha has two, so the third fails. Note that the error
+is an execution error: it depends on the data, not the query. A query that has run for a year fails the day
+a customer places a second order.
+
+**`IN (subquery)`** tests whether a value is among the inner query's results. **`EXISTS (subquery)`** tests
+whether the inner query returns any row at all. PostgreSQL: "Since the result depends only on whether any
+rows are returned, and not on the contents of those rows, the output list of the subquery is normally
+unimportant." In the lab, `EXISTS (SELECT 1 …)` and `EXISTS (SELECT NULL …)` return the same four customers.
+
+**A subquery in `FROM`**, a derived table, produces a relation that the outer query reads like a table. It
+adds nothing new: it is just a named intermediate result, like the common table expressions
+of the [CTE article](../ctes-and-recursive-queries/) later in this module.
+
+## Correlated subqueries
+
+A subquery is **correlated** when it refers to a column of the outer query. This one counts each customer's
+orders, and it mentions `c.id`, which belongs to the outer `customer c`:
+
+```sql
+SELECT name,
+       (SELECT count(*) FROM orders o WHERE o.cust_id = c.id) AS n
+FROM customer c;
+```
+
+The inner query has no single answer of its own. Its answer depends on which customer the outer query is
+looking at, so by definition it is evaluated once per outer row, with that row's values filled in. Step
+through that definition, then switch to the strategy a real engine uses:
+
+<CorrelatedSubquery />
+
+The lab runs the definition literally in Rust, scanning all orders again for every customer:
+
+```text title="cargo run --release -p m01-relational --example subqueries"
+name    count    sum
+Asha        2    340
+Bruno       0   NULL
+Chen        1     40
+Dara        1    610
+Emeka       0   NULL
+Farah       1     75
+
+6 outer rows x 6 inner rows = 36 inner rows read
+```
+
+The definition is perfectly clear and hopelessly slow: the work grows with the product of the two table
+sizes. Notice also the two answers for customers without orders: `count(*)` of no rows is 0, while `sum` of
+no rows is NULL, as the [grouping article](../grouping-and-aggregation-semantics/) showed. That difference
+is about to matter.
+
+## IN, NOT IN and NULL
+
+`x IN (subquery)` is shorthand for `x = v1 OR x = v2 OR …` over the inner values, so it inherits
+[three-valued logic](../null-and-three-valued-logic/). PostgreSQL's documentation spells it out: "if the
+left-hand expression yields null, or if there are no equal right-hand values and at least one right-hand row
+yields null, the result of the IN construct will be null, not false." The same holds for `NOT IN`, whose
+result is then "null, not true". With a list containing 1 and NULL:
+
+```text title="cargo run --release -p m01-relational --example subqueries"
+> SELECT x, x IN (1, NULL) AS is_in, x NOT IN (1, NULL) AS not_in FROM probe ORDER BY x
++---+-------+--------+
+| x | is_in | not_in |
++---+-------+--------+
+| 1 | true  | false  |
+| 2 |       |        |
+|   |       |        |
++---+-------+--------+
+```
+
+For 2, the answer is UNKNOWN: 2 isn't 1, but it might be the unknown value. So `WHERE x NOT IN (SELECT y
+FROM list)` keeps no rows at all, while `NOT EXISTS` asks a different question and keeps two:
+
+```text title="cargo run --release -p m01-relational --example subqueries"
+> SELECT x FROM probe WHERE x NOT IN (SELECT y FROM list)
+++
+++
+
+> SELECT x FROM probe WHERE NOT EXISTS (SELECT 1 FROM list WHERE y = x) ORDER BY x
+| 2 |
+|   |
+```
+
+`NOT EXISTS` keeps 2, and it also keeps the row where `x` is NULL: no `y = NULL` comparison is TRUE, so no
+inner row matches, so the subquery is empty. The two forms are interchangeable only when neither side can be
+NULL. When "which rows have no match" is what you mean, `NOT EXISTS` says it.
+
+## The COUNT trap
+
+The obvious way to compute "each customer's order count" without a subquery is a left join and a `GROUP BY`.
+The obvious version is wrong:
+
+```text title="cargo run --release -p m01-relational --example subqueries"
+> SELECT c.name, count(*) AS n, sum(o.amount) AS total
+  FROM customer c LEFT JOIN orders o ON o.cust_id = c.id GROUP BY c.id, c.name ORDER BY c.id
++-------+---+-------+
+| name  | n | total |
++-------+---+-------+
+| Asha  | 2 | 340   |
+| Bruno | 1 |       |
+| Chen  | 1 | 40    |
+| Dara  | 1 | 610   |
+| Emeka | 1 |       |
+| Farah | 1 | 75    |
++-------+---+-------+
+```
+
+Bruno and Emeka have no orders, but the left join gives each of them one row, padded with NULLs, and
+`count(*)` counts that row. The subquery said 0; the rewrite says 1. `count(o.order_id)` fixes it, because it
+skips the NULL. The bug has a long history: Werner Kießling described it in 1985, in a paper on rewriting
+correlated queries with aggregates titled "On semantic reefs". Any engine that rewrites a correlated
+`count` into a join has to handle it. DataFusion's optimized plan shows how it does:
+
+```text title="Optimized logical plan of the correlated count"
+Projection: c.name, CASE WHEN __scalar_sq_1.__always_true IS NULL THEN Int64(0) ELSE __scalar_sq_1.count(*) END AS n
+  Left Join: c.id = __scalar_sq_1.cust_id
+    SubqueryAlias: c
+      TableScan: customer projection=[id, name]
+    SubqueryAlias: __scalar_sq_1
+      Projection: count(Int64(1)) AS count(*), o.cust_id, Boolean(true) AS __always_true
+        Aggregate: groupBy=[[o.cust_id]], aggr=[[count(Int64(1))]]
+          SubqueryAlias: o
+            TableScan: orders projection=[cust_id]
+```
+
+It aggregates first, once per `cust_id`, then left joins. Each group carries a marker column,
+`__always_true`. If a customer finds no group, the marker comes back NULL, and the `CASE` turns the missing
+count into 0. For `sum`, no fix is needed, because NULL is already the right answer. The lab's subquery
+version printed 0 for Bruno and Emeka, matching the definition.
+
+## In real engines
+
+Turning a subquery into a join is called **decorrelation**, or unnesting. Every kind above maps onto a join
+from the [join articles](../joins-in-relational-algebra/):
+
+| Subquery | Becomes |
+| --- | --- |
+| `EXISTS`, `IN` | semi join: keep outer rows that have a match, once each |
+| `NOT EXISTS` | anti join: keep outer rows with no match |
+| `NOT IN` | null-aware anti join |
+| correlated scalar aggregate | aggregate the inner table by the correlation key, then left join |
+
+The lab's `EXISTS` query became a `LeftSemi Join: c.id = __correlated_sq_1.cust_id`. A semi join is not an
+inner join: an inner join would return Asha twice, once per order, while `EXISTS` returns her once.
+
+Decorrelation covers common shapes, not all of them. Thomas Neumann and Alfons Kemper's paper "Unnesting
+Arbitrary Queries" (2015) describes a general method; engines implement it to different degrees. DataFusion
+55.2 rejected two shapes in the lab: a subquery predicate in the `SELECT` list, and a correlated subquery
+whose correlation isn't an equality:
+
+```text title="cargo run --release -p m01-relational --example subqueries"
+> SELECT x, x IN (SELECT y FROM list) AS is_in FROM probe ORDER BY x
+error: This feature is not implemented: Physical plan does not support logical expression InSubquery(…
+
+> SELECT order_id, amount, (SELECT count(*) FROM orders o2 WHERE o2.amount > o.amount) AS larger_orders
+  FROM orders o ORDER BY amount DESC
+error: This feature is not implemented: Physical plan does not support logical expression ScalarSubquery(<subquery>)
+```
+
+DataFusion has no fallback that evaluates a subquery per row, so a subquery it can't decorrelate is an
+error. The fix is to write the join yourself, minding the COUNT trap:
+
+```text title="cargo run --release -p m01-relational --example subqueries"
+> SELECT o.order_id, o.amount, count(o2.order_id) AS larger_orders
+  FROM orders o LEFT JOIN orders o2 ON o2.amount > o.amount
+  GROUP BY o.order_id, o.amount ORDER BY o.amount DESC
+| 104      | 610    | 0             |
+| 101      | 250    | 1             |
+| 106      | 120    | 2             |
+| 103      | 90     | 3             |
+| 105      | 75     | 4             |
+| 102      | 40     | 5             |
+```
+
+<Aside type="note" title="Why not just loop?">
+Engines that can evaluate a subquery per row, such as PostgreSQL with its SubPlan, still prefer
+decorrelation when they can. A per-row subquery is a nested loop, and its cost is the product of the two
+sides; a decorrelated plan reads each table once and joins with a hash table.
+[Module 08](../../joins/) covers how those joins run.
+</Aside>
+
+## Costs and trade-offs
+
+**Correlation by definition is quadratic.** The lab's 36 inner rows read for 6 customers and 6 orders is
+6 × 6. A million customers and ten million orders would mean ten trillion. Decorrelated, the same query
+reads ten million orders once, groups them, and probes a hash table a million times.
+
+**Different spellings are different questions.** `IN` and `EXISTS` agree when there are no NULLs, `NOT IN`
+and `NOT EXISTS` don't, and a join is not a semi join because it multiplies rows. Choose the form whose
+meaning you want, not the one you think is faster: the optimizer usually makes them equally fast, but it never
+makes them mean the same thing.
+
+**Rewriting by hand is a correctness exercise.** Replacing a subquery with a join means handling empty
+groups, NULLs and duplicates yourself, which are exactly the places the subquery's definition was doing work
+for you.
+
+## Check yourself
+
+<details>
+<summary>A scalar subquery returns no rows for one outer row and two rows for another. What happens in each case?</summary>
+
+No rows: the subquery's value is NULL, and the query continues. Two rows: the whole query fails with an
+error, at the moment that outer row is evaluated.
+</details>
+
+<details>
+<summary>Why does WHERE x NOT IN (SELECT y FROM t) return nothing when t contains a NULL y, while NOT EXISTS (SELECT 1 FROM t WHERE t.y = x) does not?</summary>
+
+`x NOT IN (…)` is `x <> v1 AND x <> v2 AND …`. With a NULL in the list, one term is UNKNOWN, so the whole
+condition is never TRUE. `NOT EXISTS` asks whether any row has `t.y = x` TRUE; the NULL row never matches, so
+it doesn't block anything.
+</details>
+
+<details>
+<summary>Rewrite SELECT name, (SELECT count(*) FROM orders o WHERE o.cust_id = c.id) FROM customer c as a join without changing any result.</summary>
+
+`SELECT c.name, count(o.order_id) FROM customer c LEFT JOIN orders o ON o.cust_id = c.id GROUP BY c.id, c.name`.
+The left join keeps customers without orders; `count(o.order_id)` counts their NULL-padded row as 0; and
+grouping by `c.id` keeps two customers with the same name apart.
+</details>
+
+<details>
+<summary>EXISTS and an inner join both find customers who have orders. Why can't an engine plan EXISTS as an inner join?</summary>
+
+An inner join returns one row per matching pair, so a customer with two orders appears twice. `EXISTS` keeps
+each outer row at most once. That is a semi join, which stops at the first match.
+</details>
+
+## Further reading
+
+- PostgreSQL: [subquery expressions](https://www.postgresql.org/docs/current/functions-subquery.html) and
+  [scalar subqueries](https://www.postgresql.org/docs/current/sql-expressions.html#SQL-SYNTAX-SCALAR-SUBQUERIES).
+- Werner Kießling, "On Semantic Reefs and Efficient Processing of Correlation Queries with Aggregates",
+  VLDB 1985: the COUNT bug.
+- Thomas Neumann and Alfons Kemper, [Unnesting Arbitrary Queries](https://dl.gi.de/items/137d6917-d8fe-43aa-940b-e27da7c01625/full), BTW 2015.

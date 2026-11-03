@@ -1,0 +1,296 @@
+---
+// A frame moving over one ordered partition. Pick the current row, the mode (ROWS, RANGE,
+// GROUPS) and the frame bounds; the rows in the frame light up and the aggregates update.
+// Data and results match the east partition in lab/crates/m01-relational/examples/windows.rs:
+// day 3 has two peer rows and day 4 has none.
+const rows = [
+  { id: 1, day: 1, amount: 10 },
+  { id: 2, day: 2, amount: 20 },
+  { id: 3, day: 3, amount: 30 },
+  { id: 4, day: 3, amount: 5 },
+  { id: 5, day: 5, amount: 40 },
+  { id: 6, day: 6, amount: 50 },
+];
+---
+
+<qe-frames class="qe-lab qe-frames not-content" data-rows={JSON.stringify(rows)}>
+  <section class="qe-lab-part">
+    <div class="qe-lab-chips prose" role="group" aria-label="Presets">
+      <button type="button" data-preset="default" aria-pressed="true">Default with ORDER BY</button>
+      <button type="button" data-preset="moving" aria-pressed="false">Moving 2-row sum</button>
+      <button type="button" data-preset="whole" aria-pressed="false">Whole partition</button>
+    </div>
+
+    <div class="pickers">
+      <div>
+        <p class="qe-lab-cap">Mode</p>
+        <div class="qe-lab-chips" role="group" aria-label="Frame mode" data-group="mode">
+          <button type="button" data-v="ROWS">ROWS</button>
+          <button type="button" data-v="RANGE">RANGE</button>
+          <button type="button" data-v="GROUPS">GROUPS</button>
+        </div>
+      </div>
+      <div>
+        <p class="qe-lab-cap">Frame start</p>
+        <div class="qe-lab-chips" role="group" aria-label="Frame start" data-group="start">
+          <button type="button" data-v="U">UNBOUNDED PRECEDING</button>
+          <button type="button" data-v="2">2 PRECEDING</button>
+          <button type="button" data-v="1">1 PRECEDING</button>
+          <button type="button" data-v="0">CURRENT ROW</button>
+        </div>
+      </div>
+      <div>
+        <p class="qe-lab-cap">Frame end</p>
+        <div class="qe-lab-chips" role="group" aria-label="Frame end" data-group="end">
+          <button type="button" data-v="0">CURRENT ROW</button>
+          <button type="button" data-v="1">1 FOLLOWING</button>
+          <button type="button" data-v="U">UNBOUNDED FOLLOWING</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="qe-lab-sql" data-sql></p>
+
+    <p class="qe-lab-cap list-cap">Partition east, ORDER BY day. Tap a row to make it the current row.</p>
+    <ol class="part-rows" data-list></ol>
+
+    <dl class="stats" data-stats aria-live="polite"></dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-frames>
+
+<script>
+  type R = { id: number; day: number; amount: number };
+  const PRESETS: Record<string, [string, string, string]> = {
+    default: ['RANGE', 'U', '0'],
+    moving: ['ROWS', '1', '0'],
+    whole: ['ROWS', 'U', 'U'],
+  };
+
+  class QeFrames extends HTMLElement {
+    rows: R[] = [];
+    mode = 'RANGE';
+    start = 'U';
+    end = '0';
+    cur = 2; // index of the current row: the first day-3 row
+
+    connectedCallback() {
+      this.rows = JSON.parse(this.dataset.rows!);
+      for (const key of ['mode', 'start', 'end'] as const) {
+        this.querySelectorAll<HTMLButtonElement>(`[data-group="${key}"] button`).forEach((b) =>
+          b.addEventListener('click', () => {
+            this[key] = b.dataset.v!;
+            this.render();
+          }),
+        );
+      }
+      this.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((b) =>
+        b.addEventListener('click', () => {
+          [this.mode, this.start, this.end] = PRESETS[b.dataset.preset!];
+          this.render();
+        }),
+      );
+      this.querySelector('[data-list]')!.addEventListener('click', (e) => {
+        const li = (e.target as HTMLElement).closest<HTMLElement>('[data-i]');
+        if (li) {
+          this.cur = Number(li.dataset.i);
+          this.render();
+        }
+      });
+      this.render();
+    }
+
+    /** Indices of the rows in the current row's frame. */
+    frame(): number[] {
+      const rs = this.rows;
+      const i = this.cur;
+      const lo = this.start === 'U' ? Infinity : Number(this.start);
+      const hi = this.end === 'U' ? Infinity : Number(this.end);
+      const groupOf = (k: number) => [...new Set(rs.slice(0, k + 1).map((r) => r.day))].length - 1;
+      return rs
+        .map((r, k) => k)
+        .filter((k) => {
+          if (this.mode === 'ROWS') return k >= i - lo && k <= i + hi;
+          if (this.mode === 'RANGE') return rs[k].day >= rs[i].day - lo && rs[k].day <= rs[i].day + hi;
+          const g = groupOf(i);
+          return groupOf(k) >= g - lo && groupOf(k) <= g + hi;
+        });
+    }
+
+    render() {
+      const sync = (key: 'mode' | 'start' | 'end') =>
+        this.querySelectorAll<HTMLButtonElement>(`[data-group="${key}"] button`).forEach((b) =>
+          b.setAttribute('aria-pressed', String(b.dataset.v === this[key])),
+        );
+      sync('mode');
+      sync('start');
+      sync('end');
+      const presetKey = Object.entries(PRESETS).find(([, v]) => v[0] === this.mode && v[1] === this.start && v[2] === this.end)?.[0];
+      this.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((b) =>
+        b.setAttribute('aria-pressed', String(b.dataset.preset === presetKey)),
+      );
+
+      const startText = this.start === 'U' ? 'UNBOUNDED PRECEDING' : this.start === '0' ? 'CURRENT ROW' : `${this.start} PRECEDING`;
+      const endText = this.end === 'U' ? 'UNBOUNDED FOLLOWING' : this.end === '0' ? 'CURRENT ROW' : `${this.end} FOLLOWING`;
+      const orderBy = this.mode === 'ROWS' ? 'day, id' : 'day';
+      this.querySelector('[data-sql]')!.textContent =
+        presetKey === 'default'
+          ? 'sum(amount) OVER (ORDER BY day)  -- the frame you get when you write none: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW'
+          : `sum(amount) OVER (ORDER BY ${orderBy} ${this.mode} BETWEEN ${startText} AND ${endText})`;
+
+      const inFrame = new Set(this.frame());
+      const cur = this.rows[this.cur];
+      const list: string[] = [];
+      this.rows.forEach((r, k) => {
+        if (k > 0 && r.day - this.rows[k - 1].day > 1) {
+          for (let d = this.rows[k - 1].day + 1; d < r.day; d++) list.push(`<li class="gap"><span class="day">day ${d}</span><span>no rows</span></li>`);
+        }
+        const peer = r.day === cur.day && k !== this.cur;
+        const cls = [inFrame.has(k) ? 'in' : '', k === this.cur ? 'cur' : '', peer ? 'peer' : ''].join(' ');
+        list.push(
+          `<li class="${cls}" data-i="${k}" role="button" tabindex="0" aria-current="${k === this.cur}"><span class="day">day ${r.day}</span><span class="id">id ${r.id}${k === this.cur ? ' <i class="cur-tag">current row</i>' : ''}${peer ? ' <i>peer</i>' : ''}</span><b>${r.amount}</b></li>`,
+        );
+      });
+      const ol = this.querySelector('[data-list]')!;
+      ol.innerHTML = list.join('');
+      ol.querySelectorAll<HTMLElement>('[data-i]').forEach((li) =>
+        li.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.cur = Number(li.dataset.i);
+            this.render();
+            this.querySelector<HTMLElement>(`[data-i="${this.cur}"]`)?.focus();
+          }
+        }),
+      );
+
+      const vals = [...inFrame].sort((a, b) => a - b).map((k) => this.rows[k].amount);
+      const sum = vals.reduce((a, b) => a + b, 0);
+      const stats: [string, string][] = [
+        ['rows in frame', String(vals.length)],
+        ['sum', vals.length ? String(sum) : 'NULL'],
+        ['avg', vals.length ? String(Math.round((sum / vals.length) * 100) / 100) : 'NULL'],
+        ['first_value', vals.length ? String(vals[0]) : 'NULL'],
+        ['last_value', vals.length ? String(vals[vals.length - 1]) : 'NULL'],
+      ];
+      this.querySelector('[data-stats]')!.innerHTML = stats.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      const peers = this.rows.filter((r) => r.day === cur.day).length > 1;
+      if (presetKey === 'default' && peers) {
+        note.textContent = `With ORDER BY and no frame, the frame runs from the start to the current row’s last peer. Both day-3 rows are peers, so both get the same running total, ${sum}. Write ROWS to stop at the current row instead.`;
+      } else if (presetKey === 'default') {
+        note.textContent = 'With ORDER BY and no frame clause, the frame is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW: a running total. Pick a day-3 row to see what peers do to it.';
+      } else if (this.mode === 'RANGE' && this.start !== 'U' && this.start !== '0' && cur.day === 5) {
+        note.textContent = `RANGE measures distance in values of day, not rows. ${this.start} PRECEDING from day 5 reaches back to day ${5 - Number(this.start)}${Number(this.start) === 1 ? ', which has no rows, so the frame holds only day 5' : ''}. ROWS would count back over the gap; GROUPS would count back by peer groups.`;
+      } else if (this.mode === 'GROUPS') {
+        note.textContent = 'GROUPS counts peer groups: all rows with the same day form one group, so 1 PRECEDING means the whole previous group of peers, however many rows it has, wherever its day falls.';
+      } else if (this.mode === 'ROWS' && peers && this.end === '0') {
+        note.textContent = 'ROWS counts physical rows. The two day-3 rows are peers, so which comes first is up to the engine unless the ORDER BY breaks the tie, here with id.';
+      } else if (presetKey === 'whole') {
+        note.textContent = 'With both ends unbounded, every row sees the whole partition. That is the frame last_value needs if you want the partition’s last value rather than the current row’s.';
+      } else {
+        note.textContent = `The frame holds ${vals.length} row${vals.length === 1 ? '' : 's'}. Each output row has its own frame, computed relative to its own position.`;
+      }
+    }
+  }
+  if (!customElements.get('qe-frames')) customElements.define('qe-frames', QeFrames);
+</script>
+
+<style is:global>
+  .qe-frames .pickers {
+    display: grid;
+    gap: 0.7rem;
+    margin-top: 0.9rem;
+  }
+  .qe-frames .list-cap {
+    margin-top: 0.9rem;
+  }
+  .qe-frames .part-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.25rem;
+  }
+  .qe-frames .part-rows li {
+    margin: 0 !important;
+    display: grid;
+    grid-template-columns: 4.2rem 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    border-left-width: 4px;
+    background: var(--sl-color-black);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .qe-frames .part-rows .day {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .qe-frames .part-rows b {
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-frames .part-rows i {
+    font-style: normal;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--qe-pipe-emit);
+  }
+  .qe-frames .part-rows li.in {
+    border-left-color: var(--sl-color-accent);
+    background: color-mix(in srgb, var(--sl-color-accent) 14%, var(--sl-color-black));
+    color: var(--sl-color-white);
+  }
+  .qe-frames .part-rows li.in b {
+    color: var(--sl-color-white);
+  }
+  .qe-frames .part-rows li.cur {
+    border-color: var(--sl-color-accent);
+    box-shadow: inset 0 0 0 1px var(--sl-color-accent);
+  }
+  .qe-frames .part-rows i.cur-tag {
+    color: var(--sl-color-accent-high);
+  }
+  .qe-frames .part-rows li.gap {
+    grid-template-columns: 4.2rem 1fr;
+    min-height: 1.9rem;
+    border-style: dashed;
+    border-left-width: 1px;
+    background: transparent;
+    cursor: default;
+    font-style: italic;
+  }
+  .qe-frames .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(5.4rem, 1fr));
+    gap: 0.35rem;
+    margin: 0.9rem 0 0;
+  }
+  .qe-frames .stats div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-frames .stats dt {
+    font-size: 0.6875rem;
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-gray-3);
+  }
+  .qe-frames .stats dd {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

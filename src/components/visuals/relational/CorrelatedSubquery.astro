@@ -1,0 +1,258 @@
+---
+// A correlated scalar subquery, two ways. "By definition": for each customer, run the inner query
+// again with c.id bound, scanning every order. "Decorrelated": group the orders once, then left
+// join, which is what DataFusion's plan does (Left Join + Aggregate, with a CASE turning a missing
+// count into 0). Data and results match lab/crates/m01-relational/examples/subqueries.rs.
+const customers = [
+  { id: 1, name: 'Asha' },
+  { id: 2, name: 'Bruno' },
+  { id: 3, name: 'Chen' },
+  { id: 4, name: 'Dara' },
+  { id: 5, name: 'Emeka' },
+  { id: 6, name: 'Farah' },
+];
+const orders = [
+  { id: 101, cust: 1, amount: 250 },
+  { id: 102, cust: 3, amount: 40 },
+  { id: 103, cust: 1, amount: 90 },
+  { id: 104, cust: 4, amount: 610 },
+  { id: 105, cust: 6, amount: 75 },
+  { id: 106, cust: 9, amount: 120 },
+];
+---
+
+<qe-corr class="qe-lab qe-corr not-content" data-c={JSON.stringify(customers)} data-o={JSON.stringify(orders)}>
+  <section class="qe-lab-part">
+    <div class="qe-lab-chips" role="group" aria-label="Aggregate in the subquery">
+      <button type="button" data-agg="count" aria-pressed="true">count(*)</button>
+      <button type="button" data-agg="sum" aria-pressed="false">sum(amount)</button>
+    </div>
+    <p class="qe-lab-sql" data-sql></p>
+    <div class="qe-lab-chips prose mode" role="group" aria-label="Evaluation strategy">
+      <button type="button" data-mode="def" aria-pressed="true">By definition, row by row</button>
+      <button type="button" data-mode="dec" aria-pressed="false">Decorrelated, as a join</button>
+    </div>
+
+    <div class="stage">
+      <div>
+        <p class="qe-lab-cap">customer c</p>
+        <ol class="tbl" data-outer></ol>
+      </div>
+      <div>
+        <p class="qe-lab-cap" data-innercap>orders o, scanned for this customer</p>
+        <ol class="tbl" data-inner></ol>
+      </div>
+    </div>
+
+    <div class="qe-lab-row controls">
+      <button type="button" class="qe-lab-btn" data-next>Next customer</button>
+      <button type="button" class="qe-lab-btn quiet" data-all>Run to the end</button>
+      <button type="button" class="qe-lab-btn quiet" data-reset>Reset</button>
+      <span class="meter" data-meter aria-live="polite"></span>
+    </div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-corr>
+
+<script>
+  type C = { id: number; name: string };
+  type O = { id: number; cust: number; amount: number };
+
+  class QeCorr extends HTMLElement {
+    cs: C[] = [];
+    os: O[] = [];
+    agg = 'count';
+    mode = 'def';
+    at = -1; // index of the outer row being evaluated; -1 = not started
+    read = 0;
+
+    connectedCallback() {
+      this.cs = JSON.parse(this.dataset.c!);
+      this.os = JSON.parse(this.dataset.o!);
+      const group = (sel: string, key: 'agg' | 'mode') =>
+        this.querySelectorAll<HTMLButtonElement>(sel).forEach((b) =>
+          b.addEventListener('click', () => {
+            this[key] = b.dataset[key]!;
+            this.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            this.reset();
+          }),
+        );
+      group('[data-agg]', 'agg');
+      group('[data-mode]', 'mode');
+      this.querySelector('[data-next]')!.addEventListener('click', () => this.next());
+      this.querySelector('[data-all]')!.addEventListener('click', () => {
+        while (this.at < this.cs.length - 1) this.next(false);
+        this.render();
+      });
+      this.querySelector('[data-reset]')!.addEventListener('click', () => this.reset());
+      this.reset();
+    }
+
+    reset() {
+      this.at = -1;
+      this.read = 0;
+      this.render();
+    }
+
+    next(draw = true) {
+      if (this.at >= this.cs.length - 1) return;
+      if (this.mode === 'dec' && this.at === -1) this.read = this.os.length; // one pass to group
+      this.at += 1;
+      if (this.mode === 'def') this.read += this.os.length;
+      if (draw) this.render();
+    }
+
+    value(c: C): string {
+      const mine = this.os.filter((o) => o.cust === c.id);
+      if (this.agg === 'count') return String(mine.length);
+      return mine.length ? String(mine.reduce((s, o) => s + o.amount, 0)) : 'NULL';
+    }
+
+    render() {
+      const label = this.agg === 'count' ? 'count(*)' : 'sum(amount)';
+      this.querySelector('[data-sql]')!.textContent = `SELECT name, (SELECT ${label} FROM orders o WHERE o.cust_id = c.id) AS v FROM customer c`;
+      const cur = this.at >= 0 ? this.cs[this.at] : null;
+      const done = this.at === this.cs.length - 1;
+
+      this.querySelector('[data-outer]')!.innerHTML = this.cs
+        .map((c, i) => {
+          const v = i <= this.at ? this.value(c) : '';
+          const cls = [i === this.at ? 'cur' : '', i < this.at ? 'done' : '', v === 'NULL' ? 'nullv' : ''].join(' ');
+          return `<li class="${cls}"><span>${c.id}</span><span>${c.name}</span><b>${v || '·'}</b></li>`;
+        })
+        .join('');
+
+      const inner = this.querySelector('[data-inner]')!;
+      const cap = this.querySelector('[data-innercap]')!;
+      if (this.mode === 'def') {
+        cap.textContent = cur ? `orders o, scanned again for c.id = ${cur.id}` : 'orders o, scanned once per customer';
+        inner.innerHTML = this.os
+          .map((o) => {
+            const hit = cur && o.cust === cur.id;
+            return `<li class="${cur ? (hit ? 'hit' : 'miss') : ''}"><span>${o.id}</span><span>cust ${o.cust}</span><b>${o.amount}</b></li>`;
+          })
+          .join('');
+      } else {
+        cap.textContent = 'orders grouped by cust_id, once';
+        const groups = new Map<number, O[]>();
+        for (const o of this.os) groups.set(o.cust, [...(groups.get(o.cust) ?? []), o]);
+        inner.innerHTML = [...groups.entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([k, g]) => {
+            const v = this.agg === 'count' ? g.length : g.reduce((s, o) => s + o.amount, 0);
+            const hit = cur && k === cur.id;
+            const orphan = !this.cs.some((c) => c.id === k);
+            return `<li class="${this.at >= 0 ? (hit ? 'hit' : 'miss') : ''} ${orphan ? 'orphan' : ''}"><span>cust ${k}</span><span>${g.length} order${g.length > 1 ? 's' : ''}</span><b>${v}</b></li>`;
+          })
+          .join('');
+      }
+
+      const total = this.mode === 'def' ? this.cs.length * this.os.length : this.os.length;
+      this.querySelector('[data-meter]')!.textContent = `Order rows read: ${this.read}${done ? ` of ${total}` : ''}`;
+      (this.querySelector('[data-next]') as HTMLButtonElement).disabled = done;
+      (this.querySelector('[data-all]') as HTMLButtonElement).disabled = done;
+
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      if (!cur) {
+        note.textContent =
+          this.mode === 'def'
+            ? 'The subquery mentions c.id, a column of the outer query, so its answer depends on which customer we are on. By definition it is evaluated once for every outer row.'
+            : 'An engine computes the same answer without re-running anything: aggregate the orders once per cust_id, then look each customer up with a left join.';
+        return;
+      }
+      const v = this.value(cur);
+      if (this.mode === 'def') {
+        note.textContent =
+          v === '0'
+            ? `${cur.name} has no orders. The inner query still returns one row, because count(*) over no rows is 0.`
+            : v === 'NULL'
+              ? `${cur.name} has no orders. sum over no rows is NULL, so the subquery returns NULL.`
+              : `${cur.name}: the inner query finds ${this.os.filter((o) => o.cust === cur.id).length} matching order(s) out of ${this.os.length} read.`;
+        if (done) note.textContent += ` Done: ${this.cs.length} customers × ${this.os.length} orders = ${this.read} rows read. With a million customers and ten million orders, that is ten trillion.`;
+      } else {
+        const found = this.os.some((o) => o.cust === cur.id);
+        note.textContent = found
+          ? `${cur.name} finds the group for cust ${cur.id} in the join.`
+          : this.agg === 'count'
+            ? `${cur.name} has no group, so the left join produces NULL. The engine must turn that NULL into 0, because count(*) of no rows is 0, not NULL. DataFusion's plan does it with CASE WHEN … IS NULL THEN 0.`
+            : `${cur.name} has no group, so the left join produces NULL, which is exactly what sum over no rows returns.`;
+        if (done) note.textContent += ` Done after reading the ${this.os.length} orders once. The order for cust 9 has no customer and is ignored.`;
+      }
+    }
+  }
+  if (!customElements.get('qe-corr')) customElements.define('qe-corr', QeCorr);
+</script>
+
+<style is:global>
+  .qe-corr .mode {
+    margin-top: 0.8rem;
+  }
+  .qe-corr .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
+    margin-top: 0.9rem;
+  }
+  .qe-corr .tbl {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.25rem;
+  }
+  .qe-corr .tbl li {
+    margin: 0 !important;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.4rem;
+    align-items: center;
+    min-height: 2.1rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+    transition: border-color 0.2s, background-color 0.2s, opacity 0.2s;
+  }
+  .qe-corr .tbl li span:first-child {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-corr .tbl li b {
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+  }
+  .qe-corr .tbl li.cur {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-white);
+  }
+  .qe-corr .tbl li.done b {
+    color: var(--sl-color-accent-high);
+  }
+  .qe-corr .tbl li.nullv b {
+    color: var(--qe-pipe-emit);
+  }
+  .qe-corr .tbl li.hit {
+    border-color: var(--qe-pipe-probe);
+    background: color-mix(in srgb, var(--qe-pipe-probe) 18%, var(--sl-color-black));
+    color: var(--sl-color-white);
+  }
+  .qe-corr .tbl li.miss {
+    opacity: 0.5;
+  }
+  .qe-corr .tbl li.orphan {
+    border-style: dashed;
+  }
+  .qe-corr .controls {
+    margin-top: 0.9rem;
+  }
+  .qe-corr .meter {
+    font-size: 0.8125rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-2);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

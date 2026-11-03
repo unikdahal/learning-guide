@@ -1,16 +1,270 @@
 ---
-title: "CTEs and recursive queries"
-description: "Common table expressions, recursion as fixpoint iteration, termination, and UNION vs UNION ALL inside recursion."
+title: CTEs and recursive queries
+description: Common table expressions, recursion as fixpoint iteration, termination, and UNION vs UNION ALL inside recursion.
 level: I
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 12
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import RecursiveFixpoint from '@components/visuals/relational/RecursiveFixpoint.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="ctes-and-recursive-queries" />
+<ArticleMeta module="01" slug="ctes-and-recursive-queries" minutes={15} lab="m01-relational/examples/recursive.rs" />
+
+Every query in this module so far has had a fixed shape. A query with three joins looks three steps away, and
+no further. That is a real limit: "everyone who reports to Mira, directly or through others" has no fixed
+number of steps, because nobody knows how deep the organization goes. Neither does "every city reachable from
+Kathmandu", or "every part inside this assembly".
+
+`WITH RECURSIVE` removes the limit. It is the one place where SQL can repeat a step until nothing changes, and
+it is built on the plainer `WITH` clause, which simply gives a query a name. This article covers both, and
+shows that "recursive" is a slightly misleading name for what is really a loop.
+
+## The question
+
+What does a recursive query compute, step by step, and when does it stop?
+
+## A CTE is a named subquery
+
+`WITH name AS (query)` defines a **common table expression**: a query with a name, usable in the main query
+as if it were a table. It changes how a query reads, not what it can say:
+
+```text title="cargo run --release -p m01-relational --example recursive"
+> WITH managers AS (SELECT DISTINCT manager_id AS id FROM employee WHERE manager_id IS NOT NULL)
+  SELECT e.name FROM employee e JOIN managers m ON e.id = m.id ORDER BY e.id
+| Mira  |
+| Ravi  |
+| Sana  |
+| Tomas |
+| Wen   |
+```
+
+Whether the engine computes a CTE once and stores it, or substitutes its definition wherever it's used, is a
+planning choice. DataFusion substitutes it: a CTE used twice appears twice in the optimized plan, each copy
+with its own scan and filter:
+
+```text title="A CTE referenced twice, optimized plan"
+Inner Join: CAST(a.id AS Int64) + Int64(1) = CAST(b.id AS Int64)
+  SubqueryAlias: a
+    SubqueryAlias: big
+      Filter: employee.id > Int32(4)
+        TableScan: employee projection=[id]
+  SubqueryAlias: b
+    SubqueryAlias: big
+      Filter: employee.id > Int32(4)
+        TableScan: employee projection=[id]
+```
+
+PostgreSQL decides case by case. A side-effect-free CTE "can be folded into the parent query, allowing joint
+optimization of the two query levels. By default, this happens if the parent query references the `WITH`
+query just once, but not if it references the `WITH` query more than once." You can override it with
+`MATERIALIZED` or `NOT MATERIALIZED`. Inlining lets the optimizer push filters into the CTE; materializing
+avoids computing it twice.
+
+## Recursion
+
+A recursive CTE has two parts joined by `UNION ALL` (or `UNION`): an **anchor**, which doesn't mention the
+CTE, and a **recursive term**, which does. The smallest example counts:
+
+```text title="cargo run --release -p m01-relational --example recursive"
+> WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 5) SELECT i FROM n
+| 1 |
+| 2 |
+| 3 |
+| 4 |
+| 5 |
+```
+
+Read as a definition, it says "n contains 1, and i + 1 for every i in n below 5". The question is how an engine
+finds the table that satisfies that. PostgreSQL's documentation gives the algorithm, and adds a note: "While
+`RECURSIVE` allows queries to be specified recursively, internally such queries are evaluated iteratively."
+
+1. Evaluate the anchor. Its rows are the first result rows, and they become the **working table**.
+2. While the working table is not empty: evaluate the recursive term with the working table standing in for
+   the CTE; add the rows it produces to the result; make them the new working table.
+
+For `UNION`, both steps also "discard duplicate rows and rows that duplicate any previous result row". The
+loop ends at a **fixpoint**: a step that adds nothing. Step through it on two datasets:
+
+<RecursiveFixpoint />
+
+The lab runs the same loop by hand in Rust on the org chart, printing the working table at each iteration:
+
+```text title="cargo run --release -p m01-relational --example recursive"
+iteration 0: working table = ["Mira"]
+             step compared 8 pairs, produced 2
+iteration 1: working table = ["Ravi", "Sana"]
+             step compared 16 pairs, produced 3
+iteration 2: working table = ["Tomas", "Uma", "Vik"]
+             step compared 24 pairs, produced 1
+iteration 3: working table = ["Wen"]
+             step compared 8 pairs, produced 1
+iteration 4: working table = ["Xia"]
+             step compared 8 pairs, produced 0
+iteration 5: working table empty, stop. 8 rows
+```
+
+The number of iterations is the depth of the hierarchy, which no one had to know in advance. DataFusion gives
+the same eight rows, and the recursive term can build a value as it goes, here the path from the top:
+
+```text title="cargo run --release -p m01-relational --example recursive"
+> WITH RECURSIVE chain(id, name, depth, path) AS (
+    SELECT id, name, 0 AS depth, name AS path FROM employee WHERE manager_id IS NULL
+    UNION ALL
+    SELECT e.id, e.name, c.depth + 1, concat(c.path, ' > ', e.name)
+    FROM employee e JOIN chain c ON e.manager_id = c.id
+  ) SELECT depth, name, path FROM chain ORDER BY depth, id
++-------+-------+---------------------------------+
+| depth | name  | path                            |
++-------+-------+---------------------------------+
+| 0     | Mira  | Mira                            |
+| 1     | Ravi  | Mira > Ravi                     |
+| 1     | Sana  | Mira > Sana                     |
+| 2     | Tomas | Mira > Ravi > Tomas             |
+| 2     | Uma   | Mira > Ravi > Uma               |
+| 2     | Vik   | Mira > Sana > Vik               |
+| 3     | Wen   | Mira > Ravi > Tomas > Wen       |
+| 4     | Xia   | Mira > Ravi > Tomas > Wen > Xia |
++-------+-------+---------------------------------+
+```
+
+## Why only the working table?
+
+The recursive term joins the working table, the rows found in the last iteration, not the whole result so
+far. Joining the whole result would also be correct, because it reaches the same fixpoint, but it re-derives
+every old row in every iteration. Datalog research calls the two strategies naive and semi-naive evaluation.
+The lab computes the transitive closure of a chain of 200 nodes both ways:
+
+```text title="cargo run --release -p m01-relational --example recursive"
+naive:      199 rounds, 2626800 pairs derived, 19900 in closure
+semi-naive: 199 rounds, 19701 pairs derived, 19900 in closure
+```
+
+Same answer, same number of rounds, 133 times fewer derivations. SQL's working table builds semi-naive
+evaluation into the definition.
+
+## Termination, cycles and UNION
+
+The loop stops only when an iteration produces nothing new. A tree always gets there. A graph with a cycle may
+never: the lab's flights go Kathmandu to Delhi, Delhi to Mumbai, Mumbai back to Kathmandu, and Delhi to Dubai.
+With `UNION ALL`, Kathmandu reappears as a new row in iteration 3, then Delhi again, forever. The lab caps the
+depth at 6 hops to see what happens:
+
+```text title="cargo run --release -p m01-relational --example recursive"
++------+---------------+-------------+
+| city | times_reached | fewest_hops |
++------+---------------+-------------+
+| KTM  | 3             | 0           |
+| DEL  | 2             | 1           |
+| DXB  | 2             | 2           |
+| BOM  | 2             | 2           |
++------+---------------+-------------+
+```
+
+`UNION` stops the cycle by discarding rows already in the result. When the row is just the city, the second
+visit to Kathmandu is a duplicate, the working table empties, and the query ends with the four cities. But if
+the row also carries the hop count, no row ever repeats, because the count keeps growing. PostgreSQL's
+documentation makes the same point: "Because we require a 'depth' output, just changing `UNION ALL` to `UNION`
+would not eliminate the looping." With hops in the row and the 6-hop cap, the lab's `UNION` query returned 9
+rows, not 4.
+
+```text title="cargo run --release -p m01-relational --example recursive"
+> WITH RECURSIVE reach(city) AS (SELECT 'KTM' UNION SELECT f.dst FROM flight f JOIN reach r ON f.src = r.city)
+  SELECT city FROM reach ORDER BY city
+| BOM  |
+| DEL  |
+| DXB  |
+| KTM  |
+```
+
+So there are three ways to stop a query on cyclic data: `UNION` when the rows truly repeat; an explicit depth
+limit in the recursive term; or tracking the path and refusing to revisit a node. PostgreSQL has syntax for
+the last one: the `CYCLE` clause "specifies first the list of columns to track for cycle detection, then a
+column name that will show whether a cycle has been detected, and finally the name of another column that
+will track the path."
+
+<Aside type="caution" title="LIMIT is not a stopping condition">
+A `LIMIT` on the outer query can stop an infinite recursion in some engines. In the lab, DataFusion returned 8
+rows for the cyclic `UNION ALL` query with `LIMIT 8` and stopped. PostgreSQL documents the same behaviour and
+warns against relying on it: "Using this trick in production is not recommended, because other systems might
+work differently. Also, it usually won't work if you make the outer query sort the recursive query's results
+or join them to some other table."
+</Aside>
+
+## In real engines
+
+DataFusion plans a recursive CTE as a `RecursiveQuery` node with two children, the anchor ("static term") and
+the recursive term, which reads the CTE as an ordinary table scan:
+
+```text title="Optimized logical plan"
+SubqueryAlias: chain
+  RecursiveQuery: is_distinct=false
+    Projection: employee.id AS id, Int64(0) AS depth
+      Filter: employee.manager_id IS NULL
+        TableScan: employee projection=[id, manager_id]
+    Projection: e.id, c.depth + Int64(1)
+      Inner Join: e.manager_id = c.id
+        SubqueryAlias: e
+          TableScan: employee projection=[id, manager_id]
+        SubqueryAlias: c
+          TableScan: chain projection=[id, depth]
+```
+
+`is_distinct=false` records that the query uses `UNION ALL`, which keeps duplicates. The `TableScan: chain` is the working table:
+each iteration, the engine runs the recursive term with that scan reading the rows from the previous
+iteration. Everything in the recursive term is an ordinary plan, so it gets the same joins and optimizations
+as any other query.
+
+## Costs and trade-offs
+
+**One join per level.** Each iteration joins the working table with the base table. The hand-run loop
+compared 8, 16, 24, 8 and 8 pairs because it scanned all eight employees for each working row. An engine
+uses a hash join, but the iterations are still sequential: a hierarchy 50 levels deep takes 50 rounds.
+
+**`UNION` costs memory.** To discard rows that duplicate "any previous result row", the engine must remember
+every result row, typically in a hash table. `UNION ALL` keeps nothing but the current working table.
+
+**Recursion is expressive and blunt.** It can express graph traversals that no fixed query can, but it
+knows nothing about graphs. Shortest paths, for example, need the cycle and duplicate handling written by
+hand, and visit far more rows than a dedicated graph algorithm would.
+
+## Check yourself
+
+<details>
+<summary>A recursive CTE over a tree of depth 7 uses UNION ALL. How many times does the recursive term run, and why does it stop?</summary>
+
+Eight times. The anchor finds the root; iterations 1 to 7 find each level below it; iteration 8 finds no
+children of the deepest nodes, so the working table is empty and the loop stops.
+</details>
+
+<details>
+<summary>Why doesn't changing UNION ALL to UNION fix a cycle when each row carries a depth column?</summary>
+
+`UNION` only discards rows identical to earlier rows. Revisiting a node produces the same node with a larger
+depth, a different row, so nothing is discarded and the working table never empties.
+</details>
+
+<details>
+<summary>What is the difference between naive and semi-naive evaluation, and which one does SQL's definition use?</summary>
+
+Naive evaluation applies the recursive step to the entire result so far in each round; semi-naive applies it
+only to the rows that are new since the last round. Both reach the same fixpoint, but naive re-derives old
+rows every round. SQL's working table is semi-naive evaluation.
+</details>
+
+<details>
+<summary>A CTE is referenced three times in a query. What does DataFusion do, and what can PostgreSQL do?</summary>
+
+DataFusion inlines it, so its plan contains three copies of the CTE's subplan, each computed separately.
+PostgreSQL by default materializes a CTE referenced more than once, computing it once and reading the stored
+result three times, and `NOT MATERIALIZED` asks it to inline instead.
+</details>
+
+## Further reading
+
+- PostgreSQL: [WITH queries](https://www.postgresql.org/docs/current/queries-with.html), with the evaluation
+  algorithm, cycle detection, and materialization.
+- François Bancilhon and Raghu Ramakrishnan, "An Amateur's Introduction to Recursive Query Processing
+  Strategies", SIGMOD 1986: naive and semi-naive evaluation.

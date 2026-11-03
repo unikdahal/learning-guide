@@ -11,7 +11,7 @@ import ArticleMeta from '@components/ArticleMeta.astro';
 import ClauseOrder from '@components/visuals/relational/ClauseOrder.astro';
 import { Aside } from '@astrojs/starlight/components';
 
-<ArticleMeta module="01" slug="logical-processing-order-of-a-query" minutes={14} />
+<ArticleMeta module="01" slug="logical-processing-order-of-a-query" minutes={14} lab="m01-relational/examples/clause_order.rs" />
 
 You write `SELECT` first. You give a computed column a name, `amount * 2 AS doubled`, and two lines later
 you filter on it, `WHERE doubled > 200`. The engine replies that there is no such column. It is right

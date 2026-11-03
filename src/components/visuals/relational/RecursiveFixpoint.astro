@@ -1,0 +1,340 @@
+---
+// WITH RECURSIVE as fixpoint iteration, following PostgreSQL's documented evaluation: the working
+// table starts as the anchor's rows; each iteration runs the recursive term on the working table
+// only; UNION also drops rows already in the result; stop when the working table is empty.
+// Org chart and flights match lab/crates/m01-relational/examples/recursive.rs.
+const org = {
+  nodes: [
+    { id: 'Mira', x: 170, y: 22 },
+    { id: 'Ravi', x: 95, y: 78 },
+    { id: 'Sana', x: 250, y: 78 },
+    { id: 'Tomas', x: 55, y: 134 },
+    { id: 'Uma', x: 140, y: 134 },
+    { id: 'Vik', x: 250, y: 134 },
+    { id: 'Wen', x: 55, y: 190 },
+    { id: 'Xia', x: 55, y: 246 },
+  ],
+  edges: [
+    ['Mira', 'Ravi'], ['Mira', 'Sana'], ['Ravi', 'Tomas'], ['Ravi', 'Uma'],
+    ['Sana', 'Vik'], ['Tomas', 'Wen'], ['Wen', 'Xia'],
+  ],
+  anchor: 'Mira',
+  h: 268,
+};
+const flights = {
+  nodes: [
+    { id: 'KTM', x: 50, y: 100 },
+    { id: 'DEL', x: 170, y: 32 },
+    { id: 'BOM', x: 170, y: 168 },
+    { id: 'DXB', x: 290, y: 32 },
+  ],
+  edges: [['KTM', 'DEL'], ['DEL', 'BOM'], ['BOM', 'KTM'], ['DEL', 'DXB']],
+  anchor: 'KTM',
+  h: 200,
+};
+---
+
+<qe-fix class="qe-lab qe-fix not-content" data-org={JSON.stringify(org)} data-flights={JSON.stringify(flights)}>
+  <section class="qe-lab-part">
+    <div class="pickers">
+      <div class="qe-lab-chips prose" role="group" aria-label="Data">
+        <button type="button" data-set="org" aria-pressed="true">Org chart</button>
+        <button type="button" data-set="flights" aria-pressed="false">Flights, with a cycle</button>
+      </div>
+      <div class="qe-lab-chips" role="group" aria-label="Set operator">
+        <button type="button" data-union="all" aria-pressed="true">UNION ALL</button>
+        <button type="button" data-union="distinct" aria-pressed="false">UNION</button>
+      </div>
+    </div>
+    <p class="qe-lab-sql" data-sql></p>
+
+    <div class="board">
+      <svg class="graph" data-svg role="img" aria-label="Graph of the data, highlighting rows found so far"></svg>
+      <div class="tables">
+        <div>
+          <p class="qe-lab-cap" data-wcap>Working table</p>
+          <ul class="chips-out" data-working></ul>
+        </div>
+        <div>
+          <p class="qe-lab-cap" data-rcap>Result so far</p>
+          <ol class="result" data-result></ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="qe-lab-row controls">
+      <button type="button" class="qe-lab-btn" data-next>Next iteration</button>
+      <button type="button" class="qe-lab-btn quiet" data-reset>Reset</button>
+    </div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-fix>
+
+<script>
+  type G = { nodes: { id: string; x: number; y: number }[]; edges: string[][]; anchor: string; h: number };
+  const CAP = 8; // iterations shown before declaring a non-terminating query
+
+  class QeFix extends HTMLElement {
+    sets: Record<string, G> = {};
+    set = 'org';
+    union = 'all';
+    iters: string[][] = []; // working table contents per iteration
+    at = 0;
+
+    connectedCallback() {
+      this.sets = { org: JSON.parse(this.dataset.org!), flights: JSON.parse(this.dataset.flights!) };
+      const pick = (sel: string, key: 'set' | 'union') =>
+        this.querySelectorAll<HTMLButtonElement>(sel).forEach((b) =>
+          b.addEventListener('click', () => {
+            this[key] = b.dataset[key]!;
+            this.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            this.reset();
+          }),
+        );
+      pick('[data-set]', 'set');
+      pick('[data-union]', 'union');
+      this.querySelector('[data-next]')!.addEventListener('click', () => {
+        this.at += 1;
+        this.render();
+      });
+      this.querySelector('[data-reset]')!.addEventListener('click', () => this.reset());
+      this.reset();
+    }
+
+    reset() {
+      const g = this.sets[this.set];
+      const iters: string[][] = [[g.anchor]];
+      const seen = new Set([g.anchor]);
+      while (iters.length <= CAP) {
+        const w = iters[iters.length - 1];
+        let next = w.flatMap((n) => g.edges.filter((e) => e[0] === n).map((e) => e[1]));
+        if (this.union === 'distinct') {
+          next = [...new Set(next)].filter((n) => !seen.has(n));
+          next.forEach((n) => seen.add(n));
+        }
+        iters.push(next);
+        if (next.length === 0) break;
+      }
+      this.iters = iters;
+      this.at = 0;
+      this.drawGraph();
+      this.render();
+    }
+
+    drawGraph() {
+      const g = this.sets[this.set];
+      const svg = this.querySelector('[data-svg]')!;
+      svg.setAttribute('viewBox', `0 0 340 ${g.h}`);
+      const pos = Object.fromEntries(g.nodes.map((n) => [n.id, n]));
+      const edges = g.edges
+        .map(([a, b]) => {
+          const p = pos[a];
+          const q = pos[b];
+          const dx = q.x - p.x;
+          const dy = q.y - p.y;
+          // Fraction of the centre-to-centre vector at which it leaves a 64 × 28 box, plus a
+          // small gap so the arrowhead doesn't touch the target.
+          const t = Math.min(Math.abs(34 / (dx || 1e-9)), Math.abs(16 / (dy || 1e-9)), 0.45);
+          const r = (v: number) => Math.round(v * 10) / 10;
+          return `<line class="e" x1="${r(p.x + dx * t)}" y1="${r(p.y + dy * t)}" x2="${r(q.x - dx * t)}" y2="${r(q.y - dy * t)}" marker-end="url(#qe-fix-arrow)" />`;
+        })
+        .join('');
+      const nodes = g.nodes
+        .map(
+          (n) =>
+            `<g class="n" data-n="${n.id}"><rect x="${n.x - 32}" y="${n.y - 14}" width="64" height="28" rx="7" /><text x="${n.x}" y="${n.y + 4.5}" text-anchor="middle">${n.id}</text><g class="badge"><circle cx="${n.x + 30}" cy="${n.y - 13}" r="9" /><text x="${n.x + 30}" y="${n.y - 9.5}" text-anchor="middle"></text></g></g>`,
+        )
+        .join('');
+      svg.innerHTML = `<defs><marker id="qe-fix-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" /></marker></defs>${edges}${nodes}`;
+    }
+
+    render() {
+      const kw = this.union === 'all' ? 'UNION ALL' : 'UNION';
+      this.querySelector('[data-sql]')!.textContent =
+        this.set === 'org'
+          ? `WITH RECURSIVE chain(id, name) AS (SELECT id, name FROM employee WHERE manager_id IS NULL ${kw} SELECT e.id, e.name FROM employee e JOIN chain c ON e.manager_id = c.id) SELECT name FROM chain`
+          : `WITH RECURSIVE reach(city) AS (SELECT 'KTM' ${kw} SELECT f.dst FROM flight f JOIN reach r ON f.src = r.city) SELECT * FROM reach`;
+
+      const last = this.iters.length - 1;
+      const terminates = this.iters[last].length === 0;
+      const at = Math.min(this.at, last);
+      const working = this.iters[at];
+      const result = this.iters.slice(0, at + 1).flatMap((w, i) => w.map((n) => ({ n, i })));
+      const counts = new Map<string, number>();
+      result.forEach(({ n }) => counts.set(n, (counts.get(n) ?? 0) + 1));
+
+      this.querySelectorAll<SVGGElement>('[data-n]').forEach((el) => {
+        const n = el.dataset.n!;
+        el.classList.toggle('work', working.includes(n));
+        el.classList.toggle('found', counts.has(n) && !working.includes(n));
+        const c = counts.get(n) ?? 0;
+        el.classList.toggle('multi', c > 1);
+        el.querySelector('.badge text')!.textContent = c > 1 ? `×${c}` : '';
+      });
+
+      this.querySelector('[data-wcap]')!.textContent = at === 0 ? 'Working table: the anchor’s rows' : `Working table after iteration ${at}`;
+      this.querySelector('[data-working]')!.innerHTML = working.length
+        ? working.map((n) => `<li>${n}</li>`).join('')
+        : '<li class="empty">empty</li>';
+      this.querySelector('[data-rcap]')!.textContent = `Result so far: ${result.length} row${result.length === 1 ? '' : 's'}`;
+      this.querySelector('[data-result]')!.innerHTML = result
+        .map(({ n, i }) => `<li class="${i === at ? 'new' : ''}"><span>${n}</span><i>iter ${i}</i></li>`)
+        .join('');
+
+      const nextBtn = this.querySelector<HTMLButtonElement>('[data-next]')!;
+      nextBtn.disabled = at >= last;
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      if (at === 0) {
+        note.textContent = 'Evaluate the anchor once. Its rows are the first result rows, and they become the working table. Each iteration joins only the working table, not the whole result.';
+      } else if (working.length === 0) {
+        note.textContent =
+          this.set === 'flights'
+            ? 'The step produced KTM again, but UNION drops rows that duplicate an earlier result row. Nothing new is left, the working table is empty, and the query stops with 4 rows.'
+            : `The step found no one who reports to the last people found. The working table is empty: that is the fixpoint. ${result.length} rows in ${at} iterations.`;
+      } else if (!terminates && at === last) {
+        note.textContent = `${kw} keeps every row, so KTM comes back, then DEL, BOM and DXB again, forever: the working table never empties. Real queries stop this with a depth limit, a cycle check, UNION when rows really repeat, or a LIMIT that some engines honour.`;
+      } else if (this.set === 'flights' && this.union === 'all' && working.includes('KTM')) {
+        note.textContent = 'Back at KTM, where we started. With UNION ALL nothing notices the cycle: KTM is a new row of the working table, and the next iteration will find DEL again.';
+      } else {
+        note.textContent = `Iteration ${at}: the recursive term ran on the ${this.iters[at - 1].length} row${this.iters[at - 1].length === 1 ? '' : 's'} of the previous working table and found ${working.length} new.`;
+      }
+    }
+  }
+  if (!customElements.get('qe-fix')) customElements.define('qe-fix', QeFix);
+</script>
+
+<style is:global>
+  .qe-fix .pickers {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .qe-fix .board {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 1rem;
+    margin-top: 0.9rem;
+    align-items: start;
+  }
+  .qe-fix .graph {
+    width: 100%;
+    height: auto;
+    max-height: 19rem;
+    display: block;
+    font-family: var(--sl-font);
+  }
+  .qe-fix .graph .e {
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.75;
+  }
+  .qe-fix .graph marker path {
+    fill: var(--sl-color-gray-4);
+  }
+  .qe-fix .graph .n rect {
+    fill: var(--sl-color-black);
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.25;
+    transition: fill 0.25s, stroke 0.25s;
+  }
+  .qe-fix .graph .n text {
+    fill: var(--sl-color-gray-3);
+    font-size: 12.5px;
+    font-weight: 650;
+  }
+  .qe-fix .graph .n.found rect {
+    fill: color-mix(in srgb, var(--sl-color-accent) 22%, var(--sl-color-black));
+    stroke: var(--sl-color-accent);
+  }
+  .qe-fix .graph .n.found text,
+  .qe-fix .graph .n.work text {
+    fill: var(--sl-color-white);
+  }
+  .qe-fix .graph .n.work rect {
+    fill: var(--sl-color-accent);
+    stroke: var(--sl-color-accent);
+  }
+  .qe-fix .graph .n.work > text {
+    fill: var(--sl-color-black);
+  }
+  .qe-fix .graph .badge {
+    display: none;
+  }
+  .qe-fix .graph .n.multi .badge {
+    display: inline;
+  }
+  .qe-fix .graph .badge circle {
+    fill: var(--qe-warn);
+  }
+  .qe-fix .graph .badge text {
+    fill: var(--sl-color-black);
+    font-size: 9.5px;
+    font-weight: 800;
+  }
+  .qe-fix .tables {
+    display: grid;
+    gap: 0.8rem;
+  }
+  .qe-fix .chips-out {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .qe-fix .chips-out li {
+    margin: 0 !important;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+  .qe-fix .chips-out li.empty {
+    background: transparent;
+    border: 1px dashed var(--sl-color-gray-4);
+    color: var(--sl-color-gray-3);
+    font-weight: 500;
+  }
+  .qe-fix .result {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.2rem;
+    max-height: 15rem;
+    overflow-y: auto;
+  }
+  .qe-fix .result li {
+    margin: 0 !important;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-fix .result li i {
+    font-style: normal;
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-fix .result li.new {
+    border-color: var(--sl-color-accent);
+  }
+  .qe-fix .controls {
+    margin-top: 0.9rem;
+  }
+  @media (max-width: 40rem) {
+    .qe-fix .board {
+      grid-template-columns: 1fr;
+    }
+    .qe-fix .tables {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>

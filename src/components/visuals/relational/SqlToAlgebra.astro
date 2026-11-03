@@ -1,0 +1,310 @@
+---
+// SQL and its relational algebra tree side by side. Tap a clause or a tree node: both sides
+// highlight and a note explains the mapping. The queries, the algebra and the row counts match
+// lab/crates/m01-relational/examples/sql_to_algebra.rs.
+type Part = { t: string; k?: string };
+type Node = { l: string; k: string[]; c?: Node[] };
+type Q = { name: string; sql: Part[]; tree: Node; linear: string; notes: Record<string, string>; result: string };
+
+const rc: Node = { l: 'ρ c (customer)', k: ['rc'] };
+const ro: Node = { l: 'ρ o (orders)', k: ['ro'] };
+
+const queries: Q[] = [
+  {
+    name: 'Filter one table',
+    sql: [
+      { t: 'SELECT name', k: 'p' },
+      { t: 'FROM customer', k: 'r' },
+      { t: "WHERE region = 'ASIA'", k: 's' },
+    ],
+    tree: { l: 'π name', k: ['p'], c: [{ l: "σ region = 'ASIA'", k: ['s'], c: [{ l: 'customer', k: ['r'] }] }] },
+    linear: "π name (σ region = 'ASIA' (customer))",
+    result: 'Both return Asha and Chen.',
+    notes: {
+      r: 'FROM names the input. A single table is a leaf of the tree: the relation itself.',
+      s: 'WHERE becomes a selection σ, applied to what FROM produced. It sits above the leaf because it runs on its output.',
+      p: 'SELECT becomes a projection π at the top: it runs last among these, on the rows WHERE kept.',
+    },
+  },
+  {
+    name: 'Join, then filter',
+    sql: [
+      { t: 'SELECT c.name, o.amount', k: 'p' },
+      { t: 'FROM customer c', k: 'rc' },
+      { t: 'JOIN orders o', k: 'ro' },
+      { t: 'ON c.id = o.cust_id', k: 'j' },
+      { t: 'WHERE o.amount > 80', k: 's' },
+    ],
+    tree: { l: 'π c.name, o.amount', k: ['p'], c: [{ l: 'σ o.amount > 80', k: ['s'], c: [{ l: '⋈ c.id = o.cust_id', k: ['j'], c: [rc, ro] }] }] },
+    linear: 'π c.name, o.amount (σ o.amount > 80 (ρ c (customer) ⋈ c.id = o.cust_id ρ o (orders)))',
+    result: 'Both return Asha 250, Asha 90 and Dara 610.',
+    notes: {
+      rc: 'A table alias is a rename ρ: it prefixes every attribute with c, so c.id and o.id can’t be confused.',
+      ro: 'The second table gets its own rename. The two leaves are the join’s inputs.',
+      j: 'JOIN … ON becomes a theta join with the ON condition. By definition that is σ applied to the product ×.',
+      s: 'WHERE filters the joined rows, so its σ sits above the join. An optimizer may later push it below, onto orders alone; the translation doesn’t.',
+      p: 'SELECT is the final projection.',
+    },
+  },
+  {
+    name: 'Duplicates',
+    sql: [
+      { t: 'SELECT c.name', k: 'p' },
+      { t: 'FROM customer c', k: 'rc' },
+      { t: 'JOIN orders o', k: 'ro' },
+      { t: 'ON c.id = o.cust_id', k: 'j' },
+    ],
+    tree: { l: 'π c.name', k: ['p'], c: [{ l: '⋈ c.id = o.cust_id', k: ['j'], c: [rc, ro] }] },
+    linear: 'π c.name (ρ c (customer) ⋈ c.id = o.cust_id ρ o (orders))',
+    result: 'DataFusion returns 5 rows; the set algebra returns 4. Asha has two orders.',
+    notes: {
+      p: 'Here the translation is not exact. Set-algebra π removes duplicates, so it returns Asha once. SQL’s SELECT keeps them: Asha appears twice, 5 rows. The faithful translation uses bag semantics; SELECT DISTINCT is what adds duplicate elimination δ.',
+      j: 'Asha matches two orders, so the join produces two Asha rows. Duplicates enter here.',
+      rc: 'Rename the customer table to c.',
+      ro: 'Rename the orders table to o.',
+    },
+  },
+  {
+    name: 'NOT EXISTS',
+    sql: [
+      { t: 'SELECT c.id, c.name', k: 'p' },
+      { t: 'FROM customer c', k: 'rc' },
+      { t: 'WHERE NOT EXISTS (', k: 'ne' },
+      { t: 'SELECT 1 FROM orders o', k: 'ro' },
+      { t: 'WHERE o.cust_id = c.id', k: 'corr' },
+      { t: ')', k: 'ne' },
+    ],
+    tree: {
+      l: '−',
+      k: ['ne'],
+      c: [
+        { l: 'π c.id, c.name', k: ['p'], c: [rc] },
+        { l: 'π c.id, c.name', k: ['p', 'ne'], c: [{ l: '⋈ c.id = o.cust_id', k: ['corr'], c: [rc, ro] }] },
+      ],
+    },
+    linear: 'π c.id, c.name (ρ c (customer)) − π c.id, c.name (ρ c (customer) ⋈ c.id = o.cust_id ρ o (orders))',
+    result: 'Both return Bruno and Emeka.',
+    notes: {
+      ne: 'The basic operators have no NOT EXISTS, so it becomes a difference: every customer, minus the customers that have a match. Both sides must have the same heading, hence the two projections.',
+      corr: 'The correlated condition, which mentions the outer c, becomes a join condition: “has a matching order” is a join with orders.',
+      ro: 'The subquery’s table enters the tree through that join.',
+      rc: 'customer appears twice in the tree: once as “all customers”, once inside “customers with an order”. Engines avoid computing it twice with an anti join, as the plan shows.',
+      p: 'Projections make both sides of − the same shape: (id, name).',
+    },
+  },
+  {
+    name: 'Self-join',
+    sql: [
+      { t: 'SELECT a.name, b.name, a.region', k: 'p' },
+      { t: 'FROM customer a', k: 'ra' },
+      { t: 'JOIN customer b', k: 'rb' },
+      { t: 'ON a.region = b.region AND a.id < b.id', k: 'j' },
+    ],
+    tree: {
+      l: 'π a.name, b.name, a.region',
+      k: ['p'],
+      c: [{ l: '⋈ a.region = b.region ∧ a.id < b.id', k: ['j'], c: [{ l: 'ρ a (customer)', k: ['ra'] }, { l: 'ρ b (customer)', k: ['rb'] }] }],
+    },
+    linear: 'π a.name, b.name, a.region (ρ a (customer) ⋈ a.region = b.region ∧ a.id < b.id ρ b (customer))',
+    result: 'Both return Asha–Chen, Bruno–Farah and Dara–Emeka.',
+    notes: {
+      ra: 'Joining a table with itself is only possible after renaming: without ρ, both copies would have attributes named id, and the product’s heading would have duplicates.',
+      rb: 'The second copy, renamed to b.',
+      j: 'a.id < b.id keeps each pair once, and drops pairing a customer with themself.',
+      p: 'The final projection.',
+    },
+  },
+  {
+    name: 'GROUP BY',
+    sql: [
+      { t: 'SELECT c.region, sum(o.amount) AS total', k: 'g' },
+      { t: 'FROM customer c', k: 'rc' },
+      { t: 'JOIN orders o ON c.id = o.cust_id', k: 'j' },
+      { t: "WHERE c.segment = 'retail'", k: 's' },
+      { t: 'GROUP BY c.region', k: 'g' },
+      { t: 'HAVING sum(o.amount) > 100', k: 'h' },
+      { t: 'ORDER BY total DESC', k: 'o' },
+    ],
+    tree: {
+      l: 'τ total DESC',
+      k: ['o'],
+      c: [
+        {
+          l: 'σ total > 100',
+          k: ['h'],
+          c: [
+            {
+              l: 'γ c.region; sum(o.amount) → total',
+              k: ['g'],
+              c: [{ l: "σ c.segment = 'retail'", k: ['s'], c: [{ l: '⋈ c.id = o.cust_id', k: ['j'], c: [rc, ro] }] }],
+            },
+          ],
+        },
+      ],
+    },
+    linear: "τ total DESC (σ total > 100 (γ c.region; sum(o.amount) → total (σ c.segment = 'retail' (ρ c (customer) ⋈ c.id = o.cust_id ρ o (orders)))))",
+    result: 'AFRICA 610, then ASIA 380.',
+    notes: {
+      g: 'GROUP BY and the aggregates in SELECT together become one grouping operator γ: group by c.region, compute sum(o.amount), name it total. γ outputs exactly the grouping columns and the aggregates, which is why SELECT can’t list anything else.',
+      h: 'HAVING is a σ above γ: an ordinary selection whose input happens to be the groups.',
+      s: 'WHERE is a σ below γ: it filters rows before they are grouped.',
+      j: 'The join comes first, at the bottom.',
+      o: 'ORDER BY becomes a sort τ at the very top. A sorted result is a list, not a relation, so τ can only be the last step.',
+      rc: 'Rename customer to c.',
+      ro: 'Rename orders to o.',
+    },
+  },
+];
+---
+
+<qe-s2a class="qe-lab qe-s2a not-content" data-q={JSON.stringify(queries)}>
+  <section class="qe-lab-part">
+    <div class="qe-lab-chips prose" role="group" aria-label="Query" data-picker>
+      {queries.map((q, i) => <button type="button" data-qi={i} aria-pressed={i === 0 ? 'true' : 'false'}>{q.name}</button>)}
+    </div>
+    <div class="split">
+      <div>
+        <p class="qe-lab-cap">SQL</p>
+        <div class="sql" data-sql></div>
+      </div>
+      <div>
+        <p class="qe-lab-cap">Algebra tree, evaluated bottom up</p>
+        <div class="tree" data-tree></div>
+      </div>
+    </div>
+    <p class="qe-lab-sql linear" data-linear></p>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-s2a>
+
+<script>
+  type Part = { t: string; k?: string };
+  type Node = { l: string; k: string[]; c?: Node[] };
+  type Q = { name: string; sql: Part[]; tree: Node; linear: string; notes: Record<string, string>; result: string };
+
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  class QeS2a extends HTMLElement {
+    qs: Q[] = [];
+    qi = 0;
+    key: string | null = null;
+
+    connectedCallback() {
+      this.qs = JSON.parse(this.dataset.q!);
+      this.querySelectorAll<HTMLButtonElement>('[data-qi]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.qi = Number(b.dataset.qi);
+          this.key = null;
+          this.querySelectorAll('[data-qi]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.draw();
+        }),
+      );
+      this.addEventListener('click', (e) => {
+        const el = (e.target as HTMLElement).closest<HTMLElement>('[data-k]');
+        if (!el || !this.contains(el)) return;
+        const k = el.dataset.k!.split(' ')[0];
+        this.key = this.key === k ? null : k;
+        this.light();
+      });
+      this.draw();
+    }
+
+    draw() {
+      const q = this.qs[this.qi];
+      this.querySelector('[data-sql]')!.innerHTML = q.sql
+        .map((p) => `<button type="button" class="part" data-k="${p.k}">${esc(p.t)}</button>`)
+        .join('');
+      const node = (n: Node): string =>
+        `<li><button type="button" class="node" data-k="${n.k.join(' ')}">${esc(n.l)}</button>${n.c ? `<ul>${n.c.map(node).join('')}</ul>` : ''}</li>`;
+      this.querySelector('[data-tree]')!.innerHTML = `<ul class="root">${node(q.tree)}</ul>`;
+      this.querySelector('[data-linear]')!.textContent = q.linear;
+      this.light();
+    }
+
+    light() {
+      const q = this.qs[this.qi];
+      this.querySelectorAll<HTMLElement>('.part, .node').forEach((el) => {
+        const on = this.key !== null && el.dataset.k!.split(' ').includes(this.key);
+        el.classList.toggle('lit', on);
+        el.setAttribute('aria-pressed', String(on));
+      });
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      note.textContent = this.key ? q.notes[this.key] : `Tap any clause or any node to see where it went. ${q.result}`;
+    }
+  }
+  if (!customElements.get('qe-s2a')) customElements.define('qe-s2a', QeS2a);
+</script>
+
+<style is:global>
+  .qe-s2a .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 1rem;
+    margin-top: 0.9rem;
+  }
+  .qe-s2a .sql {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .qe-s2a .part,
+  .qe-s2a .node {
+    display: block;
+    width: 100%;
+    min-height: 2.2rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    line-height: 1.45;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .qe-s2a .part.lit,
+  .qe-s2a .node.lit {
+    border-color: var(--sl-color-accent) !important;
+    background: color-mix(in srgb, var(--sl-color-accent) 22%, var(--sl-color-black)) !important;
+    color: var(--sl-color-white) !important;
+  }
+  .qe-s2a .tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .qe-s2a .tree ul ul {
+    margin-left: 0.55rem;
+    padding-left: 0.7rem;
+    border-left: 2px solid var(--sl-color-gray-5);
+  }
+  .qe-s2a .tree li {
+    margin: 0.25rem 0 0 !important;
+    position: relative;
+  }
+  .qe-s2a .tree ul ul > li::before {
+    content: '';
+    position: absolute;
+    left: -0.7rem;
+    top: 1.1rem;
+    width: 0.6rem;
+    border-top: 2px solid var(--sl-color-gray-5);
+  }
+  .qe-s2a .tree .node {
+    display: inline-block;
+    width: auto;
+    max-width: 100%;
+    font-size: 0.8125rem;
+    color: var(--sl-color-white);
+  }
+  .qe-s2a .linear {
+    font-size: 0.6875rem;
+  }
+  @media (max-width: 40rem) {
+    .qe-s2a .split {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

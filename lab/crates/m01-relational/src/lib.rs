@@ -119,6 +119,11 @@ impl Relation {
         &self.attrs
     }
 
+    /// The tuples, each with its values in `attrs()` order.
+    pub fn tuples(&self) -> impl Iterator<Item = &[Value]> {
+        self.tuples.iter().map(|t| t.as_slice())
+    }
+
     fn index_of(&self, name: &str) -> usize {
         self.attrs
             .iter()

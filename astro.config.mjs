@@ -51,6 +51,7 @@ export default defineConfig({
         '@fontsource-variable/source-serif-4/opsz-italic.css',
         '@fontsource-variable/jetbrains-mono/wght.css',
         './src/styles/theme.css',
+        './src/styles/lab-visual.css',
       ],
       expressiveCode: {
         themes: ['github-dark-dimmed', 'github-light'],

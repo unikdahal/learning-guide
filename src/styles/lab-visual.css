@@ -1,0 +1,139 @@
+/* ---------- Interactive visual kit ----------
+   Shared frame for interactive figures, so each visual only styles what is unique to it.
+   Usage: <qe-thing class="qe-lab not-content"> with .qe-lab-part sections, .qe-lab-h titles,
+   .qe-lab-chips button groups (aria-pressed marks the choice), .qe-lab-cap captions,
+   .qe-lab-note explanations and .qe-lab-btn actions. On phones the frame bleeds to the screen edge.
+*/
+
+.qe-lab {
+  display: grid;
+  gap: 1.4rem;
+  margin: 2rem 0;
+  padding: 1.2rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 10px;
+  background: var(--sl-color-gray-6);
+  font-family: var(--sl-font);
+  color: var(--sl-color-gray-2);
+}
+.qe-lab .qe-lab-part + .qe-lab-part {
+  padding-top: 1.3rem;
+  border-top: 1px solid var(--sl-color-gray-5);
+}
+.qe-lab .qe-lab-h {
+  margin: 0 0 0.6rem;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--sl-color-white);
+}
+.qe-lab .qe-lab-cap {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--sl-color-gray-3);
+}
+.qe-lab .qe-lab-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+}
+.qe-lab .qe-lab-chips button {
+  min-height: 2.25rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--sl-color-gray-4);
+  background: var(--sl-color-black);
+  color: var(--sl-color-gray-1);
+  font-family: var(--sl-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.qe-lab .qe-lab-chips.prose button {
+  font-family: var(--sl-font);
+  font-size: 0.8125rem;
+}
+.qe-lab [aria-pressed='true'] {
+  border-color: var(--sl-color-accent) !important;
+  background: var(--sl-color-accent) !important;
+  color: var(--sl-color-black) !important;
+}
+.qe-lab button:focus-visible,
+.qe-lab input:focus-visible,
+.qe-lab [tabindex]:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 2px;
+}
+.qe-lab button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.qe-lab .qe-lab-btn {
+  min-height: 2.75rem;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--sl-color-accent);
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-white);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.qe-lab .qe-lab-btn.quiet {
+  border-color: var(--sl-color-gray-4);
+  background: var(--sl-color-black);
+  color: var(--sl-color-gray-1);
+}
+.qe-lab .qe-lab-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.qe-lab .qe-lab-note {
+  margin: 0.8rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--qe-pipe-emit);
+  background: var(--sl-color-black);
+  font-family: var(--qe-font-prose);
+  font-size: 0.9875rem;
+  line-height: 1.5;
+  color: var(--sl-color-gray-1);
+}
+.qe-lab .qe-lab-note code,
+.qe-lab .qe-lab-cap code {
+  font-size: 0.8em;
+  padding: 0.05em 0.3em;
+  border-radius: 4px;
+  background: var(--sl-color-gray-6);
+}
+.qe-lab .qe-lab-sql {
+  margin: 0.8rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--sl-color-gray-5);
+  background: var(--sl-color-black);
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--sl-color-gray-1);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 49.99rem) {
+  .qe-lab {
+    margin-inline: var(--qe-bleed);
+    border-radius: 0;
+    border-inline: 0;
+    padding: 1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qe-lab * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

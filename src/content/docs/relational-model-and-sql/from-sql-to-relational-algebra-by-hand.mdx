@@ -1,16 +1,257 @@
 ---
-title: "From SQL to relational algebra by hand"
-description: "Worked translations of progressively harder queries into algebra trees. The skill every later module assumes."
+title: From SQL to relational algebra by hand
+description: Worked translations of progressively harder queries into algebra trees. The skill every later module assumes.
 level: I
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 13
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import SqlToAlgebra from '@components/visuals/relational/SqlToAlgebra.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="from-sql-to-relational-algebra-by-hand" />
+<ArticleMeta module="01" slug="from-sql-to-relational-algebra-by-hand" minutes={14} lab="m01-relational/examples/sql_to_algebra.rs" />
+
+Every later module of this guide talks about plans: which join runs first, where a filter goes, whether an
+aggregate can be split across machines. A plan is a tree of operators, and the operators are the relational
+algebra of the [second](../relational-algebra-selection-projection-rename/) and
+[third](../joins-in-relational-algebra/) articles of this module, with a few extensions. Reading a plan, or
+judging whether an optimizer's rewrite is safe, starts with one skill: looking at SQL and seeing the tree.
+
+This article turns that into a recipe, applies it to five queries of increasing difficulty, and checks every
+translation twice: once by evaluating the algebra on the lab's tiny Rust engine, once against DataFusion.
+
+## The question
+
+How do you turn any SQL query into an algebra tree, and where does the translation stop being exact?
+
+## The recipe
+
+Build the tree from the bottom up, in the [logical processing order](../logical-processing-order-of-a-query/)
+of the clauses:
+
+1. **`FROM`**: each table is a leaf. An alias is a rename ρ. `JOIN … ON` combines two subtrees with a theta
+   join ⋈ on the `ON` condition; a comma, or `CROSS JOIN`, is a product ×.
+2. **`WHERE`**: a selection σ on top of what `FROM` built.
+3. **`GROUP BY`** and the aggregates: one grouping operator γ, listing the grouping columns and the aggregates.
+4. **`HAVING`**: a selection σ on top of γ.
+5. **`SELECT`**: a projection π. `DISTINCT` adds duplicate elimination δ.
+6. **`UNION`, `INTERSECT`, `EXCEPT`**: ∪, ∩ or − joining the trees of the two queries.
+7. **`ORDER BY`**: a sort τ at the very top, and `LIMIT` above that.
+
+Subqueries in `WHERE` become joins: `EXISTS` and `IN` a semi join, `NOT EXISTS` an anti join or a
+difference, a scalar aggregate a join with a grouped subtree, as the [subqueries article](../subqueries/)
+showed. Try the mapping in both directions:
+
+<SqlToAlgebra />
+
+## Five translations, checked
+
+The lab builds each algebra expression with the tiny engine's operators, evaluates it, runs the SQL in
+DataFusion, and compares the two results as sets. It also prints the plan DataFusion builds before
+optimizing, which turns out to be the same tree in different words.
+
+### 1. Selection and projection
+
+```text title="cargo run --release -p m01-relational --example sql_to_algebra"
+SQL:     SELECT name FROM customer WHERE region = 'ASIA'
+Algebra: π name (σ region = 'ASIA' (customer))
+
+Tiny engine (2 tuples): Asha, Chen
+DataFusion returned 2 rows, 2 distinct: same set
+
+DataFusion's unoptimized logical plan:
+Projection: customer.name
+  Filter: customer.region = Utf8("ASIA")
+    TableScan: customer
+```
+
+Read the plan from the bottom: `TableScan` is the leaf, `Filter` is σ, `Projection` is π. Written inline, the
+algebra reads from the inside out; drawn as a tree, from the bottom up. Both orders are the logical order.
+
+### 2. A join, then a filter
+
+```text title="cargo run --release -p m01-relational --example sql_to_algebra"
+SQL:     SELECT c.name, o.amount FROM customer c JOIN orders o ON c.id = o.cust_id WHERE o.amount > 80
+Algebra: π c.name, o.amount (σ o.amount > 80 (ρ c (customer) ⋈ c.id = o.cust_id ρ o (orders)))
+
+Tiny engine (3 tuples): Asha | 250, Asha | 90, Dara | 610
+DataFusion returned 3 rows, 3 distinct: same set
+
+DataFusion's unoptimized logical plan:
+Projection: c.name, o.amount
+  Filter: o.amount > Int64(80)
+    Inner Join:  Filter: c.id = o.cust_id
+      SubqueryAlias: c
+        TableScan: customer
+      SubqueryAlias: o
+        TableScan: orders
+```
+
+`SubqueryAlias` is DataFusion's name for ρ. Note what the recipe produced: σ above the join, exactly where
+`WHERE` sits in the logical order. The filter only mentions `orders`, so it could run below the join, on
+`orders` alone, and the optimizer will move it there. The translation's job is to be correct; making it fast
+comes later, with the [equivalence rules](../equivalence-rules-of-relational-algebra/) of the next article.
+
+### 3. Duplicates: where the algebra disagrees
+
+```text title="cargo run --release -p m01-relational --example sql_to_algebra"
+SQL:     SELECT c.name FROM customer c JOIN orders o ON c.id = o.cust_id
+Algebra: π c.name (ρ c (customer) ⋈ c.id = o.cust_id ρ o (orders))
+
+Tiny engine (4 tuples): Asha, Chen, Dara, Farah
+DataFusion returned 5 rows, 4 distinct: same set
+```
+
+The two results agree as sets, but DataFusion returned five rows: Asha has two orders, so she appears twice.
+The tiny engine implements Codd's set algebra, where π removes duplicates and a relation can't contain the
+same tuple twice. SQL is a [bag language](../set-operations-and-bag-semantics/): its `SELECT` keeps
+duplicates, and only `SELECT DISTINCT` removes them. The exact translation of SQL uses bag versions of the
+operators, with δ wherever SQL says `DISTINCT`. For most rewrites the difference doesn't matter; for some it
+decides whether a rewrite is valid at all, the subject of this module's last article.
+
+### 4. NOT EXISTS as a difference
+
+```text title="cargo run --release -p m01-relational --example sql_to_algebra"
+SQL:     SELECT c.id, c.name FROM customer c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.cust_id = c.id)
+Algebra: π c.id, c.name (ρ c (customer)) − π c.id, c.name (ρ c (customer) ⋈ c.id = o.cust_id ρ o (orders))
+
+Tiny engine (2 tuples): 2 | Bruno, 5 | Emeka
+DataFusion returned 2 rows, 2 distinct: same set
+
+DataFusion's unoptimized logical plan:
+Projection: c.id, c.name
+  Filter: NOT EXISTS (<subquery>)
+    Subquery:
+      Projection: Int64(1)
+        Filter: o.cust_id = outer_ref(c.id)
+          SubqueryAlias: o
+            TableScan: orders
+    SubqueryAlias: c
+      TableScan: customer
+```
+
+The five basic operators have no "not exists", so the translation says it with a difference: all customers,
+minus those with a matching order. The projections give both sides of − the same heading, which difference
+requires.
+
+DataFusion's unoptimized plan is less finished than the algebra: it keeps the subquery inside the filter, and
+marks the correlated column as `outer_ref(c.id)`. That is a dependent expression, not yet a relational
+operator. Decorrelation, one of the first optimizer rules, rewrites it into an anti join. Translating by hand,
+you do that step yourself.
+
+### 5. A self-join
+
+```text title="cargo run --release -p m01-relational --example sql_to_algebra"
+SQL:     SELECT a.name, b.name, a.region FROM customer a JOIN customer b ON a.region = b.region AND a.id < b.id
+Algebra: π a.name, b.name, a.region (ρ a (customer) ⋈ a.region = b.region ∧ a.id < b.id ρ b (customer))
+
+Tiny engine (3 tuples): Asha | Chen | ASIA, Bruno | Farah | EUROPE, Dara | Emeka | AFRICA
+DataFusion returned 3 rows, 3 distinct: same set
+```
+
+Here ρ is essential, not cosmetic. Without renaming, the product of `customer` with itself would have two
+attributes called `id`, two called `region`, and a heading that isn't a set of names. The condition `a.id <
+b.id` keeps each pair once and never pairs a customer with themself.
+
+### Beyond the basic operators: grouping
+
+Aggregation needs the extended operator γ from the [grouping article](../grouping-and-aggregation-semantics/),
+which the tiny engine doesn't implement, so this one is checked against DataFusion's plan only:
+
+```text title="cargo run --release -p m01-relational --example sql_to_algebra"
+SQL:     SELECT c.region, sum(o.amount) AS total FROM customer c JOIN orders o ON c.id = o.cust_id
+         WHERE c.segment = 'retail' GROUP BY c.region HAVING sum(o.amount) > 100 ORDER BY total DESC
+Algebra: τ total DESC (σ total > 100 (γ c.region; sum(o.amount) → total (σ c.segment = 'retail' (ρ c (customer) ⋈ c.id = o.cust_id ρ o (orders)))))
+
+DataFusion's unoptimized logical plan:
+Sort: total DESC NULLS FIRST
+  Projection: c.region, sum(o.amount) AS total
+    Filter: sum(o.amount) > Int64(100)
+      Aggregate: groupBy=[[c.region]], aggr=[[sum(o.amount)]]
+        Filter: c.segment = Utf8("retail")
+          Inner Join:  Filter: c.id = o.cust_id
+            SubqueryAlias: c
+              TableScan: customer
+            SubqueryAlias: o
+              TableScan: orders
+```
+
+Every line of the algebra has a node: `Aggregate` is γ, the `Filter` above it is `HAVING`'s σ, the `Filter`
+below it is `WHERE`'s, `Sort` is τ. DataFusion keeps a separate `Projection` to name the output column
+`total`; in the algebra, γ's "→ total" does the same. The result is AFRICA 610, then ASIA 380.
+
+## A phrasebook
+
+| SQL | Algebra | DataFusion plan node |
+| --- | --- | --- |
+| a table in `FROM` | relation, a leaf | `TableScan` |
+| an alias | ρ | `SubqueryAlias` |
+| `JOIN … ON p` | ⋈ p | `Inner Join` |
+| `CROSS JOIN`, comma | × | `Cross Join` |
+| `WHERE p`, `HAVING p` | σ p | `Filter` |
+| `GROUP BY` and aggregates | γ | `Aggregate` |
+| `SELECT` list | π | `Projection` |
+| `DISTINCT` | δ | `Distinct`, or an `Aggregate` with no aggregates |
+| `UNION ALL` | ∪ (bag) | `Union` |
+| `ORDER BY` | τ | `Sort` |
+| `EXISTS` / `NOT EXISTS` | semi join ⋉ / anti join ▷ | `LeftSemi Join` / `LeftAnti Join` |
+
+<Aside type="note" title="Where the translation is not one-to-one">
+Four things need care. **Duplicates**: SQL needs bag operators, as query 3 showed. **NULL**: σ keeps only rows
+where the condition is TRUE, so [three-valued logic](../null-and-three-valued-logic/) is part of σ's meaning.
+**Order**: τ produces a list, not a relation, so it can only sit at the top. **Outer joins** need an extended
+join operator that pads unmatched rows with NULLs.
+</Aside>
+
+## Costs and trade-offs
+
+**A correct tree is not a fast one.** Query 4's tree reads `customer` twice and computes a whole join just to
+subtract it; query 2's tree filters after joining. An engine never runs the literal translation. It starts
+from it, and rewrites it with rules that provably keep the result, which is the next article's subject.
+
+**The translation is the contract.** When an optimizer moves a filter or reorders a join, the question is
+always: does the new tree compute the same relation as the old one? Without the original tree, there is
+nothing to compare against.
+
+## Check yourself
+
+<details>
+<summary>Translate SELECT DISTINCT region FROM customer WHERE segment = 'retail' into algebra.</summary>
+
+δ (π region (σ segment = 'retail' (customer))). Under set semantics π already removes duplicates and δ is
+redundant; under SQL's bag semantics, π keeps them and δ is what `DISTINCT` adds.
+</details>
+
+<details>
+<summary>In which order, from the bottom of the tree, do σ for WHERE, γ, σ for HAVING and π appear? Why can't the two σ be swapped?</summary>
+
+σ (`WHERE`), then γ, then σ (`HAVING`), then π. `WHERE`'s condition refers to input rows, which no longer exist
+above γ; `HAVING`'s refers to aggregates, which don't exist yet below it.
+</details>
+
+<details>
+<summary>Why does a self-join need ρ, while a join of two different tables often works without it?</summary>
+
+A product's heading is the union of both headings, and a heading can't contain the same attribute name twice.
+Two different tables usually have some distinct names, but a table joined with itself has every name twice,
+so at least one side must be renamed.
+</details>
+
+<details>
+<summary>DataFusion's unoptimized plan for a NOT EXISTS query contains outer_ref(c.id). What does that mean, and what does it become?</summary>
+
+It marks a correlated reference: the subquery uses a column of the outer query's current row, so the subquery
+isn't yet a standalone relation. Decorrelation rewrites the filter and its subquery into an anti join on
+`c.id = o.cust_id`.
+</details>
+
+## Further reading
+
+- PostgreSQL: [the SELECT reference](https://www.postgresql.org/docs/current/sql-select.html), whose
+  description section lists the processing steps the recipe follows.
+- E. F. Codd, [A Relational Model of Data for Large Shared Data Banks](https://dl.acm.org/doi/10.1145/362384.362685),
+  CACM 1970.
+- Hector Garcia-Molina, Jeffrey D. Ullman and Jennifer Widom, *Database Systems: The Complete Book*, the
+  chapters on relational algebra and on bags.

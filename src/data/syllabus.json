@@ -2255,7 +2255,7 @@
           "scope": "Integers, decimals, floats, strings, dates and timestamps. Overflow, decimal precision and scale, float equality, collation and time zones.",
           "visual": "Decimal precision/scale calculator",
           "path": "relational-model-and-sql/data-types-and-their-traps",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 10,
@@ -2265,7 +2265,7 @@
           "scope": "Scalar, IN, EXISTS and correlated subqueries, their exact semantics, and the NULL edge cases of IN and NOT IN.",
           "visual": "Correlated subquery re-evaluating per outer row",
           "path": "relational-model-and-sql/subqueries",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 11,
@@ -2275,7 +2275,7 @@
           "scope": "PARTITION BY, ORDER BY and frames as a definition, independent of how engines compute them.",
           "visual": "Moving frame over an ordered partition",
           "path": "relational-model-and-sql/window-function-semantics",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 12,
@@ -2285,7 +2285,7 @@
           "scope": "Common table expressions, recursion as fixpoint iteration, termination, and UNION vs UNION ALL inside recursion.",
           "visual": "Fixpoint iterations growing a hierarchy",
           "path": "relational-model-and-sql/ctes-and-recursive-queries",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 13,
@@ -2295,7 +2295,7 @@
           "scope": "Worked translations of progressively harder queries into algebra trees. The skill every later module assumes.",
           "visual": "Side-by-side SQL and algebra tree with linked highlighting",
           "path": "relational-model-and-sql/from-sql-to-relational-algebra-by-hand",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 14,

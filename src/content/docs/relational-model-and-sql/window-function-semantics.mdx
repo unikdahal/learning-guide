@@ -1,16 +1,302 @@
 ---
-title: "Window function semantics"
-description: "PARTITION BY, ORDER BY and frames as a definition, independent of how engines compute them."
+title: Window function semantics
+description: PARTITION BY, ORDER BY and frames as a definition, independent of how engines compute them.
 level: I
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 11
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import WindowFrames from '@components/visuals/relational/WindowFrames.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="window-function-semantics" />
+<ArticleMeta module="01" slug="window-function-semantics" minutes={16} lab="m01-relational/examples/windows.rs" />
+
+`GROUP BY` answers questions about groups, and gives up the rows to do it: ask for each region's total and
+you get one row per region. Many questions need both at once. A running total next to each sale. Each order's
+share of its region's revenue. The three most recent orders per customer. The change since the previous day.
+
+**Window functions** answer these. A window function computes a value for each row from a set of related
+rows, its window, and keeps every row. The syntax is short, `OVER (…)`, and the meaning has one hidden
+default that catches nearly everyone. This article defines windows precisely, using the lab's sales table.
+
+## The question
+
+For each row, exactly which rows does a window function look at?
+
+## A window keeps every row
+
+Here is the same total computed both ways. The lab's `sales` table has six rows for `east` and three for
+`west`:
+
+```text title="cargo run --release -p m01-relational --example windows"
+> SELECT region, sum(amount) AS total FROM sales GROUP BY region ORDER BY region
+| east   | 155   |
+| west   | 24    |
+
+> SELECT id, region, amount, sum(amount) OVER (PARTITION BY region) AS region_total FROM sales ORDER BY id
++----+--------+--------+--------------+
+| id | region | amount | region_total |
++----+--------+--------+--------------+
+| 1  | east   | 10     | 155          |
+| 2  | east   | 20     | 155          |
+| 3  | east   | 30     | 155          |
+| 4  | east   | 5      | 155          |
+| 5  | east   | 40     | 155          |
+| 6  | east   | 50     | 155          |
+| 7  | west   | 7      | 24           |
+| 8  | west   | 8      | 24           |
+| 9  | west   | 9      | 24           |
++----+--------+--------+--------------+
+```
+
+`GROUP BY` collapsed nine rows into two. The window version kept all nine and attached the total to each, so
+each row can be compared with its group: `100.0 * amount / sum(amount) OVER (PARTITION BY region)` is each
+sale's share, which the lab computes too.
+
+## Three parts define the window
+
+The `OVER` clause has up to three parts, each narrowing the last:
+
+1. **`PARTITION BY`** splits the rows into partitions. A row's window never reaches outside its partition.
+   Without it, the whole result is one partition.
+2. **`ORDER BY`** orders the rows within each partition. It also defines **peers**: rows that compare equal on
+   the `ORDER BY` keys. In the lab's data, ordered by `day`, the two rows of day 3 are peers.
+3. **The frame** picks, for the current row, which rows of the partition the function sees, relative to the
+   current row's position.
+
+The crucial idea is that each row has its own window. A running total isn't one computation over the
+partition; it is six computations, one per row, over six different frames that happen to overlap.
+
+## The default frame
+
+If you write `ORDER BY` and no frame, you still get one. PostgreSQL's documentation: "The default framing
+option is RANGE UNBOUNDED PRECEDING, which is the same as RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW.
+With ORDER BY, this sets the frame to be all rows from the partition start up through the current row's last
+ORDER BY peer. Without ORDER BY, this means all rows of the partition are included in the window frame, since
+all rows become peers of the current row."
+
+"Through the current row's last peer" is the hidden default. It makes a running total jump over ties:
+
+```text title="cargo run --release -p m01-relational --example windows"
++----+-----+--------+---------------+------------+------------------+
+| id | day | amount | default_frame | rows_frame | rows_total_order |
++----+-----+--------+---------------+------------+------------------+
+| 1  | 1   | 10     | 10            | 10         | 10               |
+| 2  | 2   | 20     | 30            | 30         | 30               |
+| 3  | 3   | 30     | 65            | 60         | 60               |
+| 4  | 3   | 5      | 65            | 65         | 65               |
+| 5  | 5   | 40     | 105           | 105        | 105              |
+| 6  | 6   | 50     | 155           | 155        | 155              |
++----+-----+--------+---------------+------------+------------------+
+```
+
+With the default frame, both day-3 rows include each other, so both show 65. With `ROWS BETWEEN UNBOUNDED
+PRECEDING AND CURRENT ROW`, the frame stops at the current row itself, giving 60 and then 65. But `rows_frame`
+ordered only by `day`, so which of the two peers comes first is the engine's choice, and the 60 could have
+gone to either row, the problem from the [ORDER BY article](../order-by-limit-and-determinism/). Only
+`rows_total_order`, ordered by `day, id`, is fully determined.
+
+DataFusion writes the default into its plan, so you can see it there:
+
+```text title="Optimized logical plan, trimmed"
+WindowAggr: windowExpr=[[sum(CAST(sales.amount AS Int64)) PARTITION BY [sales.region]
+  ORDER BY [sales.day ASC NULLS LAST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW]]
+```
+
+Try frames on the same partition: pick a current row, a mode and the bounds.
+
+<WindowFrames />
+
+## ROWS, RANGE and GROUPS
+
+The frame's bounds can be counted in three units, and they only differ when there are ties or gaps.
+PostgreSQL's definitions:
+
+- **ROWS**: "the frame starts or ends the specified number of rows before or after the current row."
+- **RANGE**: "The offset specifies the maximum difference between the value of that column in the current row
+  and its value in preceding or following rows of the frame." It needs exactly one `ORDER BY` column, because
+  it measures distance in that column's values.
+- **GROUPS**: "the frame starts or ends the specified number of peer groups before or after the current row's
+  peer group, where a peer group is a set of rows that are equivalent in the ORDER BY ordering."
+
+The lab's data has both a tie on day 3 and a gap at day 4, so the three modes give three different answers
+for the same `1 PRECEDING`:
+
+```text title="cargo run --release -p m01-relational --example windows"
++----+-----+--------+--------+---------+----------+
+| id | day | amount | rows_1 | range_1 | groups_1 |
++----+-----+--------+--------+---------+----------+
+| 1  | 1   | 10     | 10     | 10      | 10       |
+| 2  | 2   | 20     | 30     | 30      | 30       |
+| 3  | 3   | 30     | 50     | 55      | 55       |
+| 4  | 3   | 5      | 35     | 55      | 55       |
+| 5  | 5   | 40     | 45     | 40      | 75       |
+| 6  | 6   | 50     | 90     | 90      | 90       |
++----+-----+--------+--------+---------+----------+
+```
+
+Look at day 5. `ROWS 1 PRECEDING` takes the physical row before it, the second day-3 row: 5 + 40 = 45.
+`RANGE 1 PRECEDING` takes rows whose day is within 1 of 5, that is day 4 or 5; there is no day 4, so only
+the row itself: 40. `GROUPS 1 PRECEDING` takes the previous peer group, both day-3 rows, whatever their day:
+30 + 5 + 40 = 75.
+
+The difference matters for a moving average over time. With one row per day except a missing day 4, "the
+last three rows" and "the last three days" are different questions:
+
+```text title="cargo run --release -p m01-relational --example windows"
++-----+--------+------------+------------+
+| day | amount | avg_3_rows | avg_3_days |
++-----+--------+------------+------------+
+| 1   | 10     | 10.0       | 10.0       |
+| 2   | 20     | 15.0       | 15.0       |
+| 3   | 30     | 20.0       | 20.0       |
+| 5   | 40     | 30.0       | 35.0       |
+| 6   | 50     | 40.0       | 45.0       |
++-----+--------+------------+------------+
+```
+
+On day 5, three rows reach back to day 2; three days reach back only to day 3. If your data can have gaps,
+`RANGE` over the date column says what you mean.
+
+The standard also lets a frame exclude rows around the current one, with `EXCLUDE CURRENT ROW`, `EXCLUDE
+GROUP`, `EXCLUDE TIES` or `EXCLUDE NO OTHERS`. PostgreSQL supports it; DataFusion 55.2's parser rejected it
+in the lab, with "Expected: ), found: EXCLUDE".
+
+## The last_value trap
+
+`first_value` and `last_value` return the first and last value in the frame, not in the partition. Under the
+default frame, the frame ends at the current row, so `last_value` returns the current row's own value:
+
+```text title="cargo run --release -p m01-relational --example windows"
++----+-----+--------+---------------+-----------------+-------+
+| id | day | amount | default_frame | whole_partition | first |
++----+-----+--------+---------------+-----------------+-------+
+| 1  | 1   | 10     | 10            | 50              | 10    |
+| 2  | 2   | 20     | 20            | 50              | 10    |
+| 3  | 3   | 30     | 30            | 50              | 10    |
+| 4  | 3   | 5      | 5             | 50              | 10    |
+| 5  | 5   | 40     | 40            | 50              | 10    |
+| 6  | 6   | 50     | 50            | 50              | 10    |
++----+-----+--------+---------------+-----------------+-------+
+```
+
+PostgreSQL's documentation warns about exactly this: the default frame "is likely to give unhelpful results
+for `last_value`". The fix is to say which frame you want: `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED
+FOLLOWING`.
+
+## Ranking and offset functions
+
+Not every window function uses the frame. The ranking functions depend only on the partition's order and its
+peers. PostgreSQL defines `row_number` as "the number of the current row within its partition, counting from
+1", `rank` as "the rank of the current row, with gaps; that is, the `row_number` of the first row in its peer
+group", and `dense_rank` as "the rank of the current row, without gaps; this function effectively counts peer
+groups":
+
+```text title="cargo run --release -p m01-relational --example windows"
++----+-----+------------+------+------------+--------------+---------+
+| id | day | row_number | rank | dense_rank | percent_rank | ntile_2 |
++----+-----+------------+------+------------+--------------+---------+
+| 1  | 1   | 1          | 1    | 1          | 0.0          | 1       |
+| 2  | 2   | 2          | 2    | 2          | 0.2          | 1       |
+| 3  | 3   | 3          | 3    | 3          | 0.4          | 1       |
+| 4  | 3   | 4          | 3    | 3          | 0.4          | 2       |
+| 5  | 5   | 5          | 5    | 4          | 0.8          | 2       |
+| 6  | 6   | 6          | 6    | 5          | 1.0          | 2       |
++----+-----+------------+------+------------+--------------+---------+
+```
+
+The peers share `rank` 3, and the next rank is 5, leaving a gap; `dense_rank` continues at 4. `row_number`
+gives the peers 3 and 4, but which peer gets which is undetermined, because the window orders only by
+`day`. So the common "keep `row_number() = 1` per group" pattern needs a unique `ORDER BY` inside the window.
+
+`lag` and `lead` read the value a fixed number of rows away, again by position, not by value. In the
+gap-day data, `lag(day)` on day 5 is 3, not 4, and `lead(amount, 1, 0)` on the last row returns its default,
+0.
+
+## Where windows sit in a query
+
+Window functions are computed in the `SELECT` step of the
+[logical order](../logical-processing-order-of-a-query/): after `WHERE`, `GROUP BY` and `HAVING`, before
+`DISTINCT`, `ORDER BY` and `LIMIT`. So a window sees only the rows that survived filtering, and can't itself
+be filtered in `WHERE`; filtering on a window result needs a subquery or `QUALIFY`. A query can use several
+windows, and the `WINDOW` clause names a definition to reuse:
+
+```sql
+SELECT id, region, day, amount,
+       sum(amount) OVER w AS running,
+       round(100.0 * amount / sum(amount) OVER (PARTITION BY region), 1) AS pct_of_region
+FROM sales
+WINDOW w AS (PARTITION BY region ORDER BY day, id)
+ORDER BY region, day, id;
+```
+
+## In real engines
+
+DataFusion plans each distinct window definition as a `WindowAggr` node. The lab's query with two different
+windows got two, stacked:
+
+```text title="Optimized logical plan, trimmed"
+Projection: sales.id, sum(...) AS running, rank() ... AS r
+  WindowAggr: windowExpr=[[rank() ORDER BY [sales.amount DESC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW]]
+    Projection: sales.id, sales.amount, sum(...)
+      WindowAggr: windowExpr=[[sum(CAST(sales.amount AS Int64)) PARTITION BY [sales.region] ORDER BY [sales.day ASC NULLS LAST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW]]
+        TableScan: sales projection=[id, day, region, amount]
+```
+
+To compute a window, the engine needs each partition's rows together and in `ORDER BY` order, which usually
+means sorting by the partition keys and then the order keys. Two windows with different orderings need two
+orders. [Module 10](../../sorting-and-windows/executing-window-functions/) covers how engines execute this.
+
+## Costs and trade-offs
+
+**Frame shapes cost differently.** A running total can be updated as each row arrives: add the new value. A
+sliding `sum` over the last N rows also subtracts the value that leaves the frame. `min` and `max` can't be
+updated by subtraction, so a sliding minimum needs a smarter structure or a recomputation. A whole-partition
+frame needs every row of the partition before it can output anything.
+
+**Defaults are part of the meaning.** Writing the frame explicitly costs one line and removes the peer
+surprise, the `last_value` trap and the tie-order question.
+
+**A window is not free just because it keeps the rows.** It needs the same sort or partitioning a `GROUP BY`
+would, and often more memory, because it must hold a partition's rows rather than one running state per group.
+
+## Check yourself
+
+<details>
+<summary>sum(amount) OVER (ORDER BY day) gives two consecutive rows the same running total. Why, and how do you get a strict row-by-row running total?</summary>
+
+The two rows are peers, with the same `day`, and the default frame is `RANGE BETWEEN UNBOUNDED PRECEDING AND
+CURRENT ROW`, which runs to the current row's last peer. Use `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT
+ROW`, and add a unique column to the `ORDER BY` so the order of the peers is defined.
+</details>
+
+<details>
+<summary>Days 1, 2, 3, 5 and 6 each have one row. For day 5, which rows are in ROWS BETWEEN 2 PRECEDING AND CURRENT ROW, and in RANGE BETWEEN 2 PRECEDING AND CURRENT ROW?</summary>
+
+`ROWS`: the two physical rows before it, days 2 and 3, plus day 5. `RANGE`: rows with day between 3 and 5,
+that is days 3 and 5, because day 4 doesn't exist.
+</details>
+
+<details>
+<summary>Why does last_value(x) OVER (PARTITION BY g ORDER BY t) usually return x itself?</summary>
+
+The default frame ends at the current row (or its last peer), so the last row in the frame is the current
+row. Extend the frame with `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`.
+</details>
+
+<details>
+<summary>Three rows tie for first place. What do row_number, rank and dense_rank give them, and what does the next row get?</summary>
+
+`row_number`: 1, 2 and 3 in an undetermined order, then 4. `rank`: 1, 1, 1, then 4. `dense_rank`: 1, 1, 1,
+then 2.
+</details>
+
+## Further reading
+
+- PostgreSQL: [window function calls](https://www.postgresql.org/docs/current/sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS),
+  the [window functions reference](https://www.postgresql.org/docs/current/functions-window.html) and the
+  [window functions tutorial](https://www.postgresql.org/docs/current/tutorial-window.html).
+- Viktor Leis, Kan Kundhikanjana, Alfons Kemper and Thomas Neumann, "Efficient Processing of Window
+  Functions in Analytical SQL Queries", PVLDB 8(10), 2015.

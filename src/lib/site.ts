@@ -73,3 +73,11 @@ export const allArticles = (): (Article & { module: Module; part: Part })[] =>
   data.parts.flatMap((p) =>
     p.modules.map(moduleById).flatMap((m) => m.articles.map((a) => ({ ...a, module: m, part: p }))),
   );
+
+/** The guide's source repository, for links to lab code. */
+export const REPO = 'https://github.com/unikdahal/learning-guide';
+
+/** A link to a file in the lab, given its path under lab/crates/. */
+export function labUrl(path: string): string {
+  return `${REPO}/blob/main/lab/crates/${path}`;
+}

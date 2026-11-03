@@ -1,16 +1,358 @@
 ---
-title: "Data types and their traps"
-description: "Integers, decimals, floats, strings, dates and timestamps. Overflow, decimal precision and scale, float equality, collation and time zones."
+title: Data types and their traps
+description: Integers, decimals, floats, strings, dates and timestamps. Overflow, decimal precision and scale, float equality, collation and time zones.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 9
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import DecimalCalc from '@components/visuals/relational/DecimalCalc.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="data-types-and-their-traps" />
+<ArticleMeta module="01" slug="data-types-and-their-traps" minutes={17} lab="m01-relational/examples/types.rs" />
+
+Every earlier article in this module treated a value as a value: 250 is 250, 'ASIA' is 'ASIA'. A real
+engine has to store each value in a fixed number of bits, under a type, and the type decides what happens
+at the edges. Add one to the largest integer. Divide one by three and multiply by three. Sort the strings
+'10' and '9'. Ask which day a timestamp falls on. None of these has the answer arithmetic class taught
+you, and the answer you do get depends on the engine.
+
+This article tours the five families of types, shows what DataFusion does at each edge, and compares it
+with what other engines document. The surprises are the point: most of them produce no error, just a
+different number.
+
+## The question
+
+What does each data type actually store, and where do its answers stop matching the mathematics?
+
+## Integers: fixed width, and a cliff at the edge
+
+An `INT` is 32 bits and holds −2,147,483,648 to 2,147,483,647. A `BIGINT` is 64 bits. There is no room for
+anything larger, so the question is what happens when a result doesn't fit. Rust makes you choose, and the
+lab prints both choices:
+
+```text title="cargo run --release -p m01-relational --example types"
+i32::MAX                  = 2147483647
+i32::MAX.checked_add(1)   = None
+i32::MAX.wrapping_add(1)  = -2147483648
+```
+
+`checked_add` reports the overflow; `wrapping_add` wraps around to the most negative value. SQL engines
+make the same choice for you, and they don't all choose the same way. MySQL's manual says an integer result
+beyond the 64-bit range "produces an error", and PostgreSQL raises "integer out of range". DataFusion wraps:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT CAST(2147483647 AS INT) + CAST(1 AS INT) AS overflow
++-------------+
+| overflow    |
++-------------+
+| -2147483648 |
++-------------+
+
+> SELECT CAST(9223372036854775807 AS BIGINT) + 1 AS overflow
++----------------------+
+| overflow             |
++----------------------+
+| -9223372036854775808 |
++----------------------+
+```
+
+This is deliberate, not an accident. DataFusion's physical `BinaryExpr` has a `fail_on_overflow` flag that
+switches `+`, `-` and `*` between arrow's checked and wrapping kernels; it is `false` unless whoever builds
+the plan turns it on, and SQL queries leave it off.
+
+Two defences make overflow rarer than it sounds. `sum` over an `INT` column returns a `BIGINT`, so two
+values of two billion add up correctly to 4,000,000,000 rather than wrapping. And converting text to a type
+that can't hold it is an error, not a wrap: `CAST('3000000000' AS INT)` fails with "Cannot cast string
+'3000000000' to value of Int32 type".
+
+Integer division truncates toward zero, so `7 / 2` is 3 and `-7 / 2` is −3, and `-7 % 2` is −1. Dividing an
+integer by zero is an error, "Divide by zero error".
+
+## Decimals: exact, within a precision and a scale
+
+`DECIMAL(p, s)` stores a number exactly, as an integer with an implied decimal point. PostgreSQL's
+documentation defines the two parameters: "The precision of a numeric is the total count of significant
+digits in the whole number, that is, the number of digits to both sides of the decimal point. The scale of a
+numeric is the count of decimal digits in the fractional part." `DECIMAL(5, 2)` holds −999.99 to 999.99,
+stored as the integers −99999 to 99999.
+
+What happens to a value that doesn't fit depends on which side doesn't fit. Extra fractional digits are
+rounded; extra integer digits are an error:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT CAST(123.456 AS DECIMAL(5,2)) AS rounds
+| 123.46 |
+
+> SELECT CAST(s AS DECIMAL(5,2)) AS too_big FROM raw_d      -- s = '12345.6'
+error: Arrow error: Invalid argument error: 12345.60 is too large to store in a Decimal128 of precision 5. Max is 999.99
+```
+
+<Aside type="caution" title="A decimal literal that isn't one">
+In DataFusion, `1.005` written in a query is a `Float64`, not a decimal. The nearest double to 1.005 is
+slightly below it, so casting it to `DECIMAL(10,2)` rounds down:
+
+```text
+> SELECT CAST(1.005 AS DECIMAL(10,2)) AS from_float_literal, CAST('1.005' AS DECIMAL(10,2)) AS from_string, arrow_typeof(1.005) AS literal_t
+| 1.00               | 1.01        | Float64   |
+```
+
+PostgreSQL types such a literal as `numeric`, so the same query gives 1.01 there. When exact decimal input
+matters, write it as a string and cast it.
+</Aside>
+
+### What type does arithmetic return?
+
+Adding two decimals can produce a value neither type can hold: 999.99 + 0.01 needs a fourth integer digit.
+So engines compute a new result type from the input types, by formula. DataFusion uses the rules of arrow-rs,
+which in turn follow Hive's. Try them:
+
+<DecimalCalc />
+
+The formulas are visible in the calculator, and the lab confirms them: `DECIMAL(10,2) + DECIMAL(5,4)` is
+`Decimal128(13, 4)`, the product is `Decimal128(16, 6)`, and the quotient is `Decimal128(18, 6)`. Division
+can't be exact in general, so its result scale is the dividend's scale plus 4. MySQL documents the same
+increment: the scale of a division is "the scale of the first operand plus the value of the
+`div_precision_increment` system variable (which is 4 by default)". PostgreSQL uses its own, more generous
+rule. And arrow-rs truncates the quotient rather than rounding it:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT CAST(1 AS DECIMAL(10,2)) / CAST(3 AS DECIMAL(10,2)) AS third,
+         CAST(1 AS DECIMAL(10,2)) / CAST(3 AS DECIMAL(10,2)) * CAST(3 AS DECIMAL(10,2)) AS times_three
+| 0.333333 | 0.99999900  |
+
+> SELECT CAST(2 AS DECIMAL(10,2)) / CAST(3 AS DECIMAL(10,2)) AS two_thirds, round(2.0 / 3.0, 6) AS float_rounded
+| 0.666666   | 0.666667      |
+```
+
+Decimals are exact for addition, subtraction and multiplication. Division brings rounding back, and the
+error stays in every later step: a third, times three, is 0.999999.
+
+### The edge of the range
+
+`Decimal128` stores the unscaled integer in 128 bits, which caps precision at 38 digits. At that cap, the
+result type can't grow any more, and the lab found two different behaviours:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT d * CAST(10 AS DECIMAL(38,0)) AS times_ten FROM dmax LIMIT 1
+error: Arrow error: Arithmetic overflow: Overflow happened on: 99999999999999999999999999999999999999 * 10
+
+> SELECT sum(d) AS total, arrow_typeof(sum(d)) AS t FROM dmax      -- three rows of the largest DECIMAL(38,0)
++-----------------------------------------+-------------------+
+| total                                   | t                 |
++-----------------------------------------+-------------------+
+| -40282366920938463463374607431768211459 | Decimal128(38, 0) |
++-----------------------------------------+-------------------+
+```
+
+Multiplication checks for overflow of the 128-bit integer and fails. `sum` wraps around and returns a
+negative total. That matches a design choice stated in a DataFusion issue about a related aggregate: "The
+`sum` aggregate and the other `avg` accumulators deliberately wrap on overflow." For ordinary data this
+never happens: `sum` over `DECIMAL(20,2)` returns `DECIMAL(30,2)`, ten more digits of headroom. But it shows
+why "exact" is a property of values that fit, not a promise.
+
+## Floats: approximate by design
+
+`REAL` and `DOUBLE` store a binary fraction and an exponent, the IEEE 754 format. Most decimal fractions,
+including 0.1, have no exact binary representation, so they are stored as the nearest representable value.
+PostgreSQL's documentation calls these types "inexact" and warns that "comparing two floating-point values
+for equality might not always work as expected":
+
+```text title="cargo run --release -p m01-relational --example types"
+0.1 + 0.2                 = 0.30000000000000004
+0.1 + 0.2 == 0.3          = false
+ten million 0.1s, f32 sum = 1087937
+ten million 0.1s, f64 sum = 999999.9998389754
+```
+
+Each addition rounds its result to the nearest representable value, and the rounding errors add up. In 32-bit
+floats, adding 0.1 ten million times gives 1,087,937 instead of 1,000,000. The second part of the calculator
+above recomputes this in your browser. A `DECIMAL` sum of the same values is exact, which is why money
+belongs in decimals or in integer cents:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT sum(f) AS float_sum, sum(d) AS decimal_sum, arrow_typeof(sum(d)) AS t FROM ledger   -- 1,000,000 rows of 0.1
++-------------------+-------------+-------------------+
+| float_sum         | decimal_sum | t                 |
++-------------------+-------------+-------------------+
+| 99999.99999999633 | 100000.00   | Decimal128(30, 2) |
++-------------------+-------------+-------------------+
+```
+
+Notice that DataFusion's float sum of a million 0.1s isn't what a simple loop gives. Float addition is not
+associative: `(a + b) + c` can differ from `a + (b + c)`. An engine that adds in batches and combines partial
+sums from several threads adds in a different order from a loop, so it gets a different rounding error. A
+float aggregate's last digits depend on the order of evaluation, which the engine doesn't promise.
+
+### NaN, infinity and negative zero
+
+IEEE 754 also defines special values. Dividing a float by zero gives infinity, not an error: `1.0 / 0.0`
+returned `inf`. And it defines NaN, "not a number", which by the standard equals nothing, not even itself.
+A sort needs every pair of values to compare consistently, so PostgreSQL bends the rule, and documents why:
+"In order to allow floating-point values to be sorted and used in tree-based indexes, PostgreSQL treats NaN
+values as equal, and greater than all non-NaN values." DataFusion behaves the same way:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT CAST('NaN' AS DOUBLE) = CAST('NaN' AS DOUBLE) AS nan_eq, CAST('NaN' AS DOUBLE) > 1e308 AS nan_gt
+| true   | true   |
+
+> SELECT x FROM fl ORDER BY x
+| -0.0 |
+| 0.0  |
+| 1.0  |
+| inf  |
+| NaN  |
+|      |
+
+> SELECT x, count(*) AS n FROM fl GROUP BY x ORDER BY x
+| 0.0 | 2 |
+| 1.0 | 1 |
+| inf | 1 |
+| NaN | 1 |
+|     | 1 |
+```
+
+NaN sorts after infinity, and `max(x)` over that column returned NaN. The table also hides a subtler case:
+IEEE 754 has both 0.0 and −0.0, which compare equal. Here `ORDER BY` kept them as two distinct values, with
+−0.0 first, while `GROUP BY` merged them into one group of 2. Two operators, two notions of "the same value".
+
+## Strings: compared by rules called collations
+
+Comparing two strings needs a rule for which comes first, and that rule is a **collation**. PostgreSQL's
+documentation describes the simplest one: "The C and POSIX collations are based on 'traditional C'
+behavior. They sort by byte values rather than natural language order." DataFusion compares UTF-8 strings
+byte by byte, which gives that order:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT n FROM names ORDER BY n
+| 10     |
+| 9      |
+| Apple  |
+| Zebra  |
+| apple  |
+| banana |
+| éclair |
+```
+
+Byte order puts '10' before '9', because the character 1 has a lower code than 9; every uppercase letter
+before every lowercase one; and é after z, because its UTF-8 bytes are larger than any ASCII letter's. A
+language-aware collation would sort the words `apple`, `Apple`, `banana`, `éclair`, `Zebra`. Which one an engine uses
+depends on configuration, and PostgreSQL lets it vary per column and per expression. The same rules decide
+equality: in byte order, `'abc' = 'ABC'` and `'abc' = 'abc '` are both false.
+
+Length has two meanings too. `length('éclair')` is 6 characters, but `octet_length('éclair')` is 7 bytes,
+because é takes two bytes in UTF-8. Code that confuses the two truncates strings in the middle of a character.
+
+## Dates and times: which clock?
+
+A **timestamp** can mean two different things. `TIMESTAMP WITHOUT TIME ZONE` is a reading of a wall clock,
+"2026-11-03 06:00", with no zone attached. `TIMESTAMP WITH TIME ZONE` is a point on the universal timeline,
+stored as UTC and displayed in some zone. PostgreSQL's documentation: "The SQL standard requires that writing
+just `timestamp` be equivalent to `timestamp without time zone`", and for that type "PostgreSQL will silently
+ignore any time zone indication". DataFusion's `TIMESTAMP` is also zone-less, and drops the `Z` just as
+silently:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT CAST('2026-11-03T06:00:00Z' AS TIMESTAMP) AS from_utc
+| 2026-11-03T06:00:00 |
+
+> SELECT arrow_cast('2026-11-03T06:00:00Z', 'Timestamp(Nanosecond, Some("+05:45"))') AS kathmandu
+| 2026-11-03T11:45:00+05:45 |
+```
+
+A zone-less timestamp can name a time that never happened somewhere: 02:30 on 8 March 2026 is accepted,
+though in New York the clocks jumped from 02:00 to 03:00 that night. Zone rules change across the year, which
+is why a named zone is more than an offset. The lab converts two instants an hour apart into London time, on
+the night British Summer Time began:
+
+```text title="cargo run --release -p m01-relational --example types"
+| before_bst           | after_bst                 |
+| 2026-03-29T00:30:00Z | 2026-03-29T02:30:00+01:00 |
+```
+
+One hour of real time, two hours on the clock. The zone also decides what "the same day" means:
+`date_trunc('day', …)` on 20:00 UTC, viewed in Kathmandu, returned 2026-11-04, because it is already 01:45 the
+next day there. A daily report grouped by UTC day and one grouped by local day disagree about every row near
+midnight.
+
+Calendar arithmetic has its own trap. Months have different lengths, so adding a month to 31 January has no
+true answer, and engines clamp it:
+
+```text title="cargo run --release -p m01-relational --example types"
+> SELECT DATE '2026-01-31' + INTERVAL '1 month' AS jan31_plus_month, DATE '2024-02-29' + INTERVAL '1 year' AS leap_plus_year
+| 2026-02-28       | 2025-02-28     |
+
+> SELECT DATE '2026-01-31' + INTERVAL '1 month' - INTERVAL '1 month' AS round_trip
+| 2026-01-28 |
+```
+
+Adding a month and subtracting it again doesn't return to where you started. And an impossible date is an
+error: `CAST('2026-02-30' AS DATE)` fails with "Cannot cast string '2026-02-30' to value of Date32 type".
+
+## In real engines
+
+DataFusion's SQL types are names for Apache Arrow types, which is what `arrow_typeof` prints: `INT` is
+`Int32`, `BIGINT` is `Int64`, `DECIMAL(p, s)` is `Decimal128(p, s)` up to 38 digits, `DOUBLE` is `Float64`,
+`VARCHAR` is a UTF-8 string type, `TIMESTAMP` is `Timestamp(ns)` with no zone. The mapping isn't always
+one-to-one: in the lab, `CAST('abc' AS CHAR(5))` produced a plain `Utf8View` string, so the declared length
+wasn't kept. [Module 03](../../data-representation/) shows how each Arrow type is laid out in memory.
+
+The differences between engines in this article aren't bugs in one of them. SQL leaves many of these
+choices to the implementation, so the same query can give different answers on PostgreSQL, MySQL and
+DataFusion. That matters most when you move a workload between engines, or compare their results.
+
+## Costs and trade-offs
+
+**Exactness costs speed and space.** A `Decimal128` value takes 16 bytes, twice a `BIGINT` or a `DOUBLE`,
+and CPUs have no instructions for decimal arithmetic, so it is done in integer arithmetic with rescaling.
+Floats are fast and vectorize well, at the price of rounding error.
+
+**Pick the type for the meaning.** Money is decimal or integer cents. Measurements and scientific values
+are floats, compared with a tolerance rather than `=`. Identifiers that look like numbers, such as phone
+numbers or postal codes, are strings. Instants are zone-aware timestamps stored in UTC; wall-clock readings,
+such as a store's opening hours, are zone-less.
+
+**Silent wrong answers are the expensive kind.** An error stops a pipeline; a wrapped integer or a truncated
+decimal flows into a report. Where an engine wraps, guard the inputs, or widen the type before the arithmetic.
+
+## Check yourself
+
+<details>
+<summary>Two INT columns a and b both hold 2,000,000,000. What does SELECT a + b return in DataFusion? And sum(a) over two such rows?</summary>
+
+`a + b` adds two `INT` values and wraps: 4,000,000,000 − 2³² = −294,967,296, with no error. `sum(a)` returns a
+`BIGINT`, so it is 4,000,000,000, correct. PostgreSQL would raise an error for the first. (Adding a literal
+such as `a + 1` behaves differently: in DataFusion the literal is a `BIGINT`, so the sum is computed in 64 bits.)
+</details>
+
+<details>
+<summary>What is the result type of DECIMAL(8,2) × DECIMAL(6,3) in DataFusion, and of DECIMAL(8,2) ÷ DECIMAL(6,3)?</summary>
+
+Multiplication: precision 8 + 6 + 1 = 15, scale 2 + 3 = 5, so `DECIMAL(15, 5)`. Division: scale 2 + 4 = 6,
+precision 8 − 2 + 3 + 6 = 15, so `DECIMAL(15, 6)`.
+</details>
+
+<details>
+<summary>Why can the same float sum differ in its last digits between two engines, or between one thread and many?</summary>
+
+Float addition rounds after every step and isn't associative, so the result depends on the order the values
+are added in. Parallel and batched aggregation adds in a different order from a single loop.
+</details>
+
+<details>
+<summary>An event happened at 2026-11-03 20:00 UTC. On which date does it appear in a daily report grouped in Kathmandu time, and in UTC?</summary>
+
+In Kathmandu, UTC+05:45, it is 2026-11-04 01:45, so it lands on 4 November. In UTC it lands on 3 November.
+</details>
+
+## Further reading
+
+- PostgreSQL: [numeric types](https://www.postgresql.org/docs/current/datatype-numeric.html),
+  [date and time types](https://www.postgresql.org/docs/current/datatype-datetime.html), and
+  [collation support](https://www.postgresql.org/docs/current/collation.html).
+- MySQL: [arithmetic operators](https://dev.mysql.com/doc/refman/8.3/en/arithmetic-functions.html), on
+  division scale and overflow.
+- David Goldberg, [What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), the classic on rounding error.
+- The [Hive decimal precision and scale proposal](https://cwiki.apache.org/confluence/download/attachments/27362075/Hive_Decimal_Precision_Scale_Support.pdf), whose rules arrow-rs follows.
