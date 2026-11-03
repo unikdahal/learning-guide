@@ -2472,7 +2472,7 @@
           "scope": "Bandwidth, latency, TCP behaviour, and where RDMA appears, framed as the cost model for shuffles.",
           "visual": null,
           "path": "hardware/networks-for-data-movement",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 15,
@@ -2482,7 +2482,7 @@
           "scope": "IPC, cache misses, branch misses and stalled cycles with perf stat, and how to read them for an operator.",
           "visual": null,
           "path": "hardware/measuring-hardware-with-perf-counters",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 16,
@@ -2492,7 +2492,7 @@
           "scope": "Arithmetic intensity, compute vs memory-bound operators, and placing scans, hashing and sorting on a roofline.",
           "visual": "Interactive roofline chart with operator points",
           "path": "hardware/the-roofline-model-for-query-operators",
-          "status": "planned"
+          "status": "published"
         }
       ]
     },
@@ -2519,7 +2519,7 @@
           "scope": "N-ary storage vs decomposed storage, PAX, and which workloads each serves.",
           "visual": "Toggle that rearranges the same table between layouts",
           "path": "data-representation/row-vs-column-layout",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 2,
@@ -2529,7 +2529,7 @@
           "scope": "Why a shared in-memory format matters, what Arrow standardizes, and the ecosystem built on it.",
           "visual": null,
           "path": "data-representation/apache-arrow-the-columnar-in-memory-standard",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 3,

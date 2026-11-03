@@ -2,15 +2,166 @@
 title: "The roofline model for query operators"
 description: "Arithmetic intensity, compute vs memory-bound operators, and placing scans, hashing and sorting on a roofline."
 level: A
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 16
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import RooflineChart from '@components/visuals/hardware/RooflineChart.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="the-roofline-model-for-query-operators" />
+<ArticleMeta module="02" slug="the-roofline-model-for-query-operators" minutes={14} lab="m02-hardware/examples/roofline.rs" />
+
+This module measured two kinds of speed: how fast a core computes ([SIMD](../simd-one-instruction-many-values/)
+and [instruction-level parallelism](../instruction-level-parallelism/)) and how fast
+memory delivers data ([the memory hierarchy](../the-memory-hierarchy-from-registers-to-object-storage/) and
+[bandwidth](../prefetching-and-memory-bandwidth/)). An operator is limited by one or the other. The
+**roofline model** says which, from one number you can work out on paper before writing any code.
+
+## The question
+
+Given an operator, how fast can it possibly run on a given machine, and is it limited by computation or by
+memory?
+
+## Arithmetic intensity
+
+Samuel Williams, Andrew Waterman and David Patterson introduced the model in 2009. Its key quantity is
+**arithmetic intensity**: the operations an algorithm performs per byte it moves to or from memory.
+
+The model then says a kernel can go no faster than the lower of two ceilings:
+
+```text
+attainable ops/s = min( peak ops/s,  intensity × memory bandwidth )
+```
+
+Plotted on log-log axes, intensity across and throughput up, that gives a roofline: a slanted line, bandwidth
+times intensity, rising until it meets a flat line, the peak. The meeting point is the **ridge**. A kernel left
+of the ridge is **memory-bound**: speeding up the arithmetic won't help, only moving fewer bytes will. Right of
+the ridge it is **compute-bound**. Every level of the hierarchy has its own slanted roof, because L2 delivers
+data faster than DRAM.
+
+## Measured: this VM's roofline
+
+The lab measures both ceilings on one core, then sweeps a kernel across intensities. The kernel computes a
+polynomial of degree K for every `f32` in an array, `out[i] = p(in[i])`, with K fused multiply-adds per value:
+2K flops per 8 bytes moved (4 read, 4 written), so the intensity is K/4.
+
+```text title="cargo run --release -p m02-hardware --example roofline"
+AVX-512 FMA, 16 chains: 170.9 GFLOP/s (f32)
+l2:   copy (K = 0) moves 62.2 GB/s (read + write)
+dram: copy (K = 0) moves 16.3 GB/s (read + write)
+
+   K  flops/byte    in L2: GFLOP/s  in DRAM: GFLOP/s
+   1        0.25             17.85              2.66
+   2        0.50             33.65              4.92
+   4        1.00             66.63             10.01
+   8        2.00            101.32             21.73
+  16        4.00             83.60             42.55
+  32        8.00             76.25             70.32
+  64       16.00             69.36             76.73
+ 128       32.00             56.47             53.81
+```
+
+<RooflineChart />
+
+The ridges follow from the two ceilings: 170.9 / 16.3 ≈ 10.5 flops per byte for DRAM, and 170.9 / 62.2 ≈ 2.75
+for L2. Below them the measurements climb the slanted roofs, about doubling each time K doubles, as the model
+predicts. From DRAM, K = 1 runs at 2.66 GFLOP/s against a roof of 16.3 × 0.25 ≈ 4.1: the kernel reaches about
+two thirds of the bandwidth the copy achieved.
+
+Past the ridge the measurements don't reach the flat roof. The best point, 101 GFLOP/s at K = 8 in L2, is 59% of
+peak, and both series fall at the highest degrees. The machine code shows why that's plausible: the compiler
+processes three vectors at a time, so each polynomial step has three independent multiply-add chains, not the
+sixteen the peak measurement used. With so few chains, each multiply-add waits for the previous one, the
+dependency-chain limit of the [ILP article](../instruction-level-parallelism/). That is a
+hypothesis consistent with the measurements and the machine code; without performance counters the lab can't
+confirm it (see [the previous article](../measuring-hardware-with-perf-counters/)). The model's peak is a
+ceiling, not a promise: a kernel has to be written to reach it.
+
+<Aside type="caution" title="Two traps the lab fell into">
+The first peak measurement reported 609 million GFLOP/s. Its multiply-add constants made 1.0 a fixed point, so
+the compiler worked out the result and deleted the loop. Hiding the constants from the optimizer, and checking
+the machine code for the expected 16 `vfmadd` instructions, fixed it.
+
+The first "DRAM" run used 64 MiB arrays, which turned out to be served faster than DRAM, at around 28 GB/s,
+probably from the large shared cache this VM reports. The final run uses 256 MiB in and 256 MiB out.
+
+Numbers vary between runs as well: one earlier run had K = 16 in L2 at 139 GFLOP/s rather than 84. The shapes
+are stable; individual points move.
+</Aside>
+
+## Where query operators sit
+
+Most query operators do very little arithmetic per byte:
+
+- **A sum of 8-byte numbers** does one addition per 8 bytes read: 1/8 flop per byte.
+- **A filter `x < t` on 4-byte integers** does one comparison per 4 bytes: about 1/4.
+- **An expression `a * b + c`** on doubles reads 24 bytes for 2 operations: 1/12, before writing the result.
+- **Hashing** for a join or aggregation does more work per key, a few multiplies and shifts, but then makes a
+  random access into a hash table, which is limited by latency rather than bandwidth unless the table fits in
+  cache ([the memory hierarchy](../the-memory-hierarchy-from-registers-to-object-storage/)).
+- **Sorting** compares and moves each value about log₂ n times. In-cache sorting kernels can be compute-bound;
+  large sorts are dominated by passes over memory.
+
+All the scan-like operators sit far left of the DRAM ridge of 10.5. The roofline says a sum of doubles streaming
+from DRAM on this core can do at most 16.3 × 1/8 ≈ 2 billion additions per second, about 1% of the core's
+floating-point peak. The core isn't the limit; memory is. (The lab's peak is for `f32`; doubles have half the
+lanes and half the peak, which only moves the ridge left, to about 5.)
+
+That is the strongest argument for the techniques in the rest of this guide. **Columnar layout**
+([Module 3](../../data-representation/row-vs-column-layout/)) moves only the columns a query uses.
+**Compression and encoding** move fewer bytes per value, effectively raising intensity, and trade cheap
+decompression arithmetic, which the core has plenty of, for bandwidth, which it doesn't. **Operator fusion**
+and pipelining keep intermediate results in cache instead of writing them out and reading them back. **Filter
+early** and **project early** cut bytes before they're moved. Each of these moves an operator right on the
+roofline, or onto a higher roof.
+
+<Aside type="note" title="Not only flops">
+The original paper used floating-point operations, but the model works for any operation the core performs:
+comparisons, integer additions, hash computations. For a query operator, operations per row against bytes per
+row is a perfectly good intensity, as long as the peak is measured for the same kind of operation.
+</Aside>
+
+## Costs and trade-offs
+
+**The model is a bound, not a prediction.** Real kernels sit below the roofline, sometimes far below, because of
+dependency chains, branch mispredictions or poor vectorization. Its value is in saying which ceiling to work on.
+
+**Bandwidth depends on where the data is.** The same operator is memory-bound from DRAM and may be
+compute-bound from L2. Blocking an algorithm to work on cache-sized pieces moves it to a higher roof.
+
+**Random access breaks the model.** The roofline assumes data streams at full bandwidth. Hash tables and pointer
+chasing are limited by latency, which needs the per-access models of the hierarchy and TLB articles instead.
+
+## Check yourself
+
+<details>
+<summary>A machine has a peak of 200 GFLOP/s and 20 GB/s of DRAM bandwidth. What is the ridge, and is an operator doing 2 flops per 8 bytes compute- or memory-bound?</summary>
+
+The ridge is 200 / 20 = 10 flops per byte. The operator's intensity is 0.25, far left of the ridge, so it is
+memory-bound, with a ceiling of 20 × 0.25 = 5 GFLOP/s.
+</details>
+
+<details>
+<summary>Compressing a column halves its size, and decompressing costs 3 operations per value. Can that make a sum faster?</summary>
+
+Yes, if the sum is memory-bound. Half the bytes means half the transfer time, and the extra arithmetic is cheap
+on a core idling at about 1% of its peak. Each value now costs 4 operations (3 to decode, 1 to add) per 4 bytes
+moved: an intensity of 1 instead of 1/8. That is still left of the ridge, so the sum stays memory-bound, but it
+finishes in half the time.
+</details>
+
+<details>
+<summary>The lab's polynomial kernel reached only 59% of peak in L2. Why doesn't the roofline model predict that?</summary>
+
+The model gives an upper bound from just two ceilings, peak and bandwidth. The kernel had only three independent
+chains of dependent multiply-adds, so it couldn't keep the FMA units busy: an in-core limit the basic model
+doesn't include.
+</details>
+
+## Further reading
+
+- Samuel Williams, Andrew Waterman and David Patterson,
+  [Roofline: An Insightful Visual Performance Model for Floating-Point Programs and Multicore Architectures](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2008/EECS-2008-134.pdf),
+  technical report EECS-2008-134, later in Communications of the ACM, April 2009.

@@ -1,0 +1,223 @@
+---
+// The same small table laid out row by row or column by column in a strip of memory, cut into
+// 64-byte cache lines (four 16-byte cells per line in this toy). Pick a query and see which cells
+// it reads and how many lines it touches. Cells move between layouts with a transition. The
+// measured counterpart is lab/crates/m03-representation/examples/layout.rs.
+const table = {
+  cols: ['id', 'name', 'region', 'amount'],
+  rows: [
+    [1, 'Asha', 'ASIA', 250],
+    [2, 'Bruno', 'EUROPE', 40],
+    [3, 'Chen', 'ASIA', 90],
+    [4, 'Dara', 'AFRICA', 610],
+    [5, 'Emeka', 'AFRICA', 75],
+    [6, 'Farah', 'EUROPE', 120],
+  ],
+};
+const measured = [
+  [1, 26.81, 0.57],
+  [2, 29.85, 3.09],
+  [4, 31.51, 6.39],
+  [8, 32.15, 15.39],
+  [16, 48.93, 36.83],
+];
+---
+
+<qe-layout class="qe-lab qe-lay not-content" data-t={JSON.stringify(table)} data-m={JSON.stringify(measured)}>
+  <section class="qe-lab-part">
+    <div class="pickers">
+      <div class="qe-lab-chips prose" role="group" aria-label="Layout">
+        <button type="button" data-layout="row" aria-pressed="true">Row layout</button>
+        <button type="button" data-layout="col" aria-pressed="false">Column layout</button>
+      </div>
+      <div class="qe-lab-chips" role="group" aria-label="Query">
+        <button type="button" data-q="sum" aria-pressed="true">SELECT sum(amount)</button>
+        <button type="button" data-q="two" aria-pressed="false">SELECT region, sum(amount) … GROUP BY</button>
+        <button type="button" data-q="row" aria-pressed="false">SELECT * WHERE id = 4</button>
+      </div>
+    </div>
+    <p class="qe-lab-cap strip-cap">Memory, in cache lines of four cells</p>
+    <div class="strip" data-strip></div>
+    <dl class="counters" data-counters aria-live="polite"></dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Measured: 2M records of 16 fields, summing k of them</p>
+    <p class="qe-lab-cap">Median of 5 runs on the lab VM. Fetching all 16 fields of 1M random records took 23 ms in rows and 152 ms in columns.</p>
+    <div data-chart></div>
+  </section>
+</qe-layout>
+
+<script>
+  import { renderLineChart } from '../../../scripts/linechart';
+
+  type T = { cols: string[]; rows: (string | number)[][] };
+  const PER_LINE = 4;
+
+  class QeLayout extends HTMLElement {
+    t!: T;
+    layout = 'row';
+    q = 'sum';
+
+    connectedCallback() {
+      this.t = JSON.parse(this.dataset.t!);
+      const strip = this.querySelector<HTMLElement>('[data-strip]')!;
+      const R = this.t.rows.length;
+      const C = this.t.cols.length;
+      // One element per cell; positions are set in render(), so cells glide between layouts.
+      strip.style.setProperty('--n', String(R * C));
+      strip.innerHTML =
+        Array.from({ length: (R * C) / PER_LINE }, (_, l) => `<span class="lineband" style="--l:${l}"></span>`).join('') +
+        this.t.rows
+          .flatMap((row, r) => row.map((v, c) => `<span class="cell c${c}" data-r="${r}" data-c="${c}"><b>${this.t.cols[c]}</b>${v}</span>`))
+          .join('');
+      const pick = (sel: string, key: 'layout' | 'q') =>
+        this.querySelectorAll<HTMLButtonElement>(sel).forEach((b) =>
+          b.addEventListener('click', () => {
+            this[key] = b.dataset[key === 'layout' ? 'layout' : 'q']!;
+            this.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            this.render();
+          }),
+        );
+      pick('[data-layout]', 'layout');
+      pick('[data-q]', 'q');
+      this.render();
+      const m: [number, number, number][] = JSON.parse(this.dataset.m!);
+      renderLineChart(this.querySelector('[data-chart]')!, {
+        series: [
+          { name: 'row layout', color: 'var(--qe-series-2)', points: m.map((r) => [r[0], r[1]]) },
+          { name: 'column layout', color: 'var(--qe-series-1)', points: m.map((r) => [r[0], r[2]]) },
+        ],
+        xTicks: [1, 2, 4, 8, 16].map((v) => ({ v, label: String(v) })),
+        yTicks: [0, 10, 20, 30, 40, 50].map((v) => ({ v, label: String(v) })),
+        xLabel: 'fields summed, of 16',
+        yLabel: 'ms',
+        fmtX: (x) => `${x} of 16 fields`,
+        fmtY: (y) => `${y.toFixed(1)} ms`,
+        height: 240,
+      });
+    }
+
+    render() {
+      const R = this.t.rows.length;
+      const C = this.t.cols.length;
+      const needed = (r: number, c: number) =>
+        this.q === 'sum' ? c === 3 : this.q === 'two' ? c === 2 || c === 3 : r === 3;
+      const pos = (r: number, c: number) => (this.layout === 'row' ? r * C + c : c * R + r);
+      const lines = new Set<number>();
+      let used = 0;
+      this.querySelectorAll<HTMLElement>('.cell').forEach((el) => {
+        const r = Number(el.dataset.r);
+        const c = Number(el.dataset.c);
+        const p = pos(r, c);
+        el.style.setProperty('--x', String(p % PER_LINE));
+        el.style.setProperty('--y', String(Math.floor(p / PER_LINE)));
+        const need = needed(r, c);
+        el.classList.toggle('need', need);
+        if (need) {
+          used++;
+          lines.add(Math.floor(p / PER_LINE));
+        }
+      });
+      this.querySelectorAll<HTMLElement>('.lineband').forEach((b) => b.classList.toggle('hit', lines.has(Number(b.style.getPropertyValue('--l')))));
+      const moved = lines.size * PER_LINE;
+      const stats: [string, string][] = [
+        ['cells the query needs', String(used)],
+        ['cache lines touched', `${lines.size} of ${(R * C) / PER_LINE}`],
+        ['cells moved', `${moved} (${Math.round((used / moved) * 100)}% useful)`],
+      ];
+      this.querySelector('[data-counters]')!.innerHTML = stats.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+      const notes: Record<string, string> = {
+        'row-sum': 'Each record’s fields sit together, so the amounts are spread through every line: reading 6 values moves the whole table.',
+        'col-sum': 'All the amounts sit together in one run of memory: the query reads just those lines. The only waste is where the run shares a line with the column before it, which vanishes for columns of millions of values.',
+        'row-two': 'Two of four columns still means touching every line in row layout, because every line holds a bit of each record.',
+        'col-two': 'Two columns, two runs of memory. Column layout reads in proportion to the columns a query uses.',
+        'row-row': 'A whole record is one contiguous run: one or two lines. This is what row layouts are for: fetching and updating complete records.',
+        'col-row': 'A whole record is scattered across every column, one cell in each: four lines touched to read four cells. Column layouts are slow at this.',
+      };
+      this.querySelector<HTMLElement>('[data-note]')!.textContent = notes[`${this.layout}-${this.q}`];
+    }
+  }
+  if (!customElements.get('qe-layout')) customElements.define('qe-layout', QeLayout);
+</script>
+
+<style is:global>
+  .qe-lay .pickers {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .qe-lay .strip-cap {
+    margin-top: 0.9rem;
+  }
+  .qe-lay .strip {
+    --cols: 4;
+    --cell-h: 2.6rem;
+    position: relative;
+    height: calc(var(--n) / var(--cols) * (var(--cell-h) + 4px));
+  }
+  .qe-lay .lineband {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(var(--l) * (var(--cell-h) + 4px));
+    height: var(--cell-h);
+    border-radius: 6px;
+    border: 1px dashed var(--sl-color-gray-5);
+  }
+  .qe-lay .lineband.hit {
+    border: 1px solid var(--sl-color-accent);
+    background: color-mix(in srgb, var(--sl-color-accent) 10%, transparent);
+  }
+  .qe-lay .cell {
+    position: absolute;
+    width: calc((100% - 3 * 4px - 8px) / 4);
+    height: calc(var(--cell-h) - 6px);
+    left: calc(4px + var(--x) * ((100% - 3 * 4px - 8px) / 4 + 4px));
+    top: calc(3px + var(--y) * (var(--cell-h) + 4px));
+    display: grid;
+    align-content: center;
+    padding: 0 0.4rem;
+    border-radius: 5px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+    overflow: hidden;
+    white-space: nowrap;
+    transition: left 0.45s ease, top 0.45s ease, background-color 0.2s;
+  }
+  .qe-lay .cell b {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-4);
+  }
+  .qe-lay .cell.need {
+    background: var(--qe-series-1);
+    color: var(--sl-color-black);
+  }
+  .qe-lay .cell.need b {
+    color: var(--sl-color-black);
+  }
+  .qe-lay .counters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+  }
+  .qe-lay .counters div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-lay .counters dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-lay .counters dd {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--sl-color-white);
+  }
+</style>

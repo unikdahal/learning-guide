@@ -2,15 +2,159 @@
 title: "Row vs column layout"
 description: "N-ary storage vs decomposed storage, PAX, and which workloads each serves."
 level: B
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 1
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import LayoutToggle from '@components/visuals/representation/LayoutToggle.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="row-vs-column-layout" />
+<ArticleMeta module="03" slug="row-vs-column-layout" minutes={12} lab="m03-representation/examples/layout.rs" />
+
+A table is two-dimensional, rows and columns, and memory is one-dimensional, a long strip of bytes. Every
+database has to decide how to flatten one into the other. There are two basic answers: put each row's values
+together, or put each column's values together. The choice decides which queries are fast, and it's why
+analytical engines, including every engine in this guide, store data by column.
+
+## The question
+
+How do row and column layouts place a table in memory, and which workloads does each serve?
+
+## Two ways to flatten a table
+
+**Row layout**, which the literature calls the N-ary storage model (NSM), stores each record contiguously: all
+of row 1's fields, then all of row 2's. Reading or writing one complete record touches one small region of
+memory. Transactional databases such as PostgreSQL and MySQL's InnoDB store tables this way.
+
+**Column layout**, the decomposition storage model (DSM), described by George Copeland and Setrag Khoshafian in
+1985, stores each column contiguously: every value of column 1, then every value of column 2. Reading one column
+across all records touches one dense region and nothing else. Analytical systems from MonetDB and C-Store
+onwards, and today's DuckDB, ClickHouse, Snowflake and DataFusion, process data this way.
+
+Memory moves in [64-byte cache lines](../../hardware/cpu-caches-cache-lines-and-locality/), so what matters
+is which lines a query touches. Pick a layout and a query:
+
+<LayoutToggle />
+
+In row layout, a query that needs one column still pulls every line, because each line holds a bit of every
+record. In column layout it pulls only the lines of that column. For fetching one whole record the situation
+reverses: row layout reads one contiguous run, column layout one cell from each column, a separate line each
+time.
+
+## Measured: scans
+
+The lab builds 2 million records of 16 eight-byte fields, 128 bytes or two cache lines per record, in both
+layouts, and sums k of the fields over every record:
+
+```text title="cargo run --release -p m03-representation --example layout"
+  k     rows ms  columns ms  rows / columns
+  1        26.8         0.6           47.4x
+  2        29.9         3.1            9.7x
+  4        31.5         6.4            4.9x
+  8        32.2        15.4            2.1x
+ 16        48.9        36.8            1.3x
+```
+
+The row layout's time barely changes from k = 1 to k = 8: those eight fields are the record's first cache line,
+and the scan touches every first line whichever of them it needs. Summing all 16 fields touches the second line
+too, and the time rises. The column layout's time grows with k, because it reads exactly k columns. The row
+layout's time tracks the cache lines touched, not the values used.
+
+The k = 1 column scan, 16 MB in 0.6 ms or about 28 GB/s, ran faster than this VM's DRAM bandwidth of about 10 GB/s
+for a single scalar scan. That is likely the large shared cache this VM reports holding a column that had just
+been written; the k = 2 scan, 32 MB, runs at DRAM speed. Either way, the ratio at k = 2, 9.7 times, is what a
+query using 2 of 16 columns gains from column layout in this lab.
+
+## Measured: point lookups
+
+The same test reads all 16 fields of 1 million records at random positions:
+
+```text title="cargo run --release -p m03-representation --example layout"
+rows       23.0 ms  (23.0 ns per record)
+columns   152.1 ms  (152.1 ns per record)
+```
+
+Row layout reads two adjacent cache lines per record; column layout reads 16 lines in 16 different places.
+Column layout is 6.6 times slower, not 8 or 16, because the core issues those independent misses in parallel
+rather than one after another ([the memory hierarchy](../../hardware/the-memory-hierarchy-from-registers-to-object-storage/)).
+It is still the wrong layout for a workload made of fetching and updating whole records, which is what
+[transactional workloads](../../orientation/oltp-vs-olap-workloads/) do.
+
+## Beyond speed: compression and batches
+
+Column layout has two more advantages that the measurement doesn't show. A column holds values of one type and
+often similar values, a region name or a date, so it compresses far better than a row mixing names, prices and
+timestamps; encodings like dictionary and run-length work naturally per column
+([lightweight encodings](../lightweight-encodings/)). And a dense array of one type is what SIMD instructions
+and tight loops want, so operators can work on a batch of values at a time
+([SIMD](../../hardware/simd-one-instruction-many-values/)).
+
+Daniel Abadi, Samuel Madden and Nabil Hachem compared a column store with row stores made to imitate one, by
+indexing every column or partitioning the table vertically, in "Column-Stores vs. Row-Stores: How Different Are
+They Really?" (SIGMOD 2008). The imitations didn't come close. Much of the column store's advantage came from
+its execution engine working on compressed columns and late materialization, not from layout alone. Layout is
+the foundation; the engine has to be built on it.
+
+## PAX: columns inside row pages
+
+Layout on disk and layout in memory don't have to be the same thing. Anastassia Ailamaki, David DeWitt, Mark
+Hill and Marios Skounakis proposed **PAX**, partition attributes across, in "Weaving Relations for Cache
+Performance" (VLDB 2001). A page holds the same set of records a row-layout page would, so a whole record can
+still be read from a single page, but within the page each column's values are grouped into their own
+mini-page. Scans of one column read dense, cache-friendly runs, and a record is never spread across the disk.
+
+The idea outlived its original setting. A [Parquet file](../anatomy-of-an-apache-parquet-file/) is divided into
+row groups, each holding a few hundred thousand to a few million records, and within a row group every column
+is stored as its own chunk: PAX at the scale of files. Arrow record batches do the same in memory: a batch is a
+group of rows, stored as one array per column.
+
+<Aside type="note" title="Hybrid systems">
+Some databases serve both workloads: they keep recent, frequently updated data in rows and convert it to
+columns as it ages, or maintain a column copy alongside the row store. SAP HANA, SQL Server's columnstore
+indexes and TiDB's TiFlash take approaches of this kind. The rest of this guide is about the analytical side.
+</Aside>
+
+## Costs and trade-offs
+
+**Columns win when queries read few columns of many rows.** The gain is roughly the share of bytes not read,
+plus better compression and vectorized execution.
+
+**Rows win when queries read or write whole records.** Inserting one record into a column layout means a write
+to every column; reading one record means a miss per column.
+
+**Reassembling rows has a cost.** A column engine eventually has to produce rows for the client, and joins and
+sorts move values from many columns together. Engines delay this, late materialization, until as few rows as
+possible remain.
+
+## Check yourself
+
+<details>
+<summary>A table has 50 columns and a query reads 3 of them over a billion rows. Roughly how much less data does column layout read?</summary>
+
+About 3/50 of the bytes, assuming columns of similar width: around 17 times less, before compression, which
+usually favors columns further.
+</details>
+
+<details>
+<summary>In the lab, why did summing 1 field and summing 8 fields take about the same time in row layout?</summary>
+
+Each record is two cache lines, and the first 8 fields are all in the first line. The scan pulls that line for
+every record whether it needs one of those fields or all eight.
+</details>
+
+<details>
+<summary>What does PAX keep from row layout, and what does it take from column layout?</summary>
+
+From row layout, it keeps each record entirely within one page. From column layout, it groups each column's
+values together inside the page, so scans of one column read dense runs.
+</details>
+
+## Further reading
+
+- George Copeland and Setrag Khoshafian, "A Decomposition Storage Model", SIGMOD 1985.
+- Anastassia Ailamaki, David DeWitt, Mark Hill and Marios Skounakis, "Weaving Relations for Cache Performance",
+  VLDB 2001.
+- Daniel Abadi, Samuel Madden and Nabil Hachem, "Column-Stores vs. Row-Stores: How Different Are They Really?",
+  SIGMOD 2008.

@@ -2,15 +2,178 @@
 title: "Apache Arrow: the columnar in-memory standard"
 description: "Why a shared in-memory format matters, what Arrow standardizes, and the ecosystem built on it."
 level: B
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 2
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import InteropCount from '@components/visuals/representation/InteropCount.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="apache-arrow-the-columnar-in-memory-standard" />
+<ArticleMeta module="03" slug="apache-arrow-the-columnar-in-memory-standard" minutes={12} lab="m03-representation/examples/arrow_ipc.rs" />
+
+The [previous article](../row-vs-column-layout/) showed why analytical engines lay data out by column. For
+years each engine did so in its own private format, so moving a table from one system to another, from a
+database into pandas or from Spark into a machine learning library, meant converting it: write it out in some
+interchange format, parse it back in. Apache Arrow standardizes the columnar layout itself, in memory, so that
+systems can hand each other the same bytes. DataFusion, the engine in this guide's lab, uses Arrow as its
+native format.
+
+## The question
+
+What does Arrow standardize, and why does a shared in-memory format matter so much?
+
+## The cost of private formats
+
+With n systems that each have their own format, moving data from any one to any other needs a converter for
+that direction, n × (n − 1) in all, and every transfer pays to serialize and to parse. With one shared format,
+there is nothing to convert:
+
+<InteropCount />
+
+Converters cost more than code. Parsing text formats like CSV is slow, and even efficient binary formats
+usually copy every value into the receiver's own structures. The lab below measures the difference.
+
+## What Arrow standardizes
+
+Arrow started as an Apache project in 2016, with developers from pandas, Apache Drill, Impala, Spark and other
+projects. Its [columnar format specification](https://arrow.apache.org/docs/format/Columnar.html) defines, down
+to the byte, how each data type is laid out in memory:
+
+- **Buffers.** An array is a few contiguous buffers of memory. A 64-bit integer column is one buffer of 8-byte
+  values. The specification requires buffers to be aligned to 8 bytes and recommends 64, a cache line and the
+  width of an AVX-512 register, padded so that SIMD loops never need special handling at the edges.
+- **Nulls.** Each array may have a **validity bitmap**, one bit per value, 1 for present and 0 for null,
+  separate from the values. An array with no nulls may omit it altogether.
+- **Variable-length values.** A string column has an **offsets buffer** and a **data buffer**: value i is the
+  bytes from `offsets[i]` to `offsets[i + 1]` in the data.
+- **Nested and other types**: structs, lists, maps, unions, dictionaries and run-end encoding, each with a
+  defined layout ([Arrow nested types](../arrow-nested-types/),
+  [dictionary and run-end encoded arrays](../dictionary-and-run-end-encoded-arrays/)).
+- **Record batches and schemas.** A record batch is a set of equal-length arrays with a schema naming and typing
+  them: the unit engines pass between operators.
+- **IPC.** A way to write record batches to a stream or file such that the buffers in the file *are* the
+  in-memory buffers, plus a small header describing them ([Arrow IPC and Flight](../arrow-ipc-and-arrow-flight/)).
+
+What Arrow does not standardize is how to compute. Each language has its own libraries; the Rust
+implementation, `arrow-rs`, is what DataFusion builds on, reached in the lab through `datafusion::arrow`.
+
+## Measured: the buffers behind an array
+
+The lab builds three small arrays and prints the buffers behind them:
+
+```text title="cargo run --release -p m03-representation --example arrow_ipc"
+id: 5 values, type Int64, offset 0
+  validity bitmap: none (no nulls)
+  buffer 0: 40 bytes at 0x55e085646ae0
+name: 5 values, type Utf8, offset 0
+  validity bitmap: 10111  (1 null)
+  buffer 0: 24 bytes at 0x55e085646e00
+  buffer 1: 17 bytes at 0x55e085646e20
+  name offsets: [0, 4, 4, 8, 12, 17]
+  name bytes:   "AshaChenDaraEmeka"
+```
+
+Five 64-bit integers are exactly 40 bytes, with no bitmap because there are no nulls. The string column's five
+values are 17 bytes of characters run together, with six 4-byte offsets marking where each starts. The null
+second value has a 0 in the bitmap and an empty range, 4 to 4, in the offsets: it takes no space in the data.
+
+Slicing an array shares those buffers instead of copying them:
+
+```text title="cargo run --release -p m03-representation --example arrow_ipc"
+name.slice(2, 3) = ["Chen", "Dara", "Emeka"]
+  buffer 0: 16 bytes at 0x55e085646e08
+  buffer 1: 17 bytes at 0x55e085646e20
+  same string bytes as the original array: true
+```
+
+The slice's offsets start 8 bytes, two offsets, into the original offsets buffer, and its data is the same 17
+bytes at the same address. The [physical layout](../arrow-physical-layout/) and
+[zero-copy](../what-zero-copy-really-means/) articles go further into both.
+
+## Measured: one file, two languages, no parsing
+
+The lab writes 10 million rows, an `Int64` id and a `Float64` value, both as an Arrow IPC file and as CSV:
+
+```text title="cargo run --release -p m03-representation --example arrow_ipc"
+Arrow IPC:   160.0 MB, written in     45 ms
+CSV:         136.7 MB, written in   1145 ms
+
+Rust reads the IPC file back: 10000000 rows in 120 ms
+```
+
+Then a Python script reads both with pyarrow, the IPC file by mapping it into memory:
+
+```text title="python3 crates/m03-representation/python/read_arrow.py"
+Arrow IPC, memory-mapped: 10,000,000 rows in 0.77 ms
+  value column's buffer at 0x7ff81d24b600, 80,000,000 bytes: inside the mapping = True
+  pyarrow total_allocated_bytes after reading: 0
+  sum(value) = 2,497,500,000.0 in 10.7 ms
+
+CSV, parsed by pyarrow:   10,000,000 rows in 382 ms
+  pyarrow total_allocated_bytes after parsing: 160,007,296
+
+The IPC read was 497 times faster.
+```
+
+The Arrow file was "read" in under a millisecond because nothing was read: Python checked the header and pointed
+its arrays at the mapped file, as the address check shows, and allocated no memory at all. The pages come in
+from disk, or from the operating system's cache, when the sum first touches them. CSV had to be parsed, every
+digit of every number, into 160 MB of newly allocated buffers. Rust wrote the file and Python used it without
+either knowing anything about the other's internals.
+
+<Aside type="caution" title="What the 497 times means">
+The memory-mapped read defers work rather than skipping it entirely: the first pass over the data pays to page
+it in, which the sum's 10.7 ms partly includes, and the file had just been written, so it was in the page
+cache. The fair claim is that Arrow removes parsing and copying, which were most of the CSV's 382 ms; it can't
+remove reading the bytes from storage the first time.
+</Aside>
+
+## The ecosystem
+
+A shared format pays off in proportion to how many systems speak it. Arrow implementations exist for C++,
+Rust, Java, Go, Python, R, JavaScript, C# and more. pandas, Polars, DuckDB, Spark (for Python data exchange),
+and many machine learning and GPU libraries read and produce Arrow data. **Arrow Flight** sends record batches
+over the network with the same layout, and **ADBC** offers a database connectivity API that returns Arrow
+results instead of row-by-row values. DataFusion, the engine used throughout this guide, is part of the Apache
+Arrow project and processes Arrow record batches from scan to result.
+
+## Costs and trade-offs
+
+**Arrow is a memory format, not a storage format.** Its buffers are laid out for computing, not for minimal
+size. On disk, columnar formats like [Parquet](../anatomy-of-an-apache-parquet-file/) encode and compress far
+more aggressively and are converted to Arrow when read. In the lab, the IPC file was larger than the CSV.
+
+**Immutability by default.** Arrow arrays are built once and then shared; updating a value in place isn't part
+of the model. That suits analytical engines, which produce new batches rather than modifying old ones.
+
+**One layout per type.** The standard fixes how a type is laid out, which is what makes sharing possible, but
+an engine wanting a different layout, such as a different string representation, has to convert or extend the
+standard ([string layouts](../string-layouts-offsets-vs-views/)).
+
+## Check yourself
+
+<details>
+<summary>Ten tools exchange data in every direction, each with its own format. How many converters are needed, and how many with Arrow?</summary>
+
+10 × 9 = 90 one-way converters. With a shared format, none: each tool reads the others' buffers directly.
+</details>
+
+<details>
+<summary>A string array holds ["ab", null, "cde"]. What are its offsets and data buffers, and its validity bitmap?</summary>
+
+Offsets [0, 2, 2, 5], data "abcde", validity bits 1, 0, 1. The null value occupies an empty range in the data.
+</details>
+
+<details>
+<summary>Why did pyarrow allocate no memory when reading the Arrow IPC file?</summary>
+
+The file's buffers have the same layout as Arrow's in-memory arrays, so pyarrow memory-mapped the file and
+pointed its arrays at the mapped bytes. There was nothing to parse or copy.
+</details>
+
+## Further reading
+
+- Apache Arrow, [Arrow Columnar Format](https://arrow.apache.org/docs/format/Columnar.html), the specification.
+- The [arrow-rs](https://github.com/apache/arrow-rs) repository, the Rust implementation DataFusion uses.

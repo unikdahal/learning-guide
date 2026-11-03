@@ -1,16 +1,173 @@
 ---
-title: "Networks for data movement"
-description: "Bandwidth, latency, TCP behaviour, and where RDMA appears, framed as the cost model for shuffles."
+title: Networks for data movement
+description: Bandwidth, latency, TCP behaviour, and where RDMA appears, framed as the cost model for shuffles.
 level: I
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 14
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import MeasuredChart from '@components/visuals/MeasuredChart.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="networks-for-data-movement" />
+<ArticleMeta module="02" slug="networks-for-data-movement" minutes={13} lab="m02-hardware/examples/network.rs" />
+
+A distributed query engine spends much of its life moving data between machines: a hash join repartitions
+both inputs so matching keys meet on the same node, an aggregation sends partial results to wherever their
+group is finished, and every result travels back to the client. Part 4 of this guide calls that movement a
+**shuffle** and gives it several modules. This article builds the cost model underneath: what a message costs,
+what a byte costs, and how TCP can turn a microsecond into forty milliseconds.
+
+The lab VM can only talk to itself, so its measurements use TCP over the **loopback** interface, which never
+touches a network card. That makes them a floor: the cost of the operating system's network stack and system
+calls, which every real network adds its own latency and bandwidth limits on top of.
+
+## The question
+
+What does it cost to send a message and to move a byte between processes, and what does that imply for a
+shuffle?
+
+## Two costs: per message and per byte
+
+Every transfer pays a fixed cost per message, the system calls, the kernel's protocol processing, waking the
+receiver, and, on a real network, the time for a signal to cross the wire and back, plus a cost per byte set by
+bandwidth. Small messages are dominated by the first, large ones by the second, and the lab sees both.
+
+## Measured: round trips by message size
+
+An echo server and a client exchange messages of increasing size, with `TCP_NODELAY` set on both sides:
+
+```text title="cargo run --release -p m02-hardware --example network"
+   message    median RTT       p99 RTT
+      64 B        6.6 µs       28.2 µs
+     1 KiB        6.4 µs       26.5 µs
+    16 KiB        8.1 µs       20.0 µs
+   256 KiB       53.3 µs      318.7 µs
+  1024 KiB      602.2 µs     1056.1 µs
+```
+
+<MeasuredChart
+  title="Loopback TCP round trip by message size"
+  caption="Median of 3,000 round trips (300 for the two largest sizes), lab VM. Both axes logarithmic."
+  x={{ label: 'message size', log: true, ticks: [1024, 16384, 262144, 1048576], format: 'bytes' }}
+  y={{ label: 'µs per round trip', log: true, ticks: [1, 10, 100, 1000], format: 'us' }}
+  series={[{ name: 'median RTT', points: [[64, 6.64], [1024, 6.41], [16384, 8.09], [262144, 53.34], [1048576, 602.23]] }]}
+/>
+
+Up to 16 KiB, a round trip costs about the same 6 to 8 µs regardless of size: the fixed per-message cost
+dominates, and that's with no wire at all. By 1 MiB, the size dominates: 2 MiB moved per round trip (there and
+back) in 602 µs. A real data center network adds its own round-trip time, typically tens of microseconds to
+around a millisecond depending on the network and the distance, on top of this floor.
+
+## Measured: throughput by write size
+
+Streaming 2 GiB one way, varying how much each `write` call sends:
+
+```text title="cargo run --release -p m02-hardware --example network"
+   512 B writes:   0.69 GB/s  (1347259 writes/s)
+   4 KiB writes:   2.10 GB/s  (512048 writes/s)
+  64 KiB writes:   2.16 GB/s  (33014 writes/s)
+1024 KiB writes:   3.04 GB/s  (2896 writes/s)
+4096 KiB writes:   2.94 GB/s  (701 writes/s)
+```
+
+<MeasuredChart
+  title="Loopback TCP streaming throughput by write size"
+  caption="2 GiB sent one way per point, lab VM."
+  x={{ label: 'bytes per write call', log: true, ticks: [512, 4096, 65536, 1048576, 4194304], format: 'int' }}
+  y={{ label: 'GB/s', ticks: [0, 1, 2, 3, 4], format: 'gbs' }}
+  series={[{ name: 'throughput', points: [[512, 0.69], [4096, 2.1], [65536, 2.16], [1048576, 3.04], [4194304, 2.94]] }]}
+/>
+
+With 512-byte writes the sender makes 1.3 million system calls per second and still moves only 0.69 GB/s: it
+is limited by calls, not bytes. From 4 KiB up, the per-call cost is spread thin and throughput levels off
+between 2 and 3 GB/s, the cost of copying data through the kernel twice, out of the sender and into the
+receiver, on this 2-core machine. The lesson carries to real networks: batch small messages into large ones.
+Engines send data between nodes in batches of thousands of rows, Arrow record batches for instance, never row
+by row.
+
+## The forty-millisecond trap
+
+TCP has two old optimizations that, combined, can stall a request for tens of milliseconds. **Nagle's
+algorithm** (RFC 896, 1984) holds back a small write while earlier data is still unacknowledged, hoping to merge
+it with the next one. **Delayed acknowledgement** (allowed by RFC 1122) lets a receiver wait briefly before
+acknowledging, hoping to piggyback the ACK on a reply. Each is sensible alone. Together, a client that sends a
+request as two small writes, a header and then a body, waits for a reply that can't come: the body is held
+until the header is acknowledged, and the server delays that acknowledgement because it is waiting for the
+rest of the request.
+
+The lab sends an 8-byte header and a 32-byte body as two writes, then waits for an 8-byte reply, 50 times:
+
+```text title="cargo run --release -p m02-hardware --example network"
+TCP_NODELAY = false  median   43985.0 µs   max   48058.5 µs
+TCP_NODELAY = true   median      27.5 µs   max     140.5 µs
+```
+
+With Nagle on, every request took 44 ms, about the minimum delayed-ACK timeout on Linux, against 27.5 µs with
+it off: 1,600 times slower, from one socket option. Setting `TCP_NODELAY`, or better, writing each request in a
+single call, avoids it. Every serious RPC library and query engine does one or both.
+
+<Aside type="note" title="RDMA">
+Remote direct memory access lets one machine read or write another's memory through the network card, without
+involving either machine's operating system on the data path. It removes most of the per-message software cost
+measured above, and some high-performance databases and HPC systems use it, typically over InfiniBand or
+RDMA-capable Ethernet. It needs special network hardware and careful memory registration, so most cloud
+analytical engines still use TCP.
+</Aside>
+
+## A cost model for shuffles
+
+In a shuffle, each of N nodes sends roughly (N − 1)/N of its data to the others and receives as much. A useful
+first estimate of its duration is:
+
+```text
+time ≈ (bytes each node sends) / (each node's network bandwidth)
+     + (number of sequential round trips) × (round-trip time)
+```
+
+As a worked example, not a measurement: shuffling 1 TB across 10 nodes, each node sends about 90 GB. At 25 Gb/s
+per node that is 90 × 8 / 25 ≈ 29 seconds of transfer at the very least, and no amount of CPU speed changes it.
+The second term matters when a protocol makes many small exchanges in sequence; batching makes it negligible.
+This is why distributed engines work hard to shuffle less: filter and aggregate before the exchange, broadcast
+a small table instead of repartitioning a large one, and compress what must move
+([Module 15](../../shuffle-and-exchange/)).
+
+## Costs and trade-offs
+
+**Messages cost more than bytes, until they're big.** Below a few kilobytes, a message's cost barely depends on
+its size. Batch until the per-byte cost dominates.
+
+**Bandwidth sets the floor for shuffles.** Moving data across the network takes at least bytes over bandwidth,
+per node. Reducing the bytes beats speeding up everything else.
+
+**TCP defaults suit interactive terminals, not RPC.** Nagle's algorithm and delayed ACKs date from a time of
+keystroke-sized packets. Request-response protocols should disable Nagle or never split a request.
+
+## Check yourself
+
+<details>
+<summary>Sending 1 million 100-byte rows one per message vs in 1,000 batches of 1,000 rows: why is the second much faster, even on loopback?</summary>
+
+Each message pays a fixed per-message cost, microseconds of system calls and protocol work. A million messages
+pay it a million times; a thousand batches pay it a thousand times, and the bytes are the same.
+</details>
+
+<details>
+<summary>A client's requests take exactly about 40 ms each, though the server answers in microseconds. What do you suspect, and how do you fix it?</summary>
+
+Nagle's algorithm interacting with delayed ACKs, typically because each request is sent as more than one write.
+Set `TCP_NODELAY`, or write each request with a single call.
+</details>
+
+<details>
+<summary>Eight nodes each hold 100 GB to repartition, with 10 Gb/s per node. What is a lower bound on the shuffle time?</summary>
+
+Each node sends about 7/8 × 100 GB = 87.5 GB. At 10 Gb/s (1.25 GB/s) that is 70 seconds, at least.
+</details>
+
+## Further reading
+
+- John Nagle, [Congestion Control in IP/TCP Internetworks](https://www.rfc-editor.org/rfc/rfc896), RFC 896, 1984.
+- R. Braden (ed.), [Requirements for Internet Hosts](https://www.rfc-editor.org/rfc/rfc1122), RFC 1122, 1989,
+  section 4.2.3.2 on delayed acknowledgements.

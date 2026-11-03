@@ -1,0 +1,123 @@
+---
+// Why a shared in-memory format matters: with n systems exchanging data, private formats need a
+// converter for every ordered pair (n × (n − 1) of them, each a serialize-and-parse step), while
+// a shared format like Arrow needs none: each system reads the others' buffers as they are.
+// Illustrative; the measured comparison is in lab/crates/m03-representation.
+const systems = ['DataFusion', 'pandas', 'Spark', 'DuckDB', 'Polars', 'R', 'a GPU library', 'Flight server'];
+---
+
+<qe-interop class="qe-lab qe-io not-content" data-s={JSON.stringify(systems)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Systems that exchange data</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="How many systems">
+      <button type="button" data-n="3" aria-pressed="false">3</button>
+      <button type="button" data-n="5" aria-pressed="true">5</button>
+      <button type="button" data-n="8" aria-pressed="false">8</button>
+    </div>
+    <div class="qe-lab-chips prose mode" role="group" aria-label="Format">
+      <button type="button" data-mode="private" aria-pressed="true">Each has its own format</button>
+      <button type="button" data-mode="arrow" aria-pressed="false">All use Arrow</button>
+    </div>
+    <div class="ring" data-ring></div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-interop>
+
+<script>
+  class QeInterop extends HTMLElement {
+    s: string[] = [];
+    n = 5;
+    mode = 'private';
+
+    connectedCallback() {
+      this.s = JSON.parse(this.dataset.s!);
+      const pick = (sel: string, f: (b: HTMLButtonElement) => void) =>
+        this.querySelectorAll<HTMLButtonElement>(sel).forEach((b) =>
+          b.addEventListener('click', () => {
+            this.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            f(b);
+            this.render();
+          }),
+        );
+      pick('[data-n]', (b) => (this.n = Number(b.dataset.n)));
+      pick('[data-mode]', (b) => (this.mode = b.dataset.mode!));
+      new ResizeObserver(() => this.render()).observe(this.querySelector('[data-ring]')!);
+      this.render();
+    }
+
+    render() {
+      const ring = this.querySelector<HTMLElement>('[data-ring]')!;
+      const W = Math.max(280, ring.clientWidth);
+      const H = this.n > 5 ? 320 : 260;
+      const cx = W / 2;
+      const cy = H / 2;
+      // An ellipse: wide boxes need more room across than down.
+      const rx = Math.min(W / 2 - 50, 220);
+      const ry = H / 2 - 18;
+      const pts = Array.from({ length: this.n }, (_, i) => {
+        const a = -Math.PI / 2 + (i * 2 * Math.PI) / this.n;
+        return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a), name: this.s[i] };
+      });
+      const parts: string[] = [];
+      if (this.mode === 'private') {
+        for (let i = 0; i < this.n; i++)
+          for (let j = i + 1; j < this.n; j++)
+            parts.push(`<line class="conv" x1="${pts[i].x}" y1="${pts[i].y}" x2="${pts[j].x}" y2="${pts[j].y}"/>`);
+      } else {
+        parts.push(`<circle class="hub" cx="${cx}" cy="${cy}" r="30"/><text class="hubt" x="${cx}" y="${cy + 4}" text-anchor="middle">Arrow</text>`);
+        for (const p of pts) parts.push(`<line class="share" x1="${p.x}" y1="${p.y}" x2="${cx}" y2="${cy}"/>`);
+      }
+      for (const p of pts) {
+        parts.push(`<g><rect class="node" x="${p.x - 46}" y="${p.y - 13}" width="92" height="26" rx="7"/><text class="nt" x="${p.x}" y="${p.y + 4}" text-anchor="middle">${p.name}</text></g>`);
+      }
+      ring.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${this.n} systems exchanging data">${parts.join('')}</svg>`;
+      const conv = this.n * (this.n - 1);
+      this.querySelector<HTMLElement>('[data-note]')!.textContent =
+        this.mode === 'private'
+          ? `${this.n} systems with private formats: moving data from any one to any other needs a converter for that direction, ${conv} in all, and every transfer pays to serialize and parse. Each line is two converters.`
+          : `${this.n} systems sharing one format: no converters. A table produced by one can be handed to another as the same buffers, in memory or over the wire, with no parsing. In the lab, Python read a 10M-row Arrow file written by Rust in 0.77 ms, against 382 ms to parse the same data as CSV.`;
+    }
+  }
+  if (!customElements.get('qe-interop')) customElements.define('qe-interop', QeInterop);
+</script>
+
+<style is:global>
+  .qe-io .mode {
+    margin-top: 0.45rem;
+  }
+  .qe-io .ring {
+    margin-top: 0.8rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+  }
+  .qe-io svg {
+    display: block;
+    font-family: var(--sl-font);
+  }
+  .qe-io .conv {
+    stroke: var(--qe-series-2);
+    stroke-width: 1.5;
+    opacity: 0.7;
+  }
+  .qe-io .share {
+    stroke: var(--qe-series-1);
+    stroke-width: 2;
+  }
+  .qe-io .hub {
+    fill: var(--qe-series-1);
+  }
+  .qe-io .hubt {
+    fill: var(--sl-color-black);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .qe-io .node {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--sl-color-gray-4);
+  }
+  .qe-io .nt {
+    fill: var(--sl-color-white);
+    font-size: 11px;
+    font-weight: 650;
+  }
+</style>

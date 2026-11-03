@@ -1,0 +1,10 @@
+[package]
+name = "m03-representation"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+description = "Module 03 lab: row and column layouts, and Apache Arrow in practice."
+
+[dependencies]
+labkit.workspace = true
+datafusion.workspace = true

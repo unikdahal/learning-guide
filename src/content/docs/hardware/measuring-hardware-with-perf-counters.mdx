@@ -1,16 +1,180 @@
 ---
-title: "Measuring hardware with perf counters"
-description: "IPC, cache misses, branch misses and stalled cycles with perf stat, and how to read them for an operator."
+title: Measuring hardware with perf counters
+description: IPC, cache misses, branch misses and stalled cycles with perf stat, and how to read them for an operator.
 level: A
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 15
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="measuring-hardware-with-perf-counters" />
+<ArticleMeta module="02" slug="measuring-hardware-with-perf-counters" minutes={13} lab="m02-hardware/examples/perfcounters.rs" />
+
+Several articles in this module ended with the same sentence: the lab can't confirm the explanation without
+performance counters. The [branch prediction article](../branch-prediction-and-why-branches-hurt/) estimated
+the cost of a misprediction from timings, because it couldn't count mispredictions. The
+[false sharing article](../multicore-threads-and-false-sharing/) proposed a store-buffer explanation it couldn't
+test. This article is about the tool that would have settled both, why the lab doesn't have it, and what can
+still be measured.
+
+## The question
+
+What do hardware performance counters measure, how do you read them for an operator, and what can you do when
+they're not available?
+
+## Counters in the CPU
+
+Modern CPUs contain a **performance monitoring unit** (PMU): a handful of programmable counters that the
+hardware increments on events such as cycles, instructions retired, cache misses at each level, branch
+mispredictions, TLB misses and cycles stalled waiting for memory. Reading them costs almost nothing, so they
+can measure a real workload without slowing it.
+
+On Linux they are reached through one system call, `perf_event_open`, which the `perf` tool wraps. The usual
+first command is:
+
+```text
+perf stat -e cycles,instructions,cache-misses,branch-misses,dTLB-load-misses ./my-benchmark
+```
+
+## Reading the numbers for an operator
+
+A few derived figures do most of the work:
+
+- **IPC, instructions per cycle.** Instructions retired divided by cycles. A core that can retire four or more
+  instructions per cycle and achieves below 1 is mostly waiting; well above 1, it is computing. A scan running at
+  low IPC is likely bound by memory; a branchy filter at low IPC, by mispredictions.
+- **Misses per thousand instructions** for each cache level and the TLB. Comparing two implementations of the
+  same operator by misses per row, rather than by time alone, says why one is faster.
+- **Branch mispredictions per row.** The branchy filter of the
+  [branch article](../branch-prediction-and-why-branches-hurt/) should show about 0.5 per row at 50%
+  selectivity and almost none on sorted input. That article's estimate of 7 to 9 ns per misprediction would
+  become a measured number.
+- **Stall cycles**, where the processor exposes them, attribute waiting to its cause: front end, back end,
+  memory. Intel's top-down method organizes these into a hierarchy.
+
+The method is always the same: form a hypothesis from timings, predict what the counters should show, and
+check. Counters don't explain anything by themselves; they confirm or refute an explanation.
+
+## Measured: this VM has no hardware counters
+
+The lab opens the counters with the system call directly, the way `perf` does underneath:
+
+```rust
+// lab/crates/m02-hardware/examples/perfcounters.rs (excerpt)
+let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, attr.as_ptr(), 0, -1, -1, 0) };
+```
+
+```text title="cargo run --release -p m02-hardware --example perfcounters"
+cpu-cycles     unavailable: No such file or directory (os error 2)
+instructions   unavailable: No such file or directory (os error 2)
+cache-misses   unavailable: No such file or directory (os error 2)
+branch-misses  unavailable: No such file or directory (os error 2)
+```
+
+The kernel lists the event sources it has under `/sys/bus/event_source/devices`. On this VM there is no `cpu`
+entry, only `software`, `tracepoint`, `breakpoint`, `msr`, `power` and `uprobe`: the hypervisor doesn't expose
+the processor's PMU to the guest. That is common on cloud VMs, though some instance types do provide a
+virtualized PMU. It is why the articles in this module reported timings and estimates, and labelled the
+explanations they couldn't confirm.
+
+<Aside type="note" title="Where to get counters">
+A laptop or desktop running Linux natively has them; `perf stat` works, sometimes after lowering
+`/proc/sys/kernel/perf_event_paranoid` (2 on the lab VM, which still allows measuring your own user-space
+code when a PMU exists). Bare-metal cloud instances, and VM types documented as exposing the PMU, have them too.
+macOS has Instruments; Windows has the Windows Performance Toolkit and Intel VTune.
+</Aside>
+
+## Measured: software events still work
+
+The kernel also counts events of its own through the same interface: page faults, context switches, CPU
+migrations, and the time a task spent on a CPU. Those work here, and page faults alone explain a result from
+earlier in this module.
+
+When a program first writes to fresh memory, the page isn't there yet: the access faults, the kernel finds a
+free physical page, zeroes it and maps it, and the program continues. The lab writes one byte per 4 KiB to a
+fresh 1 GiB region:
+
+```text title="cargo run --release -p m02-hardware --example perfcounters"
+4 KiB pages          262146 page faults    576.5 ms    2.20 µs per fault
+2 MiB huge pages        512 page faults    240.7 ms  470.19 µs per fault
+
+first pass           262144 page faults    402.9 ms
+second pass               0 page faults      4.6 ms
+```
+
+One fault per 4 KiB page, 262,144 of them, at about 2 µs each. With huge pages, one fault per 2 MiB: 512 faults,
+each much slower because the kernel zeroes 2 MiB at a time, but less than half the total. Touching the same
+memory a second time costs 4.6 ms instead of 403 ms: nearly all of the first pass was the operating system
+setting the memory up, not the memory itself. Engines see this when they allocate large buffers per query, and
+it is one reason they reuse memory across queries rather than returning it to the operating system each time.
+
+<Aside type="caution" title="A counter can measure the wrong thing">
+The first version of this experiment counted 0 context switches for a thread that slept 200 times. The counters
+had been opened to count user-space events only, and a context switch happens inside the kernel. Opened
+without that restriction, the same counter reported 177:
+
+```text
+sleeping   wall 200 ms   on-CPU    2.3 ms   context switches: user-only counter 0, including kernel 177
+```
+
+Every counter has a definition: which events, which privilege levels, which CPUs, which threads. A surprising
+zero is more often a scope mistake than a fact about the program.
+</Aside>
+
+The task clock measures time actually spent on a CPU. Spinning for 200 ms of wall time used 200 ms of CPU;
+sleeping in 1 ms steps for the same wall time used 2.3 ms. The same distinction between wall time and CPU time
+was the subject of the [measurement article](../../orientation/measuring-things-honestly/).
+
+## Without counters
+
+When counters aren't available, the methods this module used are what's left:
+
+- **Controlled experiments**: change one thing, such as the data's order, the working set or the page size, and
+  watch the time. The branch, cache and TLB articles all worked this way.
+- **Machine code inspection**: `objdump` showed the compiler folding a dependency chain, packing chains into
+  SIMD registers and emulating an unsigned compare. No counter would have shown that more clearly.
+- **Models with stated assumptions**: the misprediction cost and the clock speed estimates said exactly what
+  they assumed.
+- **Software counters**: page faults, context switches and task clock, which the kernel provides everywhere.
+
+## Costs and trade-offs
+
+**Counters are cheap to read, easy to misread.** A cache-miss count without a baseline, or a counter scoped to
+the wrong privilege level, can support any story. Compare against a variant, and check the counter's definition.
+
+**Counters vary by processor.** Event names and meanings differ between vendors and generations; tools like
+`perf list` show what a given machine offers.
+
+**No counters, no excuses.** Without a PMU, careful experiments and machine code still go a long way, as long as
+explanations are labelled as hypotheses until something confirms them.
+
+## Check yourself
+
+<details>
+<summary>An operator runs at 0.4 instructions per cycle. What does that suggest, and what would you count next?</summary>
+
+The core is mostly stalled. Count cache and TLB misses per row to test for memory stalls, and branch
+mispredictions per row to test for misprediction stalls; whichever is high points to the cause.
+</details>
+
+<details>
+<summary>Why did the second pass over the same 1 GiB take 4.6 ms instead of 403 ms?</summary>
+
+The first pass page-faulted on every 4 KiB page: the kernel allocated, zeroed and mapped each one. On the second
+pass all pages were already mapped, so the writes were ordinary memory accesses.
+</details>
+
+<details>
+<summary>perf_event_open fails with ENOENT for cpu-cycles. What does that tell you?</summary>
+
+The kernel has no PMU event source for that event: on a VM, typically because the hypervisor doesn't expose the
+processor's performance counters. Software events may still work.
+</details>
+
+## Further reading
+
+- The Linux manual page for [perf_event_open(2)](https://man7.org/linux/man-pages/man2/perf_event_open.2.html).
+- Brendan Gregg, [perf examples](https://www.brendangregg.com/perf.html): a practical tour of `perf`.
+- Ahmad Yasin, "A Top-Down Method for Performance Analysis and Counters Architecture", ISPASS 2014.
