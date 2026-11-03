@@ -1,0 +1,197 @@
+---
+// A two-socket machine: each socket has its own cores and its own memory, joined by an
+// interconnect. Choose where a thread runs and where its data lives. The latency and bandwidth
+// figures are the ones Leis et al. measured on a two-socket Sandy Bridge EP server in
+// "Morsel-driven parallelism" (SIGMOD 2014); the lab VM has a single NUMA node and can't measure
+// this. Placements are illustrative.
+---
+
+<qe-numa class="qe-lab qe-numa not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Where does the thread run, and where is its data?</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Scenario">
+      <button type="button" data-sc="local" aria-pressed="true">Thread and data on socket 0</button>
+      <button type="button" data-sc="remote" aria-pressed="false">Thread on socket 1, data on socket 0</button>
+      <button type="button" data-sc="firsttouch" aria-pressed="false">One thread loaded all the data</button>
+      <button type="button" data-sc="morsel" aria-pressed="false">Morsels go to the local socket</button>
+    </div>
+    <div class="machine" data-machine></div>
+    <dl class="figs" data-figs aria-live="polite"></dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-numa>
+
+<script>
+  // Leis et al., SIGMOD 2014, Sandy Bridge EP: local ~101 ns / ~121 GB/s; with mostly remote
+  // accesses latency ~257 ns and bandwidth ~41 GB/s.
+  type Sc = { threads: number[]; data: number[]; note: string; lat: string; bw: string };
+  const SC: Record<string, Sc> = {
+    local: {
+      threads: [0],
+      data: [0, 0, 0, 0],
+      lat: 'about 101 ns',
+      bw: 'about 121 GB/s (whole machine, local)',
+      note: 'The thread reads memory attached to its own socket: the short path. This is what NUMA-aware engines try to arrange for almost every access.',
+    },
+    remote: {
+      threads: [1],
+      data: [0, 0, 0, 0],
+      lat: 'about 257 ns',
+      bw: 'about 41 GB/s (whole machine, mostly remote)',
+      note: 'Every access crosses the interconnect to the other socket’s memory controller and back. On the paper’s Sandy Bridge EP machine, latency was about 2.5 times higher, and bandwidth fell to about a third.',
+    },
+    firsttouch: {
+      threads: [0, 1],
+      data: [0, 0, 0, 0],
+      lat: 'half the threads: about 257 ns',
+      bw: 'limited by one socket’s memory and the link',
+      note: 'Linux places a page on the node of the CPU that first touches it. If one thread on socket 0 loads the whole table, every page lands on socket 0, and the threads on socket 1 read all of it remotely, while socket 1’s memory sits idle.',
+    },
+    morsel: {
+      threads: [0, 1],
+      data: [0, 1, 0, 1],
+      lat: 'about 101 ns for nearly all reads',
+      bw: 'both sockets’ memory in use',
+      note: 'Morsel-driven engines split the data into small chunks spread across sockets and hand each worker the morsels stored on its own socket. Remote reads happen only at the end of a query, when a socket runs out of local work and steals some for load balance.',
+    },
+  };
+
+  class QeNuma extends HTMLElement {
+    sc = 'local';
+
+    connectedCallback() {
+      this.querySelectorAll<HTMLButtonElement>('[data-sc]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.sc = b.dataset.sc!;
+          this.querySelectorAll('[data-sc]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.render();
+        }),
+      );
+      this.render();
+    }
+
+    render() {
+      const s = SC[this.sc];
+      const socket = (n: number) => {
+        const cores = Array.from({ length: 4 }, (_, k) => `<i class="${s.threads.includes(n) && k === 0 ? 'busy' : ''}">${s.threads.includes(n) && k === 0 ? 'T' : ''}</i>`).join('');
+        const pages = s.data
+          .map((d, k) => (d === n ? `<i class="page">${String.fromCharCode(65 + k)}</i>` : ''))
+          .join('');
+        const remoteHere = s.threads.some((t) => t !== n && s.data.some((d) => d === n)) && this.sc !== 'morsel';
+        return `<div class="socket ${remoteHere ? 'serving' : ''}"><p class="t">Socket ${n}</p><div class="cores">${cores}</div><div class="mem"><span class="lab">memory</span><div class="pages">${pages || '<em>empty</em>'}</div></div></div>`;
+      };
+      const cross = s.threads.some((t) => s.data.some((d) => d !== t)) && this.sc !== 'morsel';
+      this.querySelector('[data-machine]')!.innerHTML = `${socket(0)}<div class="link ${cross ? 'hot' : ''}"><span>interconnect</span></div>${socket(1)}`;
+      this.querySelector('[data-figs]')!.innerHTML = `<div><dt>memory latency</dt><dd>${s.lat}</dd></div><div><dt>bandwidth</dt><dd>${s.bw}</dd></div>`;
+      this.querySelector<HTMLElement>('[data-note]')!.textContent = s.note;
+    }
+  }
+  if (!customElements.get('qe-numa')) customElements.define('qe-numa', QeNuma);
+</script>
+
+<style is:global>
+  .qe-numa .machine {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.4rem;
+    align-items: stretch;
+    margin-top: 0.9rem;
+  }
+  .qe-numa .socket {
+    padding: 0.55rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+  }
+  .qe-numa .socket.serving {
+    border-color: var(--qe-series-2);
+  }
+  .qe-numa .socket .t {
+    margin: 0 0 0.4rem;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    color: var(--sl-color-white);
+  }
+  .qe-numa .cores,
+  .qe-numa .pages {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+  }
+  .qe-numa .cores i,
+  .qe-numa .pages i {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    background: var(--sl-color-gray-5);
+    font-style: normal;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    color: var(--sl-color-black);
+  }
+  .qe-numa .cores i.busy {
+    background: var(--sl-color-accent);
+  }
+  .qe-numa .pages i.page {
+    background: var(--qe-series-1);
+  }
+  .qe-numa .mem {
+    margin-top: 0.55rem;
+    padding: 0.4rem;
+    border-radius: 6px;
+    border: 1px dashed var(--sl-color-gray-4);
+  }
+  .qe-numa .mem .lab {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-numa .mem em {
+    grid-column: 1 / -1;
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-numa .link {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    border-radius: 6px;
+    background: var(--sl-color-gray-6);
+  }
+  .qe-numa .link span {
+    writing-mode: vertical-rl;
+    font-size: 0.625rem;
+    color: var(--sl-color-gray-3);
+    letter-spacing: 0.02em;
+  }
+  .qe-numa .link.hot {
+    background: color-mix(in srgb, var(--qe-series-2) 45%, var(--sl-color-gray-6));
+  }
+  .qe-numa .link.hot span {
+    color: var(--sl-color-white);
+  }
+  .qe-numa .figs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+  }
+  .qe-numa .figs div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-numa .figs dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-numa .figs dd {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--sl-color-white);
+  }
+</style>

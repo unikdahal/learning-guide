@@ -2422,7 +2422,7 @@
           "scope": "Cores, hyperthreads, cache coherence, false sharing, and why per-thread state wins.",
           "visual": "Two cores bouncing a cache line",
           "path": "hardware/multicore-threads-and-false-sharing",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 10,
@@ -2432,7 +2432,7 @@
           "scope": "Atomic operations, ordering in Rust, contention costs, and lock-free vs partitioned designs for shared hash tables.",
           "visual": null,
           "path": "hardware/atomics-and-memory-ordering-for-engine-developers",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 11,
@@ -2442,7 +2442,7 @@
           "scope": "Non-uniform memory access, remote memory cost, and NUMA-aware scheduling in morsel-driven engines.",
           "visual": null,
           "path": "hardware/numa",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 12,
@@ -2452,7 +2452,7 @@
           "scope": "Sequential vs random I/O, queue depth, NVMe, and what the OS page cache does for and to a query engine.",
           "visual": null,
           "path": "hardware/disks-and-ssds",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 13,
@@ -2462,7 +2462,7 @@
           "scope": "S3, GCS and ADLS latency, throughput per connection, request costs, and why request size and parallelism dominate.",
           "visual": "Request size vs effective throughput curve",
           "path": "hardware/object-storage-for-query-engines",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 14,

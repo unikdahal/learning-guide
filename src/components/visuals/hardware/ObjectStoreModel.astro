@@ -1,0 +1,134 @@
+---
+// A model, not a measurement: each GET pays a fixed first-byte latency, then streams at a
+// per-connection rate; requests run on several connections at once; the instance's network
+// caps the total. throughput(size) = min(connections × size / (latency + size / rate), cap).
+// Defaults: 100 ms latency (the low end of the 100–200 ms AWS documents for S3), 100 Gb/s cap
+// (the most AWS mentions for one instance). The per-connection rate is not documented by AWS and
+// is left for the reader to vary.
+---
+
+<qe-objstore class="qe-lab qe-os not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Reading a 10 GiB table from object storage: a model</p>
+    <div class="sliders">
+      <label><span>First-byte latency <b data-out="lat"></b></span><input type="range" min="10" max="300" step="10" value="100" data-in="lat" /></label>
+      <label><span>Per-connection rate <b data-out="rate"></b></span><input type="range" min="10" max="400" step="10" value="100" data-in="rate" /></label>
+      <label><span>Concurrent requests <b data-out="conc"></b></span><input type="range" min="0" max="8" step="1" value="0" data-in="conc" /></label>
+    </div>
+    <div data-chart></div>
+    <dl class="figs" data-figs aria-live="polite"></dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-objstore>
+
+<script>
+  import { renderLineChart } from '../../../scripts/linechart';
+
+  const SIZES = [16, 64, 256, 1024, 4096, 8192, 16384, 65536, 262144].map((k) => k * 1024); // bytes
+  const TABLE = 10 * 1024 ** 3;
+  const CAP = 100e9 / 8; // 100 Gb/s in bytes per second
+  const CONC = [1, 2, 4, 8, 16, 32, 64, 128, 256];
+
+  function size(b: number) {
+    return b >= 1 << 20 ? `${b / (1 << 20)} MiB` : `${b / 1024} KiB`;
+  }
+
+  class QeObjStore extends HTMLElement {
+    connectedCallback() {
+      this.querySelectorAll<HTMLInputElement>('[data-in]').forEach((i) => i.addEventListener('input', () => this.render()));
+      this.render();
+    }
+
+    val(k: string) {
+      return Number(this.querySelector<HTMLInputElement>(`[data-in="${k}"]`)!.value);
+    }
+
+    render() {
+      const lat = this.val('lat') / 1000; // s
+      const rate = this.val('rate') * 1e6; // B/s
+      const conc = CONC[this.val('conc')];
+      this.querySelector('[data-out="lat"]')!.textContent = `${this.val('lat')} ms`;
+      this.querySelector('[data-out="rate"]')!.textContent = `${this.val('rate')} MB/s`;
+      this.querySelector('[data-out="conc"]')!.textContent = String(conc);
+      const tput = (s: number, c: number) => Math.min((c * s) / (lat + s / rate), CAP) / 1e6; // MB/s
+      const pts = (c: number) => SIZES.map((s) => [s, tput(s, c)] as [number, number]);
+      renderLineChart(this.querySelector('[data-chart]')!, {
+        series: [
+          { name: `${conc} concurrent`, color: 'var(--qe-series-1)', points: pts(conc) },
+          ...(conc > 1 ? [{ name: 'one at a time', color: 'var(--qe-series-2)', points: pts(1) }] : []),
+        ],
+        xLog: true,
+        yLog: true,
+        xTicks: [16384, 262144, 4194304, 67108864, 268435456].map((v) => ({ v, label: size(v).replace(' ', '') })),
+        yTicks: [0.1, 1, 10, 100, 1000, 10000].map((v) => ({ v, label: v >= 1000 ? `${v / 1000}k` : String(v) })),
+        xLabel: 'request size',
+        yLabel: 'MB/s (model)',
+        fmtX: size,
+        fmtY: (y) => `${y < 10 ? y.toFixed(2) : Math.round(y).toLocaleString('en-US')} MB/s`,
+        height: 250,
+      });
+      const best = SIZES.map((s) => ({ s, t: tput(s, conc) })).reduce((a, b) => (b.t > a.t ? b : a));
+      const at8 = tput(8 << 20, conc);
+      const secs = TABLE / (at8 * 1e6);
+      const reqs = TABLE / (8 << 20);
+      this.querySelector('[data-figs]')!.innerHTML = `<div><dt>10 GiB in 8 MiB requests</dt><dd>${reqs.toLocaleString('en-US')} requests, ${secs < 120 ? secs.toFixed(1) + ' s' : (secs / 60).toFixed(1) + ' min'}</dd></div><div><dt>same in 64 KiB requests</dt><dd>${(TABLE / 65536).toLocaleString('en-US')} requests, ${((TABLE / (tput(65536, conc) * 1e6)) / 60).toFixed(1)} min</dd></div>`;
+      const capped = best.t >= CAP / 1e6 - 1;
+      this.querySelector<HTMLElement>('[data-note]')!.textContent =
+        conc === 1
+          ? `One request at a time, small requests are dominated by latency: a 64 KiB GET spends ${((lat / (lat + 65536 / rate)) * 100).toFixed(0)}% of its time waiting for the first byte. Even large requests can’t beat one connection’s rate. Raise the concurrency.`
+          : capped
+            ? `With ${conc} requests in flight and large requests, the model hits the 100 Gb/s network cap: the bottleneck has moved from the store to the machine. Smaller requests still waste most of each round trip on latency.`
+            : `${conc} requests in flight multiply throughput, as long as each request is large enough to spend most of its time transferring rather than waiting. Larger requests and more of them both help, until the network cap.`;
+    }
+  }
+  if (!customElements.get('qe-objstore')) customElements.define('qe-objstore', QeObjStore);
+</script>
+
+<style is:global>
+  .qe-os .sliders {
+    display: grid;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+  }
+  .qe-os .sliders label {
+    display: grid;
+    gap: 0.2rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-os .sliders label span {
+    display: flex;
+    justify-content: space-between;
+  }
+  .qe-os .sliders b {
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-os input[type='range'] {
+    width: 100%;
+    min-height: 2rem;
+    accent-color: var(--sl-color-accent);
+  }
+  .qe-os .figs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+  }
+  .qe-os .figs div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-os .figs dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-os .figs dd {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--sl-color-white);
+  }
+</style>

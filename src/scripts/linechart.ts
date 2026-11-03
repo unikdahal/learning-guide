@@ -32,8 +32,11 @@ function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, 
   return e;
 }
 
+const observers = new WeakMap<HTMLElement, ResizeObserver>();
+
 export function renderLineChart(host: HTMLElement, opts: ChartOptions): void {
   host.classList.add('qe-chart');
+  observers.get(host)?.disconnect(); // re-rendering: drop the previous chart's observer
   host.replaceChildren();
 
   if (opts.series.length > 1) {
@@ -83,7 +86,10 @@ export function renderLineChart(host: HTMLElement, opts: ChartOptions): void {
       svg.append(tx);
     }
     for (const t of opts.xTicks) {
-      const tx = el('text', { class: 'tick', x: sx(t.v), y: H - m.b + 16, 'text-anchor': 'middle' });
+      // Keep edge labels inside the plot: anchor them inward when they sit near either side.
+      const x = sx(t.v);
+      const anchor = x > W - m.r - 24 ? 'end' : x < m.l + 8 ? 'start' : 'middle';
+      const tx = el('text', { class: 'tick', x: anchor === 'end' ? Math.min(x, W - 2) : x, y: H - m.b + 16, 'text-anchor': anchor });
       tx.textContent = t.label;
       svg.append(tx);
     }
@@ -161,12 +167,14 @@ export function renderLineChart(host: HTMLElement, opts: ChartOptions): void {
 
   draw();
   let w = plot.clientWidth;
-  new ResizeObserver(() => {
+  const ro = new ResizeObserver(() => {
     if (Math.abs(plot.clientWidth - w) > 4) {
       w = plot.clientWidth;
       draw();
     }
-  }).observe(plot);
+  });
+  ro.observe(plot);
+  observers.set(host, ro);
 
   const details = document.createElement('details');
   details.className = 'qe-chart-table';

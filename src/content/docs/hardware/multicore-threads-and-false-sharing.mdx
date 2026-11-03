@@ -1,16 +1,178 @@
 ---
-title: "Multicore, threads and false sharing"
-description: "Cores, hyperthreads, cache coherence, false sharing, and why per-thread state wins."
+title: Multicore, threads and false sharing
+description: Cores, hyperthreads, cache coherence, false sharing, and why per-thread state wins.
 level: I
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 9
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import FalseSharing from '@components/visuals/hardware/FalseSharing.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="multicore-threads-and-false-sharing" />
+<ArticleMeta module="02" slug="multicore-threads-and-false-sharing" minutes={14} lab="m02-hardware/examples/multicore.rs" />
+
+Every article in this module so far ran on one core. Real engines use all of them: DataFusion splits a query
+into partitions and runs them on a thread pool, one thread per core. On work that shares nothing, two cores do
+twice the work. On work that shares the wrong thing, two cores can do less than one, and the thing they share
+doesn't even have to be the same variable. It only has to be the same 64 bytes.
+
+## The question
+
+What do cores share, how do caches keep shared data consistent, and how does that turn innocent-looking
+parallel code slow?
+
+## Cores, hyperthreads and what they share
+
+A **core** has its own execution units, registers and private caches (on the lab machine, a 48 KiB L1 data
+cache and a 2 MiB L2 per core). Cores on one chip share the last-level cache, the memory controllers and the
+memory itself. A **hyperthread** (simultaneous multithreading) is a second set of registers on the same core,
+sharing its execution units and caches; it helps when one thread stalls, waiting on memory for instance, but it
+doesn't double the core. The lab VM reports two CPUs, one thread per core:
+
+```text title="lscpu (lab VM)"
+CPU(s):                2
+Thread(s) per core:    1
+Core(s) per socket:    2
+```
+
+## Work that shares nothing scales
+
+The lab runs a compute-bound loop, independent multiply-add chains from the
+[ILP article](../instruction-level-parallelism/), on one thread and then split across two:
+
+```text title="cargo run --release -p m02-hardware --example multicore"
+1 thread :    138.8 ms
+2 threads:     72.4 ms   speedup 1.92x
+```
+
+Close to twice as fast, because neither thread touches anything the other uses. (An earlier run measured
+2.16×, slightly better than perfect, which is noise from the VM and possibly turbo frequencies: single-run
+speedups on a shared cloud machine should be read to one significant figure.)
+
+## Cache coherence
+
+Each core caches lines privately, so when two cores use the same line, their copies could disagree. Hardware
+**cache coherence** prevents that. The common family of protocols, MESI and its variants, tracks a state for
+each cached line: **M**odified (this core has the only copy, and changed it), **E**xclusive (only copy,
+unchanged), **S**hared (read-only copies may exist elsewhere) or **I**nvalid. Any number of cores can hold a
+line Shared for reading, but to write, a core needs the line in Modified or Exclusive state, which means every
+other copy must first be invalidated.
+
+Reading shared data is therefore cheap: everyone keeps a copy. Writing data that another core is also using is
+expensive: the line has to move, invalidating copies and waiting for the transfer, every time ownership
+changes hands.
+
+## False sharing
+
+Coherence works on whole cache lines. Two variables that sit in the same 64-byte line are, as far as the caches
+are concerned, one thing. If one core writes the first and another writes the second, the line bounces between
+them on every write, even though they never touch each other's data. That is **false sharing**: the sharing is
+real for the hardware and imaginary in the program.
+
+<FalseSharing />
+
+The lab gives two threads a counter each and has each increment its own 50 million times with an atomic
+`fetch_add`, with the two counters 8, 32, 64 or 128 bytes apart:
+
+```text title="cargo run --release -p m02-hardware --example multicore"
+counters 8 bytes apart    30.48 ns per increment   (same cache line)
+counters 32 bytes apart   31.33 ns per increment   (same cache line)
+counters 64 bytes apart    8.15 ns per increment   (different lines)
+counters 128 bytes apart   7.65 ns per increment   (different lines)
+```
+
+Same work, no shared variable, 3.8 times slower when the counters share a line. The step is exactly at 64
+bytes: everything in one line behaves alike, and once the counters are on different lines, each core keeps its
+own.
+
+The same experiment with plain stores (a volatile read and write, not an atomic) shows a much smaller effect:
+
+```text title="cargo run --release -p m02-hardware --example multicore"
+one thread alone          0.36 ns per increment
+counters 8 bytes apart     0.50 ns per increment   (same cache line)
+counters 64 bytes apart    0.38 ns per increment   (different lines)
+```
+
+A plausible explanation, which the lab can't confirm without performance counters: a plain store goes into the
+core's store buffer and the core continues; reading the counter back can be served from that buffer. The core
+rarely has to wait for the line itself, so the bouncing happens in the background. An atomic read-modify-write
+must own the line for the whole operation, so it waits every time. Real code usually sits between the two: it
+reads and writes several fields, and pays more than the plain-store loop.
+
+## Shared state versus per-thread state
+
+The most common real-world version of the problem isn't two counters in one line; it is one counter for
+everyone. The lab counts 200 million events on two threads, once with a single shared atomic and once with a
+local counter per thread, summed at the end:
+
+```text title="cargo run --release -p m02-hardware --example multicore"
+shared AtomicU64::fetch_add     2850.3 ms  (14.25 ns per event)
+per-thread counters, summed       35.7 ms  (0.18 ns per event)
+```
+
+About 80 times slower with the shared counter (an earlier run gave 13 ns against 0.5 ns; the per-thread number
+is so small that it varies with how the compiler schedules the loop). The shared version is correct, and on two
+cores it is slower than one core counting alone would be: both cores spend their time passing one line back and
+forth.
+
+This is why query engines keep state per thread wherever they can. A parallel aggregation gives each thread its
+own hash table and merges the partial results at the end, rather than updating one shared table; a parallel
+sort sorts runs per thread and merges them; DataFusion runs one copy of each operator per partition, so most
+state is never shared at all. Sharing is reserved for the few points where results must meet, and done in
+bulk, not per row.
+
+<Aside type="note" title="Padding in practice">
+To keep per-thread state on separate lines, align it to the line size. In Rust, `#[repr(align(64))]` on a
+struct does it; the crossbeam crate's `CachePadded<T>` wraps a value for the same purpose, and on some
+processors uses 128 bytes, because adjacent-line prefetching can couple pairs of lines.
+</Aside>
+
+## Costs and trade-offs
+
+**Per-thread state costs memory and a merge.** Eight threads with their own hash tables use up to eight times
+the memory, and the merge is extra work. It's still almost always cheaper than contention.
+
+**Padding wastes space.** Aligning every per-thread counter to 64 or 128 bytes inflates small structures. It's
+worth it for data written often by different threads, and pointless for data that is read-only or used by one
+thread.
+
+**The symptom is confusing.** False sharing shows up as code that gets slower when parallelized, with no shared
+variable in sight. When adding threads makes something slower, look at the memory layout of what each thread
+writes.
+
+## Check yourself
+
+<details>
+<summary>Two threads each write their own field of the same struct, 40 bytes apart. Is that false sharing?</summary>
+
+Very likely: two fields 40 bytes apart usually share a 64-byte line, unless the struct straddles a line
+boundary. Each write forces the line to move to the writing core.
+</details>
+
+<details>
+<summary>Many threads read the same lookup table, which no one writes. Does sharing it cost anything after the first access?</summary>
+
+Very little. Every core can hold the lines in the Shared state at once; only writes force invalidations.
+</details>
+
+<details>
+<summary>Why did a shared atomic counter on two cores run slower than one core could count alone?</summary>
+
+Each increment needs exclusive ownership of the counter's line, so the line moves between the cores on almost
+every operation. The cores spend their time waiting for transfers instead of counting.
+</details>
+
+<details>
+<summary>How does a parallel hash aggregation avoid contention on its hash table?</summary>
+
+Each thread aggregates into its own table, so there is no sharing during the main pass; the partial tables are
+merged once at the end, or the input is partitioned by key so each thread owns a disjoint set of groups.
+</details>
+
+## Further reading
+
+- Ulrich Drepper, [What Every Programmer Should Know About Memory](https://www.akkadia.org/drepper/cpumemory.pdf),
+  section 3.3.4 on multi-processor caches and section 6.4 on concurrency.
+- The crossbeam crate's [`CachePadded`](https://docs.rs/crossbeam-utils/latest/crossbeam_utils/struct.CachePadded.html).

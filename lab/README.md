@@ -60,6 +60,9 @@ Each article's code is an example in its module crate's `examples/` folder. Shar
 | SIMD in Rust | `cargo run --release -p m02-hardware --example simd`, then `objdump -d --no-show-raw-insn target/release/examples/simd` |
 | TLBs, pages and huge pages | `cargo run --release -p m02-hardware --example pages` (and `--example tlb`) |
 | Prefetching and memory bandwidth | `cargo run --release -p m02-hardware --example prefetch` |
+| Multicore, threads and false sharing | `cargo run --release -p m02-hardware --example multicore` |
+| Atomics and memory ordering for engine developers | `cargo run --release -p m02-hardware --example atomics` |
+| Disks and SSDs | `cargo run --release -p m02-hardware --example disk` (writes and deletes a 1 GiB file) |
 
 The Module 02 examples measure the hardware, so run them one at a time on an otherwise idle machine; `storage` writes a 1 GiB file under `data/`. Timings depend on your machine. The articles say what hardware produced theirs; compare shapes and
 ratios, not absolute numbers.

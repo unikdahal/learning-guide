@@ -1,0 +1,298 @@
+---
+// Two cores, each incrementing its own counter. A write needs the cache line in this core's
+// cache in an exclusive, modified state; if the other core holds it, the line moves and the other
+// copy is invalidated. With both counters on one line, the line bounces on every write; padded
+// onto separate lines, each core keeps its own. Measured numbers from
+// lab/crates/m02-hardware/examples/multicore.rs.
+const measured = [
+  ['atomic fetch_add, same line', 30.48],
+  ['atomic fetch_add, separate lines', 8.15],
+  ['plain store, same line', 0.5],
+  ['plain store, separate lines', 0.38],
+];
+---
+
+<qe-falseshare class="qe-lab qe-fs not-content" data-m={JSON.stringify(measured)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Two cores, two counters</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Memory layout">
+      <button type="button" data-layout="same" aria-pressed="true">Counters next to each other</button>
+      <button type="button" data-layout="padded" aria-pressed="false">Padded onto separate lines</button>
+    </div>
+
+    <div class="cores">
+      {[0, 1].map((c) => (
+        <div class="core" data-core={c}>
+          <p class="t">Core {c}<span>increments counter {c === 0 ? 'A' : 'B'}</span></p>
+          <div class="cache" data-cache={c}></div>
+        </div>
+      ))}
+    </div>
+    <p class="qe-lab-cap mem-cap">Memory, in 64-byte lines of eight 8-byte slots</p>
+    <div class="mem" data-mem></div>
+
+    <dl class="counters" data-counters aria-live="polite"></dl>
+    <div class="qe-lab-row controls">
+      <button type="button" class="qe-lab-btn" data-step>Next write</button>
+      <button type="button" class="qe-lab-btn quiet" data-run>Run 20 writes</button>
+      <button type="button" class="qe-lab-btn quiet" data-reset>Reset</button>
+    </div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Measured on the lab VM: ns per increment, two threads</p>
+    <ul class="bars" data-bars></ul>
+    <p class="qe-lab-note">
+      Atomic increments need the line exclusively, so sharing a line made them 3.8 times slower. Plain stores
+      showed only a small effect: a store first goes into the core’s store buffer, and reading the counter back
+      can be served from there, so the core rarely waits for the line. That explanation fits the numbers but
+      couldn’t be confirmed without performance counters.
+    </p>
+  </section>
+</qe-falseshare>
+
+<script>
+  class QeFalseShare extends HTMLElement {
+    layout = 'same';
+    owner: Record<string, number | null> = {};
+    writes = 0;
+    transfers = 0;
+    vals = [0, 0];
+    last = '';
+
+    connectedCallback() {
+      this.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.layout = b.dataset.layout!;
+          this.querySelectorAll('[data-layout]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.reset();
+        }),
+      );
+      this.querySelector('[data-step]')!.addEventListener('click', () => this.step());
+      this.querySelector('[data-run]')!.addEventListener('click', () => {
+        for (let i = 0; i < 20; i++) this.step(false);
+        this.render();
+      });
+      this.querySelector('[data-reset]')!.addEventListener('click', () => this.reset());
+      const m: [string, number][] = JSON.parse(this.dataset.m!);
+      const max = Math.max(...m.map((r) => r[1]));
+      this.querySelector('[data-bars]')!.innerHTML = m
+        .map(([n, v]) => `<li><span class="name">${n}</span><b>${v.toFixed(2)} ns</b><span class="bar"><i style="width:${Math.max((v / max) * 100, 1.5)}%"></i></span></li>`)
+        .join('');
+      this.reset();
+    }
+
+    lineOf(core: number): string {
+      return this.layout === 'same' ? 'L0' : core === 0 ? 'L0' : 'L1';
+    }
+
+    reset() {
+      this.owner = { L0: null, L1: null };
+      this.writes = 0;
+      this.transfers = 0;
+      this.vals = [0, 0];
+      this.last = '';
+      this.render();
+    }
+
+    step(draw = true) {
+      const core = this.writes % 2; // the two cores take turns, as if running in parallel
+      const line = this.lineOf(core);
+      const prev = this.owner[line];
+      if (prev !== core) {
+        this.transfers++;
+        this.last = prev === null ? `Core ${core} fetches line ${line} from memory` : `Line ${line} moves from core ${prev} to core ${core}; core ${prev}’s copy is invalidated`;
+      } else {
+        this.last = `Core ${core} already owns line ${line}: the write stays in its cache`;
+      }
+      this.owner[line] = core;
+      this.vals[core]++;
+      this.writes++;
+      if (draw) this.render();
+    }
+
+    render() {
+      const lines = this.layout === 'same' ? ['L0'] : ['L0', 'L1'];
+      const slotOf = (core: number) => (this.layout === 'same' ? core : 0);
+      const lineHtml = (l: string, own: boolean, state: string) => {
+        const cells = Array.from({ length: 8 }, (_, k) => {
+          const which = [0, 1].find((c) => this.lineOf(c) === l && slotOf(c) === k);
+          return `<i class="${which !== undefined ? `c${which}` : ''}">${which !== undefined ? (which === 0 ? 'A' : 'B') : ''}</i>`;
+        }).join('');
+        return `<div class="line ${own ? 'own' : 'gone'}"><span class="ln">${l}</span><div class="cells">${cells}</div><span class="st">${state}</span></div>`;
+      };
+      for (const c of [0, 1]) {
+        const held = lines.filter((l) => this.owner[l] === c);
+        this.querySelector(`[data-cache="${c}"]`)!.innerHTML = held.length
+          ? held.map((l) => lineHtml(l, true, 'modified')).join('')
+          : lines.some((l) => this.lineOf(c) === l && this.owner[l] !== null)
+            ? lineHtml(this.lineOf(c), false, 'invalid')
+            : '<p class="empty">no copy yet</p>';
+      }
+      this.querySelector('[data-mem]')!.innerHTML = lines.map((l) => lineHtml(l, false, '')).join('');
+      const stats: [string, string][] = [
+        ['writes', String(this.writes)],
+        ['line transfers', String(this.transfers)],
+        ['A, B', `${this.vals[0]}, ${this.vals[1]}`],
+      ];
+      this.querySelector('[data-counters]')!.innerHTML = stats.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      if (!this.writes) {
+        note.textContent =
+          this.layout === 'same'
+            ? 'A and B are different variables, but they share one 64-byte line. Caches track whole lines, so a write to A and a write to B compete for the same line.'
+            : 'Padding puts A and B on different lines. Each core can own its line and write to it without asking the other.';
+      } else if (this.writes >= 6) {
+        note.textContent =
+          this.layout === 'same'
+            ? `${this.transfers} transfers in ${this.writes} writes: the line moves on every write, though the cores never touch each other’s counter. That is false sharing.`
+            : `${this.transfers} transfers in ${this.writes} writes: after each core first fetches its line, every write is local.`;
+      } else {
+        note.textContent = `${this.last}.`;
+      }
+    }
+  }
+  if (!customElements.get('qe-falseshare')) customElements.define('qe-falseshare', QeFalseShare);
+</script>
+
+<style is:global>
+  .qe-fs .cores {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+  }
+  .qe-fs .core {
+    padding: 0.55rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    min-height: 6.5rem;
+  }
+  .qe-fs .core .t {
+    margin: 0 0 0.45rem;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--sl-color-white);
+  }
+  .qe-fs .core .t span {
+    display: block;
+    font-weight: 500;
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-fs .empty {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+    font-style: italic;
+  }
+  .qe-fs .line {
+    display: grid;
+    grid-template-columns: 1.4rem minmax(0, 1fr);
+    gap: 0.3rem;
+    align-items: center;
+    margin-top: 0.25rem;
+  }
+  .qe-fs .line .ln {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-fs .line .st {
+    grid-column: 2;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--sl-color-accent-high);
+  }
+  .qe-fs .line.gone .st {
+    color: var(--qe-series-2);
+  }
+  .qe-fs .cells {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 2px;
+  }
+  .qe-fs .cells i {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--sl-color-gray-5);
+    font-style: normal;
+    font-size: 0.625rem;
+    font-weight: 800;
+    color: var(--sl-color-white);
+  }
+  .qe-fs .cells i.c0,
+  .qe-fs .cells i.c1 {
+    background: var(--qe-series-1);
+    color: var(--sl-color-black);
+  }
+  .qe-fs .line.gone .cells i {
+    opacity: 0.35;
+  }
+  .qe-fs .mem-cap {
+    margin-top: 0.8rem;
+  }
+  .qe-fs .mem .line {
+    grid-template-columns: 1.4rem minmax(0, 1fr);
+  }
+  .qe-fs .counters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+  }
+  .qe-fs .counters div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-fs .counters dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-fs .counters dd {
+    margin: 0;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-fs .controls {
+    margin-top: 0.9rem;
+  }
+  .qe-fs .bars {
+    list-style: none;
+    margin: 0.6rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.45rem;
+  }
+  .qe-fs .bars li {
+    margin: 0 !important;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.15rem 0.6rem;
+    font-size: 0.8125rem;
+  }
+  .qe-fs .bars .name {
+    color: var(--sl-color-gray-1);
+  }
+  .qe-fs .bars b {
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-fs .bars .bar {
+    grid-column: 1 / -1;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--sl-color-black);
+  }
+  .qe-fs .bars .bar i {
+    display: block;
+    height: 100%;
+    border-radius: 0 4px 4px 0;
+    background: var(--qe-series-1);
+  }
+</style>

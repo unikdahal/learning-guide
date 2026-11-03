@@ -1,16 +1,198 @@
 ---
-title: "Disks and SSDs"
-description: "Sequential vs random I/O, queue depth, NVMe, and what the OS page cache does for and to a query engine."
+title: Disks and SSDs
+description: Sequential vs random I/O, queue depth, NVMe, and what the OS page cache does for and to a query engine.
 level: B
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 12
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import MeasuredChart from '@components/visuals/MeasuredChart.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="disks-and-ssds" />
+<ArticleMeta module="02" slug="disks-and-ssds" minutes={14} lab="m02-hardware/examples/disk.rs" />
+
+Below main memory, the hierarchy changes character. A read from disk isn't a load instruction; it is a request
+to a device, through the operating system, that takes tens of microseconds at best. Throughput then depends
+less on how fast one request completes than on how many are outstanding and how big each one is. And between
+the program and the device sits the operating system's page cache, which can make a disk-bound query look
+memory-fast, or make a benchmark lie.
+
+This article measures all of that on the lab VM's disk. A cloud VM's disk is usually a network-attached
+virtual device, not a local SSD, so the absolute numbers describe this machine; the shapes are general.
+
+## The question
+
+What does a read from storage cost, how do queue depth and request size change the answer, and what is the page
+cache doing in between?
+
+## From spinning disks to NVMe
+
+A hard disk reads data from a spinning platter with a moving head. A random read waits for the head to move and
+the platter to turn, milliseconds each time, while a sequential read streams under the head without either, so
+for decades storage performance was mostly about avoiding random access.
+
+Flash SSDs have no moving parts, so a random read costs tens of microseconds instead of milliseconds. But a flash
+device is internally a collection of many independent chips and channels, and it reaches its rated performance
+only when many requests are outstanding at once, so that all of them work in parallel. **NVMe**, the interface
+modern SSDs use, was designed for exactly that, with many deep submission queues instead of the single short
+queue of older interfaces. Cloud block storage adds a network hop, but keeps the same lesson: concurrency buys
+throughput.
+
+## Measured: queue depth
+
+The lab reads random 4 KiB blocks from a 1 GiB file with `O_DIRECT`, which bypasses the page cache, so each read
+goes to the device. Queue depth is the number of reads in flight at once, here one thread per outstanding read:
+
+```text title="cargo run --release -p m02-hardware --example disk"
+queue depth        IOPS    median lat     p99 lat
+          1       25252       37.5 µs     82.0 µs
+          2       43319       43.3 µs     93.8 µs
+          4       79004       46.2 µs    121.5 µs
+          8      105089       66.5 µs    243.6 µs
+         16      125681       98.4 µs    599.4 µs
+         32      133207      186.6 µs   1321.8 µs
+         64      168029      328.4 µs   1697.3 µs
+```
+
+<MeasuredChart
+  title="Random 4 KiB reads: throughput and latency by queue depth"
+  caption="The lab VM’s virtual disk, O_DIRECT, 3-second windows. Latencies are in the table above."
+  x={{ label: 'queue depth', log: true, ticks: [1, 2, 4, 8, 16, 32, 64], format: 'int' }}
+  y={{ label: 'IOPS', log: true, ticks: [10000, 30000, 100000, 300000], format: 'kilo' }}
+  series={[{ name: 'IOPS', points: [[1, 25252], [2, 43319], [4, 79004], [8, 105089], [16, 125681], [32, 133207], [64, 168029]] }]}
+/>
+
+At queue depth 1, each read takes 37.5 µs, and one thread completes about 25,000 per second. Doubling the depth
+up to 4 nearly doubles throughput each time while latency barely moves: the device has idle parallelism, and
+more requests use it. Past 8, throughput keeps rising more slowly while latency climbs steeply, from 47 µs at
+depth 4 to 328 µs at depth 64, with the 99th percentile reaching 1.7 ms: requests now wait in a queue. That is
+Little's law again, from the [prefetching article](../prefetching-and-memory-bandwidth/): throughput is requests
+in flight divided by latency, so once the device is saturated, more requests in flight only means more waiting.
+
+For an engine, this means a single thread issuing one read at a time leaves most of a device idle. Reading files
+asynchronously, with many requests outstanding, or reading from several threads, is how scans keep storage busy.
+
+## Measured: request size
+
+Sequential reads, one at a time, with increasing request sizes:
+
+```text title="cargo run --release -p m02-hardware --example disk"
+     4 KiB requests:     115 MB/s
+    16 KiB requests:     363 MB/s
+    64 KiB requests:    1337 MB/s
+   256 KiB requests:    2113 MB/s
+  1024 KiB requests:    4236 MB/s
+  4096 KiB requests:    3076 MB/s
+```
+
+<MeasuredChart
+  title="Sequential O_DIRECT reads, one at a time"
+  caption="Best of 3 passes over 256 MiB per request size."
+  x={{ label: 'request size', log: true, ticks: [4096, 16384, 65536, 262144, 1048576, 4194304], format: 'bytes' }}
+  y={{ label: 'MB/s', log: true, ticks: [100, 300, 1000, 3000, 10000], format: 'mbs' }}
+  series={[{ name: 'throughput', points: [[4096, 115], [16384, 363], [65536, 1337], [262144, 2113], [1048576, 4236], [4194304, 3076]] }]}
+/>
+
+Each request pays a fixed cost, the trip through the kernel and to the device, before any data moves. With 4 KiB
+requests, that cost dominates: 115 MB/s is about 28,000 requests per second, close to the queue-depth-1 rate
+above. Larger requests spread the fixed cost over more bytes, reaching 4.2 GB/s at 1 MiB. The drop at 4 MiB
+wasn't investigated; it may be a limit of this virtual device, and shows why sizes should be measured rather than
+assumed. This is why columnar file formats are read in large pieces, such as whole column chunks of several
+megabytes, rather than value by value.
+
+## The page cache
+
+Without `O_DIRECT`, reads go through the operating system's **page cache**: file data is kept in otherwise unused
+RAM, so a second read of the same data never reaches the device. The kernel also reads ahead when it sees a file
+being read sequentially. The lab reads 256 MiB with ordinary reads twice, first after asking the kernel to drop
+the file from the cache with `posix_fadvise(POSIX_FADV_DONTNEED)`:
+
+```text title="cargo run --release -p m02-hardware --example disk"
+cold (evicted with fadvise)       2946 MB/s
+warm (second read)                6056 MB/s
+```
+
+The cold read reached 2.9 GB/s with 1 MiB reads, helped by readahead; the warm read, served entirely from RAM,
+doubled that, and was limited by copying data from the kernel's pages into the program's buffer. The
+[memory hierarchy article](../the-memory-hierarchy-from-registers-to-object-storage/) found the same thing per
+read: 0.8 µs for a cached 4 KiB block, against 41 µs from the device.
+
+The page cache helps an engine by making repeated reads of hot files nearly free, with no effort. It hurts in
+two ways. It makes benchmarks lie: the second run of a query is often fast only because its files are cached,
+which is why the [measurement article](../../orientation/measuring-things-honestly/) insists on reporting cold
+and warm runs separately. And it can duplicate memory: an engine that caches decoded data itself, while the
+kernel also caches the raw file, holds the same data twice. Engines that manage their own buffers sometimes use
+`O_DIRECT` for that reason, accepting the job of doing their own caching and readahead.
+
+## Durability costs a round trip
+
+Writes have their own trap. A `write` normally returns once the data is in the page cache; it reaches the device
+later. A program that needs the data to survive a crash, such as a database's write-ahead log, must ask for that
+with `fsync` or `fdatasync`, which waits for the device:
+
+```text title="cargo run --release -p m02-hardware --example disk"
+pwrite alone (into the page cache)  median      4.9 µs
+pwrite + fdatasync (on the device)  median    195.2 µs   p99    540.4 µs
+```
+
+Forty times slower for a durable 4 KiB write. Systems that need durability batch many writes into one sync,
+group commit, rather than paying this per write. Query engines mostly read, but the same cost appears when they
+spill intermediate results to disk ([Module 11](../../memory-and-spilling/)), where durability usually isn't
+needed and syncs can be skipped.
+
+<Aside type="caution" title="These numbers are one cloud VM's">
+The lab's disk is a virtual device of unknown type, shared with other tenants and possibly rate-limited by the
+provider. A local NVMe SSD would show lower latency at depth 1 and much higher throughput at depth. Measure the
+storage you will actually run on, at the queue depths and request sizes your engine will use.
+</Aside>
+
+## Costs and trade-offs
+
+**Concurrency for throughput, at the price of latency.** Deep queues use the device fully but make each request
+wait longer, and tail latency grows fastest. Engines tune how many reads they keep outstanding.
+
+**Big requests for bandwidth, at the price of reading too much.** Large reads amortize per-request costs but
+fetch bytes the query may not need. File formats are designed so that one large read fetches mostly useful
+bytes: one column, one row group.
+
+**Free caching, with surprises.** The page cache speeds up repeated reads at no cost to the program, but hides
+storage costs in benchmarks and can double memory use.
+
+## Check yourself
+
+<details>
+<summary>At queue depth 1 a read takes 37.5 µs. What is the most one thread issuing one read at a time can achieve, and how did the lab get 168,000 IOPS?</summary>
+
+About 1 / 37.5 µs ≈ 26,700 reads per second. The lab reached 168,000 by keeping 64 reads in flight at once; each
+took longer, 328 µs, but many completed in parallel.
+</details>
+
+<details>
+<summary>Why did 4 KiB sequential reads reach only 115 MB/s on a disk that delivered 4.2 GB/s with 1 MiB reads?</summary>
+
+Each request has a fixed cost before data moves. At 4 KiB per request, the lab completed about 28,000 requests
+per second, so throughput was capped near 115 MB/s by the number of requests, not by the device's bandwidth.
+</details>
+
+<details>
+<summary>A query runs in 9 seconds the first time and 2 seconds the second time, on unchanged data. What is the likely explanation, and how would you report it?</summary>
+
+The second run read its files from the page cache. Report both: cold runs (after evicting the files, for example
+with `posix_fadvise` or by dropping caches) and warm runs, and say which is which.
+</details>
+
+<details>
+<summary>Why does a write-ahead log batch commits instead of calling fdatasync after every transaction?</summary>
+
+Each sync waits for the device, about 195 µs on the lab VM against 5 µs for the write itself. Syncing once for
+many transactions shares that wait among them.
+</details>
+
+## Further reading
+
+- Gabriel Haas and Viktor Leis, [What Modern NVMe Storage Can Do, and How to Exploit It](https://www.vldb.org/pvldb/vol16/p2090-haas.pdf),
+  PVLDB 2023: high-throughput I/O for database systems on NVMe.
+- The Linux man pages for [open(2)](https://man7.org/linux/man-pages/man2/open.2.html) (on `O_DIRECT`) and
+  [posix_fadvise(2)](https://man7.org/linux/man-pages/man2/posix_fadvise.2.html).

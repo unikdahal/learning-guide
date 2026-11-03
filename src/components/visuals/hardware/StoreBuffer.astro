@@ -1,0 +1,266 @@
+---
+// The store-buffering litmus test, step by step. Each core puts its store into a private store
+// buffer, which drains to shared memory later; a load checks its own buffer, then memory. On x86
+// this lets a load run before an earlier store to a different address becomes visible, so both
+// loads can read 0. A SeqCst store (xchg on x86) waits for the buffer to drain. The counts are
+// from lab/crates/m02-hardware/examples/atomics.rs.
+---
+
+<qe-storebuf class="qe-lab qe-sb not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Core 0 runs x = 1, then r0 = y. Core 1 runs y = 1, then r1 = x.</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Ordering">
+      <button type="button" data-ord="relaxed" aria-pressed="true">Relaxed or Release/Acquire</button>
+      <button type="button" data-ord="seqcst" aria-pressed="false">SeqCst</button>
+    </div>
+    <div class="board">
+      {[0, 1].map((c) => (
+        <div class="core" data-core={c}>
+          <p class="t">Core {c}</p>
+          <ol class="prog" data-prog={c}></ol>
+          <p class="qe-lab-cap">store buffer</p>
+          <div class="buf" data-buf={c}></div>
+          <p class="reg" data-reg={c}></p>
+        </div>
+      ))}
+    </div>
+    <div class="memory" data-memory></div>
+    <div class="qe-lab-row controls">
+      <button type="button" class="qe-lab-btn" data-step>Next step</button>
+      <button type="button" class="qe-lab-btn quiet" data-reset>Reset</button>
+    </div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+    <dl class="counts">
+      <div><dt>Relaxed, 1,000,000 trials</dt><dd>138,703 both 0</dd></div>
+      <div><dt>Release/Acquire</dt><dd>98,599 both 0</dd></div>
+      <div><dt>SeqCst</dt><dd>0 both 0</dd></div>
+    </dl>
+  </section>
+</qe-storebuf>
+
+<script>
+  type St = { mem: { x: number; y: number }; buf: { v: string; val: number }[][]; r: (number | null)[] };
+  // The interleaving that produces r0 = r1 = 0: both stores, then both loads, then the drains.
+  const RELAXED = [
+    { core: 0, op: 'store' },
+    { core: 1, op: 'store' },
+    { core: 0, op: 'load' },
+    { core: 1, op: 'load' },
+    { core: 0, op: 'drain' },
+    { core: 1, op: 'drain' },
+  ];
+  const SEQCST = [
+    { core: 0, op: 'store' },
+    { core: 0, op: 'drain' },
+    { core: 1, op: 'store' },
+    { core: 1, op: 'drain' },
+    { core: 0, op: 'load' },
+    { core: 1, op: 'load' },
+  ];
+
+  class QeStoreBuf extends HTMLElement {
+    ord = 'relaxed';
+    at = 0;
+    s: St = { mem: { x: 0, y: 0 }, buf: [[], []], r: [null, null] };
+
+    connectedCallback() {
+      this.querySelectorAll<HTMLButtonElement>('[data-ord]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.ord = b.dataset.ord!;
+          this.querySelectorAll('[data-ord]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.reset();
+        }),
+      );
+      this.querySelector('[data-step]')!.addEventListener('click', () => this.step());
+      this.querySelector('[data-reset]')!.addEventListener('click', () => this.reset());
+      this.reset();
+    }
+
+    get plan() {
+      return this.ord === 'seqcst' ? SEQCST : RELAXED;
+    }
+
+    reset() {
+      this.at = 0;
+      this.s = { mem: { x: 0, y: 0 }, buf: [[], []], r: [null, null] };
+      this.render('');
+    }
+
+    step() {
+      const p = this.plan[this.at];
+      if (!p) return;
+      const mine = p.core === 0 ? 'x' : 'y';
+      const theirs = p.core === 0 ? 'y' : 'x';
+      let msg = '';
+      if (p.op === 'store') {
+        this.s.buf[p.core].push({ v: mine, val: 1 });
+        msg = `Core ${p.core} stores ${mine} = 1. The store goes into its store buffer; memory still has ${mine} = 0, and the other core can’t see the new value yet.`;
+      } else if (p.op === 'drain') {
+        for (const e of this.s.buf[p.core]) (this.s.mem as Record<string, number>)[e.v] = e.val;
+        this.s.buf[p.core] = [];
+        msg =
+          this.ord === 'seqcst' && this.at < 4
+            ? `A SeqCst store is an xchg instruction on x86, which waits until the store is in the cache: core ${p.core}’s buffer drains before it continues, and ${mine} = 1 is now visible to everyone.`
+            : `Core ${p.core}’s store buffer drains to memory: ${mine} = 1 becomes visible, after the loads have already run.`;
+      } else {
+        const own = this.s.buf[p.core].find((e) => e.v === theirs);
+        const val = own ? own.val : (this.s.mem as Record<string, number>)[theirs];
+        this.s.r[p.core] = val;
+        msg = `Core ${p.core} loads ${theirs}. Its own buffer has no ${theirs}, so it reads memory: ${theirs} = ${val}. Nothing forced the earlier store to be visible first.`;
+        if (this.ord === 'seqcst') msg = `Core ${p.core} loads ${theirs} = ${val}: the other core’s store already reached memory.`;
+      }
+      this.at++;
+      if (this.at === this.plan.length) {
+        const [a, b] = this.s.r;
+        msg +=
+          a === 0 && b === 0
+            ? ' Result: r0 = 0 and r1 = 0. Under sequential consistency, some interleaving of the four instructions must let one load see the other’s store; here neither did. On x86, Relaxed and Release/Acquire allow this, and the lab saw it in about 10 to 14% of trials.'
+            : ` Result: r0 = ${a}, r1 = ${b}. With SeqCst, the outcome where both loads read 0 is ruled out; the lab saw it 0 times in a million trials.`;
+      }
+      this.render(msg);
+    }
+
+    render(msg: string) {
+      const progs = [
+        ['x = 1 (store)', 'r0 = y (load)'],
+        ['y = 1 (store)', 'r1 = x (load)'],
+      ];
+      for (const c of [0, 1]) {
+        const doneOps = this.plan.slice(0, this.at).filter((p) => p.core === c && p.op !== 'drain').length;
+        this.querySelector(`[data-prog="${c}"]`)!.innerHTML = progs[c]
+          .map((t, i) => `<li class="${i < doneOps ? 'done' : ''}">${t}</li>`)
+          .join('');
+        this.querySelector(`[data-buf="${c}"]`)!.innerHTML = this.s.buf[c].length
+          ? this.s.buf[c].map((e) => `<span>${e.v} = ${e.val}</span>`).join('')
+          : '<em>empty</em>';
+        const r = this.s.r[c];
+        this.querySelector(`[data-reg="${c}"]`)!.innerHTML = `r${c} = <b>${r === null ? '?' : r}</b>`;
+      }
+      this.querySelector('[data-memory]')!.innerHTML = `<span class="lab">shared memory</span><span>x = <b>${this.s.mem.x}</b></span><span>y = <b>${this.s.mem.y}</b></span>`;
+      (this.querySelector('[data-step]') as HTMLButtonElement).disabled = this.at >= this.plan.length;
+      this.querySelector<HTMLElement>('[data-note]')!.textContent =
+        msg ||
+        (this.ord === 'seqcst'
+          ? 'With SeqCst, each store must be visible before the core moves on to its load.'
+          : 'Each core has a store buffer: stores wait there before reaching memory, so the core can keep running instead of waiting for the cache.');
+    }
+  }
+  if (!customElements.get('qe-storebuf')) customElements.define('qe-storebuf', QeStoreBuf);
+</script>
+
+<style is:global>
+  .qe-sb .qe-lab-h {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+  }
+  .qe-sb .board {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+  }
+  .qe-sb .core {
+    padding: 0.55rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+  }
+  .qe-sb .core .t {
+    margin: 0 0 0.3rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    font-size: 0.875rem;
+  }
+  .qe-sb .prog {
+    margin: 0 0 0.5rem;
+    padding-left: 1.1rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-sb .prog li {
+    margin: 0.1rem 0 !important;
+  }
+  .qe-sb .prog li.done {
+    color: var(--sl-color-gray-4);
+    text-decoration: line-through;
+  }
+  .qe-sb .buf {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    min-height: 1.8rem;
+    padding: 0.25rem;
+    border-radius: 6px;
+    border: 1px dashed var(--sl-color-gray-4);
+  }
+  .qe-sb .buf span {
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--qe-series-2);
+    color: var(--sl-color-black);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .qe-sb .buf em {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-sb .reg {
+    margin: 0.45rem 0 0;
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-sb .reg b {
+    color: var(--sl-color-white);
+  }
+  .qe-sb .memory {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 1rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-accent);
+    background: color-mix(in srgb, var(--sl-color-accent) 10%, var(--sl-color-black));
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-sb .memory .lab {
+    font-family: var(--sl-font);
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-sb .memory b {
+    color: var(--sl-color-white);
+  }
+  .qe-sb .controls {
+    margin-top: 0.9rem;
+  }
+  .qe-sb .counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+  }
+  .qe-sb .counts div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-sb .counts dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-sb .counts dd {
+    margin: 0;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

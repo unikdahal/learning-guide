@@ -1,16 +1,198 @@
 ---
-title: "Atomics and memory ordering for engine developers"
-description: "Atomic operations, ordering in Rust, contention costs, and lock-free vs partitioned designs for shared hash tables."
+title: Atomics and memory ordering for engine developers
+description: Atomic operations, ordering in Rust, contention costs, and lock-free vs partitioned designs for shared hash tables.
 level: A
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 10
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import StoreBuffer from '@components/visuals/hardware/StoreBuffer.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="atomics-and-memory-ordering-for-engine-developers" />
+<ArticleMeta module="02" slug="atomics-and-memory-ordering-for-engine-developers" minutes={16} lab="m02-hardware/examples/atomics.rs" />
+
+The [previous article](../multicore-threads-and-false-sharing/) showed that shared, written data is expensive
+because cache lines have to move between cores. This one is about the tools for sharing it correctly when you
+must: atomic operations, and the **memory orderings** that say what other threads are guaranteed to see. The
+orderings have a reputation for being abstract. They aren't: the lab machine reorders memory operations in a way
+anyone can observe, about one time in seven, unless the code asks it not to.
+
+## The question
+
+What does an atomic operation guarantee and cost, what do Rust's orderings actually constrain, and how should
+an engine share data between threads?
+
+## What "atomic" means
+
+An atomic operation happens all at once from every other thread's point of view: no thread sees it half done.
+For a single aligned load or store of a machine word, that is true on x86-64 anyway. The interesting atomics
+are **read-modify-write** operations: `fetch_add`, `swap`, `compare_exchange`. A plain `x = x + 1` is a load,
+an add and a store, and two threads doing it at once can both read the same old value and lose an increment. An
+atomic `fetch_add` makes the three steps indivisible.
+
+On x86-64 that indivisibility comes from the `lock` prefix (`lock xadd`, `lock cmpxchg`): the core takes the
+cache line in exclusive state and holds it for the duration of the instruction.
+
+## What it costs
+
+The lab measures each operation 100 million times on one thread, with no contention:
+
+```text title="cargo run --release -p m02-hardware --example atomics"
+plain increment (volatile)                 0.29 ns per op
+fetch_add, Relaxed                         6.15 ns per op
+fetch_add, SeqCst                          5.99 ns per op
+load + store, Relaxed (not atomic as a pair)   0.32 ns per op
+store, Release                             0.15 ns per op
+store, SeqCst                              6.34 ns per op
+compare_exchange loop (increment)         11.01 ns per op
+```
+
+Even uncontended, with the line already in this core's cache, a locked read-modify-write costs about 20 times a
+plain increment. Two things stand out. `fetch_add` costs the same with `Relaxed` and `SeqCst`: on x86, every
+locked instruction already acts as a full barrier, so the weaker ordering buys nothing here (it would on ARM).
+And a `SeqCst` store costs 40 times a `Release` store. That difference is the subject of the rest of this
+article.
+
+With two threads incrementing the same atomic, each operation also has to wait for the line:
+
+```text title="cargo run --release -p m02-hardware --example atomics"
+fetch_add, Relaxed, contended             15.15 ns per op (total, both threads)
+```
+
+Two cores together completed fewer increments per second than one core alone.
+
+## Why orderings exist
+
+Compilers and processors both reorder memory operations when they can't see a difference within one thread. A
+store to `x` followed by a load from `y` are independent as far as one thread is concerned, so either may
+happen first. With several threads, those reorderings become visible.
+
+x86 is relatively strict (its model is called total store order): it keeps stores in order with each other and
+loads in order with each other, but it lets a load complete before an earlier store to a different address has
+become visible to other cores. The mechanism is the **store buffer**: a store waits in a per-core queue before
+reaching the cache, and the core runs on, including later loads.
+
+## Seeing the reordering
+
+The classic test for that reordering is called **store buffering**. Two threads, two variables, both
+initially 0:
+
+```rust
+// thread A                 // thread B
+x.store(1, ord);            y.store(1, ord);
+let ra = y.load(ord);       let rb = x.load(ord);
+```
+
+If memory operations happened one at a time in some interleaving of the two programs, at least one load would
+run after the other thread's store, so `ra == 0 && rb == 0` would be impossible. The lab runs the test a million
+times per ordering, synchronizing the threads before each trial so their instructions overlap:
+
+```text title="cargo run --release -p m02-hardware --example atomics"
+Relaxed store, Relaxed load    both loads saw 0 in  138703 of 1000000 trials
+Release store, Acquire load    both loads saw 0 in   98599 of 1000000 trials
+SeqCst store, SeqCst load      both loads saw 0 in       0 of 1000000 trials
+```
+
+The "impossible" outcome happened in 14% of trials with `Relaxed` and 10% with `Release`/`Acquire`. With
+`SeqCst`, never. Step through how it happens:
+
+<StoreBuffer />
+
+## Rust's orderings, precisely
+
+Rust uses the C++ memory model's orderings, and each is a promise about what other threads may observe:
+
+- **`Relaxed`**: the operation itself is atomic, and nothing more. No ordering with respect to other memory
+  operations. Right for counters and statistics where only the final value matters.
+- **`Release`** (on a store) and **`Acquire`** (on a load): if a thread's `Acquire` load reads the value written
+  by another thread's `Release` store, everything the first thread wrote before the store is visible to the
+  second thread after the load. This is the message-passing pattern: fill a buffer, then publish a flag with
+  `Release`; the reader checks the flag with `Acquire` and may then read the buffer safely.
+- **`AcqRel`**: both, for read-modify-write operations.
+- **`SeqCst`**: all `SeqCst` operations appear in one global order that every thread agrees on. It is the only
+  ordering that rules out the store-buffering outcome, because that outcome needs the two threads to disagree
+  about which store came first.
+
+`Release`/`Acquire` didn't prevent the outcome in the lab, and it isn't supposed to: neither load read the other
+thread's store, so no release-acquire pair was ever formed, and the model promises nothing. On x86, Rust compiles
+a `Release` store to a plain `mov` and a `SeqCst` store to an `xchg`, which waits for the store buffer to
+drain, which is exactly why it cost 6.34 ns against 0.15 ns. These mappings are tabulated per processor in
+Peter Sewell's group's "C/C++11 mappings to processors".
+
+<Aside type="caution" title="Testing on x86 hides bugs">
+x86 forbids most reorderings, so code with the wrong ordering usually works there and fails on ARM, whose model
+allows loads and stores to reorder much more freely. A message-passing flag stored with `Relaxed` instead of
+`Release` will almost always appear to work on an x86 laptop. The orderings are a contract with the language,
+not a description of one CPU; choose them from the pattern, not from what passes tests.
+</Aside>
+
+## Designs for shared hash tables
+
+A parallel hash join or aggregation needs a table that many threads build or update. There are three broad
+designs, and the measurements above rank them:
+
+1. **One table with a lock**: correct and simple, and every update serializes on the lock and its cache line.
+   Rarely acceptable on a hot path.
+2. **One lock-free table**: threads insert with `compare_exchange` on bucket slots. No thread ever blocks, but
+   every insert is an 11 ns read-modify-write at best, and threads hitting the same buckets contend for the same
+   lines. It works best for build phases that insert each key once.
+3. **Partitioned tables**: split the keys by hash into as many partitions as threads (or more), and give each
+   thread its own partitions. Updates are plain memory operations on private data, and the only synchronization
+   is at phase boundaries. This is the design most analytical engines use for aggregation, and the reason
+   [Module 09](../../aggregation/) spends time on partitioned and two-phase aggregation.
+
+The shared-counter experiment in the previous article is the extreme case: 14 ns per event with one shared atomic
+against well under a nanosecond with per-thread counters.
+
+## Costs and trade-offs
+
+**Atomics are correct, not free.** Even uncontended, a read-modify-write costs as much as dozens of plain
+instructions, and contention makes it worse. Use them at coordination points, not per row.
+
+**Stronger orderings cost more on some machines.** On x86, only `SeqCst` stores are expensive; on ARM, acquire,
+release and full barriers all have costs. Use the weakest ordering the pattern requires, and document why.
+
+**Partitioning beats clever sharing.** The fastest shared structure is the one threads don't share. Most of an
+engine's parallelism comes from splitting work so that threads rarely need atomics at all.
+
+## Check yourself
+
+<details>
+<summary>A query engine counts processed rows for a progress bar with fetch_add(1, Relaxed) per row from 32 threads. What's wrong, and what would you do?</summary>
+
+Every row is a contended atomic RMW on one line, which can be slower than the work itself. Count locally per
+thread and add to the shared counter once per batch; `Relaxed` is fine, since only the total matters.
+</details>
+
+<details>
+<summary>Thread A writes a buffer, then sets ready = true. Thread B spins until ready, then reads the buffer. Which orderings do the flag's store and load need?</summary>
+
+`Release` on the store and `Acquire` on the load. When B's load reads `true`, everything A wrote before the
+store, including the buffer, is visible to B.
+</details>
+
+<details>
+<summary>Why can both loads in the store-buffering test read 0 on x86 with Release/Acquire?</summary>
+
+Each store sits in its core's store buffer while the core goes on to its load, which reads the old value from
+memory. Release/Acquire only orders things when a load reads a released store's value, which never happens here.
+Only SeqCst, compiled to an `xchg` that drains the buffer, forbids the outcome.
+</details>
+
+<details>
+<summary>fetch_add with Relaxed and with SeqCst cost the same on the lab machine. Would that hold on ARM?</summary>
+
+Not necessarily. On x86, every locked read-modify-write is already a full barrier, so there is nothing extra
+for SeqCst to add. ARM provides weaker read-modify-writes, so a Relaxed fetch_add can be cheaper than a SeqCst
+one there.
+</details>
+
+## Further reading
+
+- Mara Bos, [Rust Atomics and Locks](https://marabos.nl/atomics/), O'Reilly 2023, free online: the orderings
+  explained for Rust, with hardware chapters for x86 and ARM.
+- Peter Sewell's group, [C/C++11 mappings to processors](https://www.cl.cam.ac.uk/~pes20/cpp/cpp0xmappings.html).
+- Viktor Leis, Peter Boncz, Alfons Kemper and Thomas Neumann, [Morsel-driven parallelism](https://db.in.tum.de/~leis/papers/morsels.pdf),
+  SIGMOD 2014, on partitioned, NUMA-aware parallel operators.

@@ -1,16 +1,142 @@
 ---
-title: "NUMA"
-description: "Non-uniform memory access, remote memory cost, and NUMA-aware scheduling in morsel-driven engines."
+title: NUMA
+description: Non-uniform memory access, remote memory cost, and NUMA-aware scheduling in morsel-driven engines.
 level: A
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 11
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import NumaTopology from '@components/visuals/hardware/NumaTopology.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="numa" />
+<ArticleMeta module="02" slug="numa" minutes={12} />
+
+The memory measurements in this module assumed that all of main memory is equally far from every core. On the
+lab's 2-core VM that's true. On a large server it isn't: a machine with two or more processor sockets attaches
+part of its memory to each socket, and a core reaching memory on another socket takes a detour. That is
+**non-uniform memory access**, NUMA, and for an engine running on a big machine it decides whether doubling the
+cores doubles the speed.
+
+This article can't measure NUMA, and says so up front. Its numbers come from a published study on two-socket
+servers, and the lab VM's own topology is shown only to make the point.
+
+## The question
+
+Why is some memory farther away than other memory, how much farther, and what do engines do about it?
+
+## Sockets, nodes and distances
+
+In a multi-socket server, each processor has its own memory controllers and its own DIMMs. A processor and the
+memory attached to it form a **NUMA node**. Every core can still read every byte, because the sockets are
+joined by an interconnect (Intel's is called UPI, earlier QPI), but a **remote** access has to cross it: the
+request goes to the other socket, that socket's memory controller serves it, and the data comes back. Large
+single-socket chips can also be split into several NUMA nodes internally.
+
+Linux shows the topology under `/sys/devices/system/node`, with a relative distance table per node, where 10
+means local. The lab VM has exactly one node:
+
+```text title="/sys/devices/system/node (lab VM)"
+node0
+node0/distance:  10
+```
+
+So everything in this module so far was local memory, and the lab can't produce a remote access to measure.
+
+## How much farther
+
+Viktor Leis, Peter Boncz, Alfons Kemper and Thomas Neumann measured it on two-socket servers for their paper
+"Morsel-driven parallelism" (SIGMOD 2014). On an Intel Sandy Bridge EP machine, they report that "only a small
+fraction of the theoretical memory bandwidth can be reached unless most accesses are local, and the latency [is]
+2.5× higher than for local accesses". Their microbenchmark figures:
+
+| Machine (2014) | Access pattern | Latency | Bandwidth |
+| --- | --- | --- | --- |
+| Sandy Bridge EP | local | about 101 ns | about 121 GB/s |
+| Sandy Bridge EP | mostly remote | about 257 ns | about 41 GB/s |
+| Nehalem EX | local | about 161 ns | about 93 GB/s |
+| Nehalem EX | 25% local, 75% remote | about 186 ns | about 60 GB/s |
+
+The exact ratios differ between processor generations and interconnects, and current machines will differ again,
+but the shape holds: remote memory is slower to reach, and the interconnect has far less bandwidth than the
+memory controllers it connects. A bandwidth-bound scan whose data sits on the wrong socket can run at a third of
+the speed.
+
+<NumaTopology />
+
+## Where pages land
+
+Which node a page of memory lives on is decided when it is first used. Linux's default memory policy is local
+allocation, which the kernel documentation describes as a preferred policy "that starts at the node containing
+the cpu where the allocation takes place": a page goes on the node of the CPU that first touches it, the
+**first-touch** policy.
+
+That creates a classic trap. If one thread loads a table, all of its pages land on that thread's node. When
+query threads on every socket then scan it, half of them read everything remotely, and the other node's memory
+controllers sit idle. Fixes include loading data in parallel with threads on every node, so pages spread
+naturally; asking the kernel to interleave pages across nodes (`MPOL_INTERLEAVE`, or `numactl --interleave`),
+which trades locality for evenly spread bandwidth; or placing data explicitly with `mbind` or the
+`libnuma` library.
+
+## NUMA-aware execution
+
+Leis et al.'s answer, which several engines have since adopted, is **morsel-driven parallelism**. Data is split
+into small chunks, about 100,000 tuples each in their experiments, and each chunk lives on a known NUMA node.
+Worker threads are pinned to cores, and a dispatcher keeps "a separate list" of morsels per core "to ensure that a
+work request of, say, Core 0 returns a morsel that is allocated on the same socket as Core 0". Remote access
+happens only when a socket runs out of local work and steals some to balance the load. They report that for TPC-H
+Query 1, the engine read 82.6 GB/s, "99% of it locally".
+
+Morsels also solve problems that have nothing to do with NUMA: they balance load when some chunks take longer
+than others, and they let the degree of parallelism change while a query runs. That's why the idea appears in
+engines regardless of how many sockets they run on, and why [Module 05](../../execution-models/) comes back to it.
+
+<Aside type="note" title="Do you need to care?">
+On a laptop, a single-socket desktop or a small cloud VM, usually not: there is one node. NUMA matters on
+two-socket servers and large instances, which is where analytical engines often run. Cloud providers' largest
+instance types frequently span sockets; `lscpu` or `numactl --hardware` tells you how many nodes a machine has.
+</Aside>
+
+## Costs and trade-offs
+
+**Locality versus balance.** Keeping every access local can leave one socket idle while the other has a backlog;
+stealing remote work balances the load at the price of slower accesses. Morsel-driven schedulers do both: local
+first, remote when idle.
+
+**Placement is decided early.** Where data lands is fixed when it is first touched, often long before the query
+that suffers from it runs. Loading and allocation code needs to be NUMA-aware too.
+
+**Interleaving is a blunt tool.** Spreading pages evenly across nodes avoids the worst case, a whole table on one
+node, but makes about half of all accesses remote on a two-node machine.
+
+## Check yourself
+
+<details>
+<summary>A single-threaded loader reads a 100 GiB table into memory on a two-socket server; then 64 threads, 32 per socket, scan it. What happens, and why?</summary>
+
+With first-touch allocation, every page lands on the loader's node. The 32 threads on the other socket read
+everything across the interconnect, at higher latency and limited bandwidth, while their own node's memory goes
+unused.
+</details>
+
+<details>
+<summary>Name two fixes for the previous question.</summary>
+
+Load the table in parallel with threads on both sockets, so pages spread across nodes and each socket scans its
+own; or interleave the allocation across nodes so bandwidth is shared, accepting that about half the accesses are
+remote. A NUMA-aware scheduler then hands each thread morsels from its own node.
+</details>
+
+<details>
+<summary>Why does morsel-driven parallelism still allow some remote accesses?</summary>
+
+For load balance: when one socket finishes its local morsels early, its threads steal remaining work from the
+other socket rather than sitting idle, accepting slower access for a short time.
+</details>
+
+## Further reading
+
+- Viktor Leis, Peter Boncz, Alfons Kemper and Thomas Neumann, [Morsel-driven parallelism: a NUMA-aware query
+  evaluation framework for the many-core age](https://db.in.tum.de/~leis/papers/morsels.pdf), SIGMOD 2014.
+- The Linux kernel documentation: [NUMA memory policy](https://docs.kernel.org/6.10/admin-guide/mm/numa_memory_policy.html).

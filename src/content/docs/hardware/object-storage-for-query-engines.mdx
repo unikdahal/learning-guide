@@ -1,16 +1,158 @@
 ---
-title: "Object storage for query engines"
-description: "S3, GCS and ADLS latency, throughput per connection, request costs, and why request size and parallelism dominate."
+title: Object storage for query engines
+description: S3, GCS and ADLS latency, throughput per connection, request costs, and why request size and parallelism dominate.
 level: I
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 13
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import ObjectStoreModel from '@components/visuals/hardware/ObjectStoreModel.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="object-storage-for-query-engines" />
+<ArticleMeta module="02" slug="object-storage-for-query-engines" minutes={14} />
+
+The lakehouse engines in Part 5 of this guide keep their data in object storage: Amazon S3, Google Cloud
+Storage, Azure's ADLS. It is cheap, effectively unlimited and shared by every machine that needs it, and it is
+the slowest rung of the [memory hierarchy](../the-memory-hierarchy-from-registers-to-object-storage/) by a wide
+margin: one request takes as long as nearly a million main-memory accesses. Engines that read from it fast do
+it by treating it as what it is: not a disk, but a huge distributed service you talk to over HTTP.
+
+The lab VM can't reach an object store, so this article has no measurements of its own. It uses what AWS
+documents for S3, and a simple model you can adjust, clearly marked as a model.
+
+## The question
+
+What does a request to object storage cost, and how should an engine shape its reads to get high throughput
+anyway?
+
+## What object storage is
+
+An object store holds **objects**, blobs of bytes up to terabytes in size, each under a **key** in a **bucket**.
+The interface is HTTP: `PUT` writes a whole object, `GET` reads one, optionally only a byte range, `LIST`
+enumerates keys with a given prefix, `DELETE` removes one. There is no in-place update, no append (in the
+standard API), no rename of a single object without copying, and no directories, only key prefixes that look
+like them.
+
+Those restrictions are what let the service scale: objects are immutable, so they can be replicated and cached
+anywhere, and there is no shared file state to lock. They are also why table formats such as Iceberg exist,
+adding the transactions, schema and metadata that object storage lacks ([Module 18](../../table-formats/)).
+
+## What it costs
+
+Amazon's S3 performance guide gives the numbers that matter. Latency: latency-sensitive applications "can
+achieve consistent small object latencies (and first-byte-out latencies for larger objects) of roughly 100–200
+milliseconds". Request rates: "at least 3,500 PUT/COPY/POST/DELETE or 5,500 GET/HEAD requests per second per
+partitioned Amazon S3 prefix", and more with more prefixes. And aggregate throughput: applications reach
+"single-instance transfer rates that maximize the network interface use for their Amazon EC2 instance, which can
+be up to 100 Gb/s on a single instance".
+
+Those figures fit together only one way. A single request takes a tenth of a second or more, yet one machine can
+pull 100 Gb/s. The difference has to come from many requests in flight at once, each transferring a lot of data.
+AWS says so directly: "Spreading requests across many connections is a common design pattern to horizontally
+scale performance. When you build high performance applications, think of Amazon S3 as a very large distributed
+system, not as a single network endpoint like a traditional storage server."
+
+Google Cloud Storage and Azure document their own limits, with the same structure: high per-request latency,
+high aggregate throughput, scaling by parallelism.
+
+## A model of request size and concurrency
+
+The trade-off can be written down. Suppose each GET waits a fixed time L for the first byte, then streams at
+some rate r per connection, and c requests run concurrently, up to the machine's network limit N:
+
+```text
+throughput(size) = min( c × size / (L + size / r),  N )
+```
+
+Small requests spend almost all their time waiting for the first byte. Large requests spend most of it
+transferring. Concurrency multiplies whatever each request achieves. The model below uses L = 100 ms (the low
+end of AWS's range) and N = 100 Gb/s by default. AWS doesn't document a per-connection rate r, so it is a slider:
+set it from your own measurements.
+
+<ObjectStoreModel />
+
+With the defaults (r = 100 MB/s), a single 64 KiB request delivers about 0.65 MB/s, because 99% of its time is
+latency. A single 8 MiB request delivers about 46 MB/s. Sixty-four concurrent 8 MiB requests deliver about 2.9
+GB/s. The exact numbers depend on r and L, which vary by region, object, client and time of day; the shape does
+not.
+
+## How engines read from object storage
+
+Every technique engines use follows from the model:
+
+- **Fewer, larger requests.** Parquet files are read in large pieces: the footer first, to learn where
+  everything is, then whole column chunks. Nearby byte ranges are **coalesced** into one request, reading a few
+  unneeded bytes to save a round trip. Byte-range requests are the documented way to read parts of an object:
+  "You can use concurrent connections to Amazon S3 to fetch different byte ranges from within the same object.
+  This helps you achieve higher aggregate throughput versus a single whole-object request."
+- **Many requests in flight.** Readers issue requests asynchronously, so dozens are outstanding at once. In Rust,
+  DataFusion reads through the `object_store` crate, an async interface over S3, GCS, Azure and local files, so
+  requests overlap without a thread each.
+- **Avoid round trips you don't need.** A file whose footer requires one request and whose data requires another
+  pays at least two latencies; metadata such as Parquet statistics or Iceberg manifests lets engines skip files
+  and row groups without opening them ([Module 07](../../scans-and-pruning/)).
+- **Avoid LIST.** Listing a prefix with many keys takes many paginated requests. Table formats keep the list of
+  data files in their own metadata, so a query never lists directories.
+- **Retry slow requests.** At this scale, some requests are slow by chance. AWS advises that "aggressive
+  timeouts and retries help drive consistent latency", because "if the first request is slow, a retried request
+  is likely to take a different path and quickly succeed".
+- **Cache.** Engines often cache hot objects or byte ranges on local disk or in memory, turning repeat reads into
+  the much faster rungs of the hierarchy.
+
+<Aside type="caution" title="Requests cost money too">
+Object stores bill per request as well as per byte stored and transferred. A reader that fetches a table in
+millions of small ranges can cost more in requests than in storage, which is one more reason to make requests
+large. Prices change; check the provider's current pricing page rather than any number quoted in an article.
+</Aside>
+
+## Costs and trade-offs
+
+**Latency is fixed; throughput is designed.** Nothing an engine does makes a single request faster than its
+first-byte latency. Everything that matters happens in how many requests overlap and how much each fetches.
+
+**Large requests read waste.** Coalescing ranges and reading whole chunks fetches some bytes the query doesn't
+need. The right size balances latency against wasted transfer, and depends on how selective the query is.
+
+**Concurrency has limits on both sides.** Too few requests leave bandwidth idle; too many can hit per-prefix rate
+limits (AWS returns 503 "Slow Down" errors while scaling) or saturate the machine's network.
+
+## Check yourself
+
+<details>
+<summary>With 100 ms first-byte latency and one request at a time, roughly how long does it take to read 10,000 objects?</summary>
+
+At least 10,000 × 100 ms = 1,000 seconds, about 17 minutes, regardless of how small they are. With 100 requests in
+flight it could be around 10 seconds, latency permitting.
+</details>
+
+<details>
+<summary>Why does an engine read a Parquet file's footer first, and what does it cost on object storage?</summary>
+
+The footer holds the file's metadata: where each row group and column chunk is, and their statistics. Without it
+the reader doesn't know which byte ranges to request. It costs at least one round trip, about 100 ms, before any
+data request can be made, which is why engines cache footers and use table-level metadata to avoid opening files.
+</details>
+
+<details>
+<summary>In the model, why does increasing request size help a lot at first, then barely at all?</summary>
+
+Each request costs L + size / r. While size / r is much smaller than L, doubling the size nearly doubles the
+bytes per request at almost the same time. Once size / r dominates, the request is limited by the transfer rate,
+and larger requests only take proportionally longer.
+</details>
+
+<details>
+<summary>Why do table formats keep a list of data files in their metadata instead of listing the bucket?</summary>
+
+Listing is a paginated sequence of requests, slow for large prefixes, and it can't express which files belong
+to a given version of a table. A manifest gives the exact file list for a snapshot in one or a few reads.
+</details>
+
+## Further reading
+
+- Amazon S3: [performance design guidelines](https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html)
+  and [performance guidelines](https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance-guidelines.html).
+- The Rust [`object_store`](https://docs.rs/object_store/latest/object_store/) crate, which DataFusion uses for
+  remote storage.
