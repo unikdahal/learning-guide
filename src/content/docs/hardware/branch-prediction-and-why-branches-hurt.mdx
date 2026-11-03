@@ -1,16 +1,211 @@
 ---
-title: "Branch prediction and why branches hurt"
-description: "Pipelines, mispredictions and their cost, and how selectivity around 50% makes branchy filters slow."
+title: Branch prediction and why branches hurt
+description: Pipelines, mispredictions and their cost, and how selectivity around 50% makes branchy filters slow.
 level: I
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 3
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import BranchPredictor from '@components/visuals/hardware/BranchPredictor.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="branch-prediction-and-why-branches-hurt" />
+<ArticleMeta module="02" slug="branch-prediction-and-why-branches-hurt" minutes={14} lab="m02-hardware/examples/branches.rs" />
+
+Here is the simplest operator a query engine has: keep the rows where a value is below a threshold. One
+comparison per row, one `if`. On the lab machine it costs 0.76 ns per row when no rows pass, 1.7 ns when all of
+them pass, and nearly 5 ns, more than six times as much, when half of them pass. The work per row doesn't change
+with the threshold. The predictability does.
+
+The previous two articles were about waiting for data. This one is about waiting for decisions: how a modern
+CPU keeps running while it doesn't yet know which way a branch will go, and what it costs when it guesses wrong.
+
+## The question
+
+Why does the cost of an `if` depend on the data it tests, and how do engines write filters that don't care?
+
+## Pipelines run ahead
+
+A CPU core doesn't run one instruction at a time. It works on many at once, like an assembly line: while one
+instruction executes, the next ones are already being fetched and decoded. A modern core keeps well over a
+hundred instructions in flight. That only works if it knows which instructions come next.
+
+A conditional branch is exactly where it doesn't. Whether the `if` is taken depends on a comparison whose
+inputs may not even have arrived from memory yet. Waiting would empty the pipeline at every branch, so the CPU
+**predicts** the outcome and keeps fetching down the predicted path. If the guess was right, nothing was lost.
+If it was wrong, every instruction fetched down the wrong path is discarded, the pipeline restarts from the
+right one, and the work since the branch is wasted. That is a **branch misprediction**.
+
+## How a predictor guesses
+
+Predictors learn from history. The classic scheme, from James Smith's 1981 study of branch prediction
+strategies, keeps a 2-bit saturating counter per branch: four states from "strongly not taken" to "strongly
+taken", moved one step toward each real outcome, predicting "taken" in the upper two states. Two wrong
+outcomes in a row are needed to change its mind, so an occasional exception doesn't throw it off. Modern
+predictors are far more elaborate, combining many counters indexed by the recent history of outcomes, and can
+learn long repeating patterns.
+
+But no predictor can learn noise. If each outcome is an independent coin flip with probability p, the best
+possible strategy is to always guess the more likely outcome, which is wrong a fraction min(p, 1 − p) of the
+time. At 50% that is every other branch, however clever the predictor. Try the 2-bit counter on random and
+sorted data:
+
+<BranchPredictor />
+
+## Measured: a filter at every selectivity
+
+The lab filters 10 million values, uniform from 0 to 99, keeping those below a threshold, so the threshold is
+the percentage that passes. The branchy version is the obvious loop:
+
+```rust
+// lab/crates/m02-hardware/src/lib.rs
+pub fn filter_branchy(data: &[u32], threshold: u32, out: &mut Vec<u32>) {
+    out.clear();
+    for &x in data {
+        if x < threshold {
+            out.push(x);
+        }
+    }
+}
+```
+
+The results, median of seven runs per point:
+
+```text title="cargo run --release -p m02-hardware --example branches (trimmed)"
+selectivity      kept     with if  without branch
+         0%         0        0.76            1.29
+        10%   1000641        1.73            1.33
+        25%   2500135        3.08            1.22
+        50%   5001638        4.66            1.13
+        75%   7500558        3.45            1.37
+        90%   8999648        2.49            1.28
+       100%  10000000        1.70            1.29
+```
+
+The branchy filter traces a hump, cheap at both ends and most expensive near 50%, exactly where the outcome is
+least predictable. The chart in the visual above plots all 21 points. Sorting the same data removes the
+unpredictability without changing the work:
+
+```text title="cargo run --release -p m02-hardware --example branches"
+random order  with if   5.71 ns/row   without branch   1.48 ns/row
+sorted        with if   0.96 ns/row   without branch   1.13 ns/row
+```
+
+On sorted input, the branch goes the same way for the first half of the rows and the other way for the rest,
+so the predictor is wrong roughly once. The same 50% filter takes 0.96 ns per row instead of 5.71. (The random
+50% case measured 4.66 ns in the sweep and 5.71 ns in this separate run: a reminder that numbers on a shared
+cloud VM vary between runs, and why the lab reports medians.)
+
+## How much does one misprediction cost?
+
+The measurements allow an estimate. Assume the cost per row is a base cost, rising gently with selectivity
+because more rows are written, plus the misprediction rate times a penalty. Take the base as the line from 0.76
+ns at 0% to 1.70 ns at 100%, where nothing is mispredicted, and the misprediction rate on random data as
+min(p, 1 − p):
+
+```text
+at 50%:  4.66 − 1.23 = 3.43 ns extra, at a 50% miss rate → 6.9 ns per misprediction
+at 25%:  3.08 − 0.99 = 2.09 ns extra, at a 25% miss rate → 8.3 ns
+at 75%:  3.45 − 1.47 = 1.98 ns extra, at a 25% miss rate → 7.9 ns
+at 10%:  1.73 − 0.85 = 0.88 ns extra, at a 10% miss rate → 8.8 ns
+```
+
+So roughly 7 to 9 ns per misprediction on this machine, consistent across selectivities. Treat it as an
+estimate: it assumes the hardware predictor reaches the ideal miss rate, and without performance counters the
+lab can't count mispredictions directly. Converting to cycles would need the actual clock speed, which a VM
+doesn't reliably report. [Measuring hardware with perf counters](../measuring-hardware-with-perf-counters/)
+shows how to measure this properly on a machine that allows it.
+
+## Removing the branch
+
+If the cost comes from guessing, the fix is to stop asking the CPU to guess. The branchless filter always
+writes the value, then advances the output position by the comparison's result, 0 or 1:
+
+```rust
+// lab/crates/m02-hardware/src/lib.rs
+pub fn filter_branchless(data: &[u32], threshold: u32, out: &mut Vec<u32>) {
+    out.clear();
+    out.resize(data.len() + 1, 0);
+    let mut j = 0;
+    for &x in data {
+        out[j] = x;                    // always write
+        j += (x < threshold) as usize; // keep it only if it passed
+    }
+    out.truncate(j);
+}
+```
+
+There's still a comparison, but its result feeds an addition instead of deciding which instruction runs next,
+so there's nothing to predict. Its cost was flat, 1.1 to 1.6 ns per row, at every selectivity. It loses only
+at the extreme where almost nothing passes, 1.29 against 0.76 ns, because it does a write the branchy version
+skips. Everywhere else it wins, by up to four times.
+
+<Aside type="note" title="The compiler gets a vote">
+A compiler may turn a simple `if` into branch-free code by itself, using a conditional move or vector
+instructions, and then the hump disappears. The lab's branchy version keeps its branch because `push` contains
+a capacity check the compiler doesn't remove; the hump in the measurements is the evidence. When you rely on
+either behaviour, check the measurements, or the generated assembly.
+</Aside>
+
+## Branches in query engines
+
+Filters are the obvious case, and branch-free selection is standard in vectorized engines: evaluate the
+predicate for a batch of values, producing a selection vector or bitmap, without a data-dependent branch per
+row. Kenneth Ross studied the choice for databases in "Conjunctive Selection Conditions in Main Memory" (PODS
+2002): for a condition like `a < 10 AND b > 5`, evaluating each part without branching and combining with
+`&` can beat short-circuit `&&`, depending on the selectivities, because short-circuiting adds branches.
+
+They show up elsewhere too. A hash join probe branches on whether the key matched; a sort branches on every
+comparison; a decoder branches on the encoding of each value. Each is cheap when the outcome is predictable and
+expensive when the data makes it random, which is why the same operator can run at very different speeds on
+different data.
+
+## Costs and trade-offs
+
+**Branchless code does all the work all the time.** It replaces a gamble with a fixed cost: it pays for writes
+and computations whose results are thrown away. When outcomes are very predictable, the gamble usually wins.
+
+**Selectivity is data, not code.** The same query plan can be fast on one day's data and slow on another's, if
+a predicate's selectivity drifts toward 50% or the data stops being sorted. Engines that adapt at runtime, such
+as those choosing between branchy and branch-free kernels per batch, exist because of this.
+
+**Sorted data helps twice.** It makes branches predictable and it improves locality, which is part of why
+clustering a table on a filter column speeds up scans beyond the pruning it enables.
+
+## Check yourself
+
+<details>
+<summary>A filter keeps 2% of rows, chosen at random. Branchy or branchless, and why?</summary>
+
+Branchy is likely fine: the branch is predicted "not taken" and is wrong about 2% of the time, so the
+misprediction cost is small, and the branchy version skips the writes. In the lab, the branchy filter was
+cheapest at 0% and still competitive at 5%.
+</details>
+
+<details>
+<summary>Why can no predictor do better than 50% wrong on a filter that keeps a random half of its input?</summary>
+
+Each outcome is independent of every previous one, so history carries no information about the next one.
+Any prediction is a coin flip, right half the time.
+</details>
+
+<details>
+<summary>The same filter took 0.96 ns per row on sorted input and 5.71 ns on random input, at 50% selectivity. What changed, and what didn't?</summary>
+
+The amount of work is identical: the same comparisons and the same rows kept. What changed is the order of
+outcomes: sorted input makes them long runs, which the predictor guesses right nearly every time.
+</details>
+
+<details>
+<summary>Using the lab's estimate of about 8 ns per misprediction, roughly how much time does a 50%-selective branchy filter waste on 100 million random rows?</summary>
+
+About 50 million mispredictions × 8 ns ≈ 0.4 seconds, on top of the base cost of the work.
+</details>
+
+## Further reading
+
+- James E. Smith, "A Study of Branch Prediction Strategies", ISCA 1981: the 2-bit counter.
+- Kenneth A. Ross, "Conjunctive Selection Conditions in Main Memory", PODS 2002.
+- Agner Fog, [The microarchitecture of Intel, AMD and VIA CPUs](https://www.agner.org/optimize/microarchitecture.pdf),
+  with branch prediction details per processor family.

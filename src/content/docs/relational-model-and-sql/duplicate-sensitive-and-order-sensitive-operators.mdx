@@ -1,16 +1,263 @@
 ---
-title: "Duplicate-sensitive and order-sensitive operators"
-description: "Which operators care about duplicates or order, and what that means for the rewrites an engine is allowed to do."
+title: Duplicate-sensitive and order-sensitive operators
+description: Which operators care about duplicates or order, and what that means for the rewrites an engine is allowed to do.
 level: I
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 15
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import LawChecker from '@components/visuals/relational/LawChecker.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="duplicate-sensitive-and-order-sensitive-operators" />
+<ArticleMeta module="01" slug="duplicate-sensitive-and-order-sensitive-operators" minutes={14} lab="m01-relational/examples/dup_order.rs" />
+
+The rules of the [previous article](../equivalence-rules-of-relational-algebra/) were stated for Codd's
+algebra, where a relation is a set: no duplicates, no order. SQL keeps neither promise. Its tables and
+results are [bags](../set-operations-and-bag-semantics/), and some of its operators look at the order rows
+arrive in. Every rewrite an optimizer makes therefore needs two extra questions answered: does this operator
+care how many copies of a row there are, and does it care in which order the rows come?
+
+This last article of Module 01 sorts the operators by those two questions, shows set laws that break for bags,
+and finds the places where DataFusion's result depends on something the query never specified.
+
+## The question
+
+Which operators are sensitive to duplicates, which to order, and which rewrites do those sensitivities
+forbid?
+
+## Two properties of an operator
+
+An operator is **duplicate-insensitive** if adding or removing extra copies of input rows can't change its
+result, only how many copies of each output row there are. An operator is **order-insensitive** if
+shuffling its input can't change its result. The two properties are independent:
+
+| | order-insensitive | order-sensitive |
+| --- | --- | --- |
+| **duplicate-insensitive** | `DISTINCT`, `min`, `max`, `count(DISTINCT x)`, `bool_or`, `EXISTS` / semi join | `first_value` over an ordered window (ties aside) |
+| **duplicate-sensitive** | `sum`, `count`, `avg`, joins, `UNION ALL`, `EXCEPT ALL` | `LIMIT`, `row_number`, `string_agg` and `array_agg` without `ORDER BY` |
+
+Selection and projection sit in between: they process each row independently, so they preserve whatever
+multiplicities and order they're given without depending on them. That is exactly why they move so freely in
+the equivalence rules.
+
+## Set laws that fail for bags
+
+Many laws from set algebra hold only because duplicates can't exist. The lab checks three of them with the
+module's bag engine, on the smallest possible input, one copy of the value `a` in each of R, S and T:
+
+```text title="cargo run --release -p m01-relational --example dup_order (condensed)"
+== Set laws, checked with set operators (UNION, INTERSECT, EXCEPT) ==
+R ∪ R = R                          holds
+R ∩ (S ∪ T) = (R ∩ S) ∪ (R ∩ T)    holds
+(R ∪ S) − T = (R − T) ∪ (S − T)    holds
+
+== The same laws with bag operators (UNION ALL, INTERSECT ALL, EXCEPT ALL) ==
+R ∪ R = R
+    left  {a×2} (2 rows)
+    right {a×1} (1 rows)
+    FAILS
+R ∩ (S ∪ T) = (R ∩ S) ∪ (R ∩ T)
+    left  {a×1} (1 rows)
+    right {a×2} (2 rows)
+    FAILS
+(R ∪ S) − T = (R − T) ∪ (S − T)
+    left  {a×1} (1 rows)
+    right {} (0 rows)
+    FAILS
+```
+
+Each failure forbids a rewrite. An optimizer may not drop a duplicate branch of a `UNION ALL`, may not
+distribute an `INTERSECT ALL` over a `UNION ALL`, and may not push an `EXCEPT ALL` into both branches of a
+union. Joseph Albert's paper "Algebraic Properties of Bag Data Types" (VLDB 1991) studied which laws survive;
+not all fail. Try them:
+
+<LawChecker />
+
+The duplicate-elimination operator δ (`DISTINCT`) has its own rules. It can't simply be pushed into the
+branches of a union, because the branches may share rows; it can be pushed if it is also kept on top:
+
+```text title="cargo run --release -p m01-relational --example dup_order"
+δ(R ∪ S) = δ(R) ∪ δ(S), with R = {a×2 b×1}, S = {a×1}
+    left  {a×1 b×1} (2 rows)
+    right {a×2 b×1} (3 rows)
+    FAILS
+δ(R ∪ S) = δ(δ(R) ∪ δ(S))
+    left  {a×1 b×1} (2 rows)
+    right {a×1 b×1} (2 rows)
+    holds
+```
+
+Pushing the inner δs is still worthwhile: each branch shrinks before the union, and the δ on top only has to
+merge across branches.
+
+## Aggregates: which ones care about duplicates
+
+The lab computes eight aggregates over a table with duplicates, then over the same table after `DISTINCT`:
+
+```text title="cargo run --release -p m01-relational --example dup_order (condensed)"
+                    min  max  count(DISTINCT x)  bool_or(x > 20)  sum  count(x)  avg
+with duplicates  p   10   30          2              true          50     3    16.67
+                 q    5    5          1              false         15     3     5.0
+after DISTINCT   p   10   30          2              true          40     2    20.0
+                 q    5    5          1              false          5     1     5.0
+```
+
+`min`, `max`, `count(DISTINCT …)` and `bool_or` give the same answer either way: they are
+duplicate-insensitive, and an optimizer may add or remove a `DISTINCT` beneath them. `sum`, `count` and `avg`
+change. This property matters well beyond rewrites: a duplicate-insensitive aggregate can be computed over
+data that may be read twice, such as overlapping partitions or a retried task in a distributed engine, and
+still be right. DataFusion 55.2 doesn't exploit it for this query; its plan for `SELECT max(x) FROM (SELECT
+DISTINCT x FROM t)` keeps both aggregates:
+
+```text title="Optimized plan"
+Aggregate: groupBy=[[]], aggr=[[max(t.x)]]
+  Aggregate: groupBy=[[t.x]], aggr=[[]]
+    TableScan: t projection=[x]
+```
+
+## Joins multiply, semi joins don't
+
+A join is duplicate-sensitive in a way that catches people out: it multiplies. Asha has two orders, so
+joining customers with orders lists her twice. "Customers who have ordered" is a semi join, which keeps each
+customer at most once:
+
+```text title="cargo run --release -p m01-relational --example dup_order (condensed)"
+> SELECT c.name FROM customer c JOIN orders o ON o.cust_id = c.id ORDER BY c.name
+| Asha | Asha | Chen |
+
+> SELECT c.name FROM customer c WHERE EXISTS (SELECT 1 FROM orders o WHERE o.cust_id = c.id) ORDER BY c.name
+| Asha | Chen |
+```
+
+The common fix, `SELECT DISTINCT` on top of the join, gives the same answer here, but only because `name`
+happens to identify a customer. Give the outer table real duplicates, two different people named Asha, and
+the two forms part ways:
+
+```text title="cargo run --release -p m01-relational --example dup_order (condensed)"
+> SELECT p.name FROM people p WHERE EXISTS (SELECT 1 FROM customer c WHERE c.name = p.name) ORDER BY p.name
+| Asha | Asha | Chen |
+
+> SELECT DISTINCT p.name FROM people p JOIN customer c ON c.name = p.name ORDER BY p.name
+| Asha | Chen |
+```
+
+The semi join keeps both people named Asha, as it should. `DISTINCT` collapses them, because it removes all
+duplicates, not just the ones the join created. A join followed by `DISTINCT` equals a semi join only when
+the outer side has a key in the output.
+
+## Order-sensitive operators
+
+A relation has no order, so an operator whose result depends on input order computes something the relational
+model can't define. SQL has several, and their results are defined only when the query fixes the order.
+
+`string_agg` and `array_agg` concatenate in whatever order rows reach them. The lab inserted the values in the
+order 3, 1, 2, 5, 4:
+
+```text title="cargo run --release -p m01-relational --example dup_order"
+> SELECT string_agg(v, ',') AS alone, array_agg(k) AS arr_alone FROM ev
+| c,a,b,e,d | [3, 1, 2, 5, 4] |
+
+> SELECT string_agg(v, ',') AS no_order, string_agg(v, ',' ORDER BY k) AS ordered,
+         array_agg(k) AS arr, array_agg(k ORDER BY k DESC) AS arr_desc FROM ev
+| a,b,c,d,e | a,b,c,d,e | [1, 2, 3, 4, 5] | [5, 4, 3, 2, 1] |
+```
+
+On its own, the unordered `string_agg` returned insertion order. In the second query the same expression
+returned sorted order, because another aggregate in the query asked for `ORDER BY k` and the engine sorted
+its input to serve it. An unordered aggregate's output can change because of an unrelated expression next to
+it. Write `ORDER BY` inside the aggregate whenever the order matters.
+
+The other order-sensitive operators were covered earlier in this module: `LIMIT` without a total order returns
+an arbitrary subset ([ORDER BY, LIMIT and determinism](../order-by-limit-and-determinism/)), and `row_number`
+or `first_value` over a window with ties picks an arbitrary row among them
+([window function semantics](../window-function-semantics/)).
+
+<Aside type="caution" title="Float sums are order-sensitive too">
+`sum` is order-insensitive in mathematics, and for integers and decimals. For floats it isn't, because float
+addition rounds at every step, as the [data types article](../data-types-and-their-traps/) showed. Summing
+1/i for i from 1 to a million:
+
+```text
+forward   14.39272672286498889
+backward  14.39272672286577226
+pairwise  14.39272672286572252
+```
+
+Three orders, three answers, differing in the thirteenth digit. A parallel engine sums in an order that
+depends on how work was split, so float aggregates can differ in their last digits between runs.
+</Aside>
+
+## What the engine does with order it doesn't need
+
+If order-insensitive operators sit above a sort, the sort is wasted work, and an optimizer may delete it. The
+lab's plans show DataFusion doing exactly that, and stopping exactly where order matters:
+
+```text title="cargo run --release -p m01-relational --example dup_order"
+SELECT count(*) FROM (SELECT * FROM ev ORDER BY k)
+Projection: count(Int64(1)) AS count(*)
+  Aggregate: groupBy=[[]], aggr=[[count(Int64(1))]]
+    TableScan: ev projection=[]
+
+SELECT k FROM (SELECT k FROM ev ORDER BY k) WHERE k > 2
+Filter: ev.k > Int32(2)
+  TableScan: ev projection=[k]
+
+SELECT k FROM (SELECT k FROM ev ORDER BY k LIMIT 3) WHERE k > 1
+Filter: ev.k > Int32(1)
+  Sort: ev.k ASC NULLS LAST, fetch=3
+    TableScan: ev projection=[k]
+```
+
+In the first two, the subquery's `ORDER BY` vanished: `count` doesn't care about order, and a subquery's order
+isn't promised to the outer query anyway. In the third, the sort stays, merged with the `LIMIT` into a top-3,
+because `LIMIT` is order-sensitive and the sort decides which three rows survive. Note what this means for the
+second query: someone who expected its output in `k` order would be relying on a sort the engine was free to
+delete. Only an `ORDER BY` on the outermost query promises an order.
+
+## Costs and trade-offs
+
+**Insensitivity is freedom.** Every property an operator lacks is a constraint an optimizer doesn't have to
+respect: a duplicate-insensitive aggregate allows removing `DISTINCT`s and tolerates re-reading data; an
+order-insensitive operator allows deleting sorts and splitting work across threads in any way.
+
+**Sensitivity is a contract.** When an operator does care, the query must say exactly what it wants: `ORDER BY`
+inside an aggregate, a unique tiebreak in a window, a key that makes a `DISTINCT` safe. Leaving it out doesn't
+produce an error. It produces a result that depends on the plan.
+
+## Check yourself
+
+<details>
+<summary>Is it safe to remove the DISTINCT from SELECT max(price) FROM (SELECT DISTINCT product, price FROM sales)? And from SELECT sum(price) FROM (...)?</summary>
+
+For `max`, yes: it is duplicate-insensitive, so extra copies of a price can't change the maximum. For `sum`,
+no: each duplicate adds its price again.
+</details>
+
+<details>
+<summary>UNION ALL of a subquery with itself: may the optimizer compute the subquery once and return it once?</summary>
+
+It may compute it once, but must return its rows twice. R ∪ R = R holds only for sets; `UNION ALL` doubles every
+count.
+</details>
+
+<details>
+<summary>When is SELECT DISTINCT t.* FROM t JOIN u ON ... equal to the semi join t ⋉ u?</summary>
+
+When `t` has no duplicate rows of its own, for example because it has a key and the key is in the output.
+Otherwise `DISTINCT` also merges `t`'s genuine duplicates, which the semi join keeps.
+</details>
+
+<details>
+<summary>A view is defined with ORDER BY created_at. A query reads it with WHERE status = 'open'. Is the result ordered?</summary>
+
+No. The order of a subquery or view isn't promised to the outer query, and an engine may delete the sort, as
+DataFusion did in the lab. Put `ORDER BY` in the outermost query.
+</details>
+
+## Further reading
+
+- Joseph Albert, [Algebraic Properties of Bag Data Types](https://www.vldb.org/conf/1991/P211.PDF), VLDB 1991.
+- PostgreSQL: [aggregate expressions](https://www.postgresql.org/docs/current/sql-expressions.html#SYNTAX-AGGREGATES),
+  including `ORDER BY` inside an aggregate.

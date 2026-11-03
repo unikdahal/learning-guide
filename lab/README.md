@@ -24,6 +24,7 @@ version of DataFusion (55.2) for every crate, so plans and outputs match the art
 | `labkit` | Shared helpers: a deterministic RNG, the data generator, timing with summary statistics |
 | `m00-orientation` | Module 00: embedding DataFusion, query stages, row vs column, honest measurement |
 | `m01-relational` | Module 01: a tiny relational algebra engine (`Relation`), a bag engine (`Bag`), three-valued logic (`Truth`), and DataFusion comparisons |
+| `m02-hardware` | Module 02: kernels that expose the machine: pointer chasing, scans, strides, gathers, branchy and branch-free filters, huge pages, direct disk reads |
 
 Each article's code is an example in its module crate's `examples/` folder. Shared code lives in the crate's
 `src/`. Benchmarks use Criterion and live in `benches/`.
@@ -49,6 +50,11 @@ Each article's code is an example in its module crate's `examples/` folder. Shar
 | Window function semantics | `cargo run --release -p m01-relational --example windows` |
 | CTEs and recursive queries | `cargo run --release -p m01-relational --example recursive` |
 | From SQL to relational algebra by hand | `cargo run --release -p m01-relational --example sql_to_algebra` |
+| Equivalence rules of relational algebra | `cargo run --release -p m01-relational --example equivalences` |
+| Duplicate-sensitive and order-sensitive operators | `cargo run --release -p m01-relational --example dup_order` |
+| The memory hierarchy, from registers to object storage | `cargo run --release -p m02-hardware --example latency`, then `--example tlb` and `--example storage` |
+| CPU caches, cache lines and locality | `cargo run --release -p m02-hardware --example caches` |
+| Branch prediction and why branches hurt | `cargo run --release -p m02-hardware --example branches` |
 
-Timings depend on your machine. The articles say what hardware produced theirs; compare shapes and
+The Module 02 examples measure the hardware, so run them one at a time on an otherwise idle machine; `storage` writes a 1 GiB file under `data/`. Timings depend on your machine. The articles say what hardware produced theirs; compare shapes and
 ratios, not absolute numbers.

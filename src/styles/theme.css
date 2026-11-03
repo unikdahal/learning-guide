@@ -39,10 +39,17 @@
   --qe-level-3: #2b9e91;
   --qe-level-4: #146a61;
 
+  /* Data series for charts, in fixed order. Validated with the dataviz palette checker against
+     the chart surface (--sl-color-black) in each theme: lightness band, chroma, CVD separation. */
+  --qe-series-1: #22a090;
+  --qe-series-2: #cf7a2a;
+
   --qe-bleed: calc(-1 * var(--sl-content-pad-x, 1rem));
 }
 
 :root[data-theme='light'] {
+  --qe-series-1: #00897b;
+  --qe-series-2: #b4540a;
   --sl-color-accent-low: #cdebe6;
   --sl-color-accent: #0e7c72;
   --sl-color-accent-high: #08443f;

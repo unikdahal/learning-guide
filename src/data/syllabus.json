@@ -2305,7 +2305,7 @@
           "scope": "Commutativity and associativity of joins, pushing selections and projections, and the conditions under which each rule is valid.",
           "visual": "Rewrite rule stepper on a plan tree",
           "path": "relational-model-and-sql/equivalence-rules-of-relational-algebra",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 15,
@@ -2315,7 +2315,7 @@
           "scope": "Which operators care about duplicates or order, and what that means for the rewrites an engine is allowed to do.",
           "visual": null,
           "path": "relational-model-and-sql/duplicate-sensitive-and-order-sensitive-operators",
-          "status": "planned"
+          "status": "published"
         }
       ]
     },
@@ -2342,7 +2342,7 @@
           "scope": "Latency and bandwidth at each level, from registers and caches to DRAM, SSD, network and object storage, with orders of magnitude to memorize.",
           "visual": "Log-scale latency ladder you can scale to human time",
           "path": "hardware/the-memory-hierarchy-from-registers-to-object-storage",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 2,
@@ -2352,7 +2352,7 @@
           "scope": "Cache lines, associativity, spatial and temporal locality, and why sequential columnar scans are so fast.",
           "visual": "Cache line grid simulation for sequential vs random access",
           "path": "hardware/cpu-caches-cache-lines-and-locality",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 3,
@@ -2362,7 +2362,7 @@
           "scope": "Pipelines, mispredictions and their cost, and how selectivity around 50% makes branchy filters slow.",
           "visual": "Pipeline flush animation and a selectivity vs cycles curve",
           "path": "hardware/branch-prediction-and-why-branches-hurt",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 4,

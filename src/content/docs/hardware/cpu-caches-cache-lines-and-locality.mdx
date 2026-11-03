@@ -1,16 +1,193 @@
 ---
-title: "CPU caches, cache lines and locality"
-description: "Cache lines, associativity, spatial and temporal locality, and why sequential columnar scans are so fast."
+title: CPU caches, cache lines and locality
+description: Cache lines, associativity, spatial and temporal locality, and why sequential columnar scans are so fast.
 level: B
-status: planned
+status: published
 module: "02"
-tableOfContents: false
 sidebar:
   order: 2
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import CacheLines from '@components/visuals/hardware/CacheLines.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="02" slug="cpu-caches-cache-lines-and-locality" />
+<ArticleMeta module="02" slug="cpu-caches-cache-lines-and-locality" minutes={15} lab="m02-hardware/examples/caches.rs" />
+
+The [previous article](../the-memory-hierarchy-from-registers-to-object-storage/) measured how long the
+machine takes to reach data at each level. This one looks inside the caches that make the upper levels fast,
+because their rules explain results that otherwise look like magic. Summing a matrix column by column instead
+of row by row reads exactly the same numbers, and on the lab machine it is 14 times slower. Reading one byte
+out of every 64 takes about as long as reading all of them. Random reads cost 1.5 ns or 12 ns depending only on
+how far apart they are.
+
+All three follow from one fact: the cache doesn't move the bytes you ask for. It moves **cache lines**.
+
+## The question
+
+How does a CPU cache decide what to keep, and what does that mean for the order in which a program should
+touch its data?
+
+## The unit is the line
+
+Memory moves between DRAM and the caches in fixed blocks of 64 bytes on x86-64, called cache lines (the lab
+machine's kernel reports `coherency_line_size` 64 for every level). Ask for one 4-byte integer and the whole
+64-byte line containing it is fetched, along with the 15 integers next to it. If the program uses them, those
+accesses are almost free. If it doesn't, 60 of the 64 bytes moved were wasted.
+
+That is **spatial locality**: programs that touch nearby addresses soon after each other use the whole line.
+The other bet caches make is **temporal locality**: data used recently is likely to be used again, so it's kept
+until something else needs the room. A cache works well for a program that has both, and badly for one that has
+neither.
+
+## Where a line can go
+
+A cache is not one big pool. It is divided into **sets**, and each line of memory can only be stored in one
+set, chosen by a few bits of its address. Within a set, it can occupy any of a fixed number of slots, the
+cache's **ways**. The lab machine's L1 data cache is 48 KiB and 12-way, with 64-byte lines:
+
+```text
+48 KiB / 64 bytes per line = 768 lines
+768 lines / 12 ways        = 64 sets
+address bits 0–5  pick the byte within the line (64 = 2⁶)
+address bits 6–11 pick the set (64 = 2⁶)
+```
+
+So addresses exactly 4,096 bytes apart share bits 0–11 and land in the same set, and at most 12 of them fit in L1
+at once, however empty the rest of the cache is. Strides that are large powers of two can therefore thrash a
+small part of a cache while most of it sits idle. Mark Hill's classification names the three reasons an access
+misses: **compulsory** (first touch of the line), **capacity** (the working set is bigger than the cache) and
+**conflict** (too many lines compete for one set).
+
+When a set is full, the cache evicts one of its lines, typically the least recently used or an approximation
+of it. That's the rule the toy cache below follows.
+
+<CacheLines />
+
+## Measured: one byte per line costs about a line
+
+The lab reads one byte every `stride` bytes across a 1 GiB buffer, far larger than any cache:
+
+```text title="cargo run --release -p m02-hardware --example caches (trimmed)"
+ stride    bytes read    total ms   ns / access
+      1    1073741824       588.1          0.55
+      4     268435456       242.2          0.90
+     16      67108864       154.0          2.29
+     64      16777216        89.7          5.35
+    256       4194304        43.7         10.42
+   1024       1048576         9.4          8.95
+   4096        262144         2.8         10.80
+```
+
+Read the last column. While several reads share each line, the cost per read is small, because most of them hit
+a line that's already there. As the stride grows toward 64 bytes, fewer reads share each line and the cost per
+read rises; beyond it, every read needs its own line and the cost levels off at around 10 ns, the price of
+moving lines from memory in this pattern. (It keeps rising a little past 64 bytes; one plausible reason, not
+verified here, is that Intel's L2 can fetch lines in adjacent pairs, so strides of 64 and 128 still get some
+help.)
+
+Now the first column. Stride 1, one byte at a time, took 588 ms, but that loop is limited by doing one
+instruction's work per byte, not by memory: the bandwidth test of the previous article summed the same 1 GiB in
+order at 9.2 GB/s, about 117 ms. Reading one byte per line, 1/64 of the data, took 90 ms. So skipping 63 bytes
+out of 64 saved almost nothing: the memory system moved nearly every line either way.
+
+## Measured: the order of traversal
+
+A matrix stored row by row (row-major, as in C, Rust and most columnar engines' blocks) places each row's
+values in consecutive addresses. Summing it row by row walks memory in order; column by column jumps a whole row
+ahead on every step, 32 KiB for an 8,192-column matrix of 4-byte values:
+
+```text title="cargo run --release -p m02-hardware --example caches (trimmed)"
+== Summing a 8192 x 8192 matrix of u32 (256 MiB), stored row by row ==
+row by row         median  45.750ms
+column by column   median 660.934ms
+```
+
+Same additions, same result, 14 times slower. Row by row, each line fetched delivers 16 useful values.
+Column by column, each line delivers one value before the walk moves on; 8,192 rows later, when the next column
+comes back for the line's second value, the line is long gone. The toy cache shows the same thing with 8 rows and
+a 4-line cache.
+
+## Measured: randomness is not the problem, footprint is
+
+A **gather** reads values from scattered positions given by a list of indices, which is exactly what a hash
+join probe or a "fetch these row ids" step does. The lab gathers 64 million values from a 256 MiB array, with
+indices in order, random within a small region, or random across everything:
+
+```text title="cargo run --release -p m02-hardware --example caches (trimmed)"
+in order                    1.28 ns / value
+random, within 1 MiB        1.48 ns / value
+random, within 32 MiB       5.10 ns / value
+random, all 256 MiB        12.36 ns / value
+```
+
+Random reads within 1 MiB cost almost the same as reading in order, because a 1 MiB region stays in L2 after its
+lines are first touched. Spread over 32 MiB, the lines keep getting evicted and the cost quadruples; over 256
+MiB, nearly every read goes to memory. The randomness was the same in all three; the size of the region decided
+the price. That's why engines care so much about keeping hash tables small, and why a partitioned hash join
+first splits its input into pieces that fit in cache ([Module 08](../../joins/)).
+
+## Why columnar scans are fast
+
+A query that sums one column of a wide table is the matrix experiment in disguise. Stored by rows, each row's
+fields sit together, so reading one field means fetching lines full of the other fields too. Stored by
+columns, that one field's values sit together, and every byte of every line fetched is a value the query
+wants. The [OLTP vs OLAP article](../../orientation/oltp-vs-olap-workloads/) measured exactly this in the lab.
+Columnar formats, vectorized execution and compact encodings all aim at the same thing: make every line moved
+count.
+
+<Aside type="note" title="Writes go through lines too">
+Writing one byte also works on the whole line: the cache must first have the line, so it's fetched, then
+modified, then written back when evicted. When two cores write to different variables that happen to share a
+line, the line bounces between their caches. That effect, false sharing, is the subject of
+[Multicore, threads and false sharing](../multicore-threads-and-false-sharing/).
+</Aside>
+
+## Costs and trade-offs
+
+**Layout is a performance decision.** Putting fields that are used together next to each other, and fields
+that aren't elsewhere, decides how many lines every operation moves. "Struct of arrays" layouts are columnar
+storage at the scale of one data structure.
+
+**Small working sets beat clever code.** A data structure that fits in cache can afford almost any access
+pattern; one that doesn't is limited by memory however well its code is written.
+
+**The toy model leaves things out.** Real caches have prefetchers that recognize strides, several levels with
+different policies, and lines shared between cores. The toy shows the rules that dominate; measurements show
+the whole machine.
+
+## Check yourself
+
+<details>
+<summary>A struct has an 8-byte key and a 56-byte payload, and a loop reads only the keys of a million structs. How many bytes cross from memory to cache, roughly, and how could the layout change that?</summary>
+
+Each struct fills a 64-byte line, so reading every key moves about 64 MB for 8 MB of keys. Storing the keys in
+their own array puts eight per line and moves about 8 MB.
+</details>
+
+<details>
+<summary>In the lab's L1 (48 KiB, 12-way, 64-byte lines), how many sets are there, and how many lines whose addresses differ by multiples of 4,096 can be cached at once?</summary>
+
+768 lines in 64 sets. Addresses 4,096 bytes apart map to the same set, so at most 12 of them, one per way, fit
+in L1 at a time.
+</details>
+
+<details>
+<summary>Why did random reads within 1 MiB cost almost the same as reads in order?</summary>
+
+The whole 1 MiB region fits in the 2 MiB L2. After each line is first fetched, every later read of it hits in
+cache, whatever the order.
+</details>
+
+<details>
+<summary>The column-by-column sum touched every value exactly once, like the row-by-row sum. Which of the three kinds of misses made it slow?</summary>
+
+Capacity misses. Each line is reused when the walk reaches the next column, but by then 8,192 other lines have
+been touched, far more than fit in cache, so the line has been evicted and must be fetched again.
+</details>
+
+## Further reading
+
+- Ulrich Drepper, [What Every Programmer Should Know About Memory](https://www.akkadia.org/drepper/cpumemory.pdf),
+  sections 3 and 6.
+- Mark D. Hill and Alan Jay Smith, "Evaluating Associativity in CPU Caches", IEEE Transactions on Computers,
+  1989: the three kinds of misses.

@@ -1,0 +1,320 @@
+---
+// A toy cache over 512 bytes of memory: 8 cache lines of 64 bytes, each holding 16 four-byte
+// integers. Pick an access pattern and a cache size; each access either hits a resident line or
+// fetches a whole line, evicting the least recently used one. The counters compare bytes the
+// program used with bytes the memory system moved. The measured counterparts of each pattern are
+// in lab/crates/m02-hardware/examples/caches.rs.
+---
+
+<qe-cachelines class="qe-lab qe-cl not-content">
+  <section class="qe-lab-part">
+    <div class="pickers">
+      <div>
+        <p class="qe-lab-cap">Access pattern over an 8 × 16 array of ints, stored row by row</p>
+        <div class="qe-lab-chips prose" role="group" aria-label="Access pattern">
+          <button type="button" data-pat="seq" aria-pressed="true">In order</button>
+          <button type="button" data-pat="stride" aria-pressed="false">Every 16th int</button>
+          <button type="button" data-pat="col" aria-pressed="false">Column by column</button>
+          <button type="button" data-pat="rand" aria-pressed="false">Random order</button>
+        </div>
+      </div>
+      <div>
+        <p class="qe-lab-cap">Cache size</p>
+        <div class="qe-lab-chips prose" role="group" aria-label="Cache size">
+          <button type="button" data-cap="4" aria-pressed="true">4 lines</button>
+          <button type="button" data-cap="8" aria-pressed="false">8 lines</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mem" data-mem role="img" aria-label="Memory as 8 cache lines of 16 integers"></div>
+
+    <div class="cache-row">
+      <span class="qe-lab-cap">In the cache, most recent first</span>
+      <ol class="cache" data-cache></ol>
+    </div>
+
+    <dl class="counters" data-counters aria-live="polite"></dl>
+
+    <div class="qe-lab-row controls">
+      <button type="button" class="qe-lab-btn" data-step>Next access</button>
+      <button type="button" class="qe-lab-btn quiet" data-play>Play</button>
+      <button type="button" class="qe-lab-btn quiet" data-reset>Reset</button>
+    </div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-cachelines>
+
+<script>
+  const ROWS = 8;
+  const COLS = 16; // ints per 64-byte line
+  const N = ROWS * COLS;
+
+  function pattern(name: string): number[] {
+    const all = [...Array(N).keys()];
+    if (name === 'seq') return all;
+    if (name === 'stride') return all.filter((i) => i % COLS === 0).concat(all.filter((i) => i % COLS === 8));
+    if (name === 'col') {
+      const out: number[] = [];
+      for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) out.push(r * COLS + c);
+      return out;
+    }
+    // A fixed shuffle, so every reader sees the same "random" order.
+    let x = 12345;
+    const a = [...all];
+    for (let i = a.length - 1; i > 0; i--) {
+      x = (x * 1103515245 + 12345) & 0x7fffffff;
+      const j = (x >>> 8) % (i + 1);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  class QeCacheLines extends HTMLElement {
+    pat = 'seq';
+    cap = 4;
+    seq: number[] = [];
+    at = 0;
+    cache: number[] = []; // line numbers, most recent first
+    misses = 0;
+    used = new Set<number>();
+    timer: number | undefined;
+    lastHit = true;
+
+    connectedCallback() {
+      const mem = this.querySelector('[data-mem]')!;
+      mem.innerHTML = Array.from(
+        { length: ROWS },
+        (_, r) =>
+          `<div class="line" data-line="${r}"><span class="lab">line ${r}</span><div class="cells">${Array.from({ length: COLS }, (_, c) => `<i data-cell="${r * COLS + c}"></i>`).join('')}</div></div>`,
+      ).join('');
+      const pick = (sel: string, f: (b: HTMLButtonElement) => void) =>
+        this.querySelectorAll<HTMLButtonElement>(sel).forEach((b) =>
+          b.addEventListener('click', () => {
+            this.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            f(b);
+            this.reset();
+          }),
+        );
+      pick('[data-pat]', (b) => (this.pat = b.dataset.pat!));
+      pick('[data-cap]', (b) => (this.cap = Number(b.dataset.cap)));
+      this.querySelector('[data-step]')!.addEventListener('click', () => {
+        this.stop();
+        this.step();
+      });
+      this.querySelector('[data-play]')!.addEventListener('click', () => (this.timer ? this.stop() : this.play()));
+      this.querySelector('[data-reset]')!.addEventListener('click', () => this.reset());
+      this.reset();
+    }
+
+    disconnectedCallback() {
+      this.stop();
+    }
+
+    play() {
+      if (this.at >= this.seq.length) this.reset();
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) {
+        while (this.at < this.seq.length) this.step(false);
+        this.render();
+        return;
+      }
+      this.querySelector('[data-play]')!.textContent = 'Pause';
+      this.timer = window.setInterval(() => {
+        if (this.at >= this.seq.length) return this.stop();
+        this.step();
+      }, 90);
+    }
+
+    stop() {
+      if (this.timer) window.clearInterval(this.timer);
+      this.timer = undefined;
+      const b = this.querySelector('[data-play]');
+      if (b) b.textContent = 'Play';
+    }
+
+    reset() {
+      this.stop();
+      this.seq = pattern(this.pat);
+      this.at = 0;
+      this.cache = [];
+      this.misses = 0;
+      this.used.clear();
+      this.render();
+    }
+
+    step(draw = true) {
+      if (this.at >= this.seq.length) return;
+      const i = this.seq[this.at++];
+      const line = Math.floor(i / COLS);
+      const k = this.cache.indexOf(line);
+      this.lastHit = k >= 0;
+      if (k >= 0) this.cache.splice(k, 1);
+      else {
+        this.misses++;
+        if (this.cache.length >= this.cap) this.cache.pop();
+      }
+      this.cache.unshift(line);
+      this.used.add(i);
+      if (draw) this.render();
+    }
+
+    render() {
+      const cur = this.at > 0 ? this.seq[this.at - 1] : -1;
+      this.querySelectorAll<HTMLElement>('[data-cell]').forEach((c) => {
+        const i = Number(c.dataset.cell);
+        c.className = i === cur ? (this.lastHit ? 'cur hit' : 'cur miss') : this.used.has(i) ? 'used' : '';
+      });
+      this.querySelectorAll<HTMLElement>('[data-line]').forEach((l) =>
+        l.classList.toggle('resident', this.cache.includes(Number(l.dataset.line))),
+      );
+      this.querySelector('[data-cache]')!.innerHTML =
+        Array.from({ length: this.cap }, (_, k) =>
+          k < this.cache.length ? `<li>line ${this.cache[k]}</li>` : '<li class="empty">empty</li>',
+        ).join('');
+
+      const usedBytes = this.at * 4;
+      const moved = this.misses * 64;
+      const eff = moved ? Math.round((usedBytes / moved) * 100) : 0;
+      const stats: [string, string][] = [
+        ['accesses', `${this.at} of ${this.seq.length}`],
+        ['lines fetched', String(this.misses)],
+        ['bytes used / moved', `${usedBytes} / ${moved}`],
+        ['useful', moved ? `${eff}%` : '–'],
+      ];
+      this.querySelector('[data-counters]')!.innerHTML = stats.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+      (this.querySelector('[data-step]') as HTMLButtonElement).disabled = this.at >= this.seq.length;
+
+      const done = this.at >= this.seq.length;
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      const texts: Record<string, [string, string]> = {
+        seq: [
+          'Reading in order: the first int of each line misses and brings in all 16; the next 15 are hits. Every byte moved is used.',
+          `Done: ${this.misses} lines fetched for ${this.seq.length} ints. One miss per 16 accesses, 100% of the moved bytes used. In the lab, this pattern read 9 GB/s from main memory on one core.`,
+        ],
+        stride: [
+          'One int per line: every access is a miss, and 60 of the 64 bytes each miss brings in go unused.',
+          `Done: ${this.misses} lines fetched to use ${this.seq.length * 4} bytes. The second pass, over int 8 of each line, ${this.cap >= 8 ? 'hit every time, because all 8 lines still fit' : 'missed again, because the 4-line cache had already evicted the lines'}. In the lab, reading one byte per 64 cost about as much time as reading every byte.`,
+        ],
+        col: [
+          'Walking down a column touches a different line on every step, using 4 bytes of each.',
+          this.cap >= 8
+            ? `Done: ${this.misses} lines fetched. All 8 lines fit, so after the first column every access hits: the order only costs something when the working set exceeds the cache.`
+            : `Done: ${this.misses} misses for ${this.seq.length} accesses. A column touches 8 lines but only 4 fit, so each line is evicted before the next column comes back for it. In the lab, the column walk over a 256 MiB matrix was 14 times slower than the row walk.`,
+        ],
+        rand: [
+          'Random order: whether the next int’s line is still resident depends on luck and on how much of the data fits.',
+          `Done: ${this.misses} lines fetched for ${this.seq.length} ints, against 8 for the same ints in order. ${this.cap >= 8 ? 'With all 8 lines resident, randomness costs nothing after the first touch of each line.' : 'In the lab, random reads within 1 MiB cost 1.5 ns each, within 256 MiB 12.4 ns: the footprint, not the randomness, set the price.'}`,
+        ],
+      };
+      note.textContent = done ? texts[this.pat][1] : this.at === 0 ? texts[this.pat][0] : this.lastHit ? `Hit: int ${cur} is in line ${Math.floor(cur / COLS)}, already in the cache.` : `Miss: line ${Math.floor(cur / COLS)} is fetched, all 64 bytes, to read the 4 bytes of int ${cur}.`;
+    }
+  }
+  if (!customElements.get('qe-cachelines')) customElements.define('qe-cachelines', QeCacheLines);
+</script>
+
+<style is:global>
+  .qe-cl .pickers {
+    display: grid;
+    gap: 0.6rem;
+  }
+  .qe-cl .mem {
+    display: grid;
+    gap: 3px;
+    margin-top: 1rem;
+  }
+  .qe-cl .line {
+    display: grid;
+    grid-template-columns: 3.3rem 1fr;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .qe-cl .line .lab {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-cl .cells {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 2px;
+    padding: 2px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+  }
+  .qe-cl .line.resident .cells {
+    border-color: var(--sl-color-accent);
+    background: color-mix(in srgb, var(--sl-color-accent) 12%, transparent);
+  }
+  .qe-cl .line.resident .lab {
+    color: var(--sl-color-accent-high);
+    font-weight: 700;
+  }
+  .qe-cl .cells i {
+    display: block;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--sl-color-gray-5);
+  }
+  .qe-cl .cells i.used {
+    background: var(--sl-color-gray-3);
+  }
+  .qe-cl .cells i.cur.hit {
+    background: var(--qe-series-1);
+  }
+  .qe-cl .cells i.cur.miss {
+    background: var(--qe-series-2);
+  }
+  .qe-cl .cache-row {
+    display: grid;
+    gap: 0.3rem;
+    margin-top: 0.8rem;
+  }
+  .qe-cl .cache {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .qe-cl .cache li {
+    margin: 0 !important;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-accent);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-white);
+  }
+  .qe-cl .cache li.empty {
+    border-style: dashed;
+    border-color: var(--sl-color-gray-4);
+    color: var(--sl-color-gray-3);
+  }
+  .qe-cl .counters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+  }
+  .qe-cl .counters div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-cl .counters dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-cl .counters dd {
+    margin: 0;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-cl .controls {
+    margin-top: 0.9rem;
+  }
+</style>

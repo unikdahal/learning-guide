@@ -1,0 +1,235 @@
+---
+// Part 1: the latency ladder, as dots on a log scale (bars on a log axis mislead), with a toggle
+// that rescales everything so an L1 hit takes one second. Part 2: the measured pointer-chase
+// curve with 4 KiB and 2 MiB pages. Every number except object storage was measured on the lab
+// VM (lab/crates/m02-hardware/examples/latency.rs, tlb.rs, storage.rs); object storage is the
+// range AWS documents for S3.
+const rungs = [
+  { name: 'L1 cache hit', ns: 2.0, note: 'working set up to 32 KiB, measured' },
+  { name: 'L2 cache hit', ns: 6.0, note: '64 KiB to 1 MiB, measured' },
+  { name: 'Next cache level', ns: 37, note: '4 to 8 MiB, measured' },
+  { name: 'Main memory', ns: 125, note: '16 MiB to 1 GiB, 2 MiB pages, measured' },
+  { name: '4 KiB from the page cache', ns: 800, note: 'a read() of file data already in RAM, measured' },
+  { name: '4 KiB random disk read', ns: 40800, note: 'this VM’s virtual disk, O_DIRECT, median, measured' },
+  { name: 'Object storage request', ns: 100e6, note: 'S3 small object or first byte, 100–200 ms (AWS docs)' },
+];
+const latency4k = [
+  [4096, 2.087], [8192, 2.04], [16384, 1.96], [32768, 2.074], [65536, 5.455], [131072, 5.709],
+  [262144, 5.994], [524288, 6.275], [1048576, 6.902], [2097152, 24.736], [4194304, 36.325],
+  [8388608, 37.18], [16777216, 127.95], [33554432, 134.812], [67108864, 135.855],
+  [134217728, 137.558], [268435456, 152.547], [536870912, 160.368], [1073741824, 174.513],
+];
+const latency2m = [
+  [1048576, 8.13], [2097152, 11.81], [4194304, 34.26], [8388608, 33.39], [16777216, 121.72],
+  [33554432, 121.01], [67108864, 124.4], [134217728, 120.58], [268435456, 126.19],
+  [536870912, 125.01], [1073741824, 131.04],
+];
+---
+
+<qe-ladder class="qe-lab qe-ladder not-content" data-rungs={JSON.stringify(rungs)} data-l4={JSON.stringify(latency4k)} data-l2={JSON.stringify(latency2m)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">How long one access takes</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Time scale">
+      <button type="button" data-scale="real" aria-pressed="true">Real time</button>
+      <button type="button" data-scale="human" aria-pressed="false">If an L1 hit took 1 second</button>
+    </div>
+    <div class="axis-top" data-axis aria-hidden="true"></div>
+    <ol class="rungs" data-list></ol>
+    <p class="qe-lab-note" data-note></p>
+  </section>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Latency as the working set grows, measured on the lab VM</p>
+    <p class="qe-lab-cap">One dependent load at a time, over a random cycle through the working set. Drag across the chart for values.</p>
+    <div data-chart></div>
+  </section>
+</qe-ladder>
+
+<script>
+  import { renderLineChart } from '../../../scripts/linechart';
+
+  type Rung = { name: string; ns: number; note: string };
+  const LOG_MIN = 0; // 1 ns
+  const LOG_MAX = 9; // 1 s
+
+  function fmtReal(ns: number): string {
+    if (ns < 1e3) return `${+ns.toPrecision(3)} ns`;
+    if (ns < 1e6) return `${+(ns / 1e3).toPrecision(3)} µs`;
+    if (ns < 1e9) return `${+(ns / 1e6).toPrecision(3)} ms`;
+    return `${+(ns / 1e9).toPrecision(3)} s`;
+  }
+
+  function fmtHuman(seconds: number): string {
+    const units: [number, string][] = [
+      [365.25 * 86400, 'year'],
+      [30.44 * 86400, 'month'],
+      [86400, 'day'],
+      [3600, 'hour'],
+      [60, 'minute'],
+      [1, 'second'],
+    ];
+    for (const [u, name] of units) {
+      if (seconds >= u) {
+        const v = +(seconds / u).toPrecision(2);
+        return `${v} ${name}${v === 1 ? '' : 's'}`;
+      }
+    }
+    return `${+seconds.toPrecision(2)} seconds`;
+  }
+
+  function size(b: number): string {
+    if (b >= 1 << 30) return `${b / (1 << 30)} GiB`;
+    if (b >= 1 << 20) return `${b / (1 << 20)} MiB`;
+    return `${b / 1024} KiB`;
+  }
+
+  class QeLadder extends HTMLElement {
+    rungs: Rung[] = [];
+    scale = 'real';
+
+    connectedCallback() {
+      this.rungs = JSON.parse(this.dataset.rungs!);
+      this.querySelectorAll<HTMLButtonElement>('[data-scale]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.scale = b.dataset.scale!;
+          this.querySelectorAll('[data-scale]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.render();
+        }),
+      );
+      this.render();
+      const l4: [number, number][] = JSON.parse(this.dataset.l4!);
+      const l2: [number, number][] = JSON.parse(this.dataset.l2!);
+      const ticks = [4096, 65536, 1 << 20, 16 << 20, 256 << 20].map((v) => ({ v, label: size(v).replace(' ', '') }));
+      ticks.push({ v: 1 << 30, label: '1GiB' });
+      renderLineChart(this.querySelector('[data-chart]')!, {
+        series: [
+          { name: '4 KiB pages', color: 'var(--qe-series-1)', points: l4 },
+          { name: '2 MiB huge pages', color: 'var(--qe-series-2)', points: l2 },
+        ],
+        xLog: true,
+        yLog: true,
+        xTicks: ticks,
+        yTicks: [1, 2, 5, 10, 20, 50, 100, 200].map((v) => ({ v, label: String(v) })),
+        xLabel: 'working set',
+        yLabel: 'ns per load',
+        fmtX: size,
+        fmtY: (y) => `${y.toFixed(1)} ns`,
+        markers: [
+          { x: 48 * 1024, label: 'L1 48K' },
+          { x: 2 << 20, label: 'L2 2M' },
+        ],
+        height: 280,
+      });
+    }
+
+    render() {
+      const human = this.scale === 'human';
+      const l1 = this.rungs[0].ns;
+      const axis = this.querySelector('[data-axis]')!;
+      const labels = [1, 1e3, 1e6, 1e9].map((ns) => (human ? fmtHuman(ns / l1) : fmtReal(ns)));
+      axis.innerHTML = labels
+        .map((l, i) => `<span style="left:${(i * 3 * 100) / (LOG_MAX - LOG_MIN)}%">${l}</span>`)
+        .join('');
+      this.querySelector('[data-list]')!.innerHTML = this.rungs
+        .map((r) => {
+          const pos = ((Math.log10(r.ns) - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 100;
+          const value = human ? fmtHuman(r.ns / l1) : fmtReal(r.ns);
+          return `<li><div class="top"><span class="name">${r.name}</span><b>${value}</b></div><div class="track"><span class="dot" style="left:${pos}%"></span></div><span class="note">${r.note}</span></li>`;
+        })
+        .join('');
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      note.textContent = human
+        ? 'Scaled so an L1 hit takes one second, main memory takes about a minute, a random disk read about six hours, and one object storage request more than a year and a half. Each rung is 3 to 2,500 times slower than the one above it.'
+        : 'Each step down the ladder is 3 to 2,500 times slower. The axis is logarithmic: every gridline is a thousand times the one before. Object storage is the range AWS documents; every other value was measured on the lab machine.';
+    }
+  }
+  if (!customElements.get('qe-ladder')) customElements.define('qe-ladder', QeLadder);
+</script>
+
+<style is:global>
+  .qe-ladder .axis-top {
+    position: relative;
+    height: 1.2rem;
+    margin: 1rem 0.5rem 0.2rem;
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-ladder .axis-top span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .qe-ladder .axis-top span:first-child {
+    transform: none;
+  }
+  .qe-ladder .axis-top span:last-child {
+    transform: translateX(-100%);
+  }
+  .qe-ladder .rungs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.35rem;
+  }
+  .qe-ladder .rungs li {
+    margin: 0 !important;
+    padding: 0.45rem 0.5rem 0.4rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-ladder .top {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-size: 0.8125rem;
+  }
+  .qe-ladder .name {
+    color: var(--sl-color-gray-1);
+    font-weight: 600;
+  }
+  .qe-ladder .top b {
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .qe-ladder .track {
+    position: relative;
+    height: 12px;
+    margin: 0.35rem 0 0.2rem;
+    background: linear-gradient(
+      to right,
+      var(--sl-color-gray-5) 0 1px,
+      transparent 1px 33.33%,
+      var(--sl-color-gray-5) 33.33% calc(33.33% + 1px),
+      transparent calc(33.33% + 1px) 66.66%,
+      var(--sl-color-gray-5) 66.66% calc(66.66% + 1px),
+      transparent calc(66.66% + 1px) calc(100% - 1px),
+      var(--sl-color-gray-5) calc(100% - 1px)
+    );
+  }
+  .qe-ladder .track::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 5px;
+    height: 2px;
+    background: var(--sl-color-gray-6);
+  }
+  .qe-ladder .dot {
+    position: absolute;
+    top: 0;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    border-radius: 50%;
+    background: var(--qe-series-1);
+    box-shadow: 0 0 0 2px var(--sl-color-black);
+    transition: left 0.3s;
+  }
+  .qe-ladder .note {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+</style>

@@ -1,0 +1,10 @@
+[package]
+name = "m02-hardware"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+description = "Module 02 lab: measuring the memory hierarchy, caches and branch prediction."
+
+[dependencies]
+labkit.workspace = true
+libc.workspace = true

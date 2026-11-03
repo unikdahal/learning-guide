@@ -1,0 +1,379 @@
+---
+// A plan tree rewritten one rule at a time, in the order DataFusion's optimizer applied them in
+// lab/crates/m01-relational/examples/equivalences.rs. A tiny evaluator runs every version of
+// the tree on the module's six customers and six orders, so each node shows the rows it really
+// produces, and the result never changes. A second part shows why a LEFT JOIN blocks one push.
+const customer = [
+  { id: 1, name: 'Asha', region: 'ASIA' },
+  { id: 2, name: 'Bruno', region: 'EUROPE' },
+  { id: 3, name: 'Chen', region: 'ASIA' },
+  { id: 4, name: 'Dara', region: 'AFRICA' },
+  { id: 5, name: 'Emeka', region: 'AFRICA' },
+  { id: 6, name: 'Farah', region: 'EUROPE' },
+];
+const orders = [
+  { order_id: 101, cust_id: 1, amount: 250 },
+  { order_id: 102, cust_id: 3, amount: 40 },
+  { order_id: 103, cust_id: 1, amount: 90 },
+  { order_id: 104, cust_id: 4, amount: 610 },
+  { order_id: 105, cust_id: 6, amount: 75 },
+  { order_id: 106, cust_id: 9, amount: 120 },
+];
+---
+
+<qe-rewrite class="qe-lab qe-rw not-content" data-c={JSON.stringify(customer)} data-o={JSON.stringify(orders)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-sql">SELECT c.name, o.amount FROM customer c, orders o WHERE c.id = o.cust_id AND c.region = 'ASIA' AND o.amount &gt; 80</p>
+    <div class="steps" role="group" aria-label="Rewrite step" data-steps></div>
+    <div class="rule" data-rule aria-live="polite"></div>
+    <div class="tree" data-tree></div>
+    <dl class="totals" data-totals></dl>
+  </section>
+
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">The same push with a LEFT JOIN</p>
+    <p class="qe-lab-cap">SELECT c.name, o.amount FROM customer c LEFT JOIN orders o ON o.cust_id = c.id WHERE o.amount &gt; 80</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Where the filter runs">
+      <button type="button" data-lj="above" aria-pressed="true">Filter above the join (the query)</button>
+      <button type="button" data-lj="below" aria-pressed="false">Filter pushed into orders</button>
+    </div>
+    <ol class="result" data-ljresult></ol>
+    <p class="qe-lab-note" data-ljnote aria-live="polite"></p>
+  </section>
+</qe-rewrite>
+
+<script>
+  type Row = Record<string, string | number | null>;
+  type N =
+    | { op: 'scan'; t: 'c' | 'o' }
+    | { op: 'select'; p: string; c: N }
+    | { op: 'product'; l: N; r: N }
+    | { op: 'join'; p: string; l: N; r: N }
+    | { op: 'project'; cols: string[]; c: N };
+
+  const PRED: Record<string, { label: string; f: (r: Row) => boolean }> = {
+    all: { label: "c.id = o.cust_id ∧ c.region = 'ASIA' ∧ o.amount > 80", f: (r) => r['c.id'] === r['o.cust_id'] && r['c.region'] === 'ASIA' && (r['o.amount'] as number) > 80 },
+    eq: { label: 'c.id = o.cust_id', f: (r) => r['c.id'] === r['o.cust_id'] },
+    asia: { label: "c.region = 'ASIA'", f: (r) => r['c.region'] === 'ASIA' },
+    amt: { label: 'o.amount > 80', f: (r) => (r['o.amount'] as number) > 80 },
+  };
+
+  const scanC: N = { op: 'scan', t: 'c' };
+  const scanO: N = { op: 'scan', t: 'o' };
+  const out = ['c.name', 'o.amount'];
+  const STEPS: { name: string; rule: string; df: string; tree: N }[] = [
+    {
+      name: 'Translation',
+      rule: 'The recipe’s literal tree: FROM with a comma is a product, WHERE is one σ on top, SELECT is π.',
+      df: 'initial_logical_plan',
+      tree: { op: 'project', cols: out, c: { op: 'select', p: 'all', c: { op: 'product', l: scanC, r: scanO } } },
+    },
+    {
+      name: 'Split σ',
+      rule: 'σ cascade: σ p∧q∧r (X) = σ p (σ q (σ r (X))). One filter with three conditions becomes three filters, so each can move on its own. DataFusion does this internally when it splits a predicate into conjuncts.',
+      df: 'part of push_down_filter',
+      tree: { op: 'project', cols: out, c: { op: 'select', p: 'asia', c: { op: 'select', p: 'amt', c: { op: 'select', p: 'eq', c: { op: 'product', l: scanC, r: scanO } } } } },
+    },
+    {
+      name: 'Product → join',
+      rule: 'σ θ (R × S) = R ⋈θ S. A selection directly above a product is a join, which can be computed without forming the product.',
+      df: 'eliminate_cross_join',
+      tree: { op: 'project', cols: out, c: { op: 'select', p: 'asia', c: { op: 'select', p: 'amt', c: { op: 'join', p: 'eq', l: scanC, r: scanO } } } },
+    },
+    {
+      name: 'Push region',
+      rule: 'σ p (R ⋈ S) = σ p (R) ⋈ S when p mentions only attributes of R. c.region belongs to customer, so the filter moves below the join, onto the customer side.',
+      df: 'push_down_filter',
+      tree: { op: 'project', cols: out, c: { op: 'select', p: 'amt', c: { op: 'join', p: 'eq', l: { op: 'select', p: 'asia', c: scanC }, r: scanO } } },
+    },
+    {
+      name: 'Push amount',
+      rule: 'The same rule for the other side: o.amount belongs to orders, so its filter moves onto the orders input.',
+      df: 'push_down_filter',
+      tree: { op: 'project', cols: out, c: { op: 'join', p: 'eq', l: { op: 'select', p: 'asia', c: scanC }, r: { op: 'select', p: 'amt', c: scanO } } },
+    },
+    {
+      name: 'Prune columns',
+      rule: 'π pushdown: keep only the columns used above, including the join keys. The join needs c.id and o.cust_id; the output needs c.name and o.amount. Dropping a join key here would be wrong.',
+      df: 'optimize_projections',
+      tree: {
+        op: 'project',
+        cols: out,
+        c: {
+          op: 'join',
+          p: 'eq',
+          l: { op: 'project', cols: ['c.id', 'c.name'], c: { op: 'select', p: 'asia', c: scanC } },
+          r: { op: 'project', cols: ['o.cust_id', 'o.amount'], c: { op: 'select', p: 'amt', c: scanO } },
+        },
+      },
+    },
+  ];
+
+  class QeRewrite extends HTMLElement {
+    data: Record<'c' | 'o', Row[]> = { c: [], o: [] };
+    step = 0;
+    lj = 'above';
+
+    connectedCallback() {
+      const pre = (rows: Row[], p: string) => rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [`${p}.${k}`, v])));
+      this.data = { c: pre(JSON.parse(this.dataset.c!), 'c'), o: pre(JSON.parse(this.dataset.o!), 'o') };
+      this.querySelector('[data-steps]')!.innerHTML = STEPS.map(
+        (s, i) => `<button type="button" data-i="${i}"><span>${i}</span>${s.name}</button>`,
+      ).join('');
+      this.querySelectorAll<HTMLButtonElement>('[data-i]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.step = Number(b.dataset.i);
+          this.render();
+        }),
+      );
+      this.querySelectorAll<HTMLButtonElement>('[data-lj]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.lj = b.dataset.lj!;
+          this.querySelectorAll('[data-lj]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.renderLj();
+        }),
+      );
+      this.render();
+      this.renderLj();
+    }
+
+    /** Evaluates a tree; records each node's output size and the total rows produced. */
+    eval(n: N, sizes: Map<N, number>): Row[] {
+      let rows: Row[];
+      if (n.op === 'scan') rows = this.data[n.t];
+      else if (n.op === 'select') rows = this.eval(n.c, sizes).filter(PRED[n.p].f);
+      else if (n.op === 'project') rows = this.eval(n.c, sizes).map((r) => Object.fromEntries(n.cols.map((k) => [k, r[k]])));
+      else {
+        const L = this.eval(n.l, sizes);
+        const R = this.eval(n.r, sizes);
+        rows = L.flatMap((a) => R.map((b) => ({ ...a, ...b })));
+        if (n.op === 'join') rows = rows.filter(PRED[n.p].f);
+      }
+      sizes.set(n, rows.length);
+      return rows;
+    }
+
+    render() {
+      const s = STEPS[this.step];
+      this.querySelectorAll('[data-i]').forEach((b, i) => b.setAttribute('aria-pressed', String(i === this.step)));
+      this.querySelector('[data-rule]')!.innerHTML = `<p class="rname">Step ${this.step}: ${s.name} <code>${s.df}</code></p><p>${s.rule}</p>`;
+      const sizes = new Map<N, number>();
+      const result = this.eval(s.tree, sizes);
+      const label = (n: N): string => {
+        if (n.op === 'scan') return n.t === 'c' ? 'ρ c (customer)' : 'ρ o (orders)';
+        if (n.op === 'select') return `σ ${PRED[n.p].label}`;
+        if (n.op === 'project') return `π ${n.cols.join(', ')}`;
+        if (n.op === 'product') return '×';
+        return `⋈ ${PRED[n.p].label}`;
+      };
+      const kids = (n: N): N[] => (n.op === 'scan' ? [] : n.op === 'select' || n.op === 'project' ? [n.c] : [n.l, n.r]);
+      const node = (n: N): string => {
+        const k = kids(n);
+        const big = sizes.get(n)! >= 30 ? ' big' : '';
+        return `<li><div class="node ${n.op}"><span class="lbl">${label(n)}</span><span class="rows${big}">${sizes.get(n)} rows</span></div>${k.length ? `<ul>${k.map(node).join('')}</ul>` : ''}</li>`;
+      };
+      this.querySelector('[data-tree]')!.innerHTML = `<ul class="root">${node(s.tree)}</ul>`;
+      const produced = [...sizes.values()].reduce((a, b) => a + b, 0);
+      const pairs = (() => {
+        let p = 0;
+        const walk = (n: N) => {
+          if (n.op === 'product' || n.op === 'join') p += sizes.get(n.l)! * sizes.get(n.r)!;
+          kids(n).forEach(walk);
+        };
+        walk(s.tree);
+        return p;
+      })();
+      const totals: [string, string][] = [
+        ['result', result.map((r) => `${r['c.name']} ${r['o.amount']}`).join(', ')],
+        ['rows produced, all operators', String(produced)],
+        ['row pairs the join examines', String(pairs)],
+      ];
+      this.querySelector('[data-totals]')!.innerHTML = totals.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    }
+
+    renderLj() {
+      const C = this.data.c;
+      const O = this.lj === 'below' ? this.data.o.filter((r) => (r['o.amount'] as number) > 80) : this.data.o;
+      let rows: Row[] = C.flatMap((c) => {
+        const m = O.filter((o) => o['o.cust_id'] === c['c.id']);
+        return m.length ? m.map((o) => ({ ...c, ...o })) : [{ ...c, 'o.amount': null }];
+      });
+      if (this.lj === 'above') rows = rows.filter((r) => r['o.amount'] !== null && (r['o.amount'] as number) > 80);
+      this.querySelector('[data-ljresult]')!.innerHTML = rows
+        .map((r) => `<li class="${r['o.amount'] === null ? 'nullrow' : ''}"><span>${r['c.name']}</span><b>${r['o.amount'] ?? 'NULL'}</b></li>`)
+        .join('');
+      this.querySelector('[data-ljnote]')!.textContent =
+        this.lj === 'above'
+          ? `${rows.length} rows. The left join first keeps every customer, padding those without a matching order with NULL; then WHERE drops every row whose amount isn’t above 80, NULL rows included. The query asked for customers with a large order.`
+          : `${rows.length} rows. Filtering orders first, then left joining, keeps every customer, with NULL for those without a large order. That is a different question, so the push is not allowed as it stands. DataFusion’s eliminate_outer_join notices that the WHERE condition rejects NULL rows, turns the LEFT JOIN into an INNER JOIN, and only then pushes the filter down.`;
+    }
+  }
+  if (!customElements.get('qe-rewrite')) customElements.define('qe-rewrite', QeRewrite);
+</script>
+
+<style is:global>
+  .qe-rw .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+    gap: 0.3rem;
+    margin-top: 0.8rem;
+  }
+  .qe-rw .steps button {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.4rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+  .qe-rw .steps button span {
+    display: inline-grid;
+    place-items: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    flex: none;
+    border-radius: 50%;
+    background: var(--sl-color-gray-5);
+    font-size: 0.6875rem;
+  }
+  .qe-rw .steps button[aria-pressed='true'] span {
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .qe-rw .rule {
+    margin-top: 0.8rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--qe-pipe-emit);
+    background: var(--sl-color-black);
+    font-family: var(--qe-font-prose);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 7.5em;
+  }
+  .qe-rw .rule p {
+    margin: 0;
+  }
+  .qe-rw .rule .rname {
+    margin-bottom: 0.25rem;
+    font-family: var(--sl-font);
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--sl-color-white);
+  }
+  .qe-rw .rule code {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .qe-rw .tree {
+    margin-top: 0.9rem;
+  }
+  .qe-rw .tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .qe-rw .tree ul ul {
+    margin-left: 0.55rem;
+    padding-left: 0.7rem;
+    border-left: 2px solid var(--sl-color-gray-5);
+  }
+  .qe-rw .tree li {
+    margin: 0.25rem 0 0 !important;
+    position: relative;
+  }
+  .qe-rw .tree ul ul > li::before {
+    content: '';
+    position: absolute;
+    left: -0.7rem;
+    top: 1.05rem;
+    width: 0.6rem;
+    border-top: 2px solid var(--sl-color-gray-5);
+  }
+  .qe-rw .node {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.6rem;
+    max-width: 100%;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+  }
+  .qe-rw .node .lbl {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-white);
+    overflow-wrap: anywhere;
+  }
+  .qe-rw .node .rows {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--sl-color-accent-high);
+    white-space: nowrap;
+  }
+  .qe-rw .node .rows.big {
+    color: var(--qe-series-2);
+  }
+  .qe-rw .node.join,
+  .qe-rw .node.product {
+    border-color: var(--sl-color-accent);
+  }
+  .qe-rw .totals {
+    display: grid;
+    gap: 0.35rem;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    margin: 0.9rem 0 0;
+  }
+  .qe-rw .totals div {
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-rw .totals dt {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-rw .totals dd {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--sl-color-white);
+  }
+  .qe-rw .result {
+    list-style: none;
+    margin: 0.8rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+    gap: 0.25rem;
+  }
+  .qe-rw .result li {
+    margin: 0 !important;
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-rw .result li b {
+    color: var(--sl-color-white);
+  }
+  .qe-rw .result li.nullrow b {
+    color: var(--qe-pipe-emit);
+  }
+</style>

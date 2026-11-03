@@ -1,16 +1,261 @@
 ---
-title: "Equivalence rules of relational algebra"
-description: "Commutativity and associativity of joins, pushing selections and projections, and the conditions under which each rule is valid."
+title: Equivalence rules of relational algebra
+description: Commutativity and associativity of joins, pushing selections and projections, and the conditions under which each rule is valid.
 level: I
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 14
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import RewriteStepper from '@components/visuals/relational/RewriteStepper.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="equivalence-rules-of-relational-algebra" />
+<ArticleMeta module="01" slug="equivalence-rules-of-relational-algebra" minutes={15} lab="m01-relational/examples/equivalences.rs" />
+
+The [previous article](../from-sql-to-relational-algebra-by-hand/) turned SQL into a correct tree, and
+pointed out that the correct tree is rarely a fast one. It filters after joining, joins by forming a
+product, and carries every column of every table to the top. An optimizer's first job is to turn that tree
+into one that computes exactly the same result with far less work.
+
+It does that with **equivalence rules**: pairs of expressions that always produce the same relation, so
+one can replace the other anywhere. A rule is only as good as its side conditions. Moving a filter below a
+join is safe when the filter mentions one side, and changes the answer when the join is an outer join. This
+article lists the rules optimizers lean on most, tests each one on hundreds of random relations, breaks the
+side conditions on purpose, and then watches DataFusion apply the rules one pass at a time.
+
+## The question
+
+Which rewrites of an algebra tree never change its result, and what exactly must be true for each one to
+be safe?
+
+## What "equivalent" means
+
+Two expressions are **equivalent** if they produce the same relation for every possible database, not just
+for today's data. That "every" is the whole difficulty. A rewrite that happens to give the same rows on the
+test data can still be wrong. So the lab doesn't test rules on one example. It generates 500 random triples
+of small relations, R(a, b), S(b, c) and T(a, b), with values drawn from a domain of four, so that joins
+match and duplicates collide often, and checks each rule on all of them. A rule that holds 500 times out of
+500 isn't proven by that, but a rule that fails once is disproven, and the lab prints the counterexample.
+
+## Rules for selection
+
+```text title="cargo run --release -p m01-relational --example equivalences"
+σ cascade: σ p∧q (R) = σ p (σ q (R))                       held in 500 of 500
+σ commutes: σ p (σ q (R)) = σ q (σ p (R))                  held in 500 of 500
+σ pushdown: σ a>1 (R ⋈ S) = σ a>1 (R) ⋈ S                  held in 500 of 500
+σ pushdown, other side: σ c>1 (R ⋈ S) = R ⋈ σ c>1 (S)      held in 500 of 500
+σ over ∪: σ p (R ∪ T) = σ p (R) ∪ σ p (T)                  held in 500 of 500
+σ over −: σ p (R − T) = σ p (R) − T                        held in 500 of 500
+```
+
+- **Cascade.** A selection with a conjunction equals a stack of selections, one per condition. It looks
+  trivial, but it is what makes everything else possible: once `WHERE a AND b AND c` is three separate
+  filters, each can travel on its own.
+- **Commutativity.** Filters in a stack can swap places, so an optimizer can run the cheapest or most
+  selective one first.
+- **Pushdown through a join.** A selection above a join can move to the input that owns all of its columns.
+  `a` belongs to R, so `σ a>1` can run on R before the join; `c` belongs to S, so `σ c>1` can run on S. A
+  condition that mentions both sides, such as `a < c`, can't move to either side, and stays above the join or
+  becomes part of the join condition.
+- **Over set operations.** A selection distributes over union, and over difference it only needs to be
+  applied to the left side: a row removed from R by the filter can't be in the result anyway.
+
+## Rules for joins
+
+```text title="cargo run --release -p m01-relational --example equivalences"
+join commutes: R ⋈ S = S ⋈ R                               held in 500 of 500
+join associates: (R ⋈ S) ⋈ T = R ⋈ (S ⋈ T)                 held in 500 of 500
+```
+
+Commutativity and associativity together mean that inner joins can be evaluated in any order. For a query
+joining n tables, the number of possible orders grows faster than exponentially, and the cost of different
+orders can differ by orders of magnitude. Choosing among them is the subject of
+[Module 13](../../cost-based-optimization/); these two rules are what make the choice legal at all.
+
+Two more rules connect joins with the operators beneath them. A selection directly above a product is a
+join: σ θ (R × S) = R ⋈θ S. And a product is a join with no condition, so a comma in `FROM` plus an equality
+in `WHERE` can always be planned as an equi-join.
+
+## Rules for projection
+
+```text title="cargo run --release -p m01-relational --example equivalences"
+π cascade: π a (π a,b (R)) = π a (R)                       held in 500 of 500
+π pushdown, keeping the join key: π a,c (R ⋈ S) = π a,c (π a,b (R) ⋈ S) held in 500 of 500
+```
+
+Projection pushdown removes columns early, so every operator above handles narrower rows. The side condition
+is that the pushed projection must keep every column anything above it still needs: the output columns, and
+the join keys. Here `b` is the join key between R and S, so it must survive the pushed projection even though
+the query never outputs it.
+
+## Breaking the side conditions
+
+The same harness, with the conditions violated:
+
+```text title="cargo run --release -p m01-relational --example equivalences"
+π pushdown that drops the join key: π a,c (R ⋈ S) vs π a (R) × π c (S) held in 151 of 500
+π over −: π a (R − T) vs π a (R) − π a (T)                 held in 238 of 500
+π over ∪ (holds): π a (R ∪ T) = π a (R) ∪ π a (T)          held in 500 of 500
+```
+
+Dropping the join key before joining leaves nothing to join on: the result is a product, pairing every `a`
+with every `c`. On the counterexample the lab found, the correct answer has one row and the rewrite has four.
+The rule "held" 151 times only because many random relations were empty or tiny.
+
+Projection doesn't distribute over difference, and the counterexample shows why. R contains (1, 2) and
+(1, 3); T contains (1, 2). R − T keeps (1, 3), so `a = 1` is in π a (R − T). But π a (T) contains 1, so
+π a (R) − π a (T) removes it. Projecting first merges rows that differ in the dropped column, and the
+difference then removes too much. Union has no such problem, so π distributes over ∪ in all 500 trials.
+
+## Watch an optimizer do it
+
+DataFusion's `EXPLAIN VERBOSE` prints the plan after every optimizer pass. The lab runs it on a query
+written the old way, with a comma join, and keeps only the passes that changed something:
+
+```text title="cargo run --release -p m01-relational --example equivalences (trimmed)"
+--- initial_logical_plan
+Projection: c.name, o.amount
+  Filter: c.id = o.cust_id AND c.region = Utf8("ASIA") AND o.amount > Int64(80)
+    Cross Join:
+      SubqueryAlias: c
+        TableScan: customer
+      SubqueryAlias: o
+        TableScan: orders
+
+--- logical_plan after eliminate_cross_join
+Projection: c.name, o.amount
+  Filter: c.region = Utf8View("ASIA") AND o.amount > Int32(80)
+    Inner Join: c.id = o.cust_id
+      ...
+
+--- logical_plan after push_down_filter
+Projection: c.name, o.amount
+  Inner Join: c.id = o.cust_id
+    SubqueryAlias: c
+      Filter: customer.region = Utf8View("ASIA")
+        TableScan: customer
+    SubqueryAlias: o
+      Filter: orders.amount > Int32(80)
+        TableScan: orders
+
+--- logical_plan after optimize_projections
+Projection: c.name, o.amount
+  Inner Join: c.id = o.cust_id
+    SubqueryAlias: c
+      Projection: customer.id, customer.name
+        Filter: customer.region = Utf8View("ASIA")
+          TableScan: customer projection=[id, name, region]
+    SubqueryAlias: o
+      Filter: orders.amount > Int32(80)
+        TableScan: orders projection=[cust_id, amount]
+```
+
+Each pass is a rule from this article. `eliminate_cross_join` finds the equality in the filter and turns the
+product into a join. `push_down_filter` splits the remaining conjunction and moves each piece to the side that
+owns its column. `optimize_projections` prunes columns, keeping the join keys `id` and `cust_id`. (Two
+earlier passes, `type_coercion` and `simplify_expressions`, also changed the text, by casting the literals.)
+Step through the same sequence and watch the work shrink while the result stays put:
+
+<RewriteStepper />
+
+## Outer joins
+
+Inner joins are forgiving. Outer joins are not, because the rows they add, padded with NULLs, are exactly the
+rows a moved filter can wrongly keep or drop. The lab runs three versions of "customers and their orders over
+80" with a left join:
+
+```text title="cargo run --release -p m01-relational --example equivalences (condensed)"
+> ... FROM customer c LEFT JOIN orders o ON o.cust_id = c.id WHERE o.amount > 80
+| Asha | 90     |
+| Asha | 250    |
+| Dara | 610    |
+
+> ... FROM customer c LEFT JOIN (SELECT * FROM orders WHERE amount > 80) o ON o.cust_id = c.id
+7 rows: Asha 90, Asha 250, Bruno NULL, Chen NULL, Dara 610, Emeka NULL, Farah NULL
+
+> ... FROM customer c LEFT JOIN orders o ON o.cust_id = c.id AND o.amount > 80
+7 rows: the same as the second
+```
+
+The filter in `WHERE` runs after the left join and throws away the NULL-padded rows, because NULL > 80 is not
+TRUE. Pushed into the orders input, it runs before the join, and the join then pads every customer without a
+large order back in. Same filter, different answer. (The third form shows that a condition in `ON` behaves
+like the pushed version: for an outer join, `ON` and `WHERE` are not interchangeable.)
+
+DataFusion still ends up pushing the filter, legally. Its optimized plan for the first query is:
+
+```text title="Optimized plan"
+Projection: c.name, o.amount
+  Inner Join: c.id = o.cust_id
+    SubqueryAlias: c
+      TableScan: customer projection=[id, name]
+    SubqueryAlias: o
+      Filter: orders.amount > Int32(80)
+        TableScan: orders projection=[cust_id, amount]
+```
+
+The rule `eliminate_outer_join` "rewrites outer joins to inner joins when later filters reject the
+NULL-extended rows". `o.amount > 80` is never TRUE for a padded row, so the left join's extra rows would all be
+filtered anyway, and the query is really an inner join. Once it is one, the ordinary pushdown is valid. A
+filter on the preserved side, such as `c.region = 'ASIA'`, can be pushed below a left join directly, and the
+lab's plan shows exactly that. A filter that keeps NULLs, such as `o.amount IS NULL`, blocks both
+rewrites: the lab's plan for it keeps the `Left Join` and the `Filter` above it.
+
+<Aside type="note" title="The general theory">
+Which outer join rewrites are valid is subtle enough to have a literature of its own. César Galindo-Legaria
+and Arnon Rosenthal's "Outerjoin Simplification and Reordering for Query Optimization" (ACM TODS, 1997)
+covers when outer joins can become inner joins and when they can be reordered.
+</Aside>
+
+## Costs and trade-offs
+
+**Rules make plans legal, not good.** Equivalence rules say which trees compute the same result. Which of
+them is cheapest depends on table sizes, selectivities and available indexes, which is the job of a cost
+model. Pushing filters down and pruning columns is almost always a win, which is why rule-based passes
+apply them unconditionally; join order is not, which is why it gets a cost model.
+
+**Every rule needs its conditions checked.** The bugs in optimizers are rarely in the rules themselves; they
+are in the conditions: a filter pushed through an outer join, a projection that drops a needed column, a
+rewrite that assumes no NULLs or no duplicates. The [next article](../duplicate-sensitive-and-order-sensitive-operators/)
+covers the last of those.
+
+## Check yourself
+
+<details>
+<summary>Can σ c.region = 'ASIA' ∧ o.amount > c.credit_limit be pushed below the join of customer c and orders o?</summary>
+
+Split it first. `c.region = 'ASIA'` mentions only customer, so it can go to the customer side.
+`o.amount > c.credit_limit` mentions both, so it must stay above the join, or become part of the join
+condition.
+</details>
+
+<details>
+<summary>A query outputs only o.amount from customer c JOIN orders o ON c.id = o.cust_id. Which columns of customer must the pushed projection keep?</summary>
+
+Just `c.id`, the join key. No customer column is output, but the join still needs `id` to match rows.
+</details>
+
+<details>
+<summary>Why may WHERE o.amount > 80 above a LEFT JOIN be rewritten as an INNER JOIN, while WHERE o.amount IS NULL may not?</summary>
+
+The left join's extra rows have NULL in every orders column. `o.amount > 80` is never TRUE for them, so the
+filter removes them all, and the result equals an inner join's. `o.amount IS NULL` is TRUE exactly for those
+rows, so they are the result, and an inner join would lose them.
+</details>
+
+<details>
+<summary>Give a reason π doesn't distribute over −, in one sentence.</summary>
+
+Projecting first merges rows that differ only in a dropped column, so a value can be removed because of one
+row of T even though another row of R with that value survives the difference.
+</details>
+
+## Further reading
+
+- DataFusion: the [optimizer rule reference](https://docs.rs/crate/datafusion/latest/source/src/optimizer_rule_reference.md),
+  one line per rule.
+- Hector Garcia-Molina, Jeffrey D. Ullman and Jennifer Widom, *Database Systems: The Complete Book*, the
+  chapter on algebraic laws for improving query plans.
+- César Galindo-Legaria and Arnon Rosenthal, "Outerjoin Simplification and Reordering for Query
+  Optimization", ACM TODS 22(1), 1997.

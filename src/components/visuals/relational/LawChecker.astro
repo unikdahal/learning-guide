@@ -1,0 +1,263 @@
+---
+// Algebraic laws checked under set semantics and under bag semantics, for one value 'a' whose
+// multiplicity in R, S and T you choose. Bag operators follow the SQL standard: UNION ALL adds
+// counts, INTERSECT ALL takes the minimum, EXCEPT ALL subtracts down to zero, DISTINCT caps at
+// one. The same laws are checked with the bag engine in
+// lab/crates/m01-relational/examples/dup_order.rs.
+---
+
+<qe-laws class="qe-lab qe-laws not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Does the law hold?</p>
+    <div class="qe-lab-chips" role="group" aria-label="Law" data-lawpick></div>
+
+    <div class="inputs">
+      {['R', 'S', 'T'].map((k) => (
+        <div class="in" data-in={k}>
+          <span class="nm">{k}</span>
+          <span class="step">
+            <button type="button" data-d="-" aria-label={`Fewer copies of a in ${k}`}>−</button>
+            <b data-v>1</b>
+            <button type="button" data-d="+" aria-label={`More copies of a in ${k}`}>+</button>
+          </span>
+          <span class="cap">copies of a</span>
+        </div>
+      ))}
+    </div>
+
+    <div class="sides" data-sides aria-live="polite"></div>
+    <div class="qe-lab-row">
+      <button type="button" class="qe-lab-btn quiet" data-hunt>Find a counterexample for bags</button>
+    </div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-laws>
+
+<script>
+  type M = Record<'R' | 'S' | 'T', number>;
+  type Sem = { u: (a: number, b: number) => number; i: (a: number, b: number) => number; m: (a: number, b: number) => number; d: (a: number) => number };
+  const BAG: Sem = { u: (a, b) => a + b, i: Math.min, m: (a, b) => Math.max(a - b, 0), d: (a) => Math.min(a, 1) };
+  const SET: Sem = { u: (a, b) => Math.max(a, b), i: Math.min, m: (a, b) => (a && !b ? 1 : 0), d: (a) => a };
+
+  type Law = { id: string; text: string; uses: ('R' | 'S' | 'T')[]; l: (x: M, o: Sem) => number; r: (x: M, o: Sem) => number; why: string };
+  const LAWS: Law[] = [
+    {
+      id: 'idem',
+      text: 'R ∪ R = R',
+      uses: ['R'],
+      l: (x, o) => o.u(x.R, x.R),
+      r: (x) => x.R,
+      why: 'Union of a set with itself adds nothing. UNION ALL of a bag with itself doubles every count, so an optimizer may not drop a duplicated branch of a UNION ALL.',
+    },
+    {
+      id: 'dist',
+      text: 'R ∩ (S ∪ T) = (R ∩ S) ∪ (R ∩ T)',
+      uses: ['R', 'S', 'T'],
+      l: (x, o) => o.i(x.R, o.u(x.S, x.T)),
+      r: (x, o) => o.u(o.i(x.R, x.S), o.i(x.R, x.T)),
+      why: 'For sets, intersection distributes over union. With bags, the right side can count R’s copies twice, once through S and once through T.',
+    },
+    {
+      id: 'diffu',
+      text: '(R ∪ S) − T = (R − T) ∪ (S − T)',
+      uses: ['R', 'S', 'T'],
+      l: (x, o) => o.m(o.u(x.R, x.S), x.T),
+      r: (x, o) => o.u(o.m(x.R, x.T), o.m(x.S, x.T)),
+      why: 'The right side subtracts T’s copies from R and again from S, removing them twice. Pushing an EXCEPT ALL into both branches of a UNION ALL changes the answer.',
+    },
+    {
+      id: 'diffm',
+      text: 'R − (S ∪ T) = (R − S) − T',
+      uses: ['R', 'S', 'T'],
+      l: (x, o) => o.m(x.R, o.u(x.S, x.T)),
+      r: (x, o) => o.m(o.m(x.R, x.S), x.T),
+      why: 'Subtracting S and T together is subtracting S, then T. This one survives bag semantics with SQL’s UNION ALL: the counts subtract the same way.',
+    },
+    {
+      id: 'deltau',
+      text: 'δ(R ∪ S) = δ(R) ∪ δ(S)',
+      uses: ['R', 'S'],
+      l: (x, o) => o.d(o.u(x.R, x.S)),
+      r: (x, o) => o.u(o.d(x.R), o.d(x.S)),
+      why: 'Removing duplicates from each input doesn’t remove duplicates across them: one copy from R plus one from S is still two. δ(δ(R) ∪ δ(S)) is the valid form, so DISTINCT may be pushed into a union only if it is also kept on top.',
+    },
+    {
+      id: 'deltai',
+      text: 'δ(R ∩ S) = δ(R) ∩ δ(S)',
+      uses: ['R', 'S'],
+      l: (x, o) => o.d(o.i(x.R, x.S)),
+      r: (x, o) => o.i(o.d(x.R), o.d(x.S)),
+      why: 'Intersection takes the minimum count, and capping at one before or after the minimum gives the same answer, so DISTINCT can move freely through INTERSECT ALL.',
+    },
+  ];
+
+  class QeLaws extends HTMLElement {
+    law = LAWS[1];
+    m: M = { R: 1, S: 1, T: 1 };
+
+    connectedCallback() {
+      this.querySelector('[data-lawpick]')!.innerHTML = LAWS.map((l) => `<button type="button" data-law="${l.id}">${l.text}</button>`).join('');
+      this.querySelectorAll<HTMLButtonElement>('[data-law]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.law = LAWS.find((l) => l.id === b.dataset.law)!;
+          this.render();
+        }),
+      );
+      this.querySelectorAll<HTMLElement>('[data-in]').forEach((box) => {
+        const k = box.dataset.in as keyof M;
+        box.querySelectorAll<HTMLButtonElement>('[data-d]').forEach((b) =>
+          b.addEventListener('click', () => {
+            this.m[k] = Math.max(0, Math.min(4, this.m[k] + (b.dataset.d === '+' ? 1 : -1)));
+            this.render();
+          }),
+        );
+      });
+      this.querySelector('[data-hunt]')!.addEventListener('click', () => this.hunt());
+      this.render();
+    }
+
+    hunt() {
+      for (let s = 0; s <= 6; s++)
+        for (let R = 0; R <= 4; R++)
+          for (let S = 0; S <= 4; S++)
+            for (let T = 0; T <= 4; T++) {
+              if (R + S + T !== s) continue;
+              const x = { R, S, T };
+              if (this.law.l(x, BAG) !== this.law.r(x, BAG)) {
+                this.m = x;
+                this.render(true);
+                return;
+              }
+            }
+      this.render(false);
+    }
+
+    render(found?: boolean) {
+      this.querySelectorAll('[data-law]').forEach((b) => b.setAttribute('aria-pressed', String((b as HTMLElement).dataset.law === this.law.id)));
+      this.querySelectorAll<HTMLElement>('[data-in]').forEach((box) => {
+        const k = box.dataset.in as keyof M;
+        box.querySelector('[data-v]')!.textContent = String(this.m[k]);
+        box.classList.toggle('unused', !this.law.uses.includes(k));
+      });
+      const asSet: M = { R: Math.min(this.m.R, 1), S: Math.min(this.m.S, 1), T: Math.min(this.m.T, 1) };
+      const rows = [
+        { name: 'Sets', sub: 'UNION, INTERSECT, EXCEPT', x: asSet, o: SET },
+        { name: 'Bags', sub: 'UNION ALL, INTERSECT ALL, EXCEPT ALL', x: this.m, o: BAG },
+      ];
+      this.querySelector('[data-sides]')!.innerHTML = rows
+        .map(({ name, sub, x, o }) => {
+          const l = this.law.l(x, o);
+          const r = this.law.r(x, o);
+          const ok = l === r;
+          return `<div class="side ${ok ? 'ok' : 'bad'}"><p class="t">${name}<span>${sub}</span></p><p class="v">left side: a×${l}</p><p class="v">right side: a×${r}</p><p class="verdict">${ok ? 'holds' : 'fails'}</p></div>`;
+        })
+        .join('');
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      if (found === false) note.textContent = `No counterexample with up to 4 copies in each input: ${this.law.why}`;
+      else note.textContent = (found ? 'Found one, filled in above. ' : '') + this.law.why;
+    }
+  }
+  if (!customElements.get('qe-laws')) customElements.define('qe-laws', QeLaws);
+</script>
+
+<style is:global>
+  .qe-laws .inputs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+    margin-top: 0.9rem;
+  }
+  .qe-laws .in {
+    display: grid;
+    justify-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.3rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    transition: opacity 0.2s;
+  }
+  .qe-laws .in.unused {
+    opacity: 0.35;
+  }
+  .qe-laws .nm {
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-laws .step {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .qe-laws .step button {
+    width: 2.2rem;
+    height: 2.2rem;
+    border: 0;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  .qe-laws .step b {
+    min-width: 1.6rem;
+    text-align: center;
+    color: var(--sl-color-white);
+  }
+  .qe-laws .cap {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-laws .sides {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin: 0.8rem 0;
+  }
+  .qe-laws .side {
+    padding: 0.55rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+  }
+  .qe-laws .side p {
+    margin: 0;
+  }
+  .qe-laws .side .t {
+    font-weight: 700;
+    color: var(--sl-color-white);
+    font-size: 0.875rem;
+  }
+  .qe-laws .side .t span {
+    display: block;
+    font-weight: 500;
+    font-size: 0.625rem;
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-gray-3);
+  }
+  .qe-laws .side .v {
+    margin-top: 0.2rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-laws .side .verdict {
+    margin-top: 0.35rem;
+    font-weight: 800;
+    font-size: 0.8125rem;
+  }
+  .qe-laws .side.ok {
+    border-color: var(--qe-series-1);
+  }
+  .qe-laws .side.ok .verdict {
+    color: var(--qe-series-1);
+  }
+  .qe-laws .side.bad {
+    border-color: var(--qe-series-2);
+  }
+  .qe-laws .side.bad .verdict {
+    color: var(--qe-series-2);
+  }
+</style>
