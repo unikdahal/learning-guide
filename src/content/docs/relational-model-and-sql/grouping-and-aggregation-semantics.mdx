@@ -1,16 +1,287 @@
 ---
-title: "Grouping and aggregation semantics"
-description: "GROUP BY as partition-then-reduce, HAVING, aggregates over empty input, and the extended algebra operator γ."
+title: Grouping and aggregation semantics
+description: GROUP BY as partition-then-reduce, HAVING, aggregates over empty input, and the extended algebra operator γ.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 5
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import GroupingBuckets from '@components/visuals/relational/GroupingBuckets.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="grouping-and-aggregation-semantics" />
+<ArticleMeta module="01" slug="grouping-and-aggregation-semantics" minutes={15} />
+
+Most analytical questions end in a number per something: revenue per region, users per day, errors per
+service. `GROUP BY` is how SQL asks them, and it does something no operator so far has done. Selection,
+projection and join all work on rows and produce rows. Grouping changes what a row **is**: before it, a
+row is an order; after it, a row is a region, standing for all the orders in it.
+
+Almost every rule about `GROUP BY` that surprises people follows from that one shift.
+
+## The question
+
+What does `GROUP BY` compute, exactly, and what happens with NULLs, with filters before and after, and
+with no input at all?
+
+## Partition, then reduce
+
+Grouping has two steps.
+
+1. **Partition.** Put every row into exactly one group, chosen by the values of the grouping columns.
+   Rows with equal values go together.
+2. **Reduce.** Collapse each group to one output row, holding the grouping values and the result of each
+   aggregate function computed over the group's rows.
+
+Relational algebra's original operators had no way to express this. Textbooks add an extended operator,
+written **γ** (gamma), whose subscript lists the grouping attributes and the aggregates:
+
+```text
+γ region, sum(amount) → total (orders)
+```
+
+It partitions `orders` by `region` and produces one tuple per region with its total. With no grouping
+attributes, the whole relation is a single group. In SQL, γ is the `GROUP BY` clause together with the
+aggregates in the `SELECT` list.
+
+Try the combinations, including the ones that look like edge cases:
+
+<GroupingBuckets />
+
+## The rule about SELECT
+
+After grouping, each output row stands for a whole group. A column that isn't a grouping column has many
+values inside a group: which one should the output row show? There is no right answer, so SQL forbids the
+question. Every column in the `SELECT` list must either be a grouping column or appear inside an aggregate.
+
+There is one principled exception. If the grouping columns determine another column, every row in the
+group has the same value for it, so showing it is safe. PostgreSQL's documentation puts it this way: an
+ungrouped column may be used if it is "functionally dependent on the grouped columns", which "exists if the
+grouped columns (or a subset thereof) are the primary key of the table containing the ungrouped column".
+
+DataFusion follows the same rule. The lab groups a customer table by `id`, once with `id` declared as the
+primary key and once without:
+
+```text title="cargo run --release -p m01-relational --example grouping"
+> SELECT id, name, region FROM customer GROUP BY id ORDER BY id
++----+------+--------+
+| id | name | region |
++----+------+--------+
+| 1  | Asha | ASIA   |
+| 3  | Chen | ASIA   |
+| 4  | Dara | AFRICA |
++----+------+--------+
+
+> SELECT id, name, region FROM customer_nokey GROUP BY id ORDER BY id
+error: Error during planning: Column in SELECT must be in GROUP BY or an aggregate function: …
+```
+
+With the key declared, the engine knows each `id` group holds exactly one customer, so `name` and `region`
+have one value each. Without it, the same data is rejected. Recall from
+[the first article](../relations-tuples-and-attributes/) that DataFusion does not enforce primary keys: this
+is one of the places where a declared but violated key would give quietly wrong output.
+
+## NULLs inside aggregates
+
+Aggregates other than `count(*)` skip NULL inputs. PostgreSQL's documentation describes `avg` as the mean
+"of all the non-null input values" and `count(expression)` as "the number of input rows in which the input
+value is not null". The lab's orders include one order, 106 in EUROPE, with no amount:
+
+```text title="cargo run --release -p m01-relational --example grouping"
++--------+---+----------+-------+--------------------+-----+-----+
+| region | n | n_amount | total | mean               | lo  | hi  |
++--------+---+----------+-------+--------------------+-----+-----+
+| AFRICA | 1 | 1        | 610   | 610.0              | 610 | 610 |
+| ASIA   | 3 | 3        | 380   | 126.66666666666667 | 40  | 250 |
+| EUROPE | 3 | 2        | 115   | 57.5               | 40  | 75  |
++--------+---+----------+-------+--------------------+-----+-----+
+```
+
+EUROPE has three rows (`count(*)`) but two amounts (`count(amount)`), and its average is 115 ÷ 2 = 57.5,
+not 115 ÷ 3. That is a reasonable choice, an unknown amount shouldn't count as zero, but it means
+`sum(amount) / count(*)` and `avg(amount)` can disagree, and the difference is a common source of
+reporting bugs. Grouping columns are different again: rows whose grouping value is NULL form a group of
+their own, as the [NULL article](../null-and-three-valued-logic/) shows.
+
+## WHERE before, HAVING after
+
+A query with grouping has two places to filter, and they run at different times.
+
+- **WHERE** runs before grouping, on individual rows. It decides which rows enter a group at all.
+- **HAVING** runs after grouping, on one row per group. It can test aggregates, because by then they
+  exist.
+
+```text title="cargo run --release -p m01-relational --example grouping"
+> SELECT region, sum(amount) AS total FROM orders WHERE amount > 50 GROUP BY region ORDER BY region
++--------+-------+
+| region | total |
++--------+-------+
+| AFRICA | 610   |
+| ASIA   | 340   |
+| EUROPE | 75    |
++--------+-------+
+
+> SELECT region, sum(amount) AS total FROM orders GROUP BY region HAVING sum(amount) > 200 ORDER BY region
++--------+-------+
+| region | total |
++--------+-------+
+| AFRICA | 610   |
+| ASIA   | 380   |
++--------+-------+
+```
+
+The first query changed the totals, because small orders never reached their groups. The second kept the
+totals and dropped a group. Neither can be rewritten as the other: `WHERE sum(amount) > 200` is meaningless,
+since no sum exists while `WHERE` runs. The [next-but-one article](../logical-processing-order-of-a-query/)
+puts every clause in this order.
+
+When a `HAVING` condition uses only grouping columns, say `HAVING region <> 'EUROPE'`, it filters whole
+groups by a value every row in the group shares. An optimizer can turn it into a `WHERE`, which removes the
+rows before they are grouped instead of after, and does less work.
+
+## Aggregating nothing
+
+What should `sum` return when there is nothing to add? SQL's answer surprises most people. PostgreSQL's
+documentation: "except for `count`, these functions return a null value when no rows are selected. In
+particular, `sum` of no rows returns null, not zero as one might expect."
+
+The number of output rows depends on whether there is a `GROUP BY`:
+
+```text title="cargo run --release -p m01-relational --example grouping"
+> SELECT count(*) AS n, sum(amount) AS total, max(amount) AS hi FROM orders WHERE region = 'MARS'
++---+-------+----+
+| n | total | hi |
++---+-------+----+
+| 0 |       |    |
++---+-------+----+
+
+> SELECT region, count(*) AS n FROM orders WHERE region = 'MARS' GROUP BY region
+++
+++
+```
+
+Without `GROUP BY`, the whole input is one group, even when it is empty, so there is exactly one output row:
+a count of 0, and NULL for the sum and maximum. With `GROUP BY`, there is one row per group, and an empty
+input has no groups, so there are no rows at all.
+
+<Aside type="caution" title="Where this bites">
+A report that shows "total revenue" from `sum(amount)` prints a blank instead of 0 for a day with no sales,
+and arithmetic on it propagates the NULL. Write `coalesce(sum(amount), 0)` when zero is what you mean. And a
+per-day query with `GROUP BY day` simply has no row for a day without sales; producing a row for every day
+needs a calendar table joined in.
+</Aside>
+
+## Why aggregation needs bags
+
+The [previous article](../set-operations-and-bag-semantics/) gave the short version; here it is in full.
+Grouping operates on bags, not sets, because aggregates count. If two orders in a group both have an amount
+of 40, `sum` must see both, and `count` must count both. Remove duplicates first and the answer changes. The
+lab shows it with its set-semantics engine:
+
+```text title="cargo run --release -p m01-relational --example grouping"
+π amount as a set: 2 tuples
+sum over the set: 130   sum over the bag: 170
+```
+
+So `count(DISTINCT x)` and `sum(DISTINCT x)` exist as separate, explicit requests, and cost more, as
+[Module 09](../../aggregation/distinct-aggregates/) explains.
+
+## In real engines
+
+DataFusion's plan for a query with both filters shows the order directly, read from the bottom up:
+
+```text title="SELECT region, sum(amount) AS total FROM orders WHERE amount > 50 GROUP BY region HAVING sum(amount) > 200"
+Projection: orders.region, sum(orders.amount) AS total
+  Filter: sum(orders.amount) > Int64(200)
+    Aggregate: groupBy=[[orders.region]], aggr=[[sum(CAST(orders.amount AS Int64))]]
+      Filter: orders.amount > Int32(50)
+        TableScan: orders projection=[region, amount]
+```
+
+The `WHERE` is a `Filter` below the `Aggregate`, and the `HAVING` is a `Filter` above it: `HAVING` needs no
+operator of its own. Notice also `CAST(orders.amount AS Int64)`: the column holds 32-bit integers, and the
+engine widens them before summing so that the total can't overflow.
+
+Engines compute γ with one of two families of algorithm. **Hash aggregation** keeps a hash table from group
+key to running totals and updates it row by row; **sort-based aggregation** sorts by the grouping columns so
+each group's rows arrive together. On many cores, engines also aggregate in two phases: each thread computes
+partial results for the groups it sees, then the partials are combined. You saw exactly that, `Partial` then
+`FinalPartitioned`, in [Module 00's physical plan](../../orientation/what-a-query-engine-actually-does/).
+
+Two phases only work for aggregates that can be split. `count`, `sum`, `min` and `max` combine directly;
+`avg` works if each thread keeps a sum and a count; a median does not split at all. That distinction is the
+first article of [Module 09](../../aggregation/decomposable-and-holistic-aggregates/).
+
+## Costs and trade-offs
+
+**Memory grows with the number of groups, not rows.** A hash aggregation over a billion rows with five
+regions needs five entries. Grouping by user id over the same rows may need hundreds of millions, which is
+when aggregation has to spill to disk.
+
+**Filter early.** Every row `WHERE` removes is a row that never touches the hash table. A `HAVING` condition
+on grouping columns alone may as well be a `WHERE`; check the plan to see whether your engine moves it.
+
+**NULL-skipping is a semantic choice.** It is usually what you want, but `avg` over a column with many
+NULLs averages only the known values, and that should be a decision, not an accident.
+
+## In Rust
+
+The lab's `grouping` example demonstrates the set-versus-bag problem with the tiny engine. Its two halves are
+the same three payments, once as a set-semantics relation and once as a bag:
+
+```rust title="lab/crates/m01-relational/examples/grouping.rs"
+// Two payments of 40 by the same customer. As a set, projecting to `amount` merges them.
+let payments = Relation::new(
+    ["payment_id", "amount"],
+    vec![
+        [Value::from(1), Value::from(40)],
+        [Value::from(2), Value::from(40)],
+        [Value::from(3), Value::from(90)],
+    ],
+);
+let as_set = payments.project(&["amount"]);
+println!("π amount as a set: {} tuples", as_set.len());
+```
+
+The `payment_id` keeps the two rows distinct while it is present; projecting it away is what makes them
+collide. Any time a query drops the columns that made rows unique, set semantics would change its counts.
+
+## Check yourself
+
+<details>
+<summary>A query has no GROUP BY and its WHERE clause matches no rows. How many rows does SELECT count(*), avg(x) return, and what are the values?</summary>
+
+One row. Without GROUP BY the whole input is a single group, even when empty. `count(*)` is 0 and `avg(x)`
+is NULL, since there are no values to average.
+</details>
+
+<details>
+<summary>Why can't WHERE sum(amount) > 200 work?</summary>
+
+WHERE runs on individual rows before grouping, when no sums exist yet. Conditions on aggregates belong in
+HAVING, which runs on one row per group after the aggregates are computed.
+</details>
+
+<details>
+<summary>A column has values 10, 20 and NULL. What are count(*), count(x), sum(x) and avg(x)?</summary>
+
+`count(*)` is 3, `count(x)` is 2, `sum(x)` is 30 and `avg(x)` is 15, since the NULL is skipped by everything
+except `count(*)`.
+</details>
+
+<details>
+<summary>When may SELECT list a column that is neither grouped nor aggregated?</summary>
+
+When it is functionally dependent on the grouping columns, so it has a single value in every group. The
+common case, and the one PostgreSQL and DataFusion recognise, is grouping by the table's primary key.
+</details>
+
+## Further reading
+
+- PostgreSQL: [aggregate functions](https://www.postgresql.org/docs/18/functions-aggregate.html), on NULL
+  handling and empty input, and the [SELECT reference](https://www.postgresql.org/docs/18/sql-select.html),
+  on grouping and functional dependency.
+- The extended relational algebra, including γ, in a course chapter that follows Ullman's textbook:
+  [extended operators of relational algebra](https://csci3030u.science.ontariotechu.ca/chapter_5/chapter_5_section_2.html).
+- [Module 09](../../aggregation/) for how aggregation is executed.

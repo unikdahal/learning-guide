@@ -2205,7 +2205,7 @@
           "scope": "UNION, INTERSECT and EXCEPT under set vs bag semantics, and why SQL is a bag language that sometimes pretends otherwise.",
           "visual": "Multiset diagram with duplicate counts",
           "path": "relational-model-and-sql/set-operations-and-bag-semantics",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 5,
@@ -2215,7 +2215,7 @@
           "scope": "GROUP BY as partition-then-reduce, HAVING, aggregates over empty input, and the extended algebra operator γ.",
           "visual": "Rows sliding into group buckets, then collapsing",
           "path": "relational-model-and-sql/grouping-and-aggregation-semantics",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 6,
@@ -2225,7 +2225,7 @@
           "scope": "UNKNOWN as a truth value, NULL in comparisons, aggregates, GROUP BY, joins and NOT IN, and the classic bugs each causes.",
           "visual": "Interactive three-valued truth table",
           "path": "relational-model-and-sql/null-and-three-valued-logic",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 7,
@@ -2235,7 +2235,7 @@
           "scope": "FROM, WHERE, GROUP BY, HAVING, SELECT, DISTINCT, ORDER BY, LIMIT, the order clauses take effect vs the order you write them.",
           "visual": "Clause cards reordering from written to logical order",
           "path": "relational-model-and-sql/logical-processing-order-of-a-query",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 8,
@@ -2245,7 +2245,7 @@
           "scope": "What ordering guarantees SQL actually gives, ties, stability, and why LIMIT without ORDER BY is non-deterministic.",
           "visual": null,
           "path": "relational-model-and-sql/order-by-limit-and-determinism",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 9,

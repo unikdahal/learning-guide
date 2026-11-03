@@ -1,0 +1,324 @@
+---
+// Part 1: Kleene truth tables for AND and OR, with NOT. Part 2: a WHERE lab over customers with
+// NULL segments, showing each row's truth value and which rows WHERE keeps. Part 3 lives in the
+// predicate list: NOT IN against a list that contains NULL.
+// Data matches lab/crates/m01-relational/examples/nulls.rs.
+const customers = [
+  { id: 1, name: 'Asha', segment: 'retail' },
+  { id: 2, name: 'Bruno', segment: 'wholesale' },
+  { id: 3, name: 'Chen', segment: null },
+  { id: 4, name: 'Dara', segment: 'retail' },
+  { id: 5, name: 'Emeka', segment: null },
+];
+const preds = [
+  { id: 'eq', sql: "segment = 'retail'" },
+  { id: 'noteq', sql: "NOT (segment = 'retail')" },
+  { id: 'or', sql: "segment = 'retail' OR NOT (segment = 'retail')" },
+  { id: 'eqnull', sql: 'segment = NULL' },
+  { id: 'isnull', sql: 'segment IS NULL' },
+  { id: 'distinct', sql: "segment IS DISTINCT FROM 'retail'" },
+  { id: 'notin', sql: 'id NOT IN (1, 4, NULL)' },
+];
+const T = ['TRUE', 'FALSE', 'UNKNOWN'];
+---
+
+<qe-3vl class="qe-3vl not-content" data-rows={JSON.stringify(customers)}>
+  <div class="tables">
+    <div class="op" role="group" aria-label="Operator">
+      <button type="button" data-op="AND" aria-pressed="true">a AND b</button>
+      <button type="button" data-op="OR" aria-pressed="false">a OR b</button>
+      <button type="button" data-op="NOT" aria-pressed="false">NOT a</button>
+    </div>
+    <div class="grid" data-grid aria-live="polite"></div>
+    <p class="rule" data-rule></p>
+  </div>
+
+  <div class="where">
+    <p class="h">Which rows does <code>WHERE</code> keep?</p>
+    <div class="preds" role="group" aria-label="Predicate">
+      {preds.map((p, i) => <button type="button" data-pred={p.id} aria-pressed={i === 0 ? 'true' : 'false'}>{p.sql}</button>)}
+    </div>
+    <ul class="rows" data-rows-out></ul>
+    <p class="tally" data-tally></p>
+    <p class="note" data-note></p>
+  </div>
+</qe-3vl>
+
+<script>
+  type V = 'TRUE' | 'FALSE' | 'UNKNOWN';
+  type Row = { id: number; name: string; segment: string | null };
+  const ALL: V[] = ['TRUE', 'FALSE', 'UNKNOWN'];
+  const and = (a: V, b: V): V => (a === 'FALSE' || b === 'FALSE' ? 'FALSE' : a === 'TRUE' && b === 'TRUE' ? 'TRUE' : 'UNKNOWN');
+  const or = (a: V, b: V): V => (a === 'TRUE' || b === 'TRUE' ? 'TRUE' : a === 'FALSE' && b === 'FALSE' ? 'FALSE' : 'UNKNOWN');
+  const not = (a: V): V => (a === 'TRUE' ? 'FALSE' : a === 'FALSE' ? 'TRUE' : 'UNKNOWN');
+  const eq = (x: unknown, y: unknown): V => (x === null || y === null ? 'UNKNOWN' : x === y ? 'TRUE' : 'FALSE');
+  const short = (v: V) => (v === 'UNKNOWN' ? 'UNK' : v);
+
+  const PRED: Record<string, (r: Row) => V> = {
+    eq: (r) => eq(r.segment, 'retail'),
+    noteq: (r) => not(eq(r.segment, 'retail')),
+    or: (r) => or(eq(r.segment, 'retail'), not(eq(r.segment, 'retail'))),
+    eqnull: (r) => eq(r.segment, null),
+    isnull: (r) => (r.segment === null ? 'TRUE' : 'FALSE'),
+    distinct: (r) => (r.segment === 'retail' ? 'FALSE' : 'TRUE'),
+    notin: (r) => not([1, 4, null].reduce<V>((acc, e) => or(acc, eq(r.id, e)), 'FALSE')),
+  };
+  const NOTES: Record<string, string> = {
+    eq: 'Chen and Emeka have no segment. Comparing NULL with anything gives UNKNOWN, and WHERE keeps only TRUE, so they are dropped.',
+    noteq: 'Negating the condition does not bring Chen and Emeka back: NOT UNKNOWN is still UNKNOWN. Together, “retail” and “not retail” cover 3 of 5 customers.',
+    or: 'In two-valued logic, p OR NOT p is always TRUE. Here it is UNKNOWN for the NULL rows, so even this “always true” condition loses them.',
+    eqnull: 'The classic bug. = NULL is never TRUE, not even when the value is NULL, so this matches no rows at all. Use IS NULL.',
+    isnull: 'IS NULL never returns UNKNOWN. It is the only way to test for a missing value.',
+    distinct: 'IS DISTINCT FROM treats NULL as an ordinary value: NULL is distinct from retail, and NULL is not distinct from NULL. It never returns UNKNOWN.',
+    notin: 'NOT IN expands to id ≠ 1 AND id ≠ 4 AND id ≠ NULL. The last comparison is UNKNOWN for everyone, so no row can be TRUE. One NULL in the list empties the result.',
+  };
+
+  class Qe3vl extends HTMLElement {
+    rows: Row[] = [];
+    op = 'AND';
+    pred = 'eq';
+    connectedCallback() {
+      this.rows = JSON.parse(this.dataset.rows!);
+      this.querySelectorAll<HTMLButtonElement>('[data-op]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.op = b.dataset.op!;
+          this.querySelectorAll('[data-op]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.renderTable();
+        }),
+      );
+      this.querySelectorAll<HTMLButtonElement>('[data-pred]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.pred = b.dataset.pred!;
+          this.querySelectorAll('[data-pred]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.renderWhere();
+        }),
+      );
+      this.renderTable();
+      this.renderWhere();
+    }
+
+    cell(v: V) {
+      return `<span class="c v-${v.toLowerCase()}">${short(v)}</span>`;
+    }
+
+    renderTable() {
+      const grid = this.querySelector<HTMLElement>('[data-grid]')!;
+      const rule = this.querySelector<HTMLElement>('[data-rule]')!;
+      if (this.op === 'NOT') {
+        grid.className = 'grid not';
+        grid.innerHTML =
+          '<span class="h">a</span>' + ALL.map((a) => `<span class="h">${short(a)}</span>`).join('') +
+          '<span class="h">NOT a</span>' + ALL.map((a) => this.cell(not(a))).join('');
+        rule.textContent = 'NOT swaps TRUE and FALSE and leaves UNKNOWN alone: if you don’t know whether something is true, you don’t know whether it is false either.';
+        return;
+      }
+      const f = this.op === 'AND' ? and : or;
+      grid.className = 'grid';
+      grid.innerHTML =
+        `<span class="h corner">a \\ b</span>` +
+        ALL.map((b) => `<span class="h">${short(b)}</span>`).join('') +
+        ALL.map((a) => `<span class="h">${short(a)}</span>` + ALL.map((b) => this.cell(f(a, b))).join('')).join('');
+      rule.textContent =
+        this.op === 'AND'
+          ? 'One FALSE makes AND FALSE, whatever the other side is. TRUE needs both sides TRUE. Anything else is UNKNOWN.'
+          : 'One TRUE makes OR TRUE, whatever the other side is. FALSE needs both sides FALSE. Anything else is UNKNOWN.';
+    }
+
+    renderWhere() {
+      const f = PRED[this.pred];
+      let kept = 0, falses = 0, unknowns = 0;
+      this.querySelector('[data-rows-out]')!.innerHTML = this.rows
+        .map((r) => {
+          const v = f(r);
+          if (v === 'TRUE') kept++;
+          else if (v === 'FALSE') falses++;
+          else unknowns++;
+          return `<li class="${v === 'TRUE' ? 'kept' : 'dropped'}"><span class="nm">${r.name}</span><span class="seg">id ${r.id}, ${r.segment ?? 'NULL'}</span>${this.cell(v)}</li>`;
+        })
+        .join('');
+      this.querySelector('[data-tally]')!.innerHTML = `<strong>${kept} kept</strong> (TRUE) · ${falses} dropped as FALSE · ${unknowns} dropped as UNKNOWN`;
+      this.querySelector('[data-note]')!.textContent = NOTES[this.pred];
+    }
+  }
+  if (!customElements.get('qe-3vl')) customElements.define('qe-3vl', Qe3vl);
+</script>
+
+<style is:global>
+  .qe-3vl {
+    display: grid;
+    gap: 1.4rem;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-3vl .op {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-3vl .op button {
+    min-height: 2.4rem;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .qe-3vl .op button[aria-pressed='true'] {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-3vl button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-3vl .grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin-top: 0.8rem;
+    max-width: 26rem;
+  }
+  .qe-3vl .grid.not {
+    grid-template-columns: 4.5rem repeat(3, minmax(0, 1fr));
+  }
+  .qe-3vl .grid .h {
+    display: grid;
+    place-items: center;
+    min-height: 2.25rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-3vl .c {
+    display: grid;
+    place-items: center;
+    min-height: 2.25rem;
+    border-radius: 6px;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 750;
+  }
+  .qe-3vl .v-true { background: var(--sl-color-accent); color: var(--sl-color-black); }
+  .qe-3vl .v-false { background: var(--sl-color-gray-4); color: var(--sl-color-white); }
+  .qe-3vl .v-unknown {
+    background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--qe-pipe-emit) 45%, transparent) 0 5px, color-mix(in srgb, var(--qe-pipe-emit) 25%, transparent) 5px 10px);
+    color: var(--sl-color-white);
+    border: 1px solid var(--qe-pipe-emit);
+  }
+  .qe-3vl .rule,
+  .qe-3vl .note {
+    margin: 0.75rem 0 0;
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-3vl .where .h {
+    margin: 0 0 0.6rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .qe-3vl .preds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .qe-3vl .preds button {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+  .qe-3vl .preds button[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-3vl .rows {
+    list-style: none;
+    margin: 0.8rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.3rem;
+  }
+  .qe-3vl .rows li {
+    margin: 0 !important;
+    display: grid;
+    grid-template-columns: 4.5rem 1fr 5rem;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.4rem 0.3rem 0.6rem;
+    border-radius: 7px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    font-size: 0.8125rem;
+  }
+  .qe-3vl .rows li.kept {
+    border-color: var(--sl-color-accent);
+  }
+  .qe-3vl .rows li.dropped .nm,
+  .qe-3vl .rows li.dropped .seg {
+    opacity: 0.5;
+  }
+  .qe-3vl .nm {
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-3vl .seg {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-3vl .rows .c {
+    min-height: 1.75rem;
+  }
+  .qe-3vl .tally {
+    margin: 0.7rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-3vl .tally strong {
+    color: var(--sl-color-white);
+  }
+  .qe-3vl .note {
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--qe-pipe-emit);
+    background: var(--sl-color-black);
+    min-height: 4.6em;
+  }
+  .qe-3vl code {
+    font-size: 0.85em;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-3vl {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-3vl .rows li {
+      grid-template-columns: 3.75rem 1fr 4.25rem;
+    }
+  }
+</style>

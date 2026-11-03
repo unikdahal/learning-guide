@@ -1,16 +1,320 @@
 ---
-title: "NULL and three-valued logic"
-description: "UNKNOWN as a truth value, NULL in comparisons, aggregates, GROUP BY, joins and NOT IN, and the classic bugs each causes."
+title: NULL and three-valued logic
+description: UNKNOWN as a truth value, NULL in comparisons, aggregates, GROUP BY, joins and NOT IN, and the classic bugs each causes.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 6
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import ThreeValued from '@components/visuals/relational/ThreeValued.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="null-and-three-valued-logic" />
+<ArticleMeta module="01" slug="null-and-three-valued-logic" minutes={17} />
+
+Here is a query that looks impossible to get wrong: find the customers who have never placed an order.
+
+```sql
+SELECT name FROM customer
+WHERE id NOT IN (SELECT cust_id FROM orders);
+```
+
+On the lab's small data set, three customers have no orders. This query returns none of them. There is no
+error and no warning, just an empty result, because one order somewhere has an unknown `cust_id`.
+
+To understand why, you need the one part of SQL that isn't two-valued: NULL, and the logic it brings.
+
+## The question
+
+What does NULL mean, how does it change comparisons and logic, and where does it silently change the
+answer to a query?
+
+## A marker, not a value
+
+NULL is not zero, not an empty string, and not a value from any domain. It is a **marker** that a value is
+missing: unknown, or not applicable. Edgar Codd introduced it to the relational model, and his 1979 paper in
+ACM Transactions on Database Systems is the one usually cited for how NULL behaves in comparisons and logic.
+The SQL standard of 1986 largely adopted that design. Codd himself later argued that one kind of NULL was
+not enough, and proposed separate markers for "missing but applicable" and "missing but inapplicable", an
+idea that never caught on.
+
+The consequence that matters: any comparison involving NULL has no definite answer. Is an unknown segment
+equal to `'retail'`? It might be. So the comparison returns neither TRUE nor FALSE, but a third truth
+value, **UNKNOWN**.
+
+```text title="cargo run --release -p m01-relational --example nulls"
+> SELECT NULL = NULL AS eq, NULL <> 1 AS ne, NULL IS NULL AS is_null, NULL IS NOT DISTINCT FROM NULL AS not_distinct
++----+----+---------+--------------+
+| eq | ne | is_null | not_distinct |
++----+----+---------+--------------+
+|    |    | true    | true         |
++----+----+---------+--------------+
+```
+
+`NULL = NULL` is not TRUE. Two unknowns might be equal or might not. The blank cells are SQL printing
+UNKNOWN, which for a boolean column is NULL.
+
+## Three-valued logic
+
+UNKNOWN has to combine with TRUE and FALSE under `AND`, `OR` and `NOT`. SQL uses the rules of Kleene's
+three-valued logic, which follow from reading UNKNOWN as "could be either":
+
+- `FALSE AND anything` is FALSE: one false conjunct settles it.
+- `TRUE OR anything` is TRUE: one true disjunct settles it.
+- `NOT UNKNOWN` is UNKNOWN: if you don't know whether something is true, you don't know whether it's false.
+- Every other combination involving UNKNOWN is UNKNOWN.
+
+The second half of this figure applies the logic to real rows:
+
+<ThreeValued />
+
+The lab checks that DataFusion implements exactly these tables. It builds all nine combinations, evaluates
+them in SQL, and asserts that each result matches its own three-valued logic module:
+
+```text title="cargo run --release -p m01-relational --example nulls"
+a        b        a AND b  a OR b   NOT a
+TRUE     TRUE     TRUE     TRUE     FALSE
+TRUE     FALSE    FALSE    TRUE     FALSE
+TRUE     UNKNOWN  UNKNOWN  TRUE     FALSE
+FALSE    TRUE     FALSE    TRUE     TRUE
+FALSE    FALSE    FALSE    FALSE    TRUE
+FALSE    UNKNOWN  FALSE    UNKNOWN  TRUE
+UNKNOWN  TRUE     UNKNOWN  TRUE     UNKNOWN
+UNKNOWN  FALSE    FALSE    UNKNOWN  UNKNOWN
+UNKNOWN  UNKNOWN  UNKNOWN  UNKNOWN  UNKNOWN
+
+All 9 combinations agree with the tiny engine.
+```
+
+Some familiar laws survive: De Morgan's laws still hold, and the lab's tests check them for every
+combination. One famous law does not. In two-valued logic, `p OR NOT p` is always true, the law of the
+excluded middle. With UNKNOWN, it is UNKNOWN.
+
+## WHERE keeps only TRUE
+
+Here is where three values become two again, and where the trouble starts. A `WHERE` clause keeps a row
+only when its condition is TRUE. FALSE and UNKNOWN are both thrown away.
+
+The lab's five customers include two with no segment. Count the retail ones and the non-retail ones:
+
+```text title="cargo run --release -p m01-relational --example nulls (trimmed)"
+> SELECT count(*) AS everyone FROM customer
+| 5 |
+> SELECT count(*) AS retail FROM customer WHERE segment = 'retail'
+| 2 |
+> SELECT count(*) AS not_retail FROM customer WHERE NOT (segment = 'retail')
+| 1 |
+```
+
+Two plus one is three, not five. The customers with no segment are neither retail nor not retail, as far
+as `WHERE` is concerned: both conditions are UNKNOWN for them, and both filters drop them. Splitting a
+table with a condition and its negation does not partition it when the condition can be UNKNOWN.
+
+Two operators never return UNKNOWN, and they are the fix:
+
+- `x IS NULL` and `x IS NOT NULL` test for the marker itself. `segment = NULL` is never TRUE, even for a
+  NULL segment; that is one of the most common SQL bugs there is.
+- `x IS DISTINCT FROM y` is inequality that treats NULL as an ordinary value: NULL is distinct from
+  `'retail'`, and NULL is not distinct from NULL.
+
+## The NOT IN trap
+
+Back to the opening query. `id NOT IN (1, 4, NULL)` means `id <> 1 AND id <> 4 AND id <> NULL`. The last
+comparison is UNKNOWN for every id, and `AND` with UNKNOWN can never be TRUE. So the condition is never
+TRUE for any row: it is FALSE for ids 1 and 4, and UNKNOWN for the rest. PostgreSQL's documentation states
+the rule precisely: if "there are no equal right-hand values and at least one right-hand row yields null,
+the result of the `NOT IN` construct will be null, not true".
+
+```text title="cargo run --release -p m01-relational --example nulls"
+> SELECT name FROM customer WHERE id NOT IN (SELECT cust_id FROM orders)
+++
+++
+
+> SELECT name FROM customer c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.cust_id = c.id) ORDER BY name
++-------+
+| name  |
++-------+
+| Bruno |
+| Chen  |
+| Emeka |
++-------+
+```
+
+`NOT EXISTS` asks a different question: is there an order whose `cust_id` equals this id? For an order with
+a NULL `cust_id` the equality is UNKNOWN, so that order doesn't count as a match, and the three customers
+without orders come back.
+
+<Aside type="caution" title="In practice">
+Prefer `NOT EXISTS` to `NOT IN` with a subquery. If you must use `NOT IN`, make sure the subquery cannot
+return NULL, for example with `WHERE cust_id IS NOT NULL`. A column that has no NULLs today may get one
+tomorrow.
+</Aside>
+
+The engine has to work to produce SQL's answer here. DataFusion plans the `NOT IN` as an anti join, but a
+special one:
+
+```text title="DataFusion 55.2, optimized plan for the NOT IN query"
+Projection: customer.name
+  LeftAnti Join: customer.id = __correlated_sq_1.cust_id null_aware
+    TableScan: customer projection=[id, name]
+    SubqueryAlias: __correlated_sq_1
+      TableScan: orders projection=[cust_id]
+```
+
+`null_aware` means the join must notice when the right side contains a NULL and then return nothing, which
+an ordinary anti join would not do. [Module 08](../../joins/null-aware-anti-join/) covers how that is
+implemented.
+
+## Where NULLs are treated as equal
+
+Comparisons say NULL is not equal to NULL. Several other parts of SQL quietly say the opposite. The SQL
+standard calls two values "not distinct" when they are equal or both NULL, and uses that notion for grouping
+and duplicate removal.
+
+```text title="cargo run --release -p m01-relational --example nulls"
+> SELECT segment, count(*) AS n FROM customer GROUP BY segment ORDER BY segment
++-----------+---+
+| segment   | n |
++-----------+---+
+| retail    | 2 |
+| wholesale | 1 |
+|           | 2 |
++-----------+---+
+
+> SELECT count(DISTINCT segment) AS distinct_segments, count(segment) AS with_segment, count(*) AS rows FROM customer
++-------------------+--------------+------+
+| distinct_segments | with_segment | rows |
++-------------------+--------------+------+
+| 2                 | 3            | 5    |
++-------------------+--------------+------+
+```
+
+`GROUP BY` put both customers with no segment into one group. `count(DISTINCT segment)`, though, says there
+are two distinct segments, because aggregates skip NULLs first. So "how many segments are there?" has two
+plausible answers from the same data, three groups or two distinct values, depending on how you ask.
+
+| Context | Are two NULLs treated as equal? |
+| --- | --- |
+| `=`, `<>`, `IN`, join conditions | No: the comparison is UNKNOWN |
+| `IS NOT DISTINCT FROM` | Yes |
+| `GROUP BY`, `DISTINCT`, `UNION`, `INTERSECT`, `EXCEPT` | Yes: NULLs form one group or one row |
+| Aggregates such as `count(x)`, `count(DISTINCT x)` | NULLs are skipped entirely |
+| `UNIQUE` constraints | No, by default: several NULLs are allowed |
+
+On that last row, PostgreSQL's documentation says "null values in a unique column are not considered equal,
+allowing multiple nulls", and offers `NULLS NOT DISTINCT` to change it.
+
+## NULL in joins
+
+Join conditions are comparisons, so NULL keys never match, not even each other:
+
+```text title="cargo run --release -p m01-relational --example nulls (trimmed)"
+> SELECT count(*) AS matches FROM a JOIN b ON a.k = b.k
+| 1 |
+> SELECT count(*) AS matches FROM a JOIN b ON a.k IS NOT DISTINCT FROM b.k
+| 2 |
+```
+
+Both tables hold the keys 1 and NULL. An equi-join matches only the 1s. If two NULL keys should match, say
+so with `IS NOT DISTINCT FROM`. Rows with NULL keys silently vanishing from inner joins is a frequent cause
+of totals that don't add up after a join.
+
+## Where NULLs sort
+
+`ORDER BY` has to put NULLs somewhere, and engines disagree about where.
+
+| Engine | Ascending | Descending | Source |
+| --- | --- | --- | --- |
+| PostgreSQL | Last | First | Documentation: nulls act "as though nulls are larger than non-nulls" |
+| DataFusion | Last | First | The lab's `nulls` example |
+| DuckDB | Last | Last | Documentation: "By default, DuckDB sorts ASC and NULLS LAST" |
+| MySQL | First | Last | Documentation: NULLs "sort before other values for ascending sorts" |
+| Spark SQL | First | Last | Documentation |
+
+If the position of NULLs matters, write `NULLS FIRST` or `NULLS LAST` explicitly. Otherwise the same query
+gives differently ordered results on different engines, which matters the moment `LIMIT` is involved.
+
+## How often this goes wrong
+
+It is tempting to treat all this as trivia. Research says otherwise. Paolo Guagliardo and Leonid Libkin
+studied what SQL's NULL handling does to query answers, in work published in 2016 and summarised in SIGMOD
+Record in 2017. They define a **false positive** as a
+row SQL returns that is not certainly an answer, given that the NULLs could stand for any value. In their
+experiments with TPC-H queries that use `NOT EXISTS`, and with textbook queries, they found that "every single
+query we tested" returned false positives once NULLs were introduced, even at a rate of 0.5%. They also
+showed that rewriting queries to return only certain answers often cost little, and sometimes made queries
+much faster.
+
+## In Rust
+
+The lab's three-valued logic is a small enum. `IN` is defined exactly as SQL defines it, as an `OR` of
+equalities, and the `NOT IN` behaviour falls out on its own:
+
+```rust title="lab/crates/m01-relational/src/logic.rs"
+pub fn and(self, other: Truth) -> Truth {
+    match (self, other) {
+        (False, _) | (_, False) => False,
+        (True, True) => True,
+        _ => Unknown,
+    }
+}
+
+/// SQL `x IN (list)`: TRUE if some element equals x, else UNKNOWN if any comparison was
+/// UNKNOWN, else FALSE. It is the OR of `x = e` over the list.
+pub fn is_in<T: PartialEq + Copy>(x: Option<T>, list: &[Option<T>]) -> Truth {
+    list.iter().fold(False, |acc, &e| acc.or(Truth::eq(x, e)))
+}
+```
+
+A test then states the trap as a fact:
+
+```rust title="lab/crates/m01-relational/src/logic.rs"
+let list = [Some(1), Some(3), None];
+// 2 is not in the list, but the NULL might be 2, so NOT IN is UNKNOWN, not TRUE.
+assert_eq!(Truth::is_in(Some(2), &list).not(), Unknown);
+```
+
+## Check yourself
+
+<details>
+<summary>What is TRUE OR UNKNOWN? FALSE OR UNKNOWN? NOT (TRUE AND UNKNOWN)?</summary>
+
+TRUE, because one true disjunct settles an OR. UNKNOWN, because the result depends on the unknown side.
+`TRUE AND UNKNOWN` is UNKNOWN, and NOT UNKNOWN is UNKNOWN.
+</details>
+
+<details>
+<summary>A table has 100 rows. `WHERE price > 10` keeps 60, and `WHERE price <= 10` keeps 30. What can you conclude?</summary>
+
+The other 10 rows have a NULL price: for them both conditions are UNKNOWN, so neither filter keeps them. A
+condition and its opposite only cover every row when the column can't be NULL.
+</details>
+
+<details>
+<summary>Why does WHERE id NOT IN (SELECT cust_id FROM orders) return nothing when one cust_id is NULL?</summary>
+
+NOT IN is an AND of inequalities, one per subquery row. The inequality with NULL is UNKNOWN for every id,
+so the AND can never be TRUE, and WHERE keeps only TRUE. NOT EXISTS, or filtering the NULLs out of the
+subquery, gives the intended answer.
+</details>
+
+<details>
+<summary>Two tables each have a row with a NULL key. Does an inner join on that key match them? Does UNION of the two keys return one NULL or two?</summary>
+
+The join does not match them, because NULL = NULL is UNKNOWN. UNION returns one NULL, because duplicate
+removal treats NULLs as not distinct from each other.
+</details>
+
+## Further reading
+
+- PostgreSQL: [subquery expressions](https://www.postgresql.org/docs/18/functions-subquery.html), on IN and
+  NOT IN with NULLs, and [unique indexes](https://www.postgresql.org/docs/16/indexes-unique.html), on
+  `NULLS NOT DISTINCT`.
+- Paolo Guagliardo and Leonid Libkin, [Correctness of SQL Queries on Databases with Nulls](https://sigmodrecord.org/publications/sigmodRecord/1709/pdfs/03_principles_Guagliardo.pdf),
+  SIGMOD Record, 2017.
+- [Null (SQL)](https://en.wikipedia.org/wiki/Null_(SQL)) on Wikipedia, a well-sourced history of NULL from
+  Codd's papers to the SQL standard.
+- Documentation on NULL ordering for [DuckDB](https://duckdb.org/docs/1.4/sql/query_syntax/orderby),
+  [MySQL](https://dev.mysql.com/doc/en/null-values.html) and
+  [Spark SQL](https://spark.apache.org/docs/3.5.1/sql-ref-syntax-qry-select-orderby.html).

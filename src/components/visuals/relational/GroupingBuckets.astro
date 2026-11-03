@@ -1,0 +1,394 @@
+---
+// GROUP BY as partition, then reduce. Rows fall into one bucket per region, each bucket collapses
+// to one row, then HAVING filters the buckets. Toggle WHERE, HAVING, the aggregate, and an empty
+// input. Data matches lab/crates/m01-relational/examples/grouping.rs.
+const rows = [
+  { id: 101, region: 'ASIA', amount: 250 },
+  { id: 102, region: 'ASIA', amount: 40 },
+  { id: 103, region: 'ASIA', amount: 90 },
+  { id: 104, region: 'AFRICA', amount: 610 },
+  { id: 105, region: 'EUROPE', amount: 75 },
+  { id: 106, region: 'EUROPE', amount: null },
+  { id: 107, region: 'EUROPE', amount: 40 },
+];
+---
+
+<qe-groups class="qe-gb not-content" data-rows={JSON.stringify(rows)}>
+  <div class="controls">
+    <div class="field">
+      <span class="lbl">Aggregate</span>
+      <div class="chips" data-group="agg">
+        {['count(*)', 'count(amount)', 'sum(amount)', 'avg(amount)', 'max(amount)'].map((a, i) => (
+          <button type="button" data-v={a} aria-pressed={i === 2 ? 'true' : 'false'}>{a}</button>
+        ))}
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl">Clauses</span>
+      <div class="chips" data-group="opts">
+        <button type="button" data-v="where" aria-pressed="false">WHERE amount &gt; 50</button>
+        <button type="button" data-v="having" aria-pressed="false">HAVING agg &gt; 200</button>
+        <button type="button" data-v="empty" aria-pressed="false">WHERE region = 'MARS'</button>
+        <button type="button" data-v="nogroup" aria-pressed="false">no GROUP BY</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="sql"><code data-sql></code></p>
+
+  <div class="stages">
+    <section>
+      <h4><span class="n">1</span> Rows <span class="hint">FROM, WHERE</span></h4>
+      <ul class="rows" data-input></ul>
+    </section>
+    <section>
+      <h4><span class="n">2</span> Partition <span class="hint">GROUP BY</span></h4>
+      <div class="buckets" data-buckets></div>
+    </section>
+    <section>
+      <h4><span class="n">3</span> Reduce <span class="hint">aggregate, HAVING</span></h4>
+      <ul class="out" data-out></ul>
+    </section>
+  </div>
+  <p class="note" data-note aria-live="polite"></p>
+</qe-groups>
+
+<script>
+  type Row = { id: number; region: string; amount: number | null };
+
+  class QeGroups extends HTMLElement {
+    rows: Row[] = [];
+    connectedCallback() {
+      this.rows = JSON.parse(this.dataset.rows!);
+      for (const group of this.querySelectorAll<HTMLElement>('[data-group]')) {
+        const single = group.dataset.group === 'agg';
+        group.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+          b.addEventListener('click', () => {
+            if (single) group.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            else b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+            this.render();
+          }),
+        );
+      }
+      this.render();
+    }
+
+    pick(g: string) {
+      return [...this.querySelectorAll<HTMLButtonElement>(`[data-group="${g}"] [aria-pressed="true"]`)].map((b) => b.dataset.v!);
+    }
+
+    agg(name: string, xs: Row[]): number | null {
+      const vals = xs.map((r) => r.amount).filter((v): v is number => v !== null);
+      switch (name) {
+        case 'count(*)':
+          return xs.length;
+        case 'count(amount)':
+          return vals.length;
+        case 'sum(amount)':
+          return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+        case 'avg(amount)':
+          return vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null;
+        default:
+          return vals.length ? Math.max(...vals) : null;
+      }
+    }
+
+    render() {
+      const agg = this.pick('agg')[0];
+      const opts = this.pick('opts');
+      const where = opts.includes('where');
+      const having = opts.includes('having');
+      const empty = opts.includes('empty');
+      const nogroup = opts.includes('nogroup');
+
+      const conds = [where ? 'amount > 50' : '', empty ? "region = 'MARS'" : ''].filter(Boolean);
+      const sel = nogroup ? `${agg}` : `region, ${agg}`;
+      this.querySelector('[data-sql]')!.textContent =
+        `SELECT ${sel} FROM orders` +
+        (conds.length ? ` WHERE ${conds.join(' AND ')}` : '') +
+        (nogroup ? '' : ' GROUP BY region') +
+        (having ? ` HAVING ${agg} > 200` : '');
+
+      // A row passes WHERE only if its condition is TRUE; amount > 50 is UNKNOWN for a NULL amount.
+      const passes = (r: Row) =>
+        (!where || (r.amount !== null && r.amount > 50)) && (!empty || r.region === 'MARS');
+      const kept = this.rows.filter(passes);
+
+      this.querySelector('[data-input]')!.innerHTML = this.rows
+        .map((r) => {
+          const ok = passes(r);
+          const why = ok ? '' : where && r.amount === null ? 'UNKNOWN' : 'FALSE';
+          return `<li class="${ok ? '' : 'out'}"><span class="rid">${r.id}</span><span class="reg">${r.region}</span><span class="amt">${r.amount ?? 'NULL'}</span>${why ? `<span class="why">${why}</span>` : ''}</li>`;
+        })
+        .join('');
+
+      const groups = new Map<string, Row[]>();
+      if (nogroup) groups.set('all rows', kept);
+      else for (const r of kept) groups.set(r.region, [...(groups.get(r.region) ?? []), r]);
+
+      this.querySelector('[data-buckets]')!.innerHTML = groups.size
+        ? [...groups.entries()]
+            .map(
+              ([k, xs]) =>
+                `<div class="bucket"><p class="bk">${k}</p>${xs.length ? xs.map((r) => `<span class="pill">${r.amount ?? 'NULL'}</span>`).join('') : '<span class="none">no rows</span>'}</div>`,
+            )
+            .join('')
+        : '<p class="emptymsg">No rows, so no groups at all.</p>';
+
+      const results = [...groups.entries()].map(([k, xs]) => {
+        const v = this.agg(agg, xs);
+        const ok = !having || (v !== null && v > 200);
+        return { k, v, ok, havingUnknown: having && v === null };
+      });
+      this.querySelector('[data-out]')!.innerHTML = results.length
+        ? results
+            .map(
+              (r) =>
+                `<li class="${r.ok ? '' : 'out'}">${nogroup ? '' : `<span class="reg">${r.k}</span>`}<span class="val">${r.v ?? 'NULL'}</span>${r.ok ? '' : `<span class="why">${r.havingUnknown ? 'UNKNOWN' : 'FALSE'}</span>`}</li>`,
+            )
+            .join('')
+        : '<li class="emptyout">0 rows</li>';
+
+      const note = this.querySelector<HTMLElement>('[data-note]')!;
+      if (empty && nogroup) {
+        note.innerHTML = `No rows matched, and there is no GROUP BY, so the whole input is one group, an empty one. The query still returns exactly one row: <code>count(*)</code> is 0, but <code>sum</code>, <code>avg</code> and <code>max</code> of nothing are NULL, not 0.`;
+      } else if (empty) {
+        note.innerHTML = `No rows matched. With GROUP BY there is one output row per group, and there are no groups, so the result has zero rows. Remove GROUP BY to see the difference.`;
+      } else if (agg === 'count(amount)' || agg === 'avg(amount)') {
+        note.innerHTML = `Order 106 has no amount. <code>count(*)</code> counts rows, but <code>${agg}</code> skips the NULL: EUROPE has 3 rows and 2 amounts${agg === 'avg(amount)' ? ', so its average is 115 ÷ 2 = 57.5, not 115 ÷ 3' : ''}.`;
+      } else if (where) {
+        note.innerHTML = `WHERE runs before grouping, so the rows it rejects never reach a bucket. Order 106 is dropped too: <code>NULL &gt; 50</code> is UNKNOWN, and WHERE keeps only TRUE.`;
+      } else if (having) {
+        note.innerHTML = `HAVING runs after reduction, on one row per group, so it can test aggregates. WHERE can’t: when WHERE runs, no aggregate has been computed yet.`;
+      } else {
+        note.innerHTML = `Every row lands in exactly one bucket, chosen by its region. Each bucket then collapses to one output row. Columns other than <code>region</code> can only appear inside an aggregate, because a bucket holds many values for them.`;
+      }
+    }
+  }
+  if (!customElements.get('qe-groups')) customElements.define('qe-groups', QeGroups);
+</script>
+
+<style is:global>
+  .qe-gb {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-gb .controls {
+    display: grid;
+    gap: 0.7rem;
+  }
+  .qe-gb .field {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .qe-gb .lbl {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-gb .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .qe-gb .chips button {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .qe-gb .chips button[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-gb .chips button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-gb .sql {
+    margin: 0.9rem 0;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    line-height: 1.5;
+  }
+  .qe-gb .sql code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    color: var(--sl-color-white);
+    background: none;
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+  .qe-gb .stages {
+    display: grid;
+    grid-template-columns: 1.1fr 1.2fr 0.9fr;
+    gap: 0.7rem;
+  }
+  .qe-gb h4 {
+    margin: 0 0 0.45rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-gb h4 .n {
+    display: inline-grid;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.25rem;
+    border-radius: 50%;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    font-size: 0.6875rem;
+  }
+  .qe-gb h4 .hint {
+    display: block;
+    margin-top: 0.15rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-gb ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.25rem;
+  }
+  .qe-gb li {
+    margin: 0 !important;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    font-size: 0.75rem;
+    transition: opacity 0.2s ease;
+  }
+  .qe-gb li .rid {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-gray-3);
+  }
+  .qe-gb li .reg {
+    font-weight: 650;
+    color: var(--sl-color-white);
+  }
+  .qe-gb li .amt,
+  .qe-gb li .val {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+    text-align: right;
+  }
+  .qe-gb .out li {
+    grid-template-columns: 1fr auto auto;
+    border-color: var(--sl-color-accent);
+  }
+  .qe-gb li.out {
+    opacity: 0.4;
+    border-style: dashed;
+    border-color: var(--sl-color-gray-4);
+  }
+  .qe-gb li .why {
+    grid-column: 1 / -1;
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--qe-warn);
+  }
+  .qe-gb .buckets {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .qe-gb .bucket {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--qe-pipe-build);
+    background: color-mix(in srgb, var(--qe-pipe-build) 10%, transparent);
+  }
+  .qe-gb .bk {
+    width: 100%;
+    margin: 0 0 0.1rem;
+    font-size: 0.6875rem;
+    font-weight: 750;
+    color: var(--sl-color-white);
+  }
+  .qe-gb .pill {
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: var(--qe-pipe-build);
+    color: var(--sl-color-black);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-gb .none,
+  .qe-gb .emptymsg {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-gb .emptyout {
+    display: block;
+    color: var(--sl-color-gray-3);
+    border-style: dashed;
+  }
+  .qe-gb .note {
+    margin: 0.9rem 0 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--sl-color-accent);
+    background: var(--sl-color-black);
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 4.6em;
+  }
+  .qe-gb .note code {
+    font-size: 0.85em;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qe-gb li {
+      transition: none;
+    }
+  }
+  @media (max-width: 49.99rem) {
+    .qe-gb {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-gb .stages {
+      grid-template-columns: 1fr 1fr;
+    }
+    .qe-gb .stages section:first-child {
+      grid-column: 1 / -1;
+    }
+    .qe-gb .rows {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>

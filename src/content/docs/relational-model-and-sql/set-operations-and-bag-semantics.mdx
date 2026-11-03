@@ -1,16 +1,306 @@
 ---
-title: "Set operations and bag semantics"
-description: "UNION, INTERSECT and EXCEPT under set vs bag semantics, and why SQL is a bag language that sometimes pretends otherwise."
+title: Set operations and bag semantics
+description: UNION, INTERSECT and EXCEPT under set vs bag semantics, and why SQL is a bag language that sometimes pretends otherwise.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 4
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import SetOps from '@components/visuals/relational/SetOps.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="set-operations-and-bag-semantics" />
+<ArticleMeta module="01" slug="set-operations-and-bag-semantics" minutes={16} />
+
+PostgreSQL's reference manual contains one of the most repeated pieces of SQL performance advice:
+"`UNION ALL` is usually significantly quicker than `UNION`; use `ALL` when you can." The reason is not
+an implementation detail. The two operators answer different questions. One treats query results as
+sets, the other as bags, and the difference reaches from what the answer is to how much work it takes.
+
+This article covers the three set operations, union, intersection and difference, in both forms.
+Along the way it finds two of them computed incorrectly by a widely used engine, and shows the fix.
+
+## The question
+
+What exactly do `UNION`, `INTERSECT` and `EXCEPT` return, with and without `ALL`, and why does SQL
+have both forms?
+
+## Sets, bags and multiplicity
+
+A **set** contains each element at most once. A **bag**, or multiset, may contain an element several
+times; the number of copies is its **multiplicity**. The [first article](../relations-tuples-and-attributes/)
+of this module showed that relations are sets and SQL tables are bags.
+
+Set operations combine two inputs that are **union compatible**: in PostgreSQL's words, they "return
+the same number of columns and the corresponding columns have compatible data types". The result takes
+its column names from the first input.
+
+For each distinct row, call its number of copies **m** in the left input and **n** in the right. Each
+operation is a rule that turns m and n into a number of copies in the result. PostgreSQL's
+documentation states the `ALL` rules directly: in `INTERSECT ALL`, a row "will appear min(m, n) times";
+in `EXCEPT ALL`, it "will appear max(m − n, 0) times". `UNION ALL` simply concatenates, m + n. Without
+`ALL`, each operation removes duplicates from its result.
+
+| Operation | Copies of a row in the result | Meaning |
+| --- | --- | --- |
+| `UNION ALL` | m + n | Everything from both sides |
+| `UNION` | 1 if m + n > 0 | Every distinct row from either side |
+| `INTERSECT ALL` | min(m, n) | Pair copies off; keep the pairs |
+| `INTERSECT` | 1 if m > 0 and n > 0 | Distinct rows present on both sides |
+| `EXCEPT ALL` | max(m − n, 0) | Each right copy cancels one left copy |
+| `EXCEPT` | 1 if m > 0 and n = 0 | Distinct left rows absent on the right |
+
+Change the counts and switch operations to see each rule at work:
+
+<SetOps />
+
+Two cases are worth trying on purpose. Under `INTERSECT ALL`, give `a` three copies on the left and one
+on the right: the result keeps one, because copies pair off. Then compare `EXCEPT ALL` with `EXCEPT`: the
+bag version keeps two copies of `a`, since only one was cancelled, while the set version removes `a`
+completely, because it appears on the right at all.
+
+## Laws, and one that fails
+
+The `ALL` and non-`ALL` forms are related, but not in the same way for every operator. The lab's tests
+check each statement below.
+
+- **UNION** is UNION ALL followed by duplicate removal: `L UNION R = DISTINCT(L UNION ALL R)`.
+- **INTERSECT** is the same: `L INTERSECT R = DISTINCT(L INTERSECT ALL R)`.
+- **EXCEPT is not.** `DISTINCT(L EXCEPT ALL R)` keeps `a` in the example above; `L EXCEPT R` does not.
+  The set version asks whether a row appears on the right at all, not how many times.
+- **UNION is idempotent; UNION ALL is not.** `L UNION L` is `DISTINCT(L)`, while `L UNION ALL L` has
+  twice as many rows as L.
+
+Precedence also differs: "`INTERSECT` binds more tightly" than `UNION` and `EXCEPT`, so
+`q1 UNION q2 INTERSECT q3` means `q1 UNION (q2 INTERSECT q3)`. Parentheses cost nothing; use them.
+
+## Why SQL is a bag language
+
+If sets are cleaner, why does SQL default to bags? Two reasons, one about meaning and one about cost.
+
+**Aggregates need duplicates.** Suppose two different payments are both 40. Project to the `amount`
+column as a set, and the two 40s merge into one. Sum that, and you get the wrong total. The lab's
+`grouping` example shows it with three payments of 40, 40 and 90:
+
+```text title="cargo run --release -p m01-relational --example grouping"
+π amount as a set: 2 tuples
+sum over the set: 130   sum over the bag: 170
+```
+
+Counting and summing are about how many, so they need to see every copy.
+
+**Removing duplicates costs work.** To return each row once, the engine has to find the duplicates,
+which means hashing or sorting the whole result and keeping it in memory. Keeping duplicates means just
+passing rows through.
+
+So SQL's `SELECT` keeps duplicates unless you write `DISTINCT`. The set operations, though, went the
+other way: `UNION`, `INTERSECT` and `EXCEPT` remove duplicates unless you write `ALL`. That is the sense
+in which SQL is a bag language that sometimes pretends otherwise. Hugh Darwen, a long-time critic of SQL
+from within the relational community, argued that duplicates "needlessly complicate the language" and
+push a performance decision onto users, who have to know when `UNION ALL` is safe.
+
+<Aside type="note" title="When is UNION ALL safe?">
+When the two inputs can't contain the same row, `UNION` and `UNION ALL` return the same rows, and
+`UNION ALL` skips a duplicate-removal step for nothing. That happens, for example, when each side filters
+on a different, non-overlapping value of the same column, such as `WHERE year = 2025` and
+`WHERE year = 2026`. If duplicates are possible and unwanted, `UNION` is correct, and its cost is the
+price of correctness.
+</Aside>
+
+## Set operations match columns by position
+
+Union compatibility is about the number and types of columns, not their names. Columns are matched
+left to right. The lab builds two tables with the same two columns declared in a different order:
+
+```text title="cargo run --release -p m01-relational --example set_ops"
+> SELECT * FROM staff UNION ALL SELECT * FROM contractors
++------------+-----------+
+| first_name | last_name |
++------------+-----------+
+| Ada        | Lovelace  |
+| Hopper     | Grace     |
++------------+-----------+
+```
+
+Grace Hopper's surname landed in the `first_name` column, with no error, because both columns are text.
+This is exactly the positional matching Darwen objected to. Some engines now offer a way out. DuckDB
+documents `UNION BY NAME`, which "can be used to combine rows from different tables by name, instead of by
+position", filling columns that exist on only one side with NULL. DataFusion accepts the same syntax:
+
+```text title="cargo run --release -p m01-relational --example set_ops"
+> SELECT * FROM staff UNION ALL BY NAME SELECT * FROM contractors
++------------+-----------+
+| first_name | last_name |
++------------+-----------+
+| Ada        | Lovelace  |
+| Grace      | Hopper    |
++------------+-----------+
+```
+
+## How engines compute them, and where one goes wrong
+
+Each set operation maps onto operators covered elsewhere in this guide. Here are DataFusion's plans for
+the set versions, from the lab's `set_ops` example:
+
+```text title="DataFusion 55.2, optimized logical plans"
+UNION:
+Aggregate: groupBy=[[x]], aggr=[[]]
+  Union
+    TableScan: l projection=[x]
+    TableScan: r projection=[x]
+
+INTERSECT:
+LeftSemi Join: l.x = r.x
+  Aggregate: groupBy=[[l.x]], aggr=[[]]
+    TableScan: l projection=[x]
+  TableScan: r projection=[x]
+
+EXCEPT:
+LeftAnti Join: l.x = r.x
+  Aggregate: groupBy=[[l.x]], aggr=[[]]
+    TableScan: l projection=[x]
+  TableScan: r projection=[x]
+```
+
+`UNION` is a concatenation followed by a grouping that removes duplicates, as `DISTINCT` was in
+[article 2](../relational-algebra-selection-projection-rename/). `INTERSECT` is a **semi join**: keep each
+left row that has at least one match on the right. `EXCEPT` is an **anti join**: keep each left row with
+no match. In both, the left side is deduplicated first, so the result is a set, as it should be.
+
+Now the bag versions. The lab compares every operation against the standard's rules, using its own tiny
+engine as the reference:
+
+```text title="cargo run --release -p m01-relational --example set_ops"
+UNION ALL      {a×4 b×3 c×1 d×1} (9 rows)   matches
+UNION          {a×1 b×1 c×1 d×1} (4 rows)   matches
+INTERSECT ALL  {a×3 b×1} (4 rows)   DIFFERS from the standard
+INTERSECT      {a×1 b×1} (2 rows)   matches
+EXCEPT ALL     {c×1} (1 rows)   DIFFERS from the standard
+EXCEPT         {c×1} (1 rows)   matches
+
+INTERSECT ALL is planned as:
+LeftSemi Join: l.x = r.x
+  TableScan: l projection=[x]
+  TableScan: r projection=[x]
+```
+
+DataFusion 55.2 returns three copies of `a` for `INTERSECT ALL`, where the standard requires min(3, 1)
+= 1, and drops `a` entirely from `EXCEPT ALL`, where the standard keeps max(3 − 1, 0) = 2. The plans show
+why: the `ALL` versions use the same semi and anti joins, minus the deduplication. A semi join keeps every
+left copy that has any match, giving m copies instead of min(m, n). An anti join drops every left copy
+that has any match, giving zero instead of max(m − n, 0). Neither join counts copies on the right.
+
+These are known bugs, still open: [#12955](https://github.com/apache/datafusion/issues/12955) for
+`INTERSECT ALL` and [#12956](https://github.com/apache/datafusion/issues/12956) for `EXCEPT ALL`, both
+reported against DataFusion 42, with a discussion of how to fix them.
+
+The fix is pleasingly simple once you see it. Number the copies of each value on both sides, then join on
+the value **and** its copy number. Copy k of `a` on the left matches only if the right side has a copy k
+too, so exactly min(m, n) copies survive the semi join, and the rest survive the anti join. The lab writes
+that by hand with `row_number()`:
+
+```sql title="INTERSECT ALL, written correctly"
+SELECT a.x
+FROM (SELECT x, row_number() OVER (PARTITION BY x) AS k FROM l) a
+WHERE EXISTS (
+  SELECT 1
+  FROM (SELECT x, row_number() OVER (PARTITION BY x) AS k FROM r) b
+  WHERE b.x = a.x AND b.k = a.k
+)
+```
+
+```text title="cargo run --release -p m01-relational --example set_ops"
+INTERSECT ALL  rewritten: {a×1 b×1} (2 rows)   matches
+EXCEPT ALL     rewritten: {a×2 c×1} (3 rows)   matches
+```
+
+<Aside type="caution" title="The lesson isn’t about DataFusion">
+Every engine has bugs, and the rarely used corners of SQL, such as `INTERSECT ALL`, are where they live
+longest. When correctness matters, test an engine's answer against a reference, even a tiny one like the
+lab's, rather than assuming it. That habit is also how bugs like these get found and fixed upstream.
+</Aside>
+
+## Costs and trade-offs
+
+**UNION ALL streams; UNION has to remember.** Concatenation passes rows through as they arrive.
+Duplicate removal needs a hash table of every distinct row seen so far, so its memory grows with the
+number of distinct rows, and it can spill to disk when that gets large.
+
+**INTERSECT and EXCEPT are joins.** They cost what a semi or anti join costs, usually a hash table built
+on one side, plus duplicate removal for the set forms. [Module 08](../../joins/outer-semi-and-anti-joins-in-a-hash-join/)
+covers how semi and anti joins run.
+
+**Correct bag semantics needs counting.** Getting `INTERSECT ALL` and `EXCEPT ALL` right means tracking
+copies, by numbering them as above or by counting each row on both sides, which costs more than a plain
+semi or anti join. That extra cost is part of why the shortcut is tempting.
+
+## In Rust
+
+The lab's tiny engine represents a bag as each distinct row with its count. Every set operation is then
+one function of two counts:
+
+```rust title="lab/crates/m01-relational/src/bag.rs"
+/// `INTERSECT ALL`: min(m, n) copies.
+pub fn intersect_all(&self, other: &Bag) -> Bag {
+    self.combine(other, |m, n| m.min(n))
+}
+
+/// `EXCEPT ALL`: max(m − n, 0) copies.
+pub fn except_all(&self, other: &Bag) -> Bag {
+    self.combine(other, |m, n| m.saturating_sub(n))
+}
+
+/// `EXCEPT`: one copy of every row present on the left and absent on the right.
+pub fn except(&self, other: &Bag) -> Bag {
+    self.combine(other, |m, n| usize::from(m > 0 && n == 0))
+}
+```
+
+`combine` visits every distinct row on either side and applies the rule to its two counts. The whole
+standard fits in six one-line closures, which is what makes it such a good reference to test a real
+engine against.
+
+## Check yourself
+
+<details>
+<summary>L contains (x) four times and R contains (x) twice. How many copies of (x) does each of the six operations return?</summary>
+
+UNION ALL: 6. UNION: 1. INTERSECT ALL: min(4, 2) = 2. INTERSECT: 1. EXCEPT ALL: max(4 − 2, 0) = 2.
+EXCEPT: 0, since (x) appears on the right.
+</details>
+
+<details>
+<summary>Why is DISTINCT(L EXCEPT ALL R) not the same as L EXCEPT R?</summary>
+
+EXCEPT ALL cancels copies one for one, so a row with more copies on the left than on the right survives,
+and DISTINCT keeps one of those. EXCEPT removes a row if it appears on the right at all, whatever the
+counts.
+</details>
+
+<details>
+<summary>A query combines two monthly tables with UNION. Each row has a unique transaction id. Would UNION ALL change the answer?</summary>
+
+No. Rows with different transaction ids can never be duplicates, so there is nothing for UNION to remove.
+UNION ALL returns the same rows and skips the duplicate-removal work.
+</details>
+
+<details>
+<summary>Why does a semi join compute INTERSECT correctly but INTERSECT ALL incorrectly?</summary>
+
+A semi join keeps each left row that has at least one match, regardless of how many matches there are.
+After the left side is deduplicated, that is exactly INTERSECT. With duplicates kept, it returns all m
+left copies instead of min(m, n). Numbering the copies on both sides and joining on the number too fixes
+it.
+</details>
+
+## Further reading
+
+- PostgreSQL: [combining queries](https://www.postgresql.org/docs/18/queries-union.html) and the
+  [SELECT reference](https://www.postgresql.org/docs/18/sql-select.html), for the multiplicity rules.
+- DuckDB: [set operations](https://duckdb.org/docs/2.0/sql/query_syntax/setops.html), including
+  `UNION BY NAME` and the `ALL` variants.
+- DataFusion issues [#12955](https://github.com/apache/datafusion/issues/12955) and
+  [#12956](https://github.com/apache/datafusion/issues/12956), on `INTERSECT ALL` and `EXCEPT ALL`.
+- Hugh Darwen, [The Askew Wall](https://www.dcs.warwick.ac.uk/%7Ehugh/TTM/TTM-TheAskewWall-printable.pdf),
+  on duplicates in SQL.

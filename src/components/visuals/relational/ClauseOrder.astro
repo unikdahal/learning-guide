@@ -1,0 +1,460 @@
+---
+// The query from lab/crates/m01-relational/examples/clause_order.rs, evaluated clause by clause in
+// logical order, with the intermediate result after each step. The clause list can be shown in the
+// order it is written or in the order it takes effect.
+type Step = {
+  key: string;
+  clause: string;
+  written: number;
+  cols: string[];
+  rows: (string | number)[][];
+  struck?: number[];
+  groups?: { k: string; vals: number[] }[];
+  names: string;
+  note: string;
+};
+
+const steps: Step[] = [
+  {
+    key: 'from',
+    clause: 'FROM orders o JOIN customer c ON o.cust_id = c.id',
+    written: 2,
+    cols: ['o.order_id', 'c.name', 'c.region', 'o.amount'],
+    rows: [
+      [101, 'Asha', 'ASIA', 250],
+      [102, 'Chen', 'ASIA', 40],
+      [103, 'Asha', 'ASIA', 90],
+      [104, 'Dara', 'AFRICA', 610],
+      [105, 'Farah', 'EUROPE', 75],
+    ],
+    names: 'Every column of o and c. Nothing from SELECT exists yet.',
+    note: 'The join builds the rows everything else works on. Order 106 has no matching customer, so it is not here.',
+  },
+  {
+    key: 'where',
+    clause: 'WHERE o.amount > 50',
+    written: 3,
+    cols: ['o.order_id', 'c.name', 'c.region', 'o.amount'],
+    rows: [
+      [101, 'Asha', 'ASIA', 250],
+      [102, 'Chen', 'ASIA', 40],
+      [103, 'Asha', 'ASIA', 90],
+      [104, 'Dara', 'AFRICA', 610],
+      [105, 'Farah', 'EUROPE', 75],
+    ],
+    struck: [1],
+    names: 'Still only o and c. The alias total doesn’t exist, which is why WHERE total > 100 is an error.',
+    note: 'WHERE tests one row at a time. Order 102 fails and is gone before any grouping happens.',
+  },
+  {
+    key: 'group',
+    clause: 'GROUP BY c.region',
+    written: 4,
+    cols: [],
+    rows: [],
+    groups: [
+      { k: 'ASIA', vals: [250, 90] },
+      { k: 'AFRICA', vals: [610] },
+      { k: 'EUROPE', vals: [75] },
+    ],
+    names: 'c.region, and aggregates over each group. Other columns now have many values per group.',
+    note: 'Rows fall into one bucket per region. From here on, each bucket counts as one row.',
+  },
+  {
+    key: 'having',
+    clause: 'HAVING sum(o.amount) > 100',
+    written: 5,
+    cols: ['c.region', 'sum(o.amount)'],
+    rows: [
+      ['ASIA', 340],
+      ['AFRICA', 610],
+      ['EUROPE', 75],
+    ],
+    struck: [2],
+    names: 'Grouping columns and aggregates. Standard SQL still doesn’t see the alias total here.',
+    note: 'HAVING tests one group at a time, so it can use aggregates. EUROPE’s total of 75 fails.',
+  },
+  {
+    key: 'select',
+    clause: 'SELECT c.region, sum(o.amount) AS total',
+    written: 1,
+    cols: ['region', 'total'],
+    rows: [
+      ['ASIA', 340],
+      ['AFRICA', 610],
+    ],
+    names: 'The output columns, including the new name total. Window functions are computed at this step too.',
+    note: 'Written first, evaluated fifth. Only now do the output columns, and their aliases, come into existence.',
+  },
+  {
+    key: 'order',
+    clause: 'ORDER BY total DESC',
+    written: 6,
+    cols: ['region', 'total'],
+    rows: [
+      ['AFRICA', 610],
+      ['ASIA', 340],
+    ],
+    names: 'Output columns, so ORDER BY total works.',
+    note: 'ORDER BY runs after SELECT, which is why it is the one clause that can use a SELECT alias in standard SQL.',
+  },
+  {
+    key: 'limit',
+    clause: 'LIMIT 1',
+    written: 7,
+    cols: ['region', 'total'],
+    rows: [['AFRICA', 610]],
+    names: 'Nothing new: LIMIT only counts rows.',
+    note: 'LIMIT keeps the first row of a sorted result. Without the ORDER BY, “first” would mean nothing in particular.',
+  },
+];
+const byWritten = [...steps].sort((a, b) => a.written - b.written);
+---
+
+<qe-clauses class="qe-co not-content">
+  <div class="mode" role="group" aria-label="Show clauses in">
+    <button type="button" data-mode="written" aria-pressed="true">As written</button>
+    <button type="button" data-mode="logical" aria-pressed="false">As evaluated</button>
+  </div>
+
+  <ol class="clauses" data-clauses>
+    {
+      byWritten.map((s) => (
+        <li data-key={s.key} data-logical={steps.indexOf(s)} data-written={s.written}>
+          <button type="button" data-go={steps.indexOf(s)}>
+            <span class="badge">{steps.indexOf(s) + 1}</span>
+            <code>{s.clause}</code>
+          </button>
+        </li>
+      ))
+    }
+  </ol>
+
+  {
+    steps.map((s, i) => (
+      <section class="panel" data-panel={i}>
+        <p class="title">
+          Step {i + 1} of {steps.length}: <code>{s.clause.split(' ').slice(0, s.key === 'group' || s.key === 'order' ? 2 : 1).join(' ')}</code>
+        </p>
+        {s.groups ? (
+          <div class="groups">
+            {s.groups.map((g) => (
+              <div class="group">
+                <span class="gk">{g.k}</span>
+                {g.vals.map((v) => (
+                  <span class="pill">{v}</span>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>{s.cols.map((c) => <th scope="col">{c}</th>)}</tr>
+              </thead>
+              <tbody>
+                {s.rows.map((r, ri) => (
+                  <tr class:list={{ struck: s.struck?.includes(ri) }}>{r.map((v) => <td>{v}</td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p class="names"><strong>Names in scope:</strong> {s.names}</p>
+        <p class="note">{s.note}</p>
+      </section>
+    ))
+  }
+
+  <div class="nav" hidden>
+    <button type="button" data-prev>Previous</button>
+    <span data-pos aria-live="polite"></span>
+    <button type="button" data-next>Next</button>
+  </div>
+</qe-clauses>
+
+<script>
+  class QeClauses extends HTMLElement {
+    i = 0;
+    connectedCallback() {
+      this.classList.add('is-interactive');
+      this.querySelector<HTMLElement>('.nav')!.hidden = false;
+      this.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) =>
+        b.addEventListener('click', () => this.reorder(b.dataset.mode as 'written' | 'logical')),
+      );
+      this.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) =>
+        b.addEventListener('click', () => this.go(Number(b.dataset.go))),
+      );
+      this.querySelector('[data-prev]')!.addEventListener('click', () => this.go(this.i - 1));
+      this.querySelector('[data-next]')!.addEventListener('click', () => this.go(this.i + 1));
+      this.go(0);
+    }
+
+    reorder(mode: 'written' | 'logical') {
+      this.querySelectorAll('[data-mode]').forEach((x) =>
+        x.setAttribute('aria-pressed', String((x as HTMLElement).dataset.mode === mode)),
+      );
+      const list = this.querySelector<HTMLElement>('[data-clauses]')!;
+      const items = [...list.children] as HTMLElement[];
+      const key = mode === 'logical' ? 'logical' : 'written';
+      items.sort((a, b) => Number(a.dataset[key]) - Number(b.dataset[key]));
+      const apply = () => list.replaceChildren(...items);
+      const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+      if (doc.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) doc.startViewTransition(apply);
+      else apply();
+    }
+
+    go(n: number) {
+      const panels = [...this.querySelectorAll<HTMLElement>('[data-panel]')];
+      this.i = Math.max(0, Math.min(panels.length - 1, n));
+      panels.forEach((p, k) => (p.hidden = k !== this.i));
+      this.querySelectorAll<HTMLElement>('[data-clauses] li').forEach((li) => {
+        const k = Number(li.dataset.logical);
+        li.classList.toggle('done', k < this.i);
+        li.classList.toggle('current', k === this.i);
+      });
+      this.querySelector('[data-pos]')!.textContent = `${this.i + 1} of ${panels.length}`;
+      (this.querySelector('[data-prev]') as HTMLButtonElement).disabled = this.i === 0;
+      (this.querySelector('[data-next]') as HTMLButtonElement).disabled = this.i === panels.length - 1;
+    }
+  }
+  if (!customElements.get('qe-clauses')) customElements.define('qe-clauses', QeClauses);
+</script>
+
+<style is:global>
+  .qe-co {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-co .mode {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-co .mode button {
+    min-height: 2.4rem;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .qe-co .mode button[aria-pressed='true'] {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-co button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-co .clauses {
+    list-style: none;
+    margin: 0.9rem 0;
+    padding: 0;
+    display: grid;
+    gap: 0.3rem;
+  }
+  .qe-co .clauses li {
+    margin: 0 !important;
+  }
+  .qe-co .clauses li[data-key='from'] { view-transition-name: qe-cl-from; }
+  .qe-co .clauses li[data-key='where'] { view-transition-name: qe-cl-where; }
+  .qe-co .clauses li[data-key='group'] { view-transition-name: qe-cl-group; }
+  .qe-co .clauses li[data-key='having'] { view-transition-name: qe-cl-having; }
+  .qe-co .clauses li[data-key='select'] { view-transition-name: qe-cl-select; }
+  .qe-co .clauses li[data-key='order'] { view-transition-name: qe-cl-order; }
+  .qe-co .clauses li[data-key='limit'] { view-transition-name: qe-cl-limit; }
+  .qe-co .clauses button {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    min-height: 2.5rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    text-align: left;
+    cursor: pointer;
+  }
+  .qe-co .clauses code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    background: none;
+    padding: 0;
+    color: inherit;
+    overflow-wrap: anywhere;
+  }
+  .qe-co .badge {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--sl-color-gray-5);
+    color: var(--sl-color-white);
+    font-size: 0.75rem;
+    font-weight: 750;
+  }
+  .qe-co li.done button {
+    color: var(--sl-color-gray-3);
+  }
+  .qe-co li.done .badge {
+    background: color-mix(in srgb, var(--sl-color-accent) 40%, transparent);
+  }
+  .qe-co li.current button {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-white);
+  }
+  .qe-co li.current .badge {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-co .panel {
+    padding: 0.9rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-co:not(.is-interactive) .panel + .panel {
+    margin-top: 0.7rem;
+  }
+  .qe-co .title {
+    margin: 0 0 0.6rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-co .title code {
+    font-size: 0.85em;
+  }
+  .qe-co .tablewrap {
+    overflow-x: auto;
+  }
+  .qe-co table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+    display: table;
+    margin: 0;
+  }
+  .qe-co th,
+  .qe-co td {
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    background: transparent;
+    white-space: nowrap;
+    color: var(--sl-color-white);
+  }
+  .qe-co th {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-co tr.struck td {
+    opacity: 0.4;
+    text-decoration: line-through;
+    text-decoration-color: var(--qe-warn);
+  }
+  .qe-co .groups {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .qe-co .group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.55rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--qe-pipe-build);
+  }
+  .qe-co .gk {
+    min-width: 4.5rem;
+    font-size: 0.75rem;
+    font-weight: 750;
+    color: var(--sl-color-white);
+  }
+  .qe-co .pill {
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: var(--qe-pipe-build);
+    color: var(--sl-color-black);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .qe-co .names {
+    margin: 0.7rem 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-co .names strong {
+    color: var(--sl-color-white);
+  }
+  .qe-co .note {
+    margin: 0.4rem 0 0;
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+  }
+  .qe-co .nav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 0.8rem;
+  }
+  .qe-co .nav[hidden] {
+    display: none;
+  }
+  .qe-co .nav button {
+    min-height: 2.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .qe-co .nav [data-next] {
+    border-color: var(--sl-color-accent);
+  }
+  .qe-co .nav button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .qe-co [data-pos] {
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+  @media (max-width: 49.99rem) {
+    .qe-co {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+  }
+</style>

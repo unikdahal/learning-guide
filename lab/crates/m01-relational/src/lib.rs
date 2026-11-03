@@ -10,6 +10,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+pub mod bag;
+pub mod logic;
+pub mod sql;
+
 /// A value in a tuple. Two types are enough to show every idea in this module.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Value {

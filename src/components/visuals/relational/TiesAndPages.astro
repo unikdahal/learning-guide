@@ -1,0 +1,313 @@
+---
+// Part 1: ORDER BY with ties and LIMIT. Re-running "the same" query lets tied rows arrive in a
+// different order, as parallel execution does; a unique tiebreaker or WITH TIES makes the answer
+// well defined. Part 2: OFFSET pagination while a row arrives, versus keyset pagination.
+// Part 2 matches lab/crates/m01-relational/examples/order_limit.rs.
+const orders = [
+  { id: 201, amount: 500 },
+  { id: 202, amount: 300 },
+  { id: 203, amount: 300 },
+  { id: 204, amount: 300 },
+  { id: 205, amount: 120 },
+  { id: 206, amount: 90 },
+  { id: 207, amount: 300 },
+  { id: 208, amount: 60 },
+];
+---
+
+<qe-ties class="qe-tp not-content" data-orders={JSON.stringify(orders)}>
+  <section class="part">
+    <p class="h">Top 3 orders by amount</p>
+    <div class="chips" role="group" aria-label="Query form">
+      <button type="button" data-form="plain" aria-pressed="true">ORDER BY amount DESC LIMIT 3</button>
+      <button type="button" data-form="tiebreak" aria-pressed="false">… amount DESC, id LIMIT 3</button>
+      <button type="button" data-form="ties" aria-pressed="false">… FETCH FIRST 3 ROWS WITH TIES</button>
+    </div>
+    <div class="cols">
+      <div>
+        <p class="cap">Sorted input, as it arrived this run</p>
+        <ol class="sorted" data-sorted></ol>
+      </div>
+      <div>
+        <p class="cap">Result</p>
+        <ol class="result" data-result></ol>
+      </div>
+    </div>
+    <button type="button" class="run" data-run>Run the query again</button>
+    <p class="note" data-tienote aria-live="polite"></p>
+  </section>
+
+  <section class="part">
+    <p class="h">Paging through a feed, 3 posts per page, newest first</p>
+    <div class="chips" role="group" aria-label="Pagination method">
+      <button type="button" data-pager="offset" aria-pressed="true">LIMIT 3 OFFSET 3</button>
+      <button type="button" data-pager="keyset" aria-pressed="false">WHERE posted &lt; last seen</button>
+    </div>
+    <div class="pages">
+      <div><p class="cap">Page 1</p><ol class="feed" data-page1></ol></div>
+      <div><p class="cap">Page 2</p><ol class="feed" data-page2></ol></div>
+    </div>
+    <div class="flow">
+      <button type="button" data-step="0" aria-pressed="true">1. Load page 1</button>
+      <button type="button" data-step="1" aria-pressed="false">2. A new post arrives</button>
+      <button type="button" data-step="2" aria-pressed="false">3. Load page 2</button>
+    </div>
+    <p class="note" data-pagenote aria-live="polite"></p>
+  </section>
+</qe-ties>
+
+<script>
+  type O = { id: number; amount: number };
+  type P = { id: number; posted: number };
+
+  class QeTies extends HTMLElement {
+    orders: O[] = [];
+    form = 'plain';
+    seen = new Set<string>();
+    pager = 'offset';
+    step = 0;
+
+    connectedCallback() {
+      this.orders = JSON.parse(this.dataset.orders!);
+      this.querySelectorAll<HTMLButtonElement>('[data-form]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.form = b.dataset.form!;
+          this.seen.clear();
+          this.querySelectorAll('[data-form]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.run();
+        }),
+      );
+      this.querySelector('[data-run]')!.addEventListener('click', () => this.run());
+      this.querySelectorAll<HTMLButtonElement>('[data-pager]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.pager = b.dataset.pager!;
+          this.querySelectorAll('[data-pager]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.renderPages();
+        }),
+      );
+      this.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.step = Number(b.dataset.step);
+          this.renderPages();
+        }),
+      );
+      this.run();
+      this.renderPages();
+    }
+
+    run() {
+      // Rows with equal amounts arrive in a random order, as they would from parallel partitions.
+      const shuffled = [...this.orders].sort(() => Math.random() - 0.5);
+      const sorted =
+        this.form === 'tiebreak'
+          ? [...this.orders].sort((a, b) => b.amount - a.amount || a.id - b.id)
+          : shuffled.sort((a, b) => b.amount - a.amount);
+      let result = sorted.slice(0, 3);
+      if (this.form === 'ties') {
+        const last = result[2].amount;
+        result = sorted.filter((o, i) => i < 3 || o.amount === last);
+      }
+      const picked = new Set(result.map((r) => r.id));
+      this.querySelector('[data-sorted]')!.innerHTML = sorted
+        .map((o) => `<li class="${picked.has(o.id) ? 'in' : ''} ${o.amount === 300 ? 'tie' : ''}"><span>${o.id}</span><b>${o.amount}</b></li>`)
+        .join('');
+      this.querySelector('[data-result]')!.innerHTML = result
+        .map((o) => `<li class="in"><span>${o.id}</span><b>${o.amount}</b></li>`)
+        .join('');
+      const key = result.map((r) => r.id).join(',');
+      this.seen.add(key);
+      const shown = key.replaceAll(",", ", ");
+      const note = this.querySelector<HTMLElement>('[data-tienote]')!;
+      if (this.form === 'plain') {
+        note.textContent = `Four orders tie at 300 for two places. This run returned ${shown}. Distinct answers seen so far: ${this.seen.size}. All of them are correct: SQL says tied rows come back “in an implementation-dependent order”, so the query has no single right answer.`;
+      } else if (this.form === 'tiebreak') {
+        note.textContent = `Adding the unique id as a last sort key leaves no ties, so the result is always ${shown}, however the rows arrive. Distinct answers seen: ${this.seen.size}.`;
+      } else {
+        note.textContent = `WITH TIES keeps every row that ties with the last one: ${result.length} rows instead of 3. The answer is defined, at the cost of a result whose size you can’t predict.`;
+      }
+    }
+
+    feed(): P[] {
+      const base = [1, 2, 3, 4, 5, 6].map((id) => ({ id, posted: id * 10 }));
+      return this.step >= 1 ? [...base, { id: 7, posted: 70 }] : base;
+    }
+
+    renderPages() {
+      this.querySelectorAll('[data-step]').forEach((b) =>
+        b.setAttribute('aria-pressed', String(Number((b as HTMLElement).dataset.step) === this.step)),
+      );
+      const original = [1, 2, 3, 4, 5, 6].map((id) => ({ id, posted: id * 10 }));
+      const page1 = [...original].sort((a, b) => b.posted - a.posted).slice(0, 3);
+      const now = [...this.feed()].sort((a, b) => b.posted - a.posted);
+      const lastSeen = page1[page1.length - 1].posted;
+      const page2 =
+        this.step < 2 ? [] : this.pager === 'offset' ? now.slice(3, 6) : now.filter((p) => p.posted < lastSeen).slice(0, 3);
+      const p1ids = new Set(page1.map((p) => p.id));
+      const li = (p: P, dup = false) => `<li class="${dup ? 'dup' : ''}"><span>post ${p.id}</span><b>${p.posted}</b>${dup ? '<i>again</i>' : ''}</li>`;
+      this.querySelector('[data-page1]')!.innerHTML = page1.map((p) => li(p)).join('');
+      this.querySelector('[data-page2]')!.innerHTML = page2.length
+        ? page2.map((p) => li(p, p1ids.has(p.id))).join('')
+        : '<li class="empty">not loaded yet</li>';
+      const note = this.querySelector<HTMLElement>('[data-pagenote]')!;
+      if (this.step === 0) note.textContent = 'Page 1 shows the three newest posts: 6, 5 and 4.';
+      else if (this.step === 1)
+        note.textContent = 'Post 7 is published while you are reading page 1. Every older post moves one position down the list.';
+      else if (this.pager === 'offset')
+        note.textContent = 'OFFSET 3 means “skip three rows”, counted again from scratch. Post 4 slid from position 3 to 4, so you see it twice. Had a post been deleted instead, one would have been skipped silently.';
+      else
+        note.textContent = 'Keyset pagination asks for posts older than the last one seen (posted < 40). New posts at the top can’t shift it. It also lets an index jump straight to the right place instead of reading and discarding skipped rows.';
+    }
+  }
+  if (!customElements.get('qe-ties')) customElements.define('qe-ties', QeTies);
+</script>
+
+<style is:global>
+  .qe-tp {
+    display: grid;
+    gap: 1.5rem;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-tp .part + .part {
+    padding-top: 1.3rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-tp .h {
+    margin: 0 0 0.6rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .qe-tp .chips,
+  .qe-tp .flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .qe-tp .chips button,
+  .qe-tp .flow button {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+  .qe-tp .flow button {
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+  }
+  .qe-tp [aria-pressed='true'] {
+    border-color: var(--sl-color-accent) !important;
+    background: var(--sl-color-accent) !important;
+    color: var(--sl-color-black) !important;
+  }
+  .qe-tp button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-tp .cols,
+  .qe-tp .pages {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin-top: 0.9rem;
+  }
+  .qe-tp .cap {
+    margin: 0 0 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-tp ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.25rem;
+  }
+  .qe-tp li {
+    margin: 0 !important;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 6px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-tp li b {
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+  .qe-tp li.tie {
+    border-style: dashed;
+    border-color: var(--qe-pipe-emit);
+  }
+  .qe-tp li.in {
+    border-style: solid;
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-white);
+  }
+  .qe-tp li.dup {
+    border-color: var(--qe-warn);
+    background: color-mix(in srgb, var(--qe-warn) 15%, transparent);
+  }
+  .qe-tp li i {
+    font-style: normal;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--qe-warn);
+  }
+  .qe-tp li.empty {
+    border-style: dashed;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-tp .run {
+    margin-top: 0.8rem;
+    min-height: 2.75rem;
+    padding: 0.4rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .qe-tp .flow {
+    margin-top: 0.8rem;
+  }
+  .qe-tp .note {
+    margin: 0.8rem 0 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--qe-pipe-emit);
+    background: var(--sl-color-black);
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 4.6em;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-tp {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+  }
+</style>

@@ -1,16 +1,219 @@
 ---
-title: "Logical processing order of a query"
-description: "FROM, WHERE, GROUP BY, HAVING, SELECT, DISTINCT, ORDER BY, LIMIT, the order clauses take effect vs the order you write them."
+title: Logical processing order of a query
+description: FROM, WHERE, GROUP BY, HAVING, SELECT, DISTINCT, ORDER BY, LIMIT, the order clauses take effect vs the order you write them.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 7
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import ClauseOrder from '@components/visuals/relational/ClauseOrder.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="logical-processing-order-of-a-query" />
+<ArticleMeta module="01" slug="logical-processing-order-of-a-query" minutes={14} />
+
+You write `SELECT` first. You give a computed column a name, `amount * 2 AS doubled`, and two lines later
+you filter on it, `WHERE doubled > 200`. The engine replies that there is no such column. It is right
+there, in the first line.
+
+The confusion comes from reading SQL top to bottom. SQL clauses don't take effect in the order they are
+written. They take effect in a fixed **logical order**, and `SELECT`, written first, takes effect fifth.
+Once you know that order, a whole family of errors and puzzles explains itself.
+
+## The question
+
+In what order do the clauses of a query take effect, and what does that order decide?
+
+## The order
+
+PostgreSQL's reference describes the processing of a `SELECT` as a numbered sequence, and Microsoft's SQL
+Server documentation gives the same order as the "logical processing order, or binding order". Leaving out
+locking and a few rarely used clauses:
+
+1. `FROM`, including joins and their `ON` conditions: build the rows to work with.
+2. `WHERE`: remove rows that don't satisfy the condition.
+3. `GROUP BY`: partition the rows into groups.
+4. `HAVING`: remove groups that don't satisfy the condition.
+5. `SELECT`: compute the output columns, including window functions, and give them their names.
+6. `DISTINCT`: remove duplicate output rows.
+7. `UNION`, `INTERSECT`, `EXCEPT`: combine with other queries.
+8. `ORDER BY`: sort.
+9. `LIMIT` and `OFFSET`: keep a slice of the sorted rows.
+
+Each step's input is the previous step's output. Step through it with a real query, and switch between
+the written and the evaluated order:
+
+<ClauseOrder />
+
+## What the order decides
+
+Microsoft's documentation states the key consequence well: the order "determines when the objects defined
+in one step are made available to the clauses in subsequent steps". A name exists only after the step that
+creates it.
+
+### Aliases
+
+A `SELECT` alias is created at step 5, so standard SQL lets you use it in steps after that, such as
+`ORDER BY`, and not in steps before it, such as `WHERE` and `HAVING`. PostgreSQL's documentation: "An output
+column's name can be used to refer to the column's value in `ORDER BY` and `GROUP BY` clauses, but not in the
+`WHERE` or `HAVING` clauses." The lab tries all three in DataFusion:
+
+```text title="cargo run --release -p m01-relational --example clause_order"
+> SELECT order_id, amount * 2 AS doubled FROM orders WHERE doubled > 200
+error: Schema error: No field named doubled.
+
+> SELECT order_id, amount * 2 AS doubled FROM orders ORDER BY doubled DESC LIMIT 2
++----------+---------+
+| order_id | doubled |
++----------+---------+
+| 104      | 1220    |
+| 101      | 500     |
++----------+---------+
+
+> SELECT cust_id % 2 AS parity, count(*) AS n FROM orders GROUP BY parity ORDER BY parity
++--------+---+
+| parity | n |
++--------+---+
+| 0      | 2 |
+| 1      | 4 |
++--------+---+
+```
+
+`GROUP BY parity` working is a convenience, not a contradiction: PostgreSQL and DataFusion look ahead to the
+`SELECT` list to resolve a name in `GROUP BY`. Engines differ in how far they bend the rule. DuckDB's
+"friendly SQL" accepts column aliases in `WHERE`, `GROUP BY` and `HAVING` as well. Portable SQL repeats the
+expression, or computes it in a subquery.
+
+### Window functions
+
+Window functions such as `rank()` and `row_number()` are computed at step 5, with the rest of `SELECT`. So
+they can't be filtered in `WHERE`, which ran at step 2, before any rank existed:
+
+```text title="cargo run --release -p m01-relational --example clause_order"
+> SELECT order_id, amount FROM orders WHERE rank() OVER (ORDER BY amount DESC) <= 2
+error: This feature is not implemented: Physical plan does not support logical expression WindowFunction(…
+
+> SELECT order_id, amount FROM orders QUALIFY rank() OVER (ORDER BY amount DESC) <= 2
++----------+--------+
+| order_id | amount |
++----------+--------+
+| 104      | 610    |
+| 101      | 250    |
++----------+--------+
+```
+
+DataFusion accepts the first query at first and fails only when building the physical plan, with an error
+message that doesn't explain the real reason. PostgreSQL's documentation states the rule directly: window
+functions "are forbidden elsewhere, such as in `GROUP BY`, `HAVING` and `WHERE` clauses. This is because they
+logically execute after the processing of those clauses." Either way, the fix is
+to filter after the window function runs: with a subquery, which works everywhere, or with `QUALIFY`, a
+clause that some engines add, which filters on window functions after they are computed. The lab shows both
+returning the top two orders.
+
+### Grouping
+
+`HAVING` comes after `GROUP BY`, so it can test aggregates. `WHERE` comes before, so it can't, which is the
+whole difference between them, as the [grouping article](../grouping-and-aggregation-semantics/) showed.
+After step 3, each group is one row, so `SELECT` can only use grouping columns and aggregates.
+
+### DISTINCT, ORDER BY and LIMIT
+
+`DISTINCT` runs after `SELECT`, so it removes duplicates among the output columns, not the input rows.
+`ORDER BY` runs after both, which is why it can sort by an alias. And `LIMIT` runs last, on the sorted result,
+so `ORDER BY total DESC LIMIT 1` means "the largest total". Without `ORDER BY`, the rows `LIMIT` keeps are
+whichever arrive first, as the [next article](../order-by-limit-and-determinism/) shows.
+
+<Aside type="note" title="Set operations sit near the end">
+`UNION`, `INTERSECT` and `EXCEPT` combine whole query results at step 7, after each side's `SELECT` and
+`DISTINCT`. An `ORDER BY` or `LIMIT` written at the end of a `UNION` applies to the combined result, not to
+the last query. To sort or limit one side, put it in parentheses or a subquery.
+</Aside>
+
+## Logical order is not execution order
+
+The logical order defines what a query **means**. It does not dictate what the engine **does**. Microsoft's
+documentation says so directly: "the actual physical execution of the statement is determined by the query
+processor and the order may vary from this list."
+
+You can see both in DataFusion. Here is the query from the figure above, as the lab prints it. The unoptimised
+logical plan is the logical order exactly, read from the bottom up:
+
+```text title="Logical plan, read bottom-up"
+Limit: skip=0, fetch=1
+  Sort: total DESC NULLS FIRST
+    Projection: c.region, sum(o.amount) AS total
+      Filter: sum(o.amount) > Int64(100)
+        Aggregate: groupBy=[[c.region]], aggr=[[sum(o.amount)]]
+          Filter: o.amount > Int64(50)
+            Inner Join:  Filter: o.cust_id = c.id
+              SubqueryAlias: o
+                TableScan: orders
+              SubqueryAlias: c
+                TableScan: customer
+```
+
+`FROM` and the join at the bottom, then the `WHERE` filter, the aggregate, the `HAVING` filter, the
+projection that `SELECT` produces, the sort and the limit. Now the optimised plan:
+
+```text title="Optimized"
+Sort: total DESC NULLS FIRST, fetch=1
+  Projection: c.region, sum(o.amount) AS total
+    Filter: sum(o.amount) > Int64(100)
+      Aggregate: groupBy=[[c.region]], aggr=[[sum(CAST(o.amount AS Int64))]]
+        Projection: o.amount, c.region
+          Inner Join: o.cust_id = c.id
+            SubqueryAlias: o
+              Filter: orders.amount > Int32(50)
+                TableScan: orders projection=[cust_id, amount]
+            SubqueryAlias: c
+              TableScan: customer projection=[id, region]
+```
+
+Two clauses moved. The `WHERE` filter now runs **below** the join, on `orders` alone, so the join sees fewer
+rows. And `LIMIT` merged into the sort as `fetch=1`, so the engine keeps only the best row while sorting
+instead of sorting everything and then discarding all but one. Both changes are allowed because they cannot
+change the result: the optimizer may reorder anything the logical order leaves unaffected.
+
+The rule of thumb: reason about **meaning** with the logical order, and reason about **cost** with the plan.
+
+## Check yourself
+
+<details>
+<summary>Why does SELECT amount * 2 AS doubled FROM orders WHERE doubled > 200 fail, while ORDER BY doubled works?</summary>
+
+`WHERE` takes effect at step 2, before `SELECT` creates the alias at step 5, so the name doesn't exist yet.
+`ORDER BY` takes effect at step 8, after the alias exists. Repeat the expression in `WHERE`, or wrap the query
+in a subquery.
+</details>
+
+<details>
+<summary>You want the two most expensive orders in each region using rank(). Why can't the condition go in WHERE, and what are two ways to write it?</summary>
+
+`rank()` is computed at the `SELECT` step, after `WHERE` has run. Compute the rank in a subquery and filter on
+it in the outer query, or, in engines that support it, use `QUALIFY rank() OVER (PARTITION BY region ORDER BY
+amount DESC) <= 2`.
+</details>
+
+<details>
+<summary>In the optimised plan, the WHERE filter runs before the join. Doesn't that violate the logical order?</summary>
+
+No. The logical order defines the result, not the execution. A filter on `orders` columns removes the same
+rows whether it runs before or after an inner join, so the optimizer may move it to where it is cheapest.
+</details>
+
+<details>
+<summary>SELECT DISTINCT region FROM customer ORDER BY name: why does PostgreSQL reject this?</summary>
+
+`DISTINCT` runs before `ORDER BY`, and after it each output row may stand for many customers with different
+names. There is no single `name` to sort each distinct region by, so the request is ambiguous. PostgreSQL reports
+"for SELECT DISTINCT, ORDER BY expressions must appear in select list".
+</details>
+
+## Further reading
+
+- PostgreSQL: [the SELECT reference](https://www.postgresql.org/docs/18/sql-select.html), whose description
+  section lists the processing steps, and the [window functions tutorial](https://www.postgresql.org/docs/18/tutorial-window.html).
+- Microsoft: [logical processing order of the SELECT statement](https://learn.microsoft.com/en-us/previous-versions/sql/sql-server-2012/ms189499(v=sql.110)).
+- DuckDB: [friendly SQL](https://duckdb.org/docs/2.0/sql/dialect/friendly_sql.html), for engines that relax the
+  alias rules.

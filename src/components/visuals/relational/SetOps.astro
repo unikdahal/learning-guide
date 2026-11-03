@@ -1,0 +1,348 @@
+---
+// Two bags, L and R, drawn as stacks of chips per value. Pick an operation and see how many copies
+// of each value survive, with the rule that produced the count. Counts are editable.
+// Defaults match lab/crates/m01-relational/src/bag.rs tests: L = {a×3, b, c}, R = {a, b×2, d}.
+const values = ['a', 'b', 'c', 'd'];
+const ops = [
+  { id: 'union_all', sql: 'UNION ALL', rule: 'm + n' },
+  { id: 'union', sql: 'UNION', rule: '1 if m + n > 0' },
+  { id: 'intersect_all', sql: 'INTERSECT ALL', rule: 'min(m, n)' },
+  { id: 'intersect', sql: 'INTERSECT', rule: '1 if both > 0' },
+  { id: 'except_all', sql: 'EXCEPT ALL', rule: 'max(m − n, 0)' },
+  { id: 'except', sql: 'EXCEPT', rule: '1 if m > 0 and n = 0' },
+];
+---
+
+<qe-setops class="qe-so not-content" data-values={JSON.stringify(values)} data-ops={JSON.stringify(ops)}>
+  <div class="ops" role="group" aria-label="Set operation">
+    {ops.map((o, i) => <button type="button" data-op={o.id} aria-pressed={i === 0 ? 'true' : 'false'}>{o.sql}</button>)}
+  </div>
+
+  <p class="sql"><code data-sql></code></p>
+
+  <div class="board">
+    <div class="rowlab">
+      <span class="tag l">L</span><span class="sub">m copies</span>
+    </div>
+    {
+      values.map((v) => (
+        <div class="col" data-v={v}>
+          <div class="stack l" data-stack="l" />
+          <div class="ctl">
+            <button type="button" data-dec="l" aria-label={`Remove a ${v} from L`}>−</button>
+            <span data-m>0</span>
+            <button type="button" data-inc="l" aria-label={`Add a ${v} to L`}>+</button>
+          </div>
+        </div>
+      ))
+    }
+    <div class="rowlab">
+      <span class="tag r">R</span><span class="sub">n copies</span>
+    </div>
+    {
+      values.map((v) => (
+        <div class="col" data-v={v}>
+          <div class="stack r" data-stack="r" />
+          <div class="ctl">
+            <button type="button" data-dec="r" aria-label={`Remove a ${v} from R`}>−</button>
+            <span data-n>0</span>
+            <button type="button" data-inc="r" aria-label={`Add a ${v} to R`}>+</button>
+          </div>
+        </div>
+      ))
+    }
+    <div class="rowlab">
+      <span class="tag out">Result</span><span class="sub" data-rule></span>
+    </div>
+    {
+      values.map((v) => (
+        <div class="col result" data-v={v}>
+          <div class="stack out" data-stack="out" />
+          <span class="calc" data-calc></span>
+        </div>
+      ))
+    }
+    <span class="corner" aria-hidden="true"></span>
+    {values.map((v) => <span class="vlab">{v}</span>)}
+  </div>
+
+  <p class="summary" data-summary aria-live="polite"></p>
+</qe-setops>
+
+<script>
+  type Op = { id: string; sql: string; rule: string };
+  const RULES: Record<string, (m: number, n: number) => number> = {
+    union_all: (m, n) => m + n,
+    union: (m, n) => Math.min(m + n, 1),
+    intersect_all: (m, n) => Math.min(m, n),
+    intersect: (m, n) => Math.min(m, n, 1),
+    except_all: (m, n) => Math.max(m - n, 0),
+    except: (m, n) => (m > 0 && n === 0 ? 1 : 0),
+  };
+  const CALC: Record<string, (m: number, n: number) => string> = {
+    union_all: (m, n) => `${m}+${n}`,
+    union: (m, n) => (m + n > 0 ? 'present' : 'absent'),
+    intersect_all: (m, n) => `min(${m},${n})`,
+    intersect: (m, n) => (m && n ? 'in both' : 'not both'),
+    except_all: (m, n) => `${m}−${n}`,
+    except: (m, n) => (m && !n ? 'only in L' : n && m ? 'also in R' : 'not in L'),
+  };
+  const MAX = 4;
+
+  class QeSetOps extends HTMLElement {
+    m: Record<string, number> = { a: 3, b: 1, c: 1, d: 0 };
+    n: Record<string, number> = { a: 1, b: 2, c: 0, d: 1 };
+    op = 'union_all';
+    ops: Op[] = [];
+
+    connectedCallback() {
+      this.ops = JSON.parse(this.dataset.ops!);
+      this.querySelectorAll<HTMLButtonElement>('[data-op]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.op = b.dataset.op!;
+          this.querySelectorAll('[data-op]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.render();
+        }),
+      );
+      this.querySelectorAll<HTMLElement>('.col:not(.result)').forEach((col) => {
+        const v = col.dataset.v!;
+        col.querySelectorAll<HTMLButtonElement>('[data-inc],[data-dec]').forEach((btn) =>
+          btn.addEventListener('click', () => {
+            const side = (btn.dataset.inc ?? btn.dataset.dec) as 'l' | 'r';
+            const bag = side === 'l' ? this.m : this.n;
+            bag[v] = Math.max(0, Math.min(MAX, bag[v] + (btn.dataset.inc ? 1 : -1)));
+            this.render();
+          }),
+        );
+      });
+      this.render();
+    }
+
+    chips(n: number, cls: string) {
+      return Array.from({ length: n }, () => `<span class="chip ${cls}"></span>`).join('');
+    }
+
+    render() {
+      const op = this.ops.find((o) => o.id === this.op)!;
+      this.querySelector('[data-sql]')!.textContent = `SELECT x FROM l ${op.sql} SELECT x FROM r`;
+      this.querySelector('[data-rule]')!.textContent = op.rule;
+      let total = 0;
+      const lTotal = Object.values(this.m).reduce((a, b) => a + b, 0);
+      const rTotal = Object.values(this.n).reduce((a, b) => a + b, 0);
+      for (const col of this.querySelectorAll<HTMLElement>('.col')) {
+        const v = col.dataset.v!;
+        const [m, n] = [this.m[v], this.n[v]];
+        if (col.classList.contains('result')) {
+          const k = RULES[this.op](m, n);
+          total += k;
+          col.querySelector('[data-stack]')!.innerHTML = this.chips(k, 'out');
+          col.querySelector('[data-calc]')!.textContent = `${CALC[this.op](m, n)} → ${k}`;
+        } else {
+          const side = col.querySelector('[data-stack="l"]') ? 'l' : 'r';
+          const k = side === 'l' ? m : n;
+          col.querySelector('[data-stack]')!.innerHTML = this.chips(k, side);
+          col.querySelector(side === 'l' ? '[data-m]' : '[data-n]')!.textContent = String(k);
+          col.querySelector<HTMLButtonElement>('[data-dec]')!.disabled = k === 0;
+          col.querySelector<HTMLButtonElement>('[data-inc]')!.disabled = k === MAX;
+        }
+      }
+      const isAll = this.op.endsWith('_all');
+      const extra = isAll
+        ? 'With ALL, duplicates are counted, not removed: bag semantics.'
+        : 'Without ALL, the result has at most one copy of each row: set semantics, which costs the engine a duplicate-removal step.';
+      this.querySelector('[data-summary]')!.textContent = `L has ${lTotal} rows and R has ${rTotal}; ${op.sql} returns ${total}. ${extra}`;
+    }
+  }
+  if (!customElements.get('qe-setops')) customElements.define('qe-setops', QeSetOps);
+</script>
+
+<style is:global>
+  .qe-so {
+    display: block;
+    margin: 2rem 0;
+    padding: 1.2rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+    font-family: var(--sl-font);
+  }
+  .qe-so .ops {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+  .qe-so .ops button {
+    min-height: 2.5rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .qe-so .ops button[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .qe-so button:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .qe-so .sql {
+    margin: 0.9rem 0;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    line-height: 1.5;
+  }
+  .qe-so .sql code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    color: var(--sl-color-white);
+    background: none;
+    padding: 0;
+  }
+  .qe-so .board {
+    display: grid;
+    grid-template-columns: 5.5rem repeat(4, minmax(0, 1fr));
+    gap: 0.5rem 0.4rem;
+    align-items: end;
+  }
+  .qe-so .rowlab {
+    display: grid;
+    gap: 0.1rem;
+    align-self: center;
+  }
+  .qe-so .tag {
+    justify-self: start;
+    padding: 0.1rem 0.5rem;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    font-weight: 750;
+    color: var(--sl-color-black);
+  }
+  .qe-so .tag.l { background: var(--qe-pipe-build); }
+  .qe-so .tag.r { background: var(--qe-pipe-emit); }
+  .qe-so .tag.out { background: var(--sl-color-accent); }
+  .qe-so .sub {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-so .col {
+    display: grid;
+    gap: 0.3rem;
+    justify-items: center;
+    padding: 0.4rem 0.25rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .qe-so .col.result {
+    border-color: var(--sl-color-accent);
+  }
+  .qe-so .stack {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 3px;
+    min-height: calc(4 * 12px + 3 * 3px);
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .qe-so .result .stack {
+    min-height: calc(8 * 9px + 7 * 3px);
+  }
+  .qe-so .chip {
+    display: block;
+    width: min(2.5rem, 80%);
+    height: 12px;
+    border-radius: 3px;
+  }
+  .qe-so .result .chip {
+    height: 9px;
+  }
+  .qe-so .chip.l { background: var(--qe-pipe-build); }
+  .qe-so .chip.r { background: var(--qe-pipe-emit); }
+  .qe-so .chip.out { background: var(--sl-color-accent); }
+  .qe-so .ctl {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-white);
+  }
+  .qe-so .ctl button {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .qe-so .ctl button:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  .qe-so .calc {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    text-align: center;
+    color: var(--sl-color-gray-2);
+    min-height: 2.2em;
+  }
+  .qe-so .vlab {
+    text-align: center;
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-so .summary {
+    margin: 0.9rem 0 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--sl-color-accent);
+    background: var(--sl-color-black);
+    font-family: var(--qe-font-prose);
+    font-size: 0.9875rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-1);
+    min-height: 3.2em;
+  }
+  @media (max-width: 49.99rem) {
+    .qe-so {
+      margin-inline: var(--qe-bleed);
+      border-radius: 0;
+      border-inline: 0;
+      padding: 1rem;
+    }
+    .qe-so .board {
+      grid-template-columns: 3.4rem repeat(4, minmax(0, 1fr));
+      gap: 0.45rem 0.3rem;
+    }
+    .qe-so .sub {
+      display: none;
+    }
+    .qe-so .ctl {
+      gap: 0.1rem;
+    }
+    .qe-so .ctl button {
+      width: 1.6rem;
+      height: 1.6rem;
+    }
+    .qe-so .calc {
+      font-size: 0.625rem;
+    }
+  }
+</style>

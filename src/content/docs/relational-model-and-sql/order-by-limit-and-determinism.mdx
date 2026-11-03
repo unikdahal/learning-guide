@@ -1,16 +1,251 @@
 ---
-title: "ORDER BY, LIMIT and determinism"
-description: "What ordering guarantees SQL actually gives, ties, stability, and why LIMIT without ORDER BY is non-deterministic."
+title: ORDER BY, LIMIT and determinism
+description: What ordering guarantees SQL actually gives, ties, stability, and why LIMIT without ORDER BY is non-deterministic.
 level: B
-status: planned
+status: published
 module: "01"
-tableOfContents: false
 sidebar:
   order: 8
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import TiesAndPages from '@components/visuals/relational/TiesAndPages.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="01" slug="order-by-limit-and-determinism" />
+<ArticleMeta module="01" slug="order-by-limit-and-determinism" minutes={14} />
+
+Some of the hardest bugs to track down start with "the results changed, and nobody changed the code". A
+dashboard's top-ten list reshuffles on every refresh. A test that compares query output passes on a
+laptop and fails in CI. A paginated API shows the same item twice. Very often, the cause is the same: the
+query never asked for a particular order, or asked for one that wasn't complete, and the engine was free to
+choose.
+
+## The question
+
+What order does SQL promise, when is a query's answer actually determined, and how do you make sure it is?
+
+## SQL promises one thing
+
+The [first article](../relations-tuples-and-attributes/) of this module established that a relation has no
+order. SQL keeps that idea: unless you write `ORDER BY`, rows come back in whatever order the engine
+produces them. PostgreSQL's documentation says it plainly, and adds that even a single query can vary: "It
+is even possible for repeated executions of the same `LIMIT` query to return different subsets of the rows of
+a table, if there is not an `ORDER BY` to enforce selection of a deterministic subset. Again, this is not a
+bug; determinism of the results is simply not guaranteed in such a case."
+
+And `ORDER BY` only orders by what you list. Rows that compare equal on every listed expression "are returned
+in an implementation-dependent order".
+
+So there are three levels of determinism:
+
+| Query | Which rows | In what order |
+| --- | --- | --- |
+| No `ORDER BY` | Determined, unless there is a `LIMIT` | Not determined |
+| `ORDER BY` on non-unique columns | Determined, unless `LIMIT` cuts through a tie | Determined except among ties |
+| `ORDER BY` ending in a unique column | Determined | Determined |
+
+## Why the order changes
+
+An engine has no reason to change order on purpose. It changes because of how the work is done:
+
+- **Parallelism.** Several threads process parts of the data, and results are merged as each finishes.
+  Which finishes first depends on scheduling, so it can differ from run to run.
+- **The plan.** PostgreSQL's documentation warns that "the query planner takes `LIMIT` into account when
+  generating a query plan, so you are very likely to get different plans (yielding different row orders)
+  depending on what you use for `LIMIT` and `OFFSET`".
+- **The data.** New rows, a compacted file, a rebuilt index, statistics refreshed overnight: any of them can
+  change which plan is chosen and how rows arrive.
+
+The lab ran a few of these experiments in DataFusion on its 150,000 customers. A plain `LIMIT` over a single
+scan gave the same three ids on every run, with one thread and with two. That is a real observation, and
+it is exactly the kind that lulls people into relying on order:
+
+```text title="cargo run --release -p m01-relational --example order_limit"
+== LIMIT without ORDER BY, 150,000 customers ==
+
+1 thread(s), run 1: ids 2, 5, 17
+…
+2 thread(s), run 4: ids 2, 5, 17
+```
+
+Put the `LIMIT` on top of a parallel grouping, and the answer changed between runs of identical code on
+identical data:
+
+```text title="cargo run --release -p m01-relational --example order_limit"
+== LIMIT on top of a parallel GROUP BY ==
+
+1 thread(s), run 1: AMERICA, AFRICA
+1 thread(s), run 2: AMERICA, AFRICA
+1 thread(s), run 3: AMERICA, AFRICA
+1 thread(s), run 4: AMERICA, AFRICA
+2 thread(s), run 1: AFRICA, MIDDLE EAST
+2 thread(s), run 2: AMERICA, AFRICA
+2 thread(s), run 3: AMERICA, AFRICA
+2 thread(s), run 4: AMERICA, AFRICA
+```
+
+With one thread the groups came out in one order every time. With two, the first run returned a different
+pair of regions. Rarely different is worse than often different: it passes testing.
+
+## Ties
+
+Ordering by a column with repeated values leaves the order within each group of equal values open. With a
+`LIMIT` that cuts through such a group, even **which** rows are returned is open. The lab grouped customers
+by segment and region, 25 groups with five per segment, and asked for the first three by segment:
+
+```text title="cargo run --release -p m01-relational --example order_limit"
+ORDER BY segment, run 1: education/AMERICA, education/EUROPE, education/MIDDLE EAST
+ORDER BY segment, run 2: education/AFRICA, education/EUROPE, education/MIDDLE EAST
+ORDER BY segment, run 3: education/AFRICA, education/EUROPE, education/MIDDLE EAST
+ORDER BY segment, run 4: education/AMERICA, education/EUROPE, education/MIDDLE EAST
+ORDER BY segment, run 5: education/AMERICA, education/EUROPE, education/MIDDLE EAST
+ORDER BY segment, run 6: education/AMERICA, education/EUROPE, education/MIDDLE EAST
+ORDER BY segment, region, run 1: education/AFRICA, education/AMERICA, education/ASIA
+ORDER BY segment, region, run 2: education/AFRICA, education/AMERICA, education/ASIA
+ORDER BY segment, region, run 3: education/AFRICA, education/AMERICA, education/ASIA
+```
+
+Five groups tie on `education` for three places, and two different answers appeared in six runs. Both are
+correct: the query asked only for education to come first. Adding `region`, unique within each segment, left
+no ties, and the answer stopped moving.
+
+<TiesAndPages />
+
+There are two honest ways to deal with ties at a `LIMIT` boundary:
+
+- **Break them.** End the `ORDER BY` with a column that is unique, usually the primary key:
+  `ORDER BY amount DESC, id`. Then exactly one ordering is correct. This is almost always what you want.
+- **Keep all of them.** `FETCH FIRST 3 ROWS WITH TIES`, in engines that support it, returns every row that
+  ties with the last one kept. PostgreSQL documents it: "The `WITH TIES` option is used to return any
+  additional rows that tie for the last place in the result set according to the `ORDER BY` clause." The
+  answer is defined, but its size isn't.
+
+DuckDB adds a shortcut aimed at exactly this problem: `ORDER BY ALL`, which its documentation describes as
+a "shorthand to order on all columns (e.g., to ensure deterministic results)".
+
+<Aside type="caution" title="Two more places ties hide">
+NULLs sort in different places on different engines, as the [NULL article](../null-and-three-valued-logic/)
+showed, so an order that ignores NULL placement can differ between PostgreSQL and MySQL. And window functions
+inherit the same problem: `row_number() OVER (ORDER BY amount)` numbers tied rows in an undetermined order,
+so "keep row number 1 per customer" picks an arbitrary row among ties unless the window's `ORDER BY` is
+unique too.
+</Aside>
+
+## Pagination
+
+Showing results a page at a time is where `LIMIT` and ordering meet production traffic. The common approach
+is `OFFSET`: page 2 is `ORDER BY posted DESC LIMIT 3 OFFSET 3`. It has two problems, both described in
+Markus Winand's article "no offset".
+
+**It drifts.** `OFFSET 3` means "skip three rows", counted again from scratch on every request. If a row
+arrives between two page loads, everything shifts down one place. The lab shows it with six posts, then a
+seventh arriving after page 1 was read:
+
+```text title="cargo run --release -p m01-relational --example order_limit"
+> SELECT id, posted FROM feed ORDER BY posted DESC LIMIT 3 OFFSET 0
+| 6  | 60     |
+| 5  | 50     |
+| 4  | 40     |
+
+(a new post, id 7, arrives before the next page is fetched)
+
+> SELECT id, posted FROM feed ORDER BY posted DESC LIMIT 3 OFFSET 3
+| 4  | 40     |
+| 3  | 30     |
+| 2  | 20     |
+```
+
+Post 4 appears on both pages. Had a post been deleted instead, one would have been skipped without anyone
+noticing.
+
+**It gets slower with depth.** To skip 10,000 rows the engine still has to produce and discard them. In
+Winand's words, "the only thing the database can do with this number is fetching and dropping that many rows."
+
+**Keyset pagination** fixes both. Instead of counting rows, remember the last row the user saw, and ask for
+the rows after it:
+
+```sql
+SELECT id, posted FROM feed
+WHERE posted < 40          -- the last value on the previous page
+ORDER BY posted DESC
+LIMIT 3;
+```
+
+New rows at the top can't shift it, and an index on `posted` can jump straight to the starting point. The
+order must still be total: if two posts can share a timestamp, use the timestamp and the id together, both in
+`ORDER BY` and in the condition, or rows that tie at a page boundary can be skipped or repeated. The cost is
+that you can't jump directly to page 37, only to the next or previous page.
+
+## In real engines
+
+`ORDER BY` with `LIMIT` is common enough that engines don't run it as a full sort followed by a cut. The lab
+asks DataFusion for the physical plan of `ORDER BY segment, id LIMIT 3`:
+
+```text title="DataFusion 55.2 physical plan, trimmed"
+ProjectionExec: expr=[id@0 as id]
+  SortPreservingMergeExec: [segment@1 ASC NULLS LAST, id@0 ASC NULLS LAST], fetch=3
+    SortExec: TopK(fetch=3), expr=[segment@1 ASC NULLS LAST, id@0 ASC NULLS LAST], preserve_partitioning=[true]
+      DataSourceExec: …customer.parquet, projection=[id, segment], predicate=DynamicFilter [ empty ]
+```
+
+`SortExec: TopK(fetch=3)` keeps only the best three rows seen so far in each partition, instead of sorting all
+150,000. A merge then picks the overall best three from the partitions' candidates. And the `DynamicFilter` on
+the scan, empty at the start, can be filled with the current third-best value as the query runs, so that rows
+which can no longer make the cut are skipped early. Module 10 covers both:
+[top-k with heaps](../../sorting-and-windows/top-k-with-heaps/) and
+[dynamic filters from top-k](../../sorting-and-windows/dynamic-filters-from-top-k/).
+
+Top-k is also where ties get decided in practice: whichever tied row reaches the heap first wins. That is why
+tie order depends on the order rows arrive, which depends on scheduling, which is why the results above moved.
+
+## Costs and trade-offs
+
+**A unique tiebreaker is nearly free.** Adding the primary key as the last sort key rarely changes the cost
+of a sort, because it is only compared when everything before it is equal.
+
+**A full sort is not.** Sorting is one of the most expensive things an engine does, and its cost grows faster
+than the number of rows. Asking for order you don't need, for example sorting inside a subquery whose order is
+discarded anyway, wastes it. Some engines drop such sorts as meaningless.
+
+**Determinism is a property you design for.** Queries feeding tests, reports, caches or pagination should
+specify a total order. Queries whose consumers really don't care, such as one feeding an aggregation, shouldn't
+pay for one.
+
+## Check yourself
+
+<details>
+<summary>A query has ORDER BY created_at DESC LIMIT 10, and two rows share the tenth-latest timestamp. Is the result determined?</summary>
+
+No. The query is satisfied by either row in tenth place, so different runs can return different rows. Add a
+unique column as a tiebreaker, `ORDER BY created_at DESC, id DESC`, or use `WITH TIES` to return both.
+</details>
+
+<details>
+<summary>A test compares a query's rows, in order, against expected output. The query has no ORDER BY. It has passed for months. Is it correct?</summary>
+
+No. The test depends on an order SQL never promised. It passes because this engine, this data and this plan
+happen to produce the same order each time; a version upgrade, more data or a different thread count can
+change it. Add an `ORDER BY` over a unique key, or compare the results as unordered collections.
+</details>
+
+<details>
+<summary>Why does OFFSET pagination show duplicates when rows are inserted, and why does keyset pagination not?</summary>
+
+OFFSET counts rows from the top on each request, so an insertion above the current page shifts every later
+row down one position. Keyset pagination asks for rows that sort after the last row seen, which is a fixed
+point in the ordering that insertions elsewhere don't move.
+</details>
+
+<details>
+<summary>What does SortExec: TopK(fetch=3) do differently from a full sort?</summary>
+
+It keeps only the three best rows seen so far, typically in a small heap, and discards everything else as it
+streams through the input. It does far less work and uses far less memory than sorting every row.
+</details>
+
+## Further reading
+
+- PostgreSQL: the [SELECT reference](https://www.postgresql.org/docs/18/sql-select.html), sections on
+  `ORDER BY` and `LIMIT`, including `WITH TIES`.
+- Markus Winand, [no offset](https://use-the-index-luke.com/no-offset), on keyset pagination.
+- DuckDB: [ORDER BY](https://duckdb.org/docs/1.4/sql/query_syntax/orderby), including `ORDER BY ALL` and
+  null ordering.
