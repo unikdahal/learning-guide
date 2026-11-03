@@ -2,15 +2,147 @@
 title: "Parquet row groups, pages and statistics"
 description: "Sizing row groups and pages, min/max and null count statistics, and how readers use them."
 level: I
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 12
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import PruningSim from '@components/visuals/representation/PruningSim.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="parquet-row-groups-pages-and-statistics" />
+<ArticleMeta module="03" slug="parquet-row-groups-pages-and-statistics" minutes={13} lab="m03-representation/examples/parquet_stats.rs" />
+
+The fastest way to read data is not to read it. A [Parquet footer](../anatomy-of-an-apache-parquet-file/)
+records, for every column chunk, the smallest and largest value and the number of nulls. A reader evaluating
+`WHERE ts BETWEEN a AND b` can compare that range with each row group's min and max and skip every row group
+that can't contain a match, without reading a byte of its data. This is **statistics-based pruning**, the
+first and cheapest of the skipping techniques in [Module 7](../../scans-and-pruning/). How well it works
+depends on two things the writer controls: how the rows are ordered and how big the row groups are.
+
+## The question
+
+What statistics does Parquet keep, how do readers use them, and how should row groups and pages be sized?
+
+## What the statistics are
+
+For each column chunk, the footer can hold:
+
+- **min and max**: the smallest and largest non-null value, by the column's sort order;
+- **null count**;
+- optionally a distinct count, which few writers fill in.
+
+Strings are compared byte by byte, and long values can be truncated: parquet-rs truncates statistics to 64
+bytes by default, rounding the max up so it stays an upper bound. The format's original `min` and `max`
+fields had an ambiguous sort order for some types, signed versus unsigned comparison, and were replaced by
+`min_value` and `max_value` with defined ordering; readers ignore the old fields where they can't be trusted.
+
+Statistics are a **summary**, not an index. They can prove a row group has no matches. They can never prove
+it has one: a row group with min 0 and max 100 may not contain 50.
+
+## Pruning, and why order decides everything
+
+Each row group's [min, max] is a range on the column's axis. A query's predicate is another range. Row groups
+whose range doesn't overlap the query's are skipped. Try it:
+
+<PruningSim />
+
+When the data was written in order of the column, each row group covers its own narrow slice, and a selective
+query overlaps one or two. When it was written in random order, every row group spans almost the entire range,
+every one overlaps every query, and the statistics, though perfectly correct, prune nothing.
+
+## Measured: one hour of orders
+
+The lab writes 10 million orders over about 70 days, sorted by time and shuffled, with different row group
+sizes, and asks DataFusion for one hour:
+`SELECT count(*), sum(amount) FROM o WHERE ts BETWEEN … AND …`, which matches 6,033 rows.
+
+```text title="cargo run --release -p m03-representation --example parquet_stats"
+sorted, 100k rows/group: ts min/max of the first row groups, seconds from start: [0, 59863] [59863, 119758] [119759, 179571]
+shuffled, 100k rows/group: ts min/max of the first row groups, seconds from start: [17, 5993902] [37, 5993908] [70, 5993964]
+```
+
+Each sorted row group covers about 17 hours; each shuffled one covers all 70 days. The query, through
+DataFusion's `EXPLAIN ANALYZE` metrics:
+
+| Layout | Row groups | Footer | Row groups left after stats | Rows left after page index | Bytes scanned | Time |
+| --- | --- | --- | --- | --- | --- | --- |
+| sorted, 100k rows/group | 100 | 40.6 KB | 1 | 20,480 | 1.38 MB | 3.0 ms |
+| shuffled, 100k rows/group | 100 | 40.6 KB | 100 | 10,000,000 | 170.6 MB | 96.5 ms |
+| sorted, 1M rows/group | 10 | 4.7 KB | 1 | 20,480 | 1.93 MB | 3.1 ms |
+| sorted, 10k rows/group | 1,000 | 394 KB | 1 | 10,000 | 0.19 MB | 2.7 ms |
+
+Sorted, the statistics skip 99 of 100 row groups. Shuffled, they skip none: the engine reads 124 times as many
+bytes and takes 32 times as long, for the same 6,033 rows.
+
+The "rows left after page index" column is a second level of pruning. Parquet files can also carry a
+**page index**, per-page min/max values, and DataFusion uses it to skip pages within the row groups that
+survive. With 1M-row groups, row-group statistics alone would leave a million rows; the page index narrows
+them to the 20,480 rows of the one page that overlaps the hour. It is the subject of the
+[page index article](../parquet-page-index-and-bloom-filters/).
+
+<Aside type="note" title="Times are from the page cache">
+The files were read from the operating system's cache on the lab VM, so the times measure decoding and
+filtering, not storage. On object storage, where each byte range is a request, the difference between 1.4 MB
+and 171 MB would be much larger than 32 times.
+</Aside>
+
+## Sizing row groups
+
+Row group size trades several things against each other:
+
+- **Bigger row groups** mean fewer, longer column chunks: larger sequential reads, better compression, less
+  metadata. The 1M-row file's footer is 4.7 KB.
+- **Smaller row groups** mean finer pruning by row-group statistics and more units for parallel readers, at
+  the price of metadata. The 10k-row file's footer is 394 KB, which every query must read and decode first.
+- **Memory**: a writer buffers a whole row group before writing it, and many readers decode one row group per
+  thread at a time.
+
+Defaults differ by writer. parquet-rs caps row groups at about one million rows (1,048,576); parquet-java,
+used by Spark, targets 128 MiB per row group. With a page index, pruning inside large row groups works well,
+as the 1M-row case shows, which takes much of the pressure off making row groups small.
+
+Pages are sized for decoding rather than skipping: parquet-rs ends a data page at about 1 MiB or 20,000 rows by
+default, small enough to decompress quickly and, with a page index, to skip individually.
+
+## Costs and trade-offs
+
+**Pruning needs clustering.** Statistics help only on columns the data is sorted or clustered by. Writers and
+table formats sort, partition or cluster data, by time, by key, or with space-filling curves such as Z-order
+for several columns at once, precisely to make statistics useful.
+
+**One sort order per file.** Data sorted by time prunes time predicates; its customer ids are scattered. Choose
+the order for the filters that matter most.
+
+**Metadata isn't free.** Every row group and column adds statistics to the footer, and very small row groups make
+footers that cost more to read than the pruning saves.
+
+## Check yourself
+
+<details>
+<summary>A row group's statistics for price are min 10, max 500. Can a reader skip it for WHERE price = 250?</summary>
+
+No. 250 lies inside [10, 500], so the row group might contain it. Statistics can only rule a row group out, here
+for values below 10 or above 500.
+</details>
+
+<details>
+<summary>Why did the shuffled file read 171 MB for a query matching 6,033 rows?</summary>
+
+Every row group contained times from the whole 70 days, so every row group's [min, max] overlapped the hour
+queried. Nothing could be pruned, and the engine read the needed columns of every row group.
+</details>
+
+<details>
+<summary>What does shrinking row groups from 100k to 10k rows cost, according to the lab?</summary>
+
+The footer grew from 41 KB to 394 KB, metadata that every query reads and decodes before touching data. The query
+read fewer data bytes, 0.19 MB instead of 1.38 MB, but with a page index the larger row groups were nearly as
+selective.
+</details>
+
+## Further reading
+
+- Apache Parquet, [File format: metadata](https://parquet.apache.org/docs/file-format/metadata/).
+- Guido Moerkotte, "Small Materialized Aggregates: A Light Weight Index Structure for Data Warehousing",
+  VLDB 1998: the min/max idea that zone maps and Parquet statistics descend from.

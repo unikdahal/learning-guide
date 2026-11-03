@@ -8,3 +8,8 @@ description = "Module 03 lab: row and column layouts, and Apache Arrow in practi
 [dependencies]
 labkit.workspace = true
 datafusion.workspace = true
+tokio.workspace = true
+lz4_flex.workspace = true
+snap.workspace = true
+zstd.workspace = true
+flate2.workspace = true

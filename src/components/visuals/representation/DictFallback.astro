@@ -1,0 +1,209 @@
+---
+// What a Parquet writer does with dictionary encoding as cardinality grows. Play the writer: each
+// data page joins the strip as it is written, while the dictionary page fills towards its 1 MiB
+// limit; once the dictionary is full, the writer falls back to PLAIN pages for the rest of the
+// column chunk. Numbers measured by lab/crates/m03-representation/examples/parquet_dict.rs
+// (2M 16-byte strings, parquet-rs defaults, one row group, no compression).
+const cases = [
+  { key: '5', label: '5 distinct', distinct: 5, dictBytes: 100, dictPages: 98, onMB: 0.76, offMB: 40.0 },
+  { key: '1k', label: '1,000', distinct: 1000, dictBytes: 20000, dictPages: 98, onMB: 2.53, offMB: 40.0 },
+  { key: '100k', label: '100,000', distinct: 52545, dictBytes: 1050900, dictPages: 4, onMB: 39.71, offMB: 40.0 },
+  { key: 'u', label: 'all unique', distinct: 52429, dictBytes: 1048580, dictPages: 3, onMB: 40.1, offMB: 40.0 },
+];
+---
+
+<qe-dictfb class="qe-lab qe-df not-content" data-c={JSON.stringify(cases)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-cap">Distinct values in a 2-million-row string column</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Cardinality">
+      {cases.map((c, i) => <button type="button" data-k={c.key} aria-pressed={String(i === 2)}>{c.label}</button>)}
+    </div>
+    <div class="gauge">
+      <p class="qe-lab-cap">Dictionary page <span data-gl></span></p>
+      <span class="gtrack"><span class="gfill" data-gfill></span><span class="glimit" aria-hidden="true"></span></span>
+    </div>
+    <p class="qe-lab-cap lbl">Data pages, in the order written (about 20,000 rows each)</p>
+    <div class="pages" data-pages aria-hidden="true"></div>
+    <ul class="legend">
+      <li><span class="key dk"></span>dictionary codes (RLE_DICTIONARY)</li>
+      <li><span class="key pk"></span>PLAIN after fallback</li>
+    </ul>
+    <div class="row">
+      <button type="button" class="qe-lab-btn" data-play>Play the writer</button>
+      <span class="sizes" data-sizes aria-live="polite"></span>
+    </div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-dictfb>
+
+<script>
+  type C = { key: string; label: string; distinct: number; dictBytes: number; dictPages: number; onMB: number; offMB: number };
+  const LIMIT = 1048576;
+  const PAGES = 98;
+
+  class QeDictFb extends HTMLElement {
+    c: C[] = [];
+    cur = 2;
+    shown = PAGES;
+    timer = 0;
+
+    connectedCallback() {
+      this.c = JSON.parse(this.dataset.c!);
+      this.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b, i) =>
+        b.addEventListener('click', () => {
+          this.querySelectorAll('[data-k]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.cur = i;
+          this.stop();
+          this.shown = PAGES;
+          this.render();
+        }),
+      );
+      this.querySelector('[data-play]')!.addEventListener('click', () => this.play());
+      this.render();
+    }
+
+    disconnectedCallback() {
+      this.stop();
+    }
+
+    stop() {
+      if (this.timer) cancelAnimationFrame(this.timer);
+      this.timer = 0;
+    }
+
+    play() {
+      this.stop();
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        this.shown = PAGES;
+        this.render();
+        return;
+      }
+      this.shown = 0;
+      let last = 0;
+      const tick = (t: number) => {
+        if (t - last > 28) {
+          last = t;
+          this.shown++;
+          this.render();
+        }
+        if (this.shown < PAGES) this.timer = requestAnimationFrame(tick);
+        else this.timer = 0;
+      };
+      this.timer = requestAnimationFrame(tick);
+    }
+
+    render() {
+      const c = this.c[this.cur];
+      const done = this.shown / PAGES;
+      // The dictionary grows while pages are dictionary-coded, then stops.
+      const progress = c.dictPages >= PAGES ? done : Math.min(1, this.shown / c.dictPages);
+      const bytes = Math.round(c.dictBytes * progress);
+      const entries = Math.round(c.distinct * progress);
+      this.querySelector<HTMLElement>('[data-gfill]')!.style.width = `${Math.max(0.6, (bytes / LIMIT) * 100)}%`;
+      this.querySelector<HTMLElement>('[data-gfill]')!.classList.toggle('full', bytes >= LIMIT);
+      this.querySelector('[data-gl]')!.textContent = `${entries.toLocaleString('en-US')} entries, ${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KiB of the 1,024 KiB limit`;
+      let cells = '';
+      for (let i = 0; i < PAGES; i++) {
+        const kind = i < c.dictPages ? 'dk' : 'pk';
+        cells += `<span class="pg ${kind}${i < this.shown ? '' : ' future'}"></span>`;
+      }
+      this.querySelector('[data-pages]')!.innerHTML = cells;
+      this.querySelector('[data-sizes]')!.innerHTML =
+        `column chunk: <b>${c.onMB.toFixed(2)} MB</b> with dictionary, ${c.offMB.toFixed(2)} MB without`;
+      const playing = this.shown < PAGES;
+      const notes: Record<string, string> = {
+        '5': 'Five values: a 100-byte dictionary, and every page stores 3-bit codes, run-length encoded where values repeat. The column chunk is 53 times smaller than plain.',
+        '1k': 'A thousand values: a 20 KB dictionary and 10-bit codes. Still almost 16 times smaller than plain strings, and nowhere near the dictionary limit.',
+        '100k': 'A hundred thousand distinct values don’t fit. After about 52,500 entries the dictionary page reaches the 1 MiB limit, and from the fifth page on the writer stores plain strings. The result is no smaller than plain, plus a 1 MB dictionary that only a few pages use.',
+        u: 'Every value distinct: the dictionary fills just as fast and holds values that each appear once. The writer falls back after three pages; the column chunk ends up slightly larger than writing it plain from the start.',
+      };
+      this.querySelector<HTMLElement>('[data-note]')!.textContent = playing ? 'Writing pages…' : notes[c.key];
+    }
+  }
+  if (!customElements.get('qe-dictfb')) customElements.define('qe-dictfb', QeDictFb);
+</script>
+
+<style is:global>
+  .qe-df .lbl {
+    margin-top: 0.9rem;
+  }
+  .qe-df .gauge {
+    margin-top: 0.9rem;
+  }
+  .qe-df .gauge span[data-gl] {
+    font-weight: 500;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-df .gtrack {
+    position: relative;
+    display: block;
+    height: 1.2rem;
+    border-radius: 5px;
+    background: var(--sl-color-gray-6);
+    border: 1px solid var(--sl-color-gray-5);
+    overflow: hidden;
+  }
+  .qe-df .gfill {
+    display: block;
+    height: 100%;
+    background: var(--qe-series-1);
+    transition: width 0.12s linear;
+  }
+  .qe-df .gfill.full {
+    background: var(--qe-series-2);
+  }
+  .qe-df .pages {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(0.7rem, 1fr));
+    gap: 2px;
+  }
+  .qe-df .pg {
+    height: 1.1rem;
+    border-radius: 2px;
+    transition: opacity 0.2s;
+  }
+  .qe-df .pg.future {
+    opacity: 0.08;
+  }
+  .qe-df .dk {
+    background: var(--qe-series-1);
+  }
+  .qe-df .pk {
+    background: var(--qe-series-2);
+  }
+  .qe-df .legend {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    margin: 0.6rem 0 0;
+    padding: 0;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-df .legend li {
+    margin: 0 !important;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .qe-df .key {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+  }
+  .qe-df .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+    margin-top: 0.9rem;
+  }
+  .qe-df .sizes {
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-df .sizes b {
+    color: var(--sl-color-white);
+  }
+</style>

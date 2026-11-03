@@ -2,15 +2,166 @@
 title: "Dictionary encoding in storage"
 description: "Dictionary pages, fallback when dictionaries grow too large, and filtering on dictionary codes."
 level: I
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 9
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import DictFallback from '@components/visuals/representation/DictFallback.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="dictionary-encoding-in-storage" />
+<ArticleMeta module="03" slug="dictionary-encoding-in-storage" minutes={13} lab="m03-representation/examples/parquet_dict.rs" />
+
+The [dictionary arrays](../dictionary-and-run-end-encoded-arrays/) of Arrow live in memory. Columnar files
+use the same idea on disk, and it is the single most effective encoding they have: Parquet writers try it
+first for every column by default. But a file format has constraints a memory format doesn't. The writer
+streams data and can't know the cardinality in advance, the dictionary has to be stored somewhere, and a
+dictionary that grows without bound would be worse than none. This article follows a Parquet writer through
+those decisions.
+
+## The question
+
+How do columnar files store dictionaries, what happens when a column has too many distinct values, and how
+can readers take advantage of the encoding?
+
+## Dictionary pages and coded data pages
+
+In Parquet, each column chunk, one column within one row group, can begin with a **dictionary page**
+holding its distinct values in `PLAIN` encoding. The data pages after it store, instead of values, integer
+**codes** into that dictionary, encoded with the RLE and bit-packing hybrid from
+[lightweight encodings](../lightweight-encodings/): runs of a repeated code are stored once, and varying
+codes are bit-packed in groups of 8 using just enough bits for the dictionary's size. The specification calls
+the data-page encoding `RLE_DICTIONARY`; the older name `PLAIN_DICTIONARY` is deprecated.
+
+The [anatomy article](../anatomy-of-an-apache-parquet-file/)'s sample file shows the pieces for a region
+column with five values:
+
+```text title="cargo run --release -p m03-representation --example parquet_anatomy"
+DICTIONARY_PAGE: 5 values, encoding PLAIN, 54 bytes after decompression
+DATA_PAGE: 20480 values, encoding RLE_DICTIONARY, 7722 bytes after decompression
+DATA_PAGE: 20480 values, encoding RLE_DICTIONARY, 7722 bytes after decompression
+```
+
+Five values need 3-bit codes: 20,480 of them take 7,680 bytes, plus a few bytes of headers. The strings
+themselves are stored once, in 54 bytes.
+
+Dictionaries are per column chunk. Each row group starts a new dictionary, so a value appearing in every row
+group is stored once per row group, and a reader can decode any row group on its own.
+
+## When the dictionary gets too big
+
+A writer doesn't know a column's cardinality until it has seen it all, so it starts every column chunk with
+a dictionary and watches it grow. parquet-rs, the Rust implementation, limits the dictionary page to 1 MiB
+by default. When the dictionary reaches the limit, the writer **falls back**: it finishes the current page,
+keeps the dictionary for the pages already written, and writes the rest of the column chunk's pages in
+`PLAIN` encoding. Play the writer to see it happen:
+
+<DictFallback />
+
+The lab writes four columns of 2 million 16-byte strings, with 5, 1,000, 100,000 and 2 million distinct
+values, with dictionary encoding on and off, uncompressed:
+
+```text title="cargo run --release -p m03-representation --example parquet_dict"
+column            dict on MB  dict off MB    ratio
+card_5                  0.76        40.00    52.9x
+card_1000               2.53        40.00    15.8x
+card_100000            39.71        40.00     1.0x
+card_2000000           40.10        40.00     1.0x
+
+card_100000: encodings [PLAIN, RLE, RLE_DICTIONARY]
+  dictionary page: 52545 distinct values, 1050900 bytes
+  values in dictionary-coded pages: 74457, in PLAIN pages: 1925543 (fallback from page 5)
+
+card_2000000: encodings [PLAIN, RLE, RLE_DICTIONARY]
+  dictionary page: 52429 distinct values, 1048580 bytes
+  values in dictionary-coded pages: 52429, in PLAIN pages: 1947571 (fallback from page 4)
+```
+
+At low cardinality, dictionary encoding shrinks the column 16 to 53 times before any compression. At 100,000
+distinct values the dictionary filled after about 52,500 entries, each 20 bytes in the page (a 4-byte length
+and 16 bytes of string), and 96% of the column ended up plain. With every value unique, the column came out
+slightly larger than plain: a full dictionary of values that each appear once, plus codes for them.
+
+The column chunk's list of encodings, `[PLAIN, RLE, RLE_DICTIONARY]`, is the same in all four cases. `PLAIN`
+appears even for the five-value column, because the dictionary page itself is `PLAIN`. A reader can't tell
+from that list whether fallback happened; it learns only by reading the page headers.
+
+<Aside type="caution" title="Dictionaries that don't pay">
+The fallback limit catches only dictionaries that grow too large. The anatomy article's file has a unique
+`order_id` column of 100,000 values per row group: they fit under 1 MiB, so parquet-rs stored all of them in
+a dictionary, then stored a 17-bit code for each one. With no value repeated, the dictionary saves nothing and
+costs both writer and reader an extra step.
+Some writers check whether the dictionary is paying off after the first page and abandon it if not; with
+parquet-rs, disable dictionary encoding for columns known to be unique, with
+`set_column_dictionary_enabled`.
+</Aside>
+
+## Reading dictionaries without decoding
+
+A reader that turns dictionary-coded pages into plain strings repeats each distinct value once per row. One
+that hands the codes and the dictionary straight to an Arrow
+[dictionary array](../dictionary-and-run-end-encoded-arrays/) avoids the decoding and the memory. The lab
+reads the 1,000-value column both ways with arrow-rs, which produces dictionary arrays when the requested
+schema asks for them:
+
+```text title="cargo run --release -p m03-representation --example parquet_dict"
+as Utf8 (decoded):            25.0 ms,   40.2 MB in memory
+as Dictionary(Int32, Utf8):    7.1 ms,    8.2 MB in memory
+```
+
+Three and a half times faster and a fifth of the memory. (Times vary between runs; another run gave 14.2 and
+5.1 ms, the same ratio.) Everything after the read can then work on codes, as the earlier article measured:
+filters compare integers, and grouping uses codes as group ids.
+
+## Filtering with the dictionary
+
+The dictionary is a complete list of the values in a column chunk, which allows a kind of skipping that
+min/max [statistics](../parquet-row-groups-pages-and-statistics/) can't. For `WHERE region = 'OCEANIA'`, a
+reader can read the small dictionary page first: if `'OCEANIA'` isn't in it, no row in the column chunk
+matches and its data pages can be skipped, even though `'OCEANIA'` lies between the chunk's min `'AFRICA'` and
+max `'MIDDLE EAST'`. This only works when every page of the chunk is dictionary-coded; after a fallback, the
+plain pages may contain values the dictionary doesn't. parquet-java offers this as dictionary filtering, used
+by Spark and others; support varies between readers.
+
+## Costs and trade-offs
+
+**Cardinality decides.** Columns with a few thousand distinct values per row group shrink by an order of
+magnitude; columns that are mostly unique gain nothing and pay for a useless dictionary.
+
+**Row group size interacts with the limit.** A larger row group sees more distinct values, so a column that fits
+its dictionary in a small row group may fall back in a large one.
+
+**Fallback is per column chunk and one-way.** Once a chunk falls back, its remaining pages are plain, however
+repetitive the later data is. The next row group starts afresh.
+
+**Readers choose whether to keep the codes.** Decoding to plain values is simpler for the operators that follow;
+keeping dictionary arrays is faster and smaller if they can use them.
+
+## Check yourself
+
+<details>
+<summary>A column chunk has 300 distinct values. How many bits does each code take in the data pages?</summary>
+
+9 bits, since 2⁸ = 256 is too few and 2⁹ = 512 is enough. Runs of the same code are stored more compactly still.
+</details>
+
+<details>
+<summary>Why can a reader skip a column chunk using its dictionary page when min/max statistics can't rule it out?</summary>
+
+Min/max only bound the values. The dictionary lists every value in the chunk, so a value missing from it is
+missing from all of the chunk's rows, provided no page fell back to plain encoding.
+</details>
+
+<details>
+<summary>Why did the all-unique column end up slightly larger with dictionary encoding enabled?</summary>
+
+The writer filled a 1 MiB dictionary with values that each appear once and wrote codes for them, then fell back
+to plain for the rest. The values in the dictionary were stored once either way; the codes and dictionary
+overhead were pure extra.
+</details>
+
+## Further reading
+
+- Apache Parquet, [Encodings](https://parquet.apache.org/docs/file-format/data-pages/encodings/): dictionary
+  encoding and the RLE and bit-packing hybrid.

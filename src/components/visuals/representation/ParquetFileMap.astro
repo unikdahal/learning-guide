@@ -1,0 +1,267 @@
+---
+// A byte map of a real Parquet file: the one written by
+// lab/crates/m03-representation/examples/parquet_anatomy.rs. Each row group is a strip of its
+// column chunks' pages, drawn to scale; tap any piece to see what it is. "Read it like an engine"
+// steps through the order in which a reader touches the file for one query.
+interface Props {
+  map: string; // "offset,length,label;..." as printed by the lab
+  size: number;
+}
+const { map, size } = Astro.props;
+const segs = map.split(';').map((e) => {
+  const [o, l, ...rest] = e.split(',');
+  return { o: Number(o), l: Number(l), label: rest.join(',') };
+});
+---
+
+<qe-pqmap class="qe-lab qe-pm not-content" data-s={JSON.stringify(segs)} data-size={size}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">m03-orders.parquet, {size.toLocaleString('en-US')} bytes, drawn to scale</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="View">
+      <button type="button" data-mode="explore" aria-pressed="true">Explore the file</button>
+      <button type="button" data-mode="read" aria-pressed="false">Read it like an engine</button>
+    </div>
+    <ul class="legend">
+      <li><span class="key k-data"></span>data page</li>
+      <li><span class="key k-dict"></span>dictionary page</li>
+      <li><span class="key k-meta"></span>footer and indexes</li>
+      <li><span class="key k-magic"></span>magic bytes</li>
+    </ul>
+    <div class="map" data-map></div>
+    <div class="stepper" data-stepper hidden>
+      <button type="button" class="qe-lab-btn" data-prev>Back</button>
+      <span data-stepn></span>
+      <button type="button" class="qe-lab-btn" data-next>Next step</button>
+    </div>
+    <div class="detail" data-detail aria-live="polite"></div>
+  </section>
+</qe-pqmap>
+
+<script>
+  type Seg = { o: number; l: number; label: string };
+  const kind = (s: Seg) =>
+    s.label === 'magic' ? 'magic' : s.label.endsWith('dict') ? 'dict' : /page\d+$/.test(s.label) ? 'data' : 'meta';
+
+  const STEPS = [
+    {
+      title: '1. Read the last 8 bytes',
+      hit: (s: Seg) => s.label === 'footer length' || (s.label === 'magic' && s.o > 0),
+      text: 'The reader starts at the end. The last 4 bytes must be PAR1; the 4 before them give the footer’s length. One small read, usually done together with step 2 by fetching the last few kilobytes in one request.',
+    },
+    {
+      title: '2. Read and decode the footer',
+      hit: (s: Seg) => s.label === 'footer',
+      text: 'The footer is Thrift-encoded metadata: the schema, every row group, every column chunk’s byte range, encodings, compression and min/max statistics. From now on the reader knows where everything is without scanning.',
+    },
+    {
+      title: '3. Plan: SELECT sum(amount)',
+      hit: () => false,
+      text: 'The query needs one column. Using only the footer, the reader picks the amount column chunk of each row group, and could skip whole row groups if a WHERE clause’s range missed their statistics.',
+    },
+    {
+      title: '4. Read only those byte ranges',
+      hit: (s: Seg) => s.label.includes(' amount '),
+      text: 'The reader fetches each amount column chunk, dictionary page first if there is one, then its data pages, decompresses and decodes them into Arrow arrays. The order_id and region bytes are never read.',
+    },
+  ];
+
+  class QePqMap extends HTMLElement {
+    segs: Seg[] = [];
+    size = 0;
+    mode = 'explore';
+    step = 0;
+    sel = -1;
+
+    connectedCallback() {
+      this.segs = JSON.parse(this.dataset.s!);
+      this.size = Number(this.dataset.size);
+      this.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.mode = b.dataset.mode!;
+          this.step = 0;
+          this.render();
+        }),
+      );
+      this.querySelector('[data-prev]')!.addEventListener('click', () => {
+        this.step = Math.max(0, this.step - 1);
+        this.render();
+      });
+      this.querySelector('[data-next]')!.addEventListener('click', () => {
+        this.step = Math.min(STEPS.length - 1, this.step + 1);
+        this.render();
+      });
+      this.querySelector('[data-map]')!.addEventListener('click', (e) => {
+        const t = (e.target as HTMLElement).closest<HTMLElement>('[data-i]');
+        if (!t || this.mode !== 'explore') return;
+        this.sel = Number(t.dataset.i);
+        this.render();
+      });
+      const first = this.segs.findIndex((s) => s.label.endsWith('dict'));
+      this.sel = first >= 0 ? first : 1;
+      this.render();
+    }
+
+    render() {
+      const groups = new Map<string, number[]>();
+      this.segs.forEach((s, i) => {
+        const m = s.label.match(/^rg(\d+) /);
+        const key = m ? `Row group ${m[1]}` : s.o === 0 ? 'Start' : 'End';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(i);
+      });
+      const maxRow = Math.max(...[...groups.values()].map((ix) => ix.reduce((a, i) => a + this.segs[i].l, 0)));
+      const step = STEPS[this.step];
+      let html = '';
+      for (const [name, ix] of groups) {
+        const bytes = ix.reduce((a, i) => a + this.segs[i].l, 0);
+        const pct = (bytes / maxRow) * 100;
+        const cells = ix
+          .map((i) => {
+            const s = this.segs[i];
+            const k = kind(s);
+            const hit = this.mode === 'read' ? step.hit(s) : i === this.sel;
+            const dim = this.mode === 'read' && !hit;
+            return `<button type="button" class="seg k-${k}${hit ? ' hit' : ''}${dim ? ' dim' : ''}" data-i="${i}" style="flex-grow:${s.l}" aria-label="${s.label}, ${s.l} bytes" title="${s.label}: ${s.l.toLocaleString('en-US')} bytes"></button>`;
+          })
+          .join('');
+        html += `<div class="grp"><p class="gname">${name} <span>${bytes.toLocaleString('en-US')} bytes</span></p><div class="strip" style="width:max(${Math.min(100, pct)}%, ${ix.length * 6}px)">${cells}</div></div>`;
+      }
+      this.querySelector('[data-map]')!.innerHTML = html;
+      const stepper = this.querySelector<HTMLElement>('[data-stepper]')!;
+      stepper.hidden = this.mode !== 'read';
+      const detail = this.querySelector<HTMLElement>('[data-detail]')!;
+      if (this.mode === 'read') {
+        this.querySelector('[data-stepn]')!.textContent = `${this.step + 1} of ${STEPS.length}`;
+        (this.querySelector('[data-prev]') as HTMLButtonElement).disabled = this.step === 0;
+        (this.querySelector('[data-next]') as HTMLButtonElement).disabled = this.step === STEPS.length - 1;
+        const bytes = this.segs.filter(step.hit).reduce((a, s) => a + s.l, 0);
+        detail.innerHTML = `<p class="dt">${step.title}</p><p>${step.text}</p>${bytes ? `<p class="db">${bytes.toLocaleString('en-US')} bytes read in this step, ${((bytes / this.size) * 100).toFixed(1)}% of the file</p>` : ''}`;
+      } else {
+        const s = this.segs[this.sel];
+        const k = kind(s);
+        const what: Record<string, string> = {
+          magic: 'The four bytes PAR1 open and close every Parquet file, so a reader can check it has the right kind of file from either end.',
+          dict: 'A dictionary page: each distinct value of this column chunk, once. The data pages that follow store small integer codes into it.',
+          data: 'A data page: a header, then the encoded and compressed values for a run of rows, plus their repetition and definition levels. Pages are the unit of decoding.',
+          meta:
+            s.label === 'footer'
+              ? 'The footer: all the file’s metadata in Thrift’s compact encoding. Written last, because only then are every chunk’s offsets and statistics known.'
+              : s.label === 'footer length'
+                ? 'A 4-byte little-endian length, so a reader that has read the end of the file knows where the footer starts.'
+                : 'The column and offset indexes: per-page min/max values and page locations, which let a reader skip pages inside a column chunk.',
+        };
+        detail.innerHTML = `<p class="dt">${s.label}</p><p class="db">bytes ${s.o.toLocaleString('en-US')} to ${(s.o + s.l).toLocaleString('en-US')}, ${s.l.toLocaleString('en-US')} bytes</p><p>${what[k]}</p>`;
+      }
+    }
+  }
+  if (!customElements.get('qe-pqmap')) customElements.define('qe-pqmap', QePqMap);
+</script>
+
+<style is:global>
+  .qe-pm .legend {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.9rem;
+    margin: 0.8rem 0 0;
+    padding: 0;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-pm .legend li {
+    margin: 0 !important;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .qe-pm .key {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 3px;
+  }
+  .qe-pm .k-data {
+    background: var(--qe-series-1);
+  }
+  .qe-pm .k-dict {
+    background: var(--qe-series-2);
+  }
+  .qe-pm .k-meta {
+    background: var(--sl-color-gray-3);
+  }
+  .qe-pm .k-magic {
+    background: var(--sl-color-white);
+  }
+  .qe-pm .map {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.8rem;
+  }
+  .qe-pm .gname {
+    margin: 0 0 0.2rem;
+    font-size: 0.6875rem;
+    font-weight: 650;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-pm .gname span {
+    font-weight: 500;
+    color: var(--sl-color-gray-4);
+  }
+  .qe-pm .strip {
+    display: flex;
+    gap: 2px;
+    max-width: 100%;
+    height: 2.4rem;
+  }
+  .qe-pm .seg {
+    flex-basis: 0;
+    min-width: 4px;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: opacity 0.25s, transform 0.2s;
+  }
+  .qe-pm .seg.hit {
+    outline: 2px solid var(--sl-color-white);
+    outline-offset: 1px;
+    z-index: 1;
+  }
+  .qe-pm .seg.dim {
+    opacity: 0.22;
+  }
+  .qe-pm .stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-pm .stepper[hidden] {
+    display: none;
+  }
+  .qe-pm .detail {
+    margin-top: 0.9rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-2);
+    min-height: 7.5rem;
+  }
+  .qe-pm .detail p {
+    margin: 0 0 0.35rem;
+  }
+  .qe-pm .detail .dt {
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-pm .detail .db {
+    font-size: 0.75rem;
+    color: var(--qe-series-1);
+  }
+</style>

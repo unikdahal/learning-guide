@@ -2,15 +2,184 @@
 title: "Anatomy of an Apache Parquet file"
 description: "Magic bytes, row groups, column chunks, pages and the footer metadata."
 level: I
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 11
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import ParquetFileMap from '@components/visuals/representation/ParquetFileMap.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="anatomy-of-an-apache-parquet-file" />
+<ArticleMeta module="03" slug="anatomy-of-an-apache-parquet-file" minutes={14} lab="m03-representation/examples/parquet_anatomy.rs" />
+
+Apache Parquet is the default file format for analytical data: data lakes, table formats such as Iceberg and
+Delta Lake, and nearly every engine in this guide read and write it. It began in 2013 as a joint project of
+Twitter and Cloudera, based on the column-striping ideas of Google's Dremel paper, and is now an Apache
+project. The format brings together the ideas of this module, [PAX-style](../row-vs-column-layout/) row
+groups, [lightweight encodings](../lightweight-encodings/), [dictionaries](../dictionary-encoding-in-storage/)
+and [compression](../general-purpose-compression/), in a layout designed so that a reader can find exactly the
+bytes a query needs. This article takes a real file apart, byte by byte.
+
+## The question
+
+What is inside a Parquet file, and how does a reader find its way around it?
+
+## The layout, from the outside in
+
+A Parquet file is:
+
+1. The four bytes `PAR1`.
+2. One or more **row groups**, each holding a horizontal slice of the table's rows.
+3. Inside each row group, one **column chunk** per column, holding that column's values for those rows.
+4. Inside each column chunk, a sequence of **pages**: an optional dictionary page, then data pages. Pages are
+   the unit of encoding and compression.
+5. Optionally, the **page indexes**: per-page statistics and locations
+   ([page index and bloom filters](../parquet-page-index-and-bloom-filters/)).
+6. The **footer**: all the file's metadata.
+7. The footer's length as a 4-byte little-endian integer, and `PAR1` again.
+
+The lab writes 300,000 orders, with an `order_id`, a five-value `region` and an `amount`, in row groups of
+100,000 rows with Zstd compression, then maps every byte of the result. Explore it, or step through how an
+engine reads it:
+
+<ParquetFileMap
+  size={2252494}
+  map="0,4,magic;4,102246,rg0 order_id dict;102250,37557,rg0 order_id page0;139807,39310,rg0 order_id page1;179117,39326,rg0 order_id page2;218443,41838,rg0 order_id page3;260281,36374,rg0 order_id page4;296655,77,rg0 region dict;296732,6982,rg0 region page0;303714,6981,rg0 region page1;310695,6970,rg0 region page2;317665,6980,rg0 region page3;324645,6170,rg0 region page4;330815,224548,rg0 amount dict;555363,38475,rg0 amount page0;593838,39593,rg0 amount page1;633431,39984,rg0 amount page2;673415,40303,rg0 amount page3;713718,36230,rg0 amount page4;749948,101594,rg1 order_id dict;851542,37557,rg1 order_id page0;889099,39310,rg1 order_id page1;928409,39326,rg1 order_id page2;967735,41838,rg1 order_id page3;1009573,36374,rg1 order_id page4;1045947,77,rg1 region dict;1046024,6970,rg1 region page0;1052994,6957,rg1 region page1;1059951,6976,rg1 region page2;1066927,6963,rg1 region page3;1073890,6179,rg1 region page4;1080069,225102,rg1 amount dict;1305171,38475,rg1 amount page0;1343646,39618,rg1 amount page1;1383264,39987,rg1 amount page2;1423251,40338,rg1 amount page3;1463589,36230,rg1 amount page4;1499819,101581,rg2 order_id dict;1601400,37557,rg2 order_id page0;1638957,39310,rg2 order_id page1;1678267,39326,rg2 order_id page2;1717593,41838,rg2 order_id page3;1759431,36374,rg2 order_id page4;1795805,77,rg2 region dict;1795882,6985,rg2 region page0;1802867,6975,rg2 region page1;1809842,6978,rg2 region page2;1816820,6980,rg2 region page3;1823800,6183,rg2 region page4;1829983,224626,rg2 amount dict;2054609,38475,rg2 amount page0;2093084,39603,rg2 amount page1;2132687,39990,rg2 amount page2;2172677,40307,rg2 amount page3;2212984,36230,rg2 amount page4;2249214,1668,page indexes;2250882,1604,footer;2252486,4,footer length;2252490,4,magic"
+/>
+
+## The ends of the file
+
+```text title="cargo run --release -p m03-representation --example parquet_anatomy"
+== The file: 2252494 bytes, 300000 rows ==
+first 4 bytes: "PAR1"
+last 8 bytes:  footer length 1604 (little-endian u32), then "PAR1"
+footer (Thrift-encoded metadata) at bytes 2250882..2252486
+```
+
+The metadata sits at the end, not the start, because the writer streams: it writes row groups as data
+arrives and only knows every chunk's offset, size and statistics once they're written. Putting the metadata
+last lets a writer produce a file in one pass without buffering it all. The price is paid by readers, which
+must start at the end.
+
+## The footer
+
+The footer is a `FileMetaData` structure serialized with Apache Thrift's compact protocol. It holds:
+
+- the format **version** and the **schema**, flattened into a list of elements, with each column's physical
+  type (`INT64`, `BYTE_ARRAY`, `DOUBLE` and a few others) and logical type (such as a string or a timestamp);
+- the total **number of rows**;
+- for every row group, its row count and size, and for every **column chunk**: the codec, the encodings used,
+  the byte offsets of its dictionary page and first data page, compressed and uncompressed sizes, and
+  **statistics** (min, max, null count);
+- key-value metadata, where Arrow writers store the original Arrow schema, and a `created_by` string naming
+  the writer.
+
+```text title="cargo run --release -p m03-representation --example parquet_anatomy"
+file metadata: version 1, 300000 rows, created by "parquet-rs version 59.3.2"
+schema: order_id INT64, region BYTE_ARRAY, amount DOUBLE
+
+row group 0: 100000 rows, 749944 bytes compressed
+  order_id  ZSTD(ZstdLevel(1)) encodings [PLAIN, RLE, RLE_DICTIONARY]
+            dictionary page at Some(4), data pages at 102250, 1002600 -> 296651 bytes
+            min Some(0) max Some(99999) nulls Some(0)
+  region    ZSTD(ZstdLevel(1)) encodings [PLAIN, RLE, RLE_DICTIONARY]
+            dictionary page at Some(296655), data pages at 296732, 37878 -> 34160 bytes
+            min Some("AFRICA") max Some("MIDDLE EAST") nulls Some(0)
+  amount    ZSTD(ZstdLevel(1)) encodings [PLAIN, RLE, RLE_DICTIONARY]
+            dictionary page at Some(330815), data pages at 555363, 703084 -> 419133 bytes
+            min Some(0.01) max Some(999.99) nulls Some(0)
+```
+
+The whole description of 2.25 MB of data fits in 1,604 bytes. With those numbers a reader knows, before
+reading any data, exactly which byte ranges hold which column of which rows, and the range of values in each.
+That is what makes [statistics-based pruning](../parquet-row-groups-pages-and-statistics/) possible.
+
+The file also shows a writer's decisions. The `order_id` and `amount` chunks are dictionary-encoded although
+their values barely repeat, because they fit under parquet-rs's 1 MiB dictionary limit; the `region` chunk,
+five values, shrank to 34 KB for 100,000 rows. Nothing here is wrong, but none of it is automatic wisdom
+either ([dictionary encoding in storage](../dictionary-encoding-in-storage/)).
+
+## Pages
+
+Each page starts with its own small Thrift header: the page type, its uncompressed and compressed sizes, the
+number of values, the encoding, and optionally a checksum. Then come the page's data, compressed as a unit.
+In data pages of nullable or nested columns, the encoded values are preceded by repetition and definition
+levels ([Parquet nested data](../parquet-nested-data-repetition-and-definition-levels/)).
+
+```text title="cargo run --release -p m03-representation --example parquet_anatomy"
+== Pages inside row group 0, column region ==
+DICTIONARY_PAGE: 5 values, encoding PLAIN, 54 bytes after decompression
+DATA_PAGE: 20480 values, encoding RLE_DICTIONARY, 7722 bytes after decompression
+DATA_PAGE: 20480 values, encoding RLE_DICTIONARY, 7722 bytes after decompression
+DATA_PAGE: 20480 values, encoding RLE_DICTIONARY, 7722 bytes after decompression
+DATA_PAGE: 20480 values, encoding RLE_DICTIONARY, 7722 bytes after decompression
+DATA_PAGE: 18080 values, encoding RLE_DICTIONARY, 6817 bytes after decompression
+```
+
+parquet-rs ends a data page at about 1 MiB or 20,000 rows by default, checking between batches of 1,024 rows,
+hence 20,480. There are two data page formats. Version 1, written here, compresses levels and values together.
+Version 2 stores the levels uncompressed ahead of the values, so a reader can read them without
+decompressing, and records the number of rows and nulls in the header.
+
+<Aside type="note" title="Why pages and row groups both exist">
+Row groups are the unit of parallelism and skipping: a reader can hand different row groups to different
+threads and skip whole row groups by their statistics. Pages are the unit of decoding: small enough that a
+reader decompresses only what it needs and holds little in memory at once. The two sizes are tuned
+separately ([row groups, pages and statistics](../parquet-row-groups-pages-and-statistics/)).
+</Aside>
+
+## How a reader reads
+
+For `SELECT sum(amount) FROM orders`, a reader:
+
+1. reads the end of the file to get the footer length, typically by fetching the last few kilobytes in one
+   request and hoping the whole footer is inside, to save a round trip on object storage;
+2. decodes the footer;
+3. selects the column chunks it needs, here the three `amount` chunks, and any row groups it can skip;
+4. reads those byte ranges, 1.26 MB of the 2.25 MB file here and a small fraction of a wide table, then
+   decompresses and decodes their pages.
+
+For a file on object storage with hundreds of columns, step 3 is the whole game: a query touching three
+columns reads three column chunks per row group and never fetches the rest
+([object storage for query engines](../../hardware/object-storage-for-query-engines/)).
+
+## Costs and trade-offs
+
+**Self-describing, at the end.** Every file carries its own schema and statistics, so no external catalog is
+needed to read it, but every reader pays at least one extra read for the footer before reading data.
+
+**Immutable.** There is no way to update a row in place; changing data means writing new files. Table formats
+build updates, deletes and transactions on top by managing sets of immutable files.
+
+**Wide tables mean big footers.** Metadata grows with columns times row groups. Files with thousands of columns
+and many row groups can have footers of megabytes, decoded before any data is read.
+
+## Check yourself
+
+<details>
+<summary>Why is Parquet's metadata at the end of the file rather than the start?</summary>
+
+The writer only knows each column chunk's position, size and statistics after writing it. Putting the metadata
+last lets it write the file in one pass, streaming row groups as they fill, without buffering the whole file.
+</details>
+
+<details>
+<summary>A reader needs 2 of a file's 200 columns. What does it read?</summary>
+
+The footer (via the last 8 bytes), then only the 2 column chunks of each row group it doesn't skip: the byte
+ranges recorded in the footer. The other 198 columns' bytes are never fetched.
+</details>
+
+<details>
+<summary>What is the difference between a row group and a page?</summary>
+
+A row group is a horizontal slice of rows across all columns, the unit of skipping and parallelism. A page is a
+piece of one column chunk, the unit of encoding, compression and decoding.
+</details>
+
+## Further reading
+
+- Apache Parquet, [File format](https://parquet.apache.org/docs/file-format/), and the Thrift definitions in
+  the [parquet-format](https://github.com/apache/parquet-format) repository.
+- Sergey Melnik et al., "Dremel: Interactive Analysis of Web-Scale Datasets", VLDB 2010.

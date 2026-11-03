@@ -1,0 +1,194 @@
+---
+// Every headline latency and bandwidth measured in the guide's lab, on one logarithmic ladder,
+// each linked to the article that measured it. Toggle a "human scale" that stretches one L1 load
+// to one second. All numbers come from the lab VM (2-core KVM guest, Intel Xeon), see each article.
+type Item = { label: string; v: number; href: string; note?: string };
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const a = (p: string) => `${base}/${p}/`;
+const latency: Item[] = [
+  { label: 'Store, Release (atomic)', v: 0.15, href: a('hardware/atomics-and-memory-ordering-for-engine-developers') },
+  { label: 'Load from L1 cache', v: 2.09, href: a('hardware/the-memory-hierarchy-from-registers-to-object-storage') },
+  { label: 'Load from L2 cache', v: 5.99, href: a('hardware/the-memory-hierarchy-from-registers-to-object-storage') },
+  { label: 'fetch_add, uncontended', v: 6.15, href: a('hardware/atomics-and-memory-ordering-for-engine-developers') },
+  { label: 'Branch misprediction (estimated)', v: 8, href: a('hardware/branch-prediction-and-why-branches-hurt'), note: 'estimate from timings, 7 to 9 ns' },
+  { label: 'fetch_add, contended by 2 cores', v: 15.15, href: a('hardware/atomics-and-memory-ordering-for-engine-developers') },
+  { label: 'Load from L3-sized working set', v: 36.3, href: a('hardware/the-memory-hierarchy-from-registers-to-object-storage') },
+  { label: 'Increment, false sharing', v: 30.48, href: a('hardware/multicore-threads-and-false-sharing') },
+  { label: 'Random load from DRAM, 1 GiB', v: 174.5, href: a('hardware/the-memory-hierarchy-from-registers-to-object-storage') },
+  { label: 'Page fault, first touch of 4 KiB', v: 2200, href: a('hardware/measuring-hardware-with-perf-counters') },
+  { label: 'TCP round trip, loopback, 64 B', v: 6600, href: a('hardware/networks-for-data-movement') },
+  { label: 'SSD 4 KiB read, queue depth 1', v: 37500, href: a('hardware/disks-and-ssds') },
+  { label: 'fdatasync of a small write', v: 195200, href: a('hardware/disks-and-ssds') },
+  { label: 'TCP round trip, loopback, 1 MiB', v: 602200, href: a('hardware/networks-for-data-movement') },
+  { label: 'Nagle + delayed ACK stall', v: 43985000, href: a('hardware/networks-for-data-movement') },
+];
+const bandwidth: Item[] = [
+  { label: 'SIMD count, data in L2 (AVX2 intrinsics)', v: 70.1, href: a('hardware/simd-one-instruction-many-values') },
+  { label: 'Sequential read, L1-sized', v: 63.8, href: a('hardware/the-memory-hierarchy-from-registers-to-object-storage') },
+  { label: 'Copy, data in L2 (read + write)', v: 62.2, href: a('hardware/the-roofline-model-for-query-operators') },
+  { label: 'Sequential read, L3-sized', v: 28.0, href: a('hardware/the-memory-hierarchy-from-registers-to-object-storage') },
+  { label: 'DRAM read, 2 threads', v: 17.2, href: a('hardware/prefetching-and-memory-bandwidth') },
+  { label: 'Copy from DRAM (read + write)', v: 16.3, href: a('hardware/the-roofline-model-for-query-operators') },
+  { label: 'DRAM read, 1 thread', v: 9.2, href: a('hardware/the-memory-hierarchy-from-registers-to-object-storage') },
+  { label: 'SSD sequential, 1 MiB requests', v: 4.24, href: a('hardware/disks-and-ssds') },
+  { label: 'TCP streaming, loopback, 1 MiB writes', v: 3.04, href: a('hardware/networks-for-data-movement') },
+  { label: 'SSD, 4 KiB requests', v: 0.115, href: a('hardware/disks-and-ssds') },
+  { label: 'Parsing CSV with pyarrow (160 MB in 382 ms)', v: 0.42, href: a('data-representation/apache-arrow-the-columnar-in-memory-standard') },
+];
+latency.sort((x, y) => x.v - y.v);
+bandwidth.sort((x, y) => y.v - x.v);
+---
+
+<qe-ladder class="qe-lab qe-lad not-content" data-l={JSON.stringify(latency)} data-b={JSON.stringify(bandwidth)}>
+  <section class="qe-lab-part">
+    <div class="qe-lab-chips prose" role="group" aria-label="Measure">
+      <button type="button" data-kind="lat" aria-pressed="true">Latency</button>
+      <button type="button" data-kind="bw" aria-pressed="false">Bandwidth</button>
+    </div>
+    <div class="qe-lab-chips prose human" role="group" aria-label="Scale" data-humanwrap>
+      <button type="button" data-human="0" aria-pressed="true">Real time</button>
+      <button type="button" data-human="1" aria-pressed="false">If an L1 load took 1 second</button>
+    </div>
+    <ol class="rungs" data-rungs></ol>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-ladder>
+
+<script>
+  type Item = { label: string; v: number; href: string; note?: string };
+
+  const fmtNs = (ns: number) =>
+    ns < 1000 ? `${ns < 10 ? ns.toFixed(2) : ns.toFixed(1)} ns` : ns < 1e6 ? `${(ns / 1000).toFixed(1)} µs` : `${(ns / 1e6).toFixed(1)} ms`;
+  const fmtHuman = (s: number) => {
+    if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)} seconds`;
+    if (s < 3600) return `${(s / 60).toFixed(0)} minutes`;
+    if (s < 86400) return `${(s / 3600).toFixed(1)} hours`;
+    if (s < 86400 * 365) return `${(s / 86400).toFixed(0)} days`;
+    return `${(s / 86400 / 365).toFixed(1)} years`;
+  };
+
+  class QeLadder extends HTMLElement {
+    lat: Item[] = [];
+    bw: Item[] = [];
+    kind = 'lat';
+    human = false;
+
+    connectedCallback() {
+      this.lat = JSON.parse(this.dataset.l!);
+      this.bw = JSON.parse(this.dataset.b!);
+      const group = (sel: string, f: (b: HTMLButtonElement) => void) =>
+        this.querySelectorAll<HTMLButtonElement>(sel).forEach((b) =>
+          b.addEventListener('click', () => {
+            this.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            f(b);
+            this.render();
+          }),
+        );
+      group('[data-kind]', (b) => (this.kind = b.dataset.kind!));
+      group('[data-human]', (b) => (this.human = b.dataset.human === '1'));
+      this.render();
+    }
+
+    render() {
+      const lat = this.kind === 'lat';
+      this.querySelector<HTMLElement>('[data-humanwrap]')!.hidden = !lat;
+      const items = lat ? this.lat : this.bw;
+      const vals = items.map((i) => Math.log10(i.v));
+      const lo = Math.min(...vals) - 0.15;
+      const hi = Math.max(...vals);
+      const l1 = 2.09;
+      this.querySelector('[data-rungs]')!.innerHTML = items
+        .map((it) => {
+          const w = ((Math.log10(it.v) - lo) / (hi - lo)) * 100;
+          const value = lat
+            ? this.human
+              ? fmtHuman(it.v / l1)
+              : fmtNs(it.v)
+            : it.v >= 1
+              ? `${it.v.toFixed(1)} GB/s`
+              : `${(it.v * 1000).toFixed(0)} MB/s`;
+          return `<li><a href="${it.href}"><span class="lbl">${it.label}${it.note ? ` <em>(${it.note})</em>` : ''}</span><span class="track"><span class="fill${lat ? '' : ' bwf'}" style="width:${Math.max(2, w)}%"></span></span><span class="val">${value}</span></a></li>`;
+        })
+        .join('');
+      this.querySelector<HTMLElement>('[data-note]')!.textContent = lat
+        ? this.human
+          ? 'Stretched so one L1 load takes a second, a random DRAM load takes over a minute, an SSD read takes about five hours and the TCP stall takes eight months. Bars are logarithmic: each step right is ten times longer.'
+          : 'Bars are logarithmic: each step right is ten times longer. Everything here was measured on the lab VM except the misprediction cost, which was estimated from timings because the VM has no performance counters. Tap a row to open the article that measured it.'
+        : 'Bars are logarithmic. One core reads about 64 GB/s from L1, 28 GB/s from an L3-sized working set and 9 GB/s from DRAM, and small SSD reads deliver about 115 MB/s. That falling bandwidth is why the formats and operators in this guide work so hard to move fewer bytes. Tap a row to open the article that measured it.';
+    }
+  }
+  if (!customElements.get('qe-ladder')) customElements.define('qe-ladder', QeLadder);
+</script>
+
+<style is:global>
+  .qe-lad .human {
+    margin-top: 0.45rem;
+  }
+  .qe-lad .human[hidden] {
+    display: none;
+  }
+  .qe-lad .rungs {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+  }
+  .qe-lad .rungs li {
+    margin: 0 !important;
+  }
+  .qe-lad .rungs a {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6.2rem;
+    grid-template-areas: 'lbl val' 'track track';
+    gap: 0.15rem 0.6rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-lad .rungs a:hover,
+  .qe-lad .rungs a:focus-visible {
+    background: var(--sl-color-gray-6);
+  }
+  .qe-lad .lbl {
+    grid-area: lbl;
+    font-size: 0.8125rem;
+  }
+  .qe-lad .lbl em {
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-lad .val {
+    grid-area: val;
+    text-align: right;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-lad .track {
+    grid-area: track;
+    height: 0.45rem;
+    border-radius: 3px;
+    background: var(--sl-color-gray-6);
+    overflow: hidden;
+  }
+  .qe-lad .fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--qe-series-2);
+    transition: width 0.45s ease;
+  }
+  .qe-lad .fill.bwf {
+    background: var(--qe-series-1);
+  }
+  @media (min-width: 50rem) {
+    .qe-lad .rungs a {
+      grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) 6.2rem;
+      grid-template-areas: 'lbl track val';
+      align-items: center;
+    }
+  }
+</style>

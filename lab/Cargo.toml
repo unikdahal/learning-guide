@@ -13,6 +13,10 @@ datafusion = "55.2"
 tokio = { version = "1.54", features = ["rt-multi-thread", "macros"] }
 criterion = "0.8"
 libc = "0.2"
+lz4_flex = "0.14"
+snap = "1.1"
+zstd = "0.13"
+flate2 = "1.1"
 
 # Benchmarks and timing exercises always run optimized. Line tables keep profilers able to
 # map samples back to source lines without the cost of full debug info.

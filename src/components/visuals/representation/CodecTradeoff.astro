@@ -1,0 +1,282 @@
+---
+// Compression trade-offs from measured numbers. Top: ratio against decompression speed for each
+// codec on four kinds of data. Bottom: the same 2M-row table as Parquet with each codec; slide the
+// storage bandwidth and see the time to fetch and decode it, transfer plus CPU. All numbers from
+// lab/crates/m03-representation/examples/compression.rs on the lab VM, one core.
+const raw: Record<string, [string, number, number, number][]> = {
+  'CSV text': [['lz4', 2.13, 331, 1368], ['snappy', 2.02, 329, 634], ['zstd -1', 3.43, 256, 586], ['zstd -3', 2.99, 144, 619], ['zstd -9', 3.32, 31, 367], ['zstd -19', 4.24, 1, 504], ['gzip -6', 3.26, 33, 405]],
+  'Sorted Int64': [['lz4', 1.64, 404, 807], ['snappy', 1.64, 572, 883], ['zstd -1', 3.93, 357, 714], ['zstd -3', 3.93, 225, 692], ['zstd -9', 3.93, 36, 707], ['zstd -19', 3.77, 2, 588], ['gzip -6', 3.08, 33, 394]],
+  'Repetitive strings': [['lz4', 3.14, 547, 1698], ['snappy', 3.99, 648, 1300], ['zstd -1', 7.41, 434, 1041], ['zstd -3', 7.89, 492, 1147], ['zstd -9', 10.23, 63, 1524], ['zstd -19', 16.87, 1, 2950], ['gzip -6', 12.31, 58, 1850]],
+  'Random bytes': [['lz4', 1.0, 4171, 8155], ['snappy', 1.0, 5587, 8533], ['zstd -1', 1.0, 3606, 12947], ['zstd -3', 1.0, 3044, 12798], ['zstd -9', 1.0, 1516, 12262], ['zstd -19', 1.0, 4, 8575], ['gzip -6', 1.0, 39, 3773]],
+};
+// codec, file MB, read ms (decompress + decode to Arrow, file in page cache)
+const pq: [string, number, number][] = [['none', 39.68, 37.3], ['snappy', 24.8, 94.9], ['lz4_raw', 24.8, 73.7], ['zstd(1)', 12.78, 84.8], ['gzip(6)', 14.78, 116.8]];
+---
+
+<qe-codec class="qe-lab qe-cd not-content" data-raw={JSON.stringify(raw)} data-pq={JSON.stringify(pq)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Ratio against decompression speed</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Data">
+      {Object.keys(raw).map((k, i) => <button type="button" data-set={k} aria-pressed={String(i === 0)}>{k}</button>)}
+    </div>
+    <div class="plot" data-plot></div>
+    <p class="qe-lab-note" data-note1 aria-live="polite"></p>
+  </section>
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Fetching and decoding a 2M-row Parquet file</p>
+    <label class="bw">
+      <span>Storage bandwidth: <b data-bwl></b></span>
+      <input type="range" min="1" max="4" step="0.01" value="2" data-bw aria-label="Storage bandwidth, logarithmic" />
+      <span class="ticks" aria-hidden="true"><span>10 MB/s</span><span>100 MB/s</span><span>1 GB/s</span><span>10 GB/s</span></span>
+    </label>
+    <div class="bars" data-bars></div>
+    <ul class="legend">
+      <li><span class="key tk"></span>transfer at that bandwidth</li>
+      <li><span class="key ck"></span>decompress and decode, measured</li>
+    </ul>
+    <p class="qe-lab-note" data-note2 aria-live="polite"></p>
+  </section>
+</qe-codec>
+
+<script>
+  type Row = [string, number, number, number];
+
+  class QeCodec extends HTMLElement {
+    raw!: Record<string, Row[]>;
+    pq!: [string, number, number][];
+    set = 'CSV text';
+
+    connectedCallback() {
+      this.raw = JSON.parse(this.dataset.raw!);
+      this.pq = JSON.parse(this.dataset.pq!);
+      this.querySelectorAll<HTMLButtonElement>('[data-set]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.querySelectorAll('[data-set]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          this.set = b.dataset.set!;
+          this.renderPlot();
+        }),
+      );
+      this.querySelector('[data-bw]')!.addEventListener('input', () => this.renderBars());
+      new ResizeObserver(() => this.renderPlot()).observe(this.querySelector('[data-plot]')!);
+      this.renderPlot();
+      this.renderBars();
+    }
+
+    renderPlot() {
+      const plot = this.querySelector<HTMLElement>('[data-plot]')!;
+      const W = Math.max(280, plot.clientWidth);
+      const H = 260;
+      const m = { l: 40, r: 14, t: 14, b: 40 };
+      const rows = this.raw[this.set];
+      const ds = rows.map((r) => r[3]);
+      const X1 = 10 ** (Math.ceil(Math.log10(Math.max(...ds) * 1.25) * 2) / 2);
+      const x0 = 10 ** (Math.floor(Math.log10(Math.min(...ds) * 0.8) * 2) / 2);
+      const ymax = Math.max(5, Math.ceil(Math.max(...rows.map((r) => r[1])) / 5) * 5);
+      const sx = (v: number) => m.l + ((Math.log10(v) - Math.log10(x0)) / (Math.log10(X1) - Math.log10(x0))) * (W - m.l - m.r);
+      const sy = (v: number) => m.t + (1 - v / ymax) * (H - m.t - m.b);
+      const p: string[] = [];
+      const ticks = [100, 200, 500, 1000, 2000, 5000, 10000, 20000].filter((t) => t >= x0 && t <= X1);
+      for (const x of ticks) {
+        p.push(`<line class="grid" x1="${sx(x)}" x2="${sx(x)}" y1="${m.t}" y2="${H - m.b}"/><text class="tick" x="${sx(x)}" y="${H - m.b + 15}" text-anchor="middle">${x >= 1000 ? `${x / 1000} GB/s` : `${x} MB/s`}</text>`);
+      }
+      for (let y = 0; y <= ymax; y += ymax / 5) {
+        p.push(`<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${sy(y)}" y2="${sy(y)}"/><text class="tick" x="${m.l - 6}" y="${sy(y) + 4}" text-anchor="end">${y}×</text>`);
+      }
+      p.push(`<text class="label" x="${(W + m.l) / 2}" y="${H - 6}" text-anchor="middle">decompression speed (log scale) →</text>`);
+      // Place each label beside its point, trying right, left, above and below, avoiding earlier labels.
+      type Box = { x0: number; y0: number; x1: number; y1: number };
+      const boxes: Box[] = rows.map(([, ratio, , d]) => ({ x0: sx(d) - 6, y0: sy(ratio) - 6, x1: sx(d) + 6, y1: sy(ratio) + 6 }));
+      const hit = (a: Box) => boxes.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
+      const order = rows.map((r, i) => i).sort((a, b) => rows[b][1] - rows[a][1]);
+      const labels: string[] = [];
+      for (const i of order) {
+        const [name, ratio, c, d] = rows[i];
+        const x = sx(d);
+        const y = sy(ratio);
+        const w = name.length * 6.3 + 4;
+        const cands = [
+          { lx: x + 9, ly: y + 4, a: 'start' },
+          { lx: x - 9, ly: y + 4, a: 'end' },
+          { lx: x, ly: y - 10, a: 'middle' },
+          { lx: x, ly: y + 17, a: 'middle' },
+          { lx: x + 9, ly: y - 9, a: 'start' },
+          { lx: x - 9, ly: y + 15, a: 'end' },
+        ];
+        let pick = cands[0];
+        for (const cnd of cands) {
+          const bx0 = cnd.a === 'start' ? cnd.lx : cnd.a === 'end' ? cnd.lx - w : cnd.lx - w / 2;
+          const box = { x0: bx0, y0: cnd.ly - 10, x1: bx0 + w, y1: cnd.ly + 2 };
+          if (box.x0 >= m.l && box.x1 <= W - 2 && box.y0 >= 0 && !hit(box)) {
+            pick = cnd;
+            boxes.push(box);
+            break;
+          }
+        }
+        p.push(`<circle class="pt" cx="${x}" cy="${y}" r="5.5"><title>${name}: ratio ${ratio}×, compresses ${c} MB/s, decompresses ${d} MB/s</title></circle>`);
+        labels.push(`<text class="pl" x="${pick.lx}" y="${pick.ly}" text-anchor="${pick.a}">${name}</text>`);
+      }
+      p.push(...labels);
+      plot.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Compression ratio against decompression speed for ${this.set}">${p.join('')}</svg>`;
+      const notes: Record<string, string> = {
+        'CSV text': 'Text compresses 2 to 4 times. LZ4 decompresses fastest; Zstd gets more out of the same data. Compression speed, not shown here, falls off a cliff at high levels: zstd -19 compressed at about 1 MB/s.',
+        'Sorted Int64': 'Plain 8-byte timestamps: Zstd finds four times, LZ4 and Snappy under two. A delta encoding first would do better than any of them; this is why formats encode before they compress.',
+        'Repetitive strings': 'Five region names run together repeat endlessly: every codec does well and the slow ones do remarkably well, 17 times for zstd -19. Dictionary encoding would have shrunk this data before any codec saw it.',
+        'Random bytes': 'Random data doesn’t compress, and good codecs notice quickly and store it as is, so “decompression” is a copy. Already-compressed or encrypted data behaves the same way.',
+      };
+      this.querySelector<HTMLElement>('[data-note1]')!.textContent = notes[this.set];
+    }
+
+    renderBars() {
+      const bw = 10 ** Number(this.querySelector<HTMLInputElement>('[data-bw]')!.value); // MB/s
+      this.querySelector('[data-bwl]')!.textContent = bw >= 1000 ? `${(bw / 1000).toFixed(1)} GB/s` : `${bw.toFixed(0)} MB/s`;
+      const rows = this.pq.map(([n, mb, ms]) => ({ n, mb, ms, tx: (mb / bw) * 1000 }));
+      const total = (r: (typeof rows)[0]) => r.tx + r.ms;
+      const max = Math.max(...rows.map(total));
+      const best = rows.reduce((a, b) => (total(b) < total(a) ? b : a));
+      this.querySelector('[data-bars]')!.innerHTML = rows
+        .map(
+          (r) =>
+            `<div class="br${r === best ? ' best' : ''}"><span class="bn">${r.n}<small>${r.mb.toFixed(1)} MB</small></span><span class="bt"><span class="tx" style="width:${(r.tx / max) * 100}%"></span><span class="cpu" style="width:${(r.ms / max) * 100}%"></span></span><span class="bv">${total(r) >= 1000 ? `${(total(r) / 1000).toFixed(2)} s` : `${total(r).toFixed(0)} ms`}</span></div>`,
+        )
+        .join('');
+      this.querySelector<HTMLElement>('[data-note2]')!.textContent =
+        best.n === 'none'
+          ? `At ${this.querySelector('[data-bwl]')!.textContent}, moving bytes is cheap and decompression is the bottleneck: the uncompressed file is fastest. This is the situation for data already in memory or on a fast local SSD.`
+          : `At ${this.querySelector('[data-bwl]')!.textContent}, transfer dominates, and ${best.n} wins by moving fewer bytes, even though it costs more CPU to decode. Over a network or from object storage, a better ratio usually beats a faster codec.`;
+    }
+  }
+  if (!customElements.get('qe-codec')) customElements.define('qe-codec', QeCodec);
+</script>
+
+<style is:global>
+  .qe-cd .plot {
+    margin-top: 0.8rem;
+    border-radius: 8px;
+    background: var(--sl-color-black);
+  }
+  .qe-cd svg {
+    display: block;
+    font-family: var(--sl-font);
+  }
+  .qe-cd .grid {
+    stroke: var(--sl-color-gray-6);
+  }
+  .qe-cd .tick {
+    fill: var(--sl-color-gray-3);
+    font-size: 10.5px;
+  }
+  .qe-cd .label {
+    fill: var(--sl-color-gray-2);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .qe-cd .pt {
+    fill: var(--qe-series-1);
+    stroke: var(--sl-color-black);
+    stroke-width: 2;
+  }
+  .qe-cd .pl {
+    fill: var(--sl-color-white);
+    font-size: 11px;
+    font-weight: 650;
+    paint-order: stroke;
+    stroke: var(--sl-color-black);
+    stroke-width: 3px;
+  }
+  .qe-cd .bw {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.4rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-cd .bw b {
+    color: var(--sl-color-white);
+  }
+  .qe-cd input[type='range'] {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+    min-height: 2rem;
+  }
+  .qe-cd .ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.625rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-cd .bars {
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 0.9rem;
+  }
+  .qe-cd .br {
+    display: grid;
+    grid-template-columns: 4.6rem minmax(0, 1fr) 3.6rem;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.35rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+  }
+  .qe-cd .br.best {
+    border-color: var(--sl-color-accent);
+  }
+  .qe-cd .bn {
+    display: grid;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-white);
+  }
+  .qe-cd .bn small {
+    font-size: 0.625rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-cd .bt {
+    display: flex;
+    height: 1rem;
+    gap: 2px;
+  }
+  .qe-cd .tx,
+  .qe-cd .cpu {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.15s;
+  }
+  .qe-cd .tx,
+  .qe-cd .tk {
+    background: var(--qe-series-2);
+  }
+  .qe-cd .cpu,
+  .qe-cd .ck {
+    background: var(--qe-series-1);
+  }
+  .qe-cd .bv {
+    text-align: right;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-cd .legend {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    margin: 0.6rem 0 0;
+    padding: 0;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-cd .legend li {
+    margin: 0 !important;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .qe-cd .key {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+  }
+</style>

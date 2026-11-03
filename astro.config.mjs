@@ -15,6 +15,7 @@ const sidebar = [
     label: 'Start here',
     items: [
       { label: 'Roadmap', link: '/roadmap/' },
+      { label: 'Numbers from the lab', link: '/lab-numbers/' },
       { label: 'Visual style guide', link: '/style-guide/' },
     ],
   },

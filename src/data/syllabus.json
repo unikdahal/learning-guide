@@ -2589,7 +2589,7 @@
           "scope": "RLE, bit-packing, delta, and frame-of-reference, with when each wins and how they combine.",
           "visual": "Encoder playground showing encoded size for your input",
           "path": "data-representation/lightweight-encodings",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 9,
@@ -2599,7 +2599,7 @@
           "scope": "Dictionary pages, fallback when dictionaries grow too large, and filtering on dictionary codes.",
           "visual": null,
           "path": "data-representation/dictionary-encoding-in-storage",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 10,
@@ -2609,7 +2609,7 @@
           "scope": "LZ4, Snappy and Zstd, compression ratio vs decode speed, and where compression sits in the I/O path.",
           "visual": "Ratio vs decode throughput scatter",
           "path": "data-representation/general-purpose-compression",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 11,
@@ -2619,7 +2619,7 @@
           "scope": "Magic bytes, row groups, column chunks, pages and the footer metadata.",
           "visual": "Exploded file diagram you can click through",
           "path": "data-representation/anatomy-of-an-apache-parquet-file",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 12,
@@ -2629,7 +2629,7 @@
           "scope": "Sizing row groups and pages, min/max and null count statistics, and how readers use them.",
           "visual": null,
           "path": "data-representation/parquet-row-groups-pages-and-statistics",
-          "status": "planned"
+          "status": "published"
         },
         {
           "index": 13,

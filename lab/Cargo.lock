@@ -2128,7 +2128,12 @@ name = "m03-representation"
 version = "0.1.0"
 dependencies = [
  "datafusion",
+ "flate2",
  "labkit",
+ "lz4_flex",
+ "snap",
+ "tokio",
+ "zstd 0.13.4",
 ]
 
 [[package]]

@@ -1,0 +1,245 @@
+---
+// Pick a column shape and a lightweight encoding and watch the bits shrink. Each value is shown
+// as the bits the encoding actually stores (after subtracting the minimum, or taking deltas), and
+// two bars compare the encoded size against plain 64-bit integers. Real measurements at 10M values
+// are in lab/crates/m03-representation/examples/encodings.rs.
+function lcg(seed: number) {
+  let s = seed >>> 0;
+  return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+}
+const r = lcg(7);
+const N = 32;
+let t = 1_700_000_000_000;
+const shapes = {
+  time: Array.from({ length: N }, () => String((t += Math.floor(r() * 1000)))),
+  qty: Array.from({ length: N }, () => String(1 + Math.floor(r() * 100))),
+  status: [...Array(9).fill('0'), ...Array(12).fill('2'), ...Array(6).fill('1'), ...Array(5).fill('3')],
+  hash: Array.from({ length: N }, () => {
+    const hi = BigInt(Math.floor(r() * 2 ** 32));
+    const lo = BigInt(Math.floor(r() * 2 ** 32));
+    return BigInt.asIntN(64, (hi << 32n) | lo).toString();
+  }),
+};
+---
+
+<qe-enclab class="qe-lab qe-el not-content" data-s={JSON.stringify(shapes)}>
+  <section class="qe-lab-part">
+    <p class="qe-lab-cap">Column</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Column shape">
+      <button type="button" data-shape="time" aria-pressed="true">Sorted timestamps</button>
+      <button type="button" data-shape="qty" aria-pressed="false">Quantity 1–100</button>
+      <button type="button" data-shape="status" aria-pressed="false">Status with runs</button>
+      <button type="button" data-shape="hash" aria-pressed="false">Random hashes</button>
+    </div>
+    <p class="qe-lab-cap lbl">Encoding</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Encoding">
+      <button type="button" data-enc="plain" aria-pressed="false">Plain</button>
+      <button type="button" data-enc="bp" aria-pressed="false">Bit-packing</button>
+      <button type="button" data-enc="for" aria-pressed="false">Frame of reference</button>
+      <button type="button" data-enc="delta" aria-pressed="true">Delta</button>
+      <button type="button" data-enc="rle" aria-pressed="false">Run-length</button>
+    </div>
+    <div class="bars" data-bars></div>
+    <p class="qe-lab-cap lbl" data-head></p>
+    <div class="vals" data-vals></div>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-enclab>
+
+<script>
+  type Shapes = Record<string, string[]>;
+  const width = (v: bigint) => (v <= 0n ? 0 : v.toString(2).length);
+
+  class QeEncLab extends HTMLElement {
+    s!: Shapes;
+    shape = 'time';
+    enc = 'delta';
+
+    connectedCallback() {
+      this.s = JSON.parse(this.dataset.s!);
+      const group = (sel: string, f: (b: HTMLButtonElement) => void) =>
+        this.querySelectorAll<HTMLButtonElement>(sel).forEach((b) =>
+          b.addEventListener('click', () => {
+            this.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            f(b);
+            this.render();
+          }),
+        );
+      group('[data-shape]', (b) => (this.shape = b.dataset.shape!));
+      group('[data-enc]', (b) => (this.enc = b.dataset.enc!));
+      this.render();
+    }
+
+    render() {
+      const v = this.s[this.shape].map((x) => BigInt(x));
+      const n = v.length;
+      const min = v.reduce((a, b) => (b < a ? b : a));
+      let stored: bigint[] = [];
+      let w = 64;
+      let header = 0;
+      let label = '';
+      let ok = true;
+      let runs: [bigint, number][] = [];
+      if (this.enc === 'plain') {
+        stored = v;
+        label = 'every value in 64 bits';
+      } else if (this.enc === 'bp') {
+        if (min < 0n) ok = false;
+        stored = v;
+        w = ok ? Math.max(...v.map(width)) : 64;
+        label = ok ? `width = bits of the largest value = ${w}` : 'negative values: plain bit-packing can’t store them';
+      } else if (this.enc === 'for') {
+        stored = v.map((x) => x - min);
+        w = Math.max(...stored.map(width));
+        header = 64 + 8;
+        label = `reference = min = ${min}; width = ${w} bits`;
+      } else if (this.enc === 'delta') {
+        stored = v.map((x, i) => (i === 0 ? 0n : x - v[i - 1]));
+        const dmin = stored.slice(1).reduce((a, b) => (b < a ? b : a), stored[1] ?? 0n);
+        stored = stored.map((d, i) => (i === 0 ? 0n : d - dmin));
+        w = Math.max(...stored.map(width));
+        header = 64 + 64 + 8;
+        label = `first value ${v[0]}, then (delta − ${dmin}) in ${w} bits`;
+      } else {
+        for (const x of v) {
+          const last = runs[runs.length - 1];
+          if (last && last[0] === x) last[1]++;
+          else runs.push([x, 1]);
+        }
+        label = `${runs.length} runs of (value, length), 64 + 32 bits each`;
+      }
+      const bits = this.enc === 'rle' ? runs.length * 96 : header + n * w;
+      const plain = n * 64;
+      const pct = Math.min(100, (bits / plain) * 100);
+      this.querySelector('[data-bars]')!.innerHTML = `
+        <div class="bar"><span class="bl">plain</span><span class="track"><span class="fill plain" style="width:100%"></span></span><span class="bv">${plain} bits</span></div>
+        <div class="bar"><span class="bl">encoded</span><span class="track"><span class="fill enc${bits > plain ? ' worse' : ''}" style="width:${pct}%"></span></span><span class="bv">${bits} bits</span></div>
+        <p class="ratio">${(bits / n).toFixed(1)} bits per value, ${bits <= plain ? `${(plain / bits).toFixed(1)}× smaller` : `${(bits / plain).toFixed(2)}× larger`}</p>`;
+      this.querySelector('[data-head]')!.textContent = `${label}${header ? `; header ${header} bits` : ''}`;
+      const show = 12;
+      let cells = '';
+      if (this.enc === 'rle') {
+        cells = runs
+          .map(([x, k]) => `<div class="val run"><small>×${k}</small><code>${x}</code></div>`)
+          .join('');
+      } else {
+        cells = v
+          .slice(0, show)
+          .map((x, i) => {
+            const s = stored[i];
+            const b = w <= 24 ? (w === 0 ? '·' : s.toString(2).padStart(w, '0')) : `${w} bits`;
+            const sub = this.enc === 'plain' || this.enc === 'bp' ? '' : `<small>${this.enc === 'delta' && i === 0 ? 'first value' : `stores ${s}`}</small>`;
+            return `<div class="val"><span class="orig">${x}</span>${sub}<code class="bits">${b}</code></div>`;
+          })
+          .join('');
+      }
+      this.querySelector('[data-vals]')!.innerHTML = cells + (this.enc !== 'rle' ? `<p class="more">first ${show} of ${n} values</p>` : '');
+      const notes: Record<string, string> = {
+        plain: 'Plain storage spends 64 bits on every value, whatever its size. Everything else here is a way of not doing that.',
+        bp: 'Bit-packing stores every value in the width of the largest one. It works when values are small non-negative numbers; one large value, or a large starting point like a timestamp, makes every value wide.',
+        for: 'Frame of reference subtracts the minimum first, so only the spread of the values matters, not their size. Prices between 10,000 and 10,500 need 9 bits, not 14.',
+        delta: 'Delta encoding stores differences between neighbours. For sorted or slowly changing data the differences are small even when the values are huge, so a 41-bit timestamp column packs into about 10 bits per value.',
+        rle: 'Run-length encoding stores each run once with its length. Long runs collapse to almost nothing; data that changes every row gets bigger, not smaller.',
+      };
+      let note = notes[this.enc];
+      if (this.shape === 'hash' && this.enc !== 'plain') note += ' Random hashes have no structure to exploit: every scheme needs about 64 bits per value, and some add overhead.';
+      this.querySelector<HTMLElement>('[data-note]')!.textContent = note;
+    }
+  }
+  if (!customElements.get('qe-enclab')) customElements.define('qe-enclab', QeEncLab);
+</script>
+
+<style is:global>
+  .qe-el .lbl {
+    margin-top: 0.8rem;
+  }
+  .qe-el .bars {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .qe-el .bar {
+    display: grid;
+    grid-template-columns: 4.2rem minmax(0, 1fr) 5.6rem;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-2);
+  }
+  .qe-el .bv {
+    text-align: right;
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+  }
+  .qe-el .track {
+    height: 1.1rem;
+    border-radius: 4px;
+    background: var(--sl-color-gray-6);
+    overflow: hidden;
+  }
+  .qe-el .fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  .qe-el .fill.plain {
+    background: var(--sl-color-gray-4);
+  }
+  .qe-el .fill.enc {
+    background: var(--qe-series-1);
+    min-width: 2px;
+  }
+  .qe-el .fill.enc.worse {
+    background: var(--qe-series-2);
+  }
+  .qe-el .ratio {
+    margin: 0.1rem 0 0;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .qe-el .vals {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: 4px;
+  }
+  .qe-el .val {
+    display: grid;
+    gap: 1px;
+    padding: 0.3rem 0.45rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-black);
+    min-width: 0;
+  }
+  .qe-el .val .orig {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .qe-el .val small {
+    font-size: 0.625rem;
+    color: var(--sl-color-gray-3);
+  }
+  .qe-el .val .bits,
+  .qe-el .val code {
+    font-size: 0.75rem;
+    color: var(--qe-series-1);
+    background: none;
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+  .qe-el .val.run code {
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .qe-el .more {
+    grid-column: 1 / -1;
+    margin: 0.2rem 0 0;
+    font-size: 0.6875rem;
+    color: var(--sl-color-gray-4);
+  }
+</style>

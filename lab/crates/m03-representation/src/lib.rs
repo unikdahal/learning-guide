@@ -1,5 +1,7 @@
 //! Module 03 lab. Each article's code is an example in `examples/`; shared pieces live here.
 
+pub mod encodings;
+
 /// Number of 8-byte fields in the lab's wide record: 128 bytes, two cache lines.
 pub const FIELDS: usize = 16;
 

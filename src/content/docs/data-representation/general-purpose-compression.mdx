@@ -2,15 +2,178 @@
 title: "General-purpose compression"
 description: "LZ4, Snappy and Zstd, compression ratio vs decode speed, and where compression sits in the I/O path."
 level: I
-status: planned
+status: published
 module: "03"
-tableOfContents: false
 sidebar:
   order: 10
-  attrs:
-    data-status: planned
 ---
-{/* Stub generated from syllabus/. Replace the body with the article and set status: published. */}
-import ArticlePlan from '@components/ArticlePlan.astro';
+import ArticleMeta from '@components/ArticleMeta.astro';
+import CodecTradeoff from '@components/visuals/representation/CodecTradeoff.astro';
+import { Aside } from '@astrojs/starlight/components';
 
-<ArticlePlan module="03" slug="general-purpose-compression" />
+<ArticleMeta module="03" slug="general-purpose-compression" minutes={14} lab="m03-representation/examples/compression.rs" />
+
+[Lightweight encodings](../lightweight-encodings/) exploit structure the format knows about: small numbers,
+sorted values, runs, repeated strings. **General-purpose compressors** know nothing about the data. They look
+for repeated byte sequences and skewed byte frequencies in whatever they're given, which makes them useful as
+a second layer: Parquet and ORC encode each page first, then optionally compress it with a codec such as
+Snappy, LZ4 or Zstd. The choice of codec is a trade between bytes and CPU, and the right answer depends less
+on the data than on how fast bytes arrive.
+
+## The question
+
+How do the common codecs compare, and when does compression make a query faster rather than slower?
+
+## Three families
+
+All the common codecs descend from the **LZ77** idea, published by Abraham Lempel and Jacob Ziv in 1977:
+replace a repeated sequence of bytes with a reference to an earlier occurrence, a distance and a length. They
+differ in how hard they look for matches and in what they do afterwards.
+
+- **Snappy** (Google, 2011) and **LZ4** (Yann Collet, 2011) find matches quickly with a small hash table and
+  write literals and references as plain bytes, with no entropy coding. They compress modestly and
+  decompress very fast.
+- **Zstandard**, or Zstd (Collet, at Facebook, 2016; specified in RFC 8878), adds entropy coding: Huffman
+  coding for literal bytes and finite-state entropy coding for match lengths and distances. Its levels, from
+  fast negative levels up to 22, trade compression time for ratio, while decompression speed stays roughly
+  the same at every level.
+- **gzip** and its DEFLATE format (1990s) combine LZ77 with Huffman coding in an older, slower design. It is
+  everywhere, but rarely the best choice for new analytical data.
+
+Parquet lists `UNCOMPRESSED`, `SNAPPY`, `GZIP`, `LZO`, `BROTLI`, `LZ4`, `ZSTD` and `LZ4_RAW`. The original
+`LZ4` codec is deprecated, because implementations disagreed about its framing; `LZ4_RAW` replaced it.
+
+## Measured: four kinds of data, seven settings
+
+The lab compresses four inputs in memory, one core, and measures ratio and speed in both directions:
+
+```text title="cargo run --release -p m03-representation --example compression"
+== orders as CSV text: 72.3 MB ==
+codec        ratio  compress MB/s  decompress MB/s
+lz4           2.13            331             1368
+snappy        2.02            329              634
+zstd -1       3.43            256              586
+zstd -3       2.99            144              619
+zstd -9       3.32             31              367
+zstd -19      4.24              1              504
+gzip -6       3.26             33              405
+
+== sorted Int64 timestamps: 16.0 MB ==
+lz4           1.64            404              807
+snappy        1.64            572              883
+zstd -1       3.93            357              714
+zstd -19      3.77              2              588
+gzip -6       3.08             33              394
+
+== region strings, run together: 13.6 MB ==
+lz4           3.14            547             1698
+snappy        3.99            648             1300
+zstd -1       7.41            434             1041
+zstd -19     16.87              1             2950
+gzip -6      12.31             58             1850
+```
+
+Explore all four, including random bytes, as ratio against decompression speed:
+
+<CodecTradeoff />
+
+Patterns that hold across the inputs:
+
+- **LZ4 and Snappy compress least and, in most cases here, decompress fastest.** LZ4 decompressed CSV at 1.4
+  GB/s, more than twice as fast as Zstd.
+- **Zstd at low levels gives far better ratios at similar compression speed.** On timestamps it reached 3.9
+  times against LZ4's 1.6.
+- **High levels cost enormous compression time for modest gains.** zstd -19 compressed at 1 to 2 MB/s,
+  hundreds of times slower than level 1, for ratios that were sometimes better and sometimes not. On CSV,
+  level 3 even compressed worse than level 1 in this run; levels choose search strategies, and their ratios
+  aren't guaranteed to rise steadily on every input. High levels fit data written once and read many times.
+- **Random data is stored as is.** All codecs reached a ratio of 1.00, and their "decompression" ran at copy
+  speed, up to 13 GB/s: good codecs detect incompressible blocks and don't try.
+
+Absolute speeds on this 2-core VM are lower than codec authors' published figures from faster machines; the
+relative positions are what transfer.
+
+<Aside type="tip" title="Encode first, then compress">
+The plain timestamps compressed 3.9 times at best. The [delta encoding](../lightweight-encodings/) in the
+previous article stored the same kind of column in about 10 bits per value, 6.4 times smaller, and decodes
+without any match searching. Lightweight encodings remove the structure the format knows about; the
+general-purpose codec mops up what's left.
+</Aside>
+
+## Where compression sits in the I/O path
+
+In Parquet, each page is encoded and then compressed on its own; the page header stays uncompressed so a
+reader can see the page's sizes. Reading reverses it: fetch the compressed bytes, decompress each page into
+a buffer, decode the values into arrays. Compression therefore helps every step that moves bytes, disk,
+network, object storage, page cache, and costs CPU in exactly one place.
+
+The lab writes the same 2-million-row table, four columns, with each codec:
+
+```text title="cargo run --release -p m03-representation --example compression"
+codec          file MB   write ms    read ms
+none             39.68        232       37.3
+snappy           24.80        300       94.9
+lz4_raw          24.80        298       73.7
+zstd(1)          12.78        310       84.8
+zstd(9)          12.71        916       84.6
+gzip(6)          14.78       1483      116.8
+```
+
+"Read ms" is the time to decompress and decode the whole file into Arrow arrays with the file already in the
+operating system's page cache: pure CPU. Uncompressed reads fastest, because no bytes had to move. A real
+read also has to fetch the file, so the total is roughly:
+
+```text
+time ≈ file size / storage bandwidth + decompress-and-decode time
+```
+
+That is what the bandwidth slider in the visual computes. With these measurements, Zstd level 1 is fastest
+below about 570 MB/s, and the uncompressed file above it: at 100 MB/s, a typical rate for one stream from
+object storage, Zstd takes about 210 ms against 430 ms uncompressed; from a local SSD at 2 GB/s, uncompressed
+takes about 57 ms against 91 ms for Zstd. LZ4 is never the fastest in this lab: its ratio is too far behind
+Zstd's for its faster decoding to make up the difference. A crossover of this kind depends on the machine,
+the data and the reader, but the shape is general.
+
+Two effects push the crossover in favour of compression in practice. Decompression work divides across cores
+while the network link doesn't, so a 16-core scan multiplies the CPU budget and not the bandwidth. And
+storage is paid for by the byte: a file three times smaller is three times cheaper to keep and to move.
+
+## Costs and trade-offs
+
+**Ratio is worth most when bytes are slow.** Over networks and object storage, Zstd's ratio usually wins.
+For data read repeatedly from memory or fast local disks, lighter codecs or none can be faster.
+
+**Compression time matters for writers.** Level 1 to 3 Zstd writes about as fast as Snappy here; level 9 took
+three times as long and level 19 would have taken minutes, for little gain on this data.
+
+**Codecs see bytes, not values.** They can't exploit sortedness or numeric ranges the way encodings can, and
+they can't be skipped into: a page must be decompressed whole before any value in it is available.
+
+## Check yourself
+
+<details>
+<summary>A file is 1 GB uncompressed and 300 MB with Zstd, which decodes at 500 MB/s of output. Over a 200 MB/s link, which is faster to read?</summary>
+
+Uncompressed: 1,000 / 200 = 5 s to transfer. Zstd: 300 / 200 = 1.5 s to transfer plus about 2 s to
+decompress, 3.5 s, and less if decompression overlaps the transfer or runs on several cores. Zstd wins.
+</details>
+
+<details>
+<summary>Why does Zstd's decompression speed stay about the same across levels while compression speed changes enormously?</summary>
+
+Levels control how hard the compressor searches for matches. The decompressor just follows the references and
+decodes entropy-coded symbols, which costs about the same whatever search found them.
+</details>
+
+<details>
+<summary>Why did every codec decompress random bytes faster than text?</summary>
+
+Random data has nothing to compress, so codecs store such blocks raw, and "decompressing" them is a copy.
+</details>
+
+## Further reading
+
+- Yann Collet and Murray Kucherawy, [Zstandard Compression and the application/zstd Media Type](https://www.rfc-editor.org/rfc/rfc8878), RFC 8878, 2021.
+- Jacob Ziv and Abraham Lempel, "A Universal Algorithm for Sequential Data Compression", IEEE Transactions
+  on Information Theory, 1977.
+- Apache Parquet, [Compression](https://parquet.apache.org/docs/file-format/data-pages/compression/).

@@ -73,6 +73,18 @@ const routes = [
     </ol>
   </section>
 
+  <section class="measured" aria-labelledby="measured-title">
+    <h2 id="measured-title">Measured, not quoted</h2>
+    <p class="note">Every number in the guide comes from a Rust program in the lab that you can rerun. A few of them, from the lab machine:</p>
+    <dl class="nums">
+      <div><dt>Load from L1 cache</dt><dd>2.1 ns</dd></div>
+      <div><dt>Random load from DRAM</dt><dd>175 ns</dd></div>
+      <div><dt>SSD read, 4 KiB</dt><dd>37.5 µs</dd></div>
+      <div><dt>TCP stall from Nagle’s algorithm</dt><dd>44 ms</dd></div>
+    </dl>
+    <a class="secondary more" href={url('lab-numbers/')}>All the numbers, on one ladder</a>
+  </section>
+
   <section class="routes" aria-labelledby="routes-title">
     <h2 id="routes-title">Where to start</h2>
     <div class="route-list">
@@ -98,6 +110,42 @@ const routes = [
 </div>
 
 <style>
+  .measured .nums {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.5rem;
+    margin: 0 0 1.2rem;
+  }
+  .measured .nums div {
+    padding: 0.8rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .measured dt {
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+  .measured dd {
+    margin: 0.2rem 0 0;
+    font-family: var(--sl-font);
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--sl-color-white);
+  }
+  .measured .more {
+    display: inline-flex;
+    font-family: var(--sl-font);
+    font-weight: 650;
+    padding: 0.6rem 1.1rem;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .measured .more:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 3px;
+  }
   .home {
     display: grid;
     gap: 5rem;

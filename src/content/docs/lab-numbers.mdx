@@ -1,0 +1,26 @@
+---
+title: Numbers from the lab
+description: Every headline latency and bandwidth measured in this guide's lab, on one ladder, with links to the articles that measured them.
+tableOfContents: false
+---
+import NumberLadder from '@components/visuals/NumberLadder.astro';
+
+The articles in this guide measure things rather than quote them. This page gathers the headline numbers
+in one place, so you can see how far apart they are: a load from L1 cache and a forty-millisecond TCP stall
+differ by seven orders of magnitude, and most engine design is about keeping work at the fast end.
+
+All of them come from the same machine, a 2-core KVM virtual machine on an Intel Xeon, so they are
+comparable with each other. They are not universal: your laptop or server will differ, sometimes by a
+lot. The shapes and ratios travel better than the absolute values. Each row links to the article with the
+code, the full output and the caveats.
+
+<NumberLadder />
+
+## Using these numbers
+
+- **Estimate before you measure.** A hash join probing a 1 GiB table makes a random DRAM access per row:
+  about 175 ns on this machine, so a billion probes cost minutes of one core, not seconds.
+- **Compare across layers.** One SSD read at queue depth 1 costs as much as about 200 random DRAM loads; one
+  page fault, about a dozen.
+- **Re-measure on your hardware.** Every number comes from a program in the
+  [lab](https://github.com/unikdahal/learning-guide/tree/main/lab); run it on the machine you care about.
