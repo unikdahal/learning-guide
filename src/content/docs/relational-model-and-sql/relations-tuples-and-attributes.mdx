@@ -208,8 +208,8 @@ can turn a dirty load into wrong answers.
 
 ## In Rust
 
-The lab's Module 01 crate contains a tiny relational algebra engine, written to follow the
-definitions exactly. A relation is a heading and a set of tuples:
+The lab's Module 01 crate contains a tiny relational algebra engine, written to demonstrate the supported set-algebra definitions. It stores attribute names and
+Int/Text values but does not declare domains or implement SQL coercion or NULL values. A relation is a heading and a set of tuples:
 
 ```rust title="lab/crates/m01-relational/src/lib.rs"
 pub struct Relation {
@@ -222,7 +222,7 @@ pub struct Relation {
 ```
 
 Because the body is a `BTreeSet`, inserting the same tuple twice stores it once. Equality ignores
-attribute order, by comparing both relations with their attributes sorted by name. Keys fall out of
+attribute order, by comparing both relations with their attributes sorted by name. These methods test the current instance, not schema promises. On zero or one tuple, the empty attribute set is already a superkey and is the only minimal instance key. Keys fall out of
 projection: a set of attributes is a superkey exactly when projecting onto it loses no tuples.
 
 ```rust title="lab/crates/m01-relational/src/lib.rs"
@@ -241,7 +241,7 @@ pub fn is_candidate_key(&self, names: &[&str]) -> bool {
                 .filter(|(i, _)| *i != skip)
                 .map(|(_, n)| *n)
                 .collect();
-            smaller.is_empty() || !self.is_superkey(&smaller)
+            !self.is_superkey(&smaller)
         })
 }
 ```

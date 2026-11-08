@@ -1,7 +1,7 @@
 ---
 title: "String layouts: offsets vs views"
 description: "Offset-based strings vs the view layout with inline prefixes (StringView, the German string idea), and the operations each makes cheap."
-level: I
+level: A
 status: published
 module: "03"
 sidebar:
@@ -162,7 +162,7 @@ to copy every selected string's bytes into a new buffer and build new offsets.
 </details>
 
 <details>
-<summary>All strings in a column start with "https://www.". Will views speed up sorting it?</summary>
+<summary>All strings in a column start with <code>{'https://www.'}</code>. Will views speed up sorting it?</summary>
 
 Probably not. The 4-byte prefixes are all "http", so they never decide a comparison; every comparison follows the
 pointer to the full bytes, and views add an indirection. The lab's shared-prefix data sorted a third slower with

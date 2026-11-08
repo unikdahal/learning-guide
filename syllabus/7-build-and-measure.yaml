@@ -9,16 +9,17 @@ modules:
   - id: "20"
     slug: capstone-engine
     title: "Capstone: build a query engine in Rust"
-    goal: Assemble everything into a working engine that runs TPC-H queries.
-    prereqs: ["05", "07", "08", "09", "12"]
+    goal: Build a core engine, then earn all-22-query TPC-H coverage through explicit correctness milestones.
+    prereqs: ["05", "07", "08", "09", "10", "12"]
     outcomes:
       - Ship a working SQL engine with scan, filter, project, join, aggregate and sort
       - Add a rule-based optimizer and a simple cost model
-      - Run and profile TPC-H queries
+      - Validate a declared core SQL subset before adding correlated subqueries, CTEs, semi/anti joins and the full 22-query suite
+      - Compare exact answers against an independent engine before profiling
     articles:
       - t: Capstone overview and architecture
         l: I
-        d: What you will build, the crate layout, and milestones.
+        d: Core-engine, full-query-suite and bounded-resource milestones; explicit acceptance criteria and the query capability matrix.
         v: Architecture diagram of the capstone engine
       - t: Project skeleton, crates and core traits
         l: I
@@ -34,7 +35,7 @@ modules:
         d: The first operators, and wiring them together.
       - t: The expression evaluator
         l: I
-        d: Vectorized expression evaluation with arrow kernels.
+        d: Vectorized expressions with Arrow kernels, exact Decimal/date arithmetic, CASE, LIKE, EXTRACT and substring functions required by TPC-H.
       - t: The SQL frontend
         l: I
         d: Parsing SQL and binding it to the catalog.
@@ -55,7 +56,7 @@ modules:
         d: ORDER BY and ORDER BY with LIMIT.
       - t: Limit, union and the remaining operators
         l: I
-        d: Completing the operator set.
+        d: Completing the core operator set, lowering derived tables and CTEs, and adding scalar/correlated subqueries, IN and EXISTS with correct NULL and cardinality rules.
       - t: A rule-based optimizer
         l: A
         d: Predicate pushdown, projection pruning and constant folding.
@@ -70,7 +71,7 @@ modules:
         d: Adding memory accounting and spilling to the join and aggregate.
       - t: Running TPC-H
         l: A
-        d: Generating data, running all 22 queries, and checking results.
+        d: Generate the full TPC-H schema; validate Q1/Q3/Q6 first, then all 22 queries only after every capability and independent answer oracle is ready.
       - t: Profiling and optimizing the engine
         l: A
         d: Finding and fixing the biggest bottlenecks with profilers.

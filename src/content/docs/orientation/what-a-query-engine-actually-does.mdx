@@ -86,8 +86,8 @@ PostgreSQL's and switched its default to a new extensible PEG parser in DuckDB 2
 
 **Binding** (Spark calls it *analysis*) resolves every name against the **catalog**, the
 engine's directory of tables, columns, types and functions. `o` becomes the `orders` table,
-`amount` becomes a decimal column, `sum` becomes a specific aggregate function whose output
-type is wide enough not to overflow. "Column not found" and "type mismatch" errors come from
+`amount` becomes a decimal column, `sum` becomes a specific aggregate function with a defined output
+type and overflow behavior. "Column not found" and "type mismatch" errors come from
 this step.
 
 The output is a **logical plan**: a tree of relational algebra operators. Data flows from
@@ -337,7 +337,7 @@ work per value, such as comparisons or additions, and it does not reduce I/O.
 
 - Boncz, Zukowski and Nes, [MonetDB/X100: Hyper-Pipelining Query Execution](https://cs.brown.edu/courses/cs227/archives/2008/Papers/ColumnStores/MonetDB.pdf), CIDR 2005. The source of the profile above.
 - Lamb et al., [Apache Arrow DataFusion: A Fast, Embeddable, Modular Analytic Query Engine](https://github.com/apache/datafusion/files/15149988/DataFusion_Query_Engine___SIGMOD_2024-FINAL-mk4.pdf), SIGMOD 2024.
-- [DataFusion crate documentation](https://docs.rs/datafusion/latest/datafusion/), whose overview walks through the same stages in code.
+- [DataFusion crate documentation](https://docs.rs/datafusion/55.2.0/datafusion/), whose overview walks through the same stages in code.
 - [DuckDB internals overview](https://duckdb.org/docs/current/internals/overview), a short tour of each stage in DuckDB.
 - Armbrust et al., [Spark SQL: Relational Data Processing in Spark](https://web.stanford.edu/class/cs245/win2020/readings/spark-sql.pdf), SIGMOD 2015.
 - Pedreira et al., [Velox: Meta's Unified Execution Engine](https://www.vldb.org/pvldb/vol15/p3372-pedreira.pdf), VLDB 2022.

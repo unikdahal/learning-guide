@@ -18,9 +18,11 @@ overwritten.
 ## Writing an article
 
 1. Find its stub in `src/content/docs/<module>/`.
-2. Replace the stub body with the article, and change `status: planned` to
-   `status: published` in the frontmatter.
+2. Replace the stub body with the article, then use
+   `npm run publish -- <module-id> <article-slug> published` to synchronize status and sidebar/search markers.
 3. Run `npm run dev` to preview.
 
 To add an article, append it to the module's `articles` list and run
 `npm run generate`. Article order in the YAML is the reading order.
+
+Run `npm run check:content` to detect drift without editing files. See [CONTRIBUTING.md](../CONTRIBUTING.md).

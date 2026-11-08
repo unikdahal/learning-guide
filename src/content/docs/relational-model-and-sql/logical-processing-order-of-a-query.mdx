@@ -109,7 +109,7 @@ functions "are forbidden elsewhere, such as in `GROUP BY`, `HAVING` and `WHERE` 
 logically execute after the processing of those clauses." Either way, the fix is
 to filter after the window function runs: with a subquery, which works everywhere, or with `QUALIFY`, a
 clause that some engines add, which filters on window functions after they are computed. The lab shows both
-returning the top two orders.
+returning the top two orders in this data. With ties, `rank() <= 2` may return more than two rows; use `row_number()` over a total order when exactly two rows are required.
 
 ### Grouping
 

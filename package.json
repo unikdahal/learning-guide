@@ -6,7 +6,14 @@
     "dev": "npm run generate && astro dev",
     "build": "npm run generate && astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "check:content": "node scripts/generate.mjs --check",
+    "check": "npm run check:content && astro check",
+    "test": "node --experimental-strip-types --test tests/unit/*.test.ts tests/unit/*.test.mjs",
+    "test:browser": "playwright test",
+    "check:site": "python3 scripts/qa/check_site.py",
+    "verify": "npm test && npm run check && npm run build && npm run check:site",
+    "publish": "node scripts/publish.mjs"
   },
   "repository": {
     "type": "git",
@@ -26,5 +33,14 @@
     "yaml": "^2.9.1"
   },
   "type": "module",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.0",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
 }

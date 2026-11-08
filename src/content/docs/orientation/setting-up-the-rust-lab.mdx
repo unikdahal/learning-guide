@@ -60,6 +60,11 @@ anything unusual when it appears.
    cd learning-guide/lab
    ```
 
+   The lab source repository is private. You need access on your GitHub account to clone it; reading
+   the hosted guide does not grant source access. If GitHub reports ‘not found’ or an authorization
+   error, ask the maintainer for access through your usual GitHub account.
+
+
    The first `cargo` command you run here reads `rust-toolchain.toml` and installs the exact
    compiler version the guide uses, automatically.
 
@@ -173,13 +178,23 @@ profilers can still map samples to source lines.
 ### Data is generated, not downloaded
 
 The data set is produced by a small deterministic random number generator with fixed seeds.
-Anyone, on any machine, gets byte-for-byte identical rows, without downloading anything. Sizes
+The same generator version, seeds, chunk size and parameters produce identical logical rows, without downloading anything. Sizes
 follow TPC-H at scale factor 1: 150,000 customers and 1.5 million orders. To make more data, pass
-a scale factor:
+a scale factor (customers/orders scale; trips stays at 200,000 rows):
 
 ```sh wrap
 cargo run --release -p labkit --bin gen-data -- 10
 ```
+
+The current generator is version 2: it corrects the trips fare to `2.50 + 1.80 × distance_km`,
+rounded to cents. Customer and order rows are unchanged. `data/generator.json` records parameters.
+Encoded Parquet/CSV bytes are not a cross-version compatibility promise. Invalid, non-finite, or
+too-small scales fail before existing files are replaced.
+
+For a low-resource correctness check before building DataFusion, run
+`cargo test --locked -p m01-relational --no-default-features --lib`.
+The repository may require GitHub access; reading the hosted guide does not grant source access.
+See the repository's contribution guide if cloning fails with an authorization error.
 
 ## Working day to day
 
@@ -233,6 +248,6 @@ between machines for the same data.
 ## Further reading
 
 - [rustup](https://rustup.rs/) and the [Cargo book's chapter on workspaces](https://doc.rust-lang.org/cargo/reference/workspaces.html).
-- The [DataFusion documentation](https://docs.rs/datafusion/latest/datafusion/), whose crate overview is a good map of the engine.
+- The [DataFusion documentation](https://docs.rs/datafusion/55.2.0/datafusion/), whose crate overview is a good map of the engine.
 - [Criterion's user guide](https://bheisler.github.io/criterion.rs/book/), for the benchmarking library the lab uses.
 - The [lab's source](https://github.com/unikdahal/learning-guide/tree/main/lab) on GitHub.

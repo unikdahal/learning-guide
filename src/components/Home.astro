@@ -2,7 +2,7 @@
 // Landing page body.
 import HeroPlan from './HeroPlan.astro';
 import ContinueReading from './ContinueReading.astro';
-import { data, moduleById, url } from '../lib/site';
+import { data, moduleById, url, routes, routeSummary, publishedCount } from '../lib/site';
 
 const first = moduleById('00').articles[0];
 const parts = data.parts.map((p) => {
@@ -10,24 +10,7 @@ const parts = data.parts.map((p) => {
   return { ...p, count: mods.reduce((n, m) => n + m.articles.length, 0), first: mods[0] };
 });
 
-// Suggested routes through the guide. Each step is a module id.
-const routes = [
-  {
-    title: 'New to databases',
-    text: 'Learn what a query means and how one machine runs it before going distributed.',
-    steps: ['00', '01', '03', '05', '07', '08', '09'],
-  },
-  {
-    title: 'Working data engineer',
-    text: 'You run Spark or Trino daily and want to know why queries are fast or slow.',
-    steps: ['05', '08', '13', '14', '15', '16', '18'],
-  },
-  {
-    title: 'Preparing for engine roles',
-    text: 'The depth that query execution and runtime interviews expect, plus the capstone.',
-    steps: ['02', '05', '08', '09', '11', '15', '20'],
-  },
-];
+
 ---
 
 <div class="home not-content">
@@ -37,7 +20,7 @@ const routes = [
       <h1>Query Execution</h1>
       <p class="lede">
         How engines turn SQL into running code, from relational algebra to vectorized joins, shuffles and lakehouse
-        pruning. {data.articleCount} articles that start at zero and end inside the engines.
+        pruning. {publishedCount} published articles available now, with {data.articleCount - publishedCount} more planned. The full curriculum starts at zero and ends inside the engines.
       </p>
       <pre class="sql" aria-label="The query running in the diagram"><code><span class="emit">SELECT</span> c.region, sum(o.amount)
 <span class="probe">FROM</span> orders o
@@ -75,7 +58,7 @@ const routes = [
 
   <section class="measured" aria-labelledby="measured-title">
     <h2 id="measured-title">Measured, not quoted</h2>
-    <p class="note">Every number in the guide comes from a Rust program in the lab that you can rerun. A few of them, from the lab machine:</p>
+    <p class="note">These measurements have runnable Rust examples. Older observations may lack complete host records; rerun them on your hardware. A few of them, from the lab machine:</p>
     <dl class="nums">
       <div><dt>Load from L1 cache</dt><dd>2.1 ns</dd></div>
       <div><dt>Random load from DRAM</dt><dd>175 ns</dd></div>
@@ -93,6 +76,8 @@ const routes = [
           <article class="route">
             <h3>{r.title}</h3>
             <p>{r.text}</p>
+            <p>{r.assumes}</p>
+            <p>{routeSummary(r.steps).published} of {routeSummary(r.steps).total} articles available · {routeSummary(r.steps).withPrerequisites} including prerequisites.</p>
             <ol>
               {r.steps.map(moduleById).map((m) => (
                 <li style={`--part:${data.parts.find((p) => p.id === m.part)!.color}`}>
@@ -272,7 +257,7 @@ const routes = [
   .pid {
     font-weight: 800;
     font-size: 1.25rem;
-    color: var(--part);
+    color: var(--qe-part-text);
   }
   .ptitle {
     font-weight: 600;

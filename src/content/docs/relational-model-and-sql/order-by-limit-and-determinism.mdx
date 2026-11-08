@@ -160,7 +160,7 @@ noticing.
 **It gets slower with depth.** To skip 10,000 rows the engine still has to produce and discard them. In
 Winand's words, "the only thing the database can do with this number is fetching and dropping that many rows."
 
-**Keyset pagination** fixes both. Instead of counting rows, remember the last row the user saw, and ask for
+**Keyset pagination** avoids the insertion/offset drift demonstrated here and can avoid discarding a long prefix. Instead of counting rows, remember the last row the user saw, and ask for
 the rows after it:
 
 ```sql
@@ -172,7 +172,7 @@ LIMIT 3;
 
 New rows at the top can't shift it, and an index on `posted` can jump straight to the starting point. The
 order must still be total: if two posts can share a timestamp, use the timestamp and the id together, both in
-`ORDER BY` and in the condition, or rows that tie at a page boundary can be skipped or repeated. The cost is
+`ORDER BY` and in the condition, or rows that tie at a page boundary can be skipped or repeated. Ordering keys must remain stable; keyset pagination does not by itself provide a consistent snapshot across updates or deletions. The cost is
 that you can't jump directly to page 37, only to the next or previous page.
 
 ## In real engines

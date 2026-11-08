@@ -4,6 +4,10 @@
 //! (a set of tuples). Because the body is a set, duplicates cannot exist and order does not matter.
 //! Every operation returns a new relation, so operations compose: the algebra is closed.
 //!
+//! Supported subset: names and Int/Text values, with no declared domains, coercions or NULLs.
+//! Mixed value variants are permitted; this is an instance algebra, not a SQL type checker.
+//! Invalid attribute references and incompatible headings assert teaching invariants.
+//!
 //! This is the reference semantics for Module 01. Real engines implement the same operators with
 //! very different algorithms, and SQL relaxes the set rules to bags; the articles cover both.
 
@@ -12,6 +16,7 @@ use std::fmt;
 
 pub mod bag;
 pub mod logic;
+#[cfg(feature = "sql")]
 pub mod sql;
 
 /// A value in a tuple. Two types are enough to show every idea in this module.
@@ -282,7 +287,7 @@ impl Relation {
                     .filter(|(i, _)| *i != skip)
                     .map(|(_, n)| *n)
                     .collect();
-                smaller.is_empty() || !self.is_superkey(&smaller)
+                !self.is_superkey(&smaller)
             })
     }
 }
@@ -515,6 +520,21 @@ mod tests {
         let c = customer().rename("id", "cust_id");
         let o = orders();
         assert_eq!(c.natural_join(&o), o.natural_join(&c));
+    }
+
+    #[test]
+    fn empty_and_singleton_relations_have_only_the_empty_instance_key() {
+        for r in [
+            Relation::new(["id"], vec![]),
+            Relation::new(["id"], vec![[1.into()]]),
+        ] {
+            assert!(r.is_candidate_key(&[]));
+            assert!(!r.is_candidate_key(&["id"]));
+        }
+        let two = Relation::new(["id"], vec![[1.into()], [2.into()]]);
+        assert!(!two.is_superkey(&[]));
+        assert!(two.is_candidate_key(&["id"]));
+        assert_eq!(two.project(&[]).len(), 1);
     }
 
     #[test]

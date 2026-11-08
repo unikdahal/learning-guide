@@ -101,11 +101,12 @@ from within the relational community, argued that duplicates "needlessly complic
 push a performance decision onto users, who have to know when `UNION ALL` is safe.
 
 <Aside type="note" title="When is UNION ALL safe?">
-When the two inputs can't contain the same row, `UNION` and `UNION ALL` return the same rows, and
-`UNION ALL` skips a duplicate-removal step for nothing. That happens, for example, when each side filters
-on a different, non-overlapping value of the same column, such as `WHERE year = 2025` and
-`WHERE year = 2026`. If duplicates are possible and unwanted, `UNION` is correct, and its cost is the
-price of correctness.
+`UNION ALL` and `UNION` are equivalent only when **each input is duplicate-free and no complete
+output row appears in both inputs**. Disjoint inputs alone are not enough: left `(1, 1)` and right
+`(2)` are disjoint, yet `UNION ALL` returns three rows and `UNION` returns two. Different year filters
+do not prove safety if duplicates exist within a year, or projection removes the year or unique id.
+Keeping a globally unique transaction id in every output row can establish both conditions. If
+duplicates are possible and unwanted, use `UNION`.
 </Aside>
 
 ## Set operations match columns by position
@@ -191,7 +192,7 @@ why: the `ALL` versions use the same semi and anti joins, minus the deduplicatio
 left copy that has any match, giving m copies instead of min(m, n). An anti join drops every left copy
 that has any match, giving zero instead of max(m − n, 0). Neither join counts copies on the right.
 
-These are known bugs, still open: [#12955](https://github.com/apache/datafusion/issues/12955) for
+These are version-pinned bugs reproduced with DataFusion 55.2.0: [#12955](https://github.com/apache/datafusion/issues/12955) for
 `INTERSECT ALL` and [#12956](https://github.com/apache/datafusion/issues/12956) for `EXCEPT ALL`, both
 reported against DataFusion 42, with a discussion of how to fix them.
 
@@ -206,9 +207,14 @@ FROM (SELECT x, row_number() OVER (PARTITION BY x) AS k FROM l) a
 WHERE EXISTS (
   SELECT 1
   FROM (SELECT x, row_number() OVER (PARTITION BY x) AS k FROM r) b
-  WHERE b.x = a.x AND b.k = a.k
+  WHERE (b.x IS NOT DISTINCT FROM a.x) AND b.k = a.k
 )
 ```
+
+Set operations treat NULL rows as *not distinct*, so the value comparison must be
+`IS NOT DISTINCT FROM`, not `=`. For multi-column rows, compare every corresponding column this way.
+For left `(NULL, NULL, 1, 1)` and right `(NULL, 1)`, both corrected ALL rewrites return one NULL and
+one 1. The lab's semantic tests also check nullable two-column rows and empty inputs.
 
 ```text title="cargo run --release -p m01-relational --example set_ops"
 INTERSECT ALL  rewritten: {a×1 b×1} (2 rows)   matches
@@ -279,7 +285,7 @@ counts.
 </details>
 
 <details>
-<summary>A query combines two monthly tables with UNION. Each row has a unique transaction id. Would UNION ALL change the answer?</summary>
+<summary>A query combines two monthly tables with UNION. Each projected row retains a globally unique transaction id, with no transaction repeated within or across the tables. Would UNION ALL change the answer?</summary>
 
 No. Rows with different transaction ids can never be duplicates, so there is nothing for UNION to remove.
 UNION ALL returns the same rows and skips the duplicate-removal work.

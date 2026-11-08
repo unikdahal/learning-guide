@@ -38,7 +38,7 @@ async fn run_once(ctx: &SessionContext) -> datafusion::error::Result<Sample> {
     let batches = ctx.sql(SQL).await?.collect().await?;
     let wall = t0.elapsed();
     let cpu = process_cpu_time() - cpu0;
-    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 5);
+    labkit::data::assert_revenue(&batches);
     Ok(Sample { wall, cpu })
 }
 
@@ -67,6 +67,8 @@ async fn main() -> datafusion::error::Result<()> {
             cpu.push(s.cpu);
         }
 
+        labkit::timing::record_samples(&wall);
+        labkit::timing::record_samples(&cpu);
         let median_cpu = Summary::of(&cpu).median;
         let summary = Summary::of(&wall);
         println!("\n{threads} thread(s)");

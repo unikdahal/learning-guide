@@ -11,7 +11,7 @@ The short version:
 cd lab
 cargo run --release -p labkit --bin gen-data                 # writes data/ (customer, orders, trips)
 cargo run --release -p m01-relational --example nulls        # run any example below
-cargo test                                                   # the law tests of the tiny engines
+cargo test --locked --workspace --lib --tests                 # law and SQL regression tests
 ```
 
 `rust-toolchain.toml` pins the compiler, and rustup installs it on first use. The workspace pins one
@@ -82,3 +82,18 @@ Each article's code is an example in its module crate's `examples/` folder. Shar
 
 The Module 02 examples measure the hardware, so run them one at a time on an otherwise idle machine; `storage` writes a 1 GiB file under `data/`. Timings depend on your machine. The articles say what hardware produced theirs; compare shapes and
 ratios, not absolute numbers.
+
+## Quick checks and exact evidence
+
+`cargo test --locked -p m01-relational --no-default-features --lib` tests the pure relational/bag/logic
+code without compiling DataFusion. `cargo test --locked -p labkit --no-default-features --lib` tests
+RNG/timing without engine-backed data generation. The default feature set keeps all documented SQL
+examples available. `cargo test --locked --workspace --lib --tests` includes version-pinned SQL regression
+checks. Known 55.2.0 ALL bugs are explicit expectations; nullable numbered-copy workarounds must match
+correct SQL bag results.
+
+Generator version 2 validates scales before touching existing data, stages complete files before
+replacement, and writes `data/generator.json`. Customers/orders scale; trips remains 200,000 rows.
+Customer/order logical rows are unchanged from v1. The fare formula is now 2.50 + 1.80 per kilometer,
+rounded to cents. See [benchmark evidence](../benchmarks/README.md) for capture instructions and the
+historical-evidence boundary. Revenue examples verify exact scale-1 decimal totals outside timing.

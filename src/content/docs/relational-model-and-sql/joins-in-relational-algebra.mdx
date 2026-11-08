@@ -188,12 +188,11 @@ reverse.
 
 Once the condition is part of the join, the engine can pick an algorithm that never looks at most
 pairs. With an equality it builds a hash table on one side, then looks up each row of the other side
-directly, touching only matching pairs. When the condition gives it no equality to hash on, it has no
-choice but to test every pair, a **nested loop join**. The timing in the figure above is that
+directly, touching only matching pairs. When the condition gives it no equality to hash on, this measured DataFusion plan falls back to testing every pair, a **nested loop join**. Other engines and predicates can use specialized range, interval, or index-based algorithms. The historical timing in the figure above is that
 difference, measured: the same 5,000-row answer from two 5,000-row tables in a median of 1.2
 milliseconds with a hash join, and 40.0 milliseconds with a nested loop over 25 million pairs.
 
-The lab printed which operator each query got:
+The original evidence below used 15 warm runs; the current lab uses 20. These are historical observations, not exact values to expect from a new run. The lab printed which operator each query got:
 
 ```text title="cargo run --release -p m01-relational --example joins"
 equality   HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(k@0, k@0)], projection=[]

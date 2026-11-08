@@ -5,7 +5,71 @@ edition.workspace = true
 publish.workspace = true
 description = "Module 01 lab: a tiny relational algebra engine, and the same ideas in DataFusion."
 
+[features]
+default = ["sql"]
+sql = ["dep:labkit", "dep:datafusion", "dep:tokio", "labkit/datafusion"]
+
 [dependencies]
-labkit.workspace = true
-datafusion.workspace = true
-tokio.workspace = true
+labkit = { workspace = true, optional = true }
+datafusion = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+
+[[example]]
+name = "algebra_ops"
+required-features = ["sql"]
+
+[[example]]
+name = "clause_order"
+required-features = ["sql"]
+
+[[example]]
+name = "dup_order"
+required-features = ["sql"]
+
+[[example]]
+name = "equivalences"
+required-features = ["sql"]
+
+[[example]]
+name = "grouping"
+required-features = ["sql"]
+
+[[example]]
+name = "joins"
+required-features = ["sql"]
+
+[[example]]
+name = "nulls"
+required-features = ["sql"]
+
+[[example]]
+name = "order_limit"
+required-features = ["sql"]
+
+[[example]]
+name = "recursive"
+required-features = ["sql"]
+
+[[example]]
+name = "relations"
+required-features = ["sql"]
+
+[[example]]
+name = "set_ops"
+required-features = ["sql"]
+
+[[example]]
+name = "sql_to_algebra"
+required-features = ["sql"]
+
+[[example]]
+name = "subqueries"
+required-features = ["sql"]
+
+[[example]]
+name = "types"
+required-features = ["sql"]
+
+[[example]]
+name = "windows"
+required-features = ["sql"]

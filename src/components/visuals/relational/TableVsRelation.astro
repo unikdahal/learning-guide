@@ -80,6 +80,7 @@ const attrs = customerAttrs;
 </qe-tvr>
 
 <script>
+  import { transition } from "../../../scripts/transition";
   class QeTvr extends HTMLElement {
     shuffles = 0;
     connectedCallback() {
@@ -115,10 +116,7 @@ const attrs = customerAttrs;
           t.replaceChildren(...pairs, ...(badge ? [badge] : []));
         }
       };
-      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
-      if (doc.startViewTransition && !reduce) doc.startViewTransition(apply);
-      else apply();
+      transition(apply);
       this.shuffles++;
       this.querySelector('[data-verdict]')!.innerHTML =
         `<strong>Shuffled ${this.shuffles} time${this.shuffles > 1 ? 's' : ''}. Still the same relation.</strong> Tuples are found by their values and attributes by their names, so no order carries meaning.`;

@@ -43,6 +43,7 @@ async fn main() -> datafusion::error::Result<()> {
     );
 
     // Execution.
+    labkit::data::assert_revenue(&df.clone().collect().await?);
     df.show().await?;
     Ok(())
 }

@@ -6,7 +6,7 @@ publish.workspace = true
 description = "Module 03 lab: row and column layouts, and Apache Arrow in practice."
 
 [dependencies]
-labkit.workspace = true
+labkit = { workspace = true, features = ["datafusion"] }
 datafusion.workspace = true
 tokio.workspace = true
 lz4_flex.workspace = true

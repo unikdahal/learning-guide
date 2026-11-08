@@ -1,4 +1,6 @@
 ---
+import { uniqueId } from '../../lib/ids';
+const uid=uniqueId(Astro.locals,'qe-bytes');
 // Interactive: which storage pages two queries must read under a row layout and a column layout.
 // A 16-row × 8-column orders table. Every page holds 16 values: two whole rows in the row store,
 // or one whole column in the column store, so page counts compare fairly.
@@ -8,13 +10,13 @@
   <div class="controls">
     <fieldset>
       <legend>Query</legend>
-      <label><input type="radio" name="qe-bytes-q" value="point" checked /> Look up one order</label>
-      <label><input type="radio" name="qe-bytes-q" value="agg" /> Revenue by region</label>
+      <label><input type="radio" name={`${uid}-q`} data-query value="point" checked /> Look up one order</label>
+      <label><input type="radio" name={`${uid}-q`} data-query value="agg" /> Revenue by region</label>
     </fieldset>
     <fieldset>
       <legend>Storage layout</legend>
-      <label><input type="radio" name="qe-bytes-l" value="row" checked /> Row store</label>
-      <label><input type="radio" name="qe-bytes-l" value="col" /> Column store</label>
+      <label><input type="radio" name={`${uid}-l`} data-layout value="row" checked /> Row store</label>
+      <label><input type="radio" name={`${uid}-l`} data-layout value="col" /> Column store</label>
     </fieldset>
   </div>
 
@@ -40,11 +42,11 @@
   </div>
 
   <div class="scale">
-    <label for="qe-bytes-cols">
+    <label for={`${uid}-cols`}>
       Now widen the table. With <strong data-cols-out>8</strong> columns, the revenue query in a row store uses{' '}
       <strong data-scale-row>25%</strong> of what it reads. In a column store: <strong>100%</strong>.
     </label>
-    <input id="qe-bytes-cols" type="range" min="8" max="200" step="1" value="8" />
+    <input id={`${uid}-cols`} data-column-count type="range" min="8" max="200" step="1" value="8" />
   </div>
 
   <noscript>
@@ -54,6 +56,8 @@
     </p>
   </noscript>
 </qe-bytes>
+
+<noscript><p class="static-example">For the same 16 orders and 8 columns, a point lookup reads 1 row-store page or 8 column-store pages. Revenue by region needs 2 columns: it reads all 8 row-store pages or 2 column-store pages.</p></noscript>
 
 <script>
   const COLS = ['id', 'cust', 'date', 'stat', 'amt', 'reg', 'prod', 'note'];
@@ -79,17 +83,17 @@
   class QeBytes extends HTMLElement {
     connectedCallback() {
       this.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => this.render()));
-      const slider = this.querySelector<HTMLInputElement>('#qe-bytes-cols')!;
+      const slider = this.querySelector<HTMLInputElement>('[data-column-count]')!;
       slider.addEventListener('input', () => this.scale(Number(slider.value)));
       this.render();
       this.scale(8);
     }
 
     get q() {
-      return (this.querySelector('input[name=qe-bytes-q]:checked') as HTMLInputElement).value as 'point' | 'agg';
+      return (this.querySelector('input[data-query]:checked') as HTMLInputElement).value as 'point' | 'agg';
     }
     get l() {
-      return (this.querySelector('input[name=qe-bytes-l]:checked') as HTMLInputElement).value as 'row' | 'col';
+      return (this.querySelector('input[data-layout]:checked') as HTMLInputElement).value as 'row' | 'col';
     }
 
     needed(r: number, c: number) {
@@ -316,7 +320,7 @@
   }
   .qe-bytes .c.skip {
     background: var(--sl-color-gray-5);
-    opacity: 0.6;
+    opacity: 1;
   }
   .qe-bytes .stats {
     display: grid;

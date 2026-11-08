@@ -147,7 +147,7 @@ without orders come back.
 
 <Aside type="caution" title="In practice">
 Prefer `NOT EXISTS` to `NOT IN` with a subquery. If you must use `NOT IN`, make sure the subquery cannot
-return NULL, for example with `WHERE cust_id IS NOT NULL`. A column that has no NULLs today may get one
+return NULL, for example with `WHERE cust_id IS NOT NULL`. If the outer id can also be NULL, decide the intended business meaning explicitly: filtering the inner NULLs and using NOT EXISTS are not generally interchangeable for a NULL outer value. A column that has no NULLs today may get one
 tomorrow.
 </Aside>
 
@@ -200,7 +200,7 @@ plausible answers from the same data, three groups or two distinct values, depen
 | `IS NOT DISTINCT FROM` | Yes |
 | `GROUP BY`, `DISTINCT`, `UNION`, `INTERSECT`, `EXCEPT` | Yes: NULLs form one group or one row |
 | Aggregates such as `count(x)`, `count(DISTINCT x)` | NULLs are skipped entirely |
-| `UNIQUE` constraints | No, by default: several NULLs are allowed |
+| PostgreSQL `UNIQUE` constraints | Several NULLs are allowed by default; other engines differ |
 
 On that last row, PostgreSQL's documentation says "null values in a unique column are not considered equal,
 allowing multiple nulls", and offers `NULLS NOT DISTINCT` to change it.
@@ -317,4 +317,4 @@ removal treats NULLs as not distinct from each other.
   Codd's papers to the SQL standard.
 - Documentation on NULL ordering for [DuckDB](https://duckdb.org/docs/1.4/sql/query_syntax/orderby),
   [MySQL](https://dev.mysql.com/doc/en/null-values.html) and
-  [Spark SQL](https://spark.apache.org/docs/3.5.1/sql-ref-syntax-qry-select-orderby.html).
+  [Spark SQL](https://spark.apache.org/docs/3.5.7/sql-ref-syntax-qry-select-orderby.html).

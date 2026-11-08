@@ -1,4 +1,6 @@
 ---
+import { uniqueId } from '../../lib/ids';
+const uid=uniqueId(Astro.locals,'wvc');
 // Four threads on a timeline. Wall time is how long you wait; CPU time is the sum of every
 // thread's busy time. Their ratio tells you whether work is parallel, waiting, or stuck behind a straggler.
 type Seg = [number, number, 'busy' | 'wait'];
@@ -48,7 +50,7 @@ const SCALE = 100;
   <div class="tabs" role="tablist" aria-label="Scenarios">
     {
       scenarios.map((s, i) => (
-        <button type="button" role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-tab={s.id}>
+        <button type="button" role="tab" id={`${uid}-tab-${s.id}`} aria-controls={`${uid}-panel-${s.id}`} tabindex={i===0 ? 0 : -1} aria-selected={i === 0 ? 'true' : 'false'} data-tab={s.id}>
           {s.name}
         </button>
       ))
@@ -59,7 +61,7 @@ const SCALE = 100;
     scenarios.map((s, i) => {
       const st = stats(s);
       return (
-        <div class="scenario" data-scenario={s.id} hidden={i !== 0} role="tabpanel">
+        <div class="scenario" data-scenario={s.id} hidden={i !== 0} role="tabpanel" id={`${uid}-panel-${s.id}`} aria-labelledby={`${uid}-tab-${s.id}`} tabindex="0">
           <div class="lanes">
             {s.threads.map((segs, ti) => (
               <div class="lane">
@@ -104,16 +106,25 @@ const SCALE = 100;
   </p>
 </figure>
 
+<noscript><p class="static-example">The scenarios below compare the same workload: one thread uses 96 ms wall/CPU time; four threads use 28 ms wall and 106 ms CPU time. CPU divided by wall is effective CPU use, not a direct count of runnable threads.</p></noscript>
+
 <script>
   for (const fig of document.querySelectorAll<HTMLElement>('.qe-wvc')) {
     const tabs = [...fig.querySelectorAll<HTMLButtonElement>('[data-tab]')];
     const panels = [...fig.querySelectorAll<HTMLElement>('[data-scenario]')];
-    tabs.forEach((t) =>
-      t.addEventListener('click', () => {
-        tabs.forEach((x) => x.setAttribute('aria-selected', String(x === t)));
-        panels.forEach((p) => (p.hidden = p.dataset.scenario !== t.dataset.tab));
-      }),
-    );
+    const show=(i:number,focus=false)=>{
+      tabs.forEach((t,k)=>{t.setAttribute('aria-selected',String(k===i));t.tabIndex=k===i ? 0 : -1;});
+      panels.forEach((p,k)=>p.hidden=k!==i);
+      if(focus)tabs[i].focus();
+    };
+    tabs.forEach((t,i)=>{
+      t.addEventListener('click',()=>show(i));
+      t.addEventListener('keydown',e=>{
+        const next=e.key==='ArrowRight' ? (i+1)%tabs.length : e.key==='ArrowLeft' ? (i+tabs.length-1)%tabs.length : e.key==='Home' ? 0 : e.key==='End' ? tabs.length-1 : null;
+        if(next!==null){e.preventDefault();show(next,true);}
+      });
+    });
+    show(0);
   }
 </script>
 

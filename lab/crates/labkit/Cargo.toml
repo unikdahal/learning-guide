@@ -5,7 +5,15 @@ edition.workspace = true
 publish.workspace = true
 description = "Shared helpers for the Query Execution lab: data generation and timing."
 
+[features]
+default = ["datafusion"]
+datafusion = ["dep:datafusion"]
+
+[[bin]]
+name = "gen-data"
+path = "src/bin/gen-data.rs"
+required-features = ["datafusion"]
+
 [dependencies]
-datafusion.workspace = true
-tokio.workspace = true
+datafusion = { workspace = true, optional = true }
 libc.workspace = true

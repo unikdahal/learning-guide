@@ -47,74 +47,41 @@ const published = data.parts
   const card = document.querySelector<HTMLElement>('[data-continue]');
   if (card) {
     const published: Pub[] = JSON.parse(card.querySelector('[data-published]')!.textContent || '[]');
-    const state = load();
-    const byPath = new Map(published.map((p) => [canonical(p.path), p]));
-    const read = published.filter((p) => statusOf(state.articles[canonical(p.path)]) === 'done').length;
-    const last = state.last ? state.articles[state.last] : undefined;
-
-    if (state.last && last && byPath.has(state.last)) {
-      const $ = <T extends HTMLElement>(s: string) => card.querySelector<T>(s)!;
-      const nextUnread = (after: string) => {
-        const i = published.findIndex((p) => canonical(p.path) === after);
-        const rest = [...published.slice(i + 1), ...published.slice(0, Math.max(0, i))];
-        return rest.find((p) => statusOf(state.articles[canonical(p.path)]) !== 'done');
-      };
-
-      const title = $<HTMLAnchorElement>('[data-title]');
-      const go = $<HTMLAnchorElement>('[data-go]');
-      const next = $<HTMLAnchorElement>('[data-next]');
-
+    const $ = <T extends HTMLElement>(s: string) => card.querySelector<T>(s)!;
+    const render = () => {
+      const state=load();
+      card.hidden=true;
+      const last=state.last ? state.articles[state.last] : undefined;
+      if (!state.last || !last || !published.some(p=>canonical(p.path)===state.last)) return;
+      const i=published.findIndex(p=>canonical(p.path)===state.last);
+      const rest=[...published.slice(i+1),...published.slice(0,i)];
+      const next=rest.find(p=>statusOf(state.articles[canonical(p.path)])!=='done');
+      const title=$<HTMLAnchorElement>('[data-title]'), go=$<HTMLAnchorElement>('[data-go]');
+      const nextLink=$<HTMLAnchorElement>('[data-next]');
+      nextLink.hidden=true;
+      $('[data-meter]').hidden=!!last.done;
       if (!last.done) {
-        const href = last.s ? `${state.last}#${last.s}` : state.last;
-        title.textContent = last.t;
-        title.href = href;
-        go.href = href;
-        go.textContent = 'Resume';
-        $('[data-where]').textContent = last.st
-          ? `Module ${last.m}: ${last.mt}. You were in “${last.st}”.`
-          : `Module ${last.m}: ${last.mt}`;
-        $('[data-fill]').style.width = `${Math.round(last.p * 100)}%`;
-        $('[data-pct]').textContent = `${Math.round(last.p * 100)}% read`;
+        const href=last.s ? `${state.last}#${last.s}` : state.last;
+        $('[data-heading]').textContent='Continue reading'; title.textContent=last.t; title.href=href;go.href=href;go.textContent='Resume';
+        $('[data-where]').textContent=`Module ${last.m}: ${last.mt}${last.st ? `. You were in “${last.st}”.` : ''}`;
+        $('[data-fill]').style.width=`${Math.round(last.p*100)}%`; $('[data-pct]').textContent=`${Math.round(last.p*100)}% read`;
+        if (next) {nextLink.hidden=false;nextLink.href=next.path;nextLink.textContent=`Next: ${next.title}`;}
+      } else if (next) {
+        $('[data-heading]').textContent='Up next';title.textContent=next.title;title.href=next.path;go.href=next.path;go.textContent='Start';
+        $('[data-where]').textContent=`Module ${next.module}: ${next.moduleTitle}. You finished “${last.t}”.`;
       } else {
-        const n = nextUnread(state.last);
-        $('[data-meter]').hidden = true;
-        if (n) {
-          $('[data-heading]').textContent = 'Up next';
-          title.textContent = n.title;
-          title.href = n.path;
-          go.href = n.path;
-          go.textContent = 'Start';
-          $('[data-where]').textContent = `Module ${n.module}: ${n.moduleTitle}. You finished “${last.t}”.`;
-        } else {
-          $('[data-heading]').textContent = 'All caught up';
-          title.textContent = 'You have read every article written so far';
-          title.removeAttribute('href');
-          go.href = card.dataset.roadmap ?? go.href;
-          go.textContent = 'See what is coming';
-          $('[data-where]').textContent = 'New articles appear on the roadmap as they are written.';
-        }
+        $('[data-heading]').textContent='All caught up';title.textContent='You have read every article written so far';title.removeAttribute('href');
+        go.href=card.dataset.roadmap ?? '#';go.textContent='See what is coming';$('[data-where]').textContent='New articles appear on the roadmap as they are written.';
       }
-
-      // If the current article is unfinished, also offer the next one.
-      if (!last.done) {
-        const n = nextUnread(state.last);
-        if (n) {
-          next.hidden = false;
-          next.href = n.path;
-          next.textContent = `Next: ${n.title}`;
-        }
-      }
-
-      $('[data-count]').textContent = `${read} of ${published.length} written articles read`;
-      $('[data-clear]').addEventListener('click', () => {
-        if (confirm('Clear your reading history on this device?')) {
-          clear();
-          card.hidden = true;
-          document.querySelectorAll<HTMLElement>('a[data-progress]').forEach((a) => delete a.dataset.progress);
-        }
-      });
-      card.hidden = false;
-    }
+      const read=published.filter(p=>statusOf(state.articles[canonical(p.path)])==='done').length;
+      $('[data-count]').textContent=`${read} of ${published.length} published articles read`;
+      card.hidden=false;
+    };
+    $('[data-clear]').addEventListener('click',()=>{if(confirm('Clear your reading history on this device?'))clear();});
+    addEventListener('storage',render);
+    document.addEventListener('qe:progress-change',render);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')render();});
+    render();
   }
 </script>
 

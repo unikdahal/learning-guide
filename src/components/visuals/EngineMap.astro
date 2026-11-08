@@ -1,4 +1,6 @@
 ---
+import { uniqueId } from '../../lib/ids';
+const uid=uniqueId(Astro.locals,'qe-emap');
 // The engine landscape as a 3 × 2 map: where the engine runs, and whether it owns its storage.
 // Tap an engine to see its profile. Without JavaScript, every profile is listed below the map.
 type Engine = {
@@ -179,7 +181,7 @@ const engines: Engine[] = [
               {engines
                 .filter((e) => e.col === ci && e.row === ri)
                 .map((e) => (
-                  <button type="button" class="chip" data-engine={e.id} aria-pressed="false" aria-controls="qe-emap-card">
+                  <button type="button" class="chip" data-engine={e.id} aria-pressed="false" aria-controls={`${uid}-card`}>
                     {e.name}
                     {e.lib && <span class="lib">library</span>}
                   </button>
@@ -191,7 +193,7 @@ const engines: Engine[] = [
     }
   </div>
 
-  <div class="cards" id="qe-emap-card" aria-live="polite">
+  <div class="cards" id={`${uid}-card`} aria-live="polite">
     {
       engines.map((e) => (
         <article class="card" data-card={e.id}>

@@ -17,7 +17,7 @@ const pq: [string, number, number][] = [['none', 39.68, 37.3], ['snappy', 24.8, 
   <section class="qe-lab-part">
     <p class="qe-lab-h">Ratio against decompression speed</p>
     <div class="qe-lab-chips prose" role="group" aria-label="Data">
-      {Object.keys(raw).map((k, i) => <button type="button" data-set={k} aria-pressed={String(i === 0)}>{k}</button>)}
+      {Object.keys(raw).map((k, i) => <button type="button" data-set={k} aria-pressed={i === 0}>{k}</button>)}
     </div>
     <div class="plot" data-plot></div>
     <p class="qe-lab-note" data-note1 aria-live="polite"></p>
@@ -87,7 +87,7 @@ const pq: [string, number, number][] = [['none', 39.68, 37.3], ['snappy', 24.8, 
       type Box = { x0: number; y0: number; x1: number; y1: number };
       const boxes: Box[] = rows.map(([, ratio, , d]) => ({ x0: sx(d) - 6, y0: sy(ratio) - 6, x1: sx(d) + 6, y1: sy(ratio) + 6 }));
       const hit = (a: Box) => boxes.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
-      const order = rows.map((r, i) => i).sort((a, b) => rows[b][1] - rows[a][1]);
+      const order = rows.map((_, i) => i).sort((a, b) => rows[b][1] - rows[a][1]);
       const labels: string[] = [];
       for (const i of order) {
         const [name, ratio, c, d] = rows[i];

@@ -28,8 +28,13 @@ pub struct Sample {
 impl Sample {
     /// CPU time divided by wall time. About 1.0 for single-threaded CPU-bound work, near the
     /// thread count for well-parallelized work, and well below 1.0 when the work waits on I/O.
+    /// Returns 0 when wall time is below clock resolution; no ratio can be inferred.
     pub fn parallelism(&self) -> f64 {
-        self.cpu.as_secs_f64() / self.wall.as_secs_f64()
+        if self.wall.is_zero() {
+            0.0
+        } else {
+            self.cpu.as_secs_f64() / self.wall.as_secs_f64()
+        }
     }
 }
 
@@ -57,6 +62,8 @@ pub struct Summary {
 }
 
 impl Summary {
+    /// # Panics
+    /// Panics when samples is empty. Zero-duration samples have zero reported variation.
     pub fn of(samples: &[Duration]) -> Summary {
         assert!(!samples.is_empty(), "no samples");
         let mut s = samples.to_vec();
@@ -73,12 +80,12 @@ impl Summary {
             median: if n % 2 == 1 {
                 s[n / 2]
             } else {
-                (s[n / 2 - 1] + s[n / 2]) / 2
+                s[n / 2 - 1] + (s[n / 2] - s[n / 2 - 1]) / 2
             },
             p95: rank(0.95),
             max: s[n - 1],
             mean: Duration::from_secs_f64(mean),
-            cv: var.sqrt() / mean,
+            cv: if mean == 0.0 { 0.0 } else { var.sqrt() / mean },
         }
     }
 }
@@ -103,13 +110,15 @@ pub fn repeat<R>(warmup: usize, runs: usize, mut f: impl FnMut() -> R) -> Vec<Du
     for _ in 0..warmup {
         std::hint::black_box(f());
     }
-    (0..runs)
+    let samples = (0..runs)
         .map(|_| {
             let t0 = Instant::now();
             std::hint::black_box(f());
             t0.elapsed()
         })
-        .collect()
+        .collect::<Vec<_>>();
+    record_samples(&samples);
+    samples
 }
 
 /// Like [`repeat`], for async work such as running a query.
@@ -127,12 +136,57 @@ where
         std::hint::black_box(f().await);
         out.push(t0.elapsed());
     }
+    record_samples(&out);
     out
+}
+
+/// Exports raw samples only when explicitly requested by the benchmark recorder.
+/// Called after timing, never within the measured operation.
+pub fn record_samples(samples: &[Duration]) {
+    use std::io::Write;
+    if let Some(path) = std::env::var_os("QE_BENCH_SAMPLES") {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .expect("open raw benchmark samples");
+        let values = samples
+            .iter()
+            .map(|s| s.as_nanos().to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        writeln!(file, "{{\"samples_ns\":[{values}]}}").expect("write raw benchmark samples");
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn degenerate_samples_are_finite() {
+        let zero = Summary::of(&[Duration::ZERO; 2]);
+        assert_eq!(zero.cv, 0.0);
+        assert_eq!(zero.median, Duration::ZERO);
+        assert_eq!(
+            Sample {
+                wall: Duration::ZERO,
+                cpu: Duration::ZERO
+            }
+            .parallelism(),
+            0.0
+        );
+        let even = Summary::of(&[Duration::from_nanos(2), Duration::from_nanos(4)]);
+        assert_eq!(even.median, Duration::from_nanos(3));
+        let same = Summary::of(&[Duration::from_millis(4); 3]);
+        assert_eq!(same.cv, 0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "no samples")]
+    fn empty_samples_are_rejected() {
+        Summary::of(&[]);
+    }
 
     #[test]
     fn summary_basics() {

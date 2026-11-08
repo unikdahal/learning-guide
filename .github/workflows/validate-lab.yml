@@ -1,0 +1,29 @@
+name: Validate Rust lab
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: validate-lab-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Use the documented compiler and components
+        run: rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy
+      - run: cargo fmt --all -- --check
+        working-directory: lab
+      - run: cargo test --workspace --lib --tests --locked
+        working-directory: lab
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        working-directory: lab
+      - name: Record the validated commit
+        run: echo "Validated lab at $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

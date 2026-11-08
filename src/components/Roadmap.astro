@@ -2,7 +2,7 @@
 // The full curriculum: Parts as colored rails, modules along them, and a filterable index of every article.
 import LevelSpread from './LevelSpread.astro';
 import LevelMeter from './LevelMeter.astro';
-import { data, moduleById, url, LEVELS, allArticles, type LevelKey } from '../lib/site';
+import { data, moduleById, url, LEVELS, allArticles, statusLabel, type LevelKey } from '../lib/site';
 
 const articles = allArticles();
 const levelKeys = Object.keys(LEVELS) as LevelKey[];
@@ -52,6 +52,14 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
         <span class="sr-only">Search articles</span>
         <input type="search" placeholder="Search titles and scope, e.g. bloom, spill, Iceberg" data-q />
       </label>
+      <label class="publication">Publication
+        <select data-publication aria-label="Publication status">
+          <option value="published">Published articles</option>
+          <option value="all">Full curriculum</option>
+          <option value="planned">Planned articles</option>
+          <option value="draft">Draft articles</option>
+        </select>
+      </label>
       <fieldset class="levels">
         <legend class="sr-only">Levels</legend>
         {
@@ -73,12 +81,13 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
         articles.map((a) => (
           <li
             data-level={a.level}
+            data-status={a.status}
             data-text={`${a.title} ${a.scope} ${a.module.title}`.toLowerCase()}
             style={`--part:${a.part.color}`}
           >
             <a href={url(a.path + '/')}>
               <span class="rmod">{a.module.id}</span>
-              <span class="rtitle">{a.title}</span>
+              <span class="rtitle">{a.title} <small data-status-label>{statusLabel(a.status)}</small></span>
               <LevelMeter level={a.level} showLabel={false} />
             </a>
           </li>
@@ -90,6 +99,7 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
 
 <script>
   for (const root of document.querySelectorAll<HTMLElement>('.roadmap')) {
+    const publication = root.querySelector<HTMLSelectElement>('[data-publication]')!;
     const q = root.querySelector<HTMLInputElement>('[data-q]')!;
     const toggles = [...root.querySelectorAll<HTMLInputElement>('[data-level-toggle]')];
     const items = [...root.querySelectorAll<HTMLElement>('[data-results] > li')];
@@ -99,12 +109,13 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
     const showAllBtn = root.querySelector<HTMLButtonElement>('[data-show-all]')!;
     showAllBtn.addEventListener('click', () => {
       showAll = true;
+      publication.value='all';
       apply();
     });
     const apply = () => {
-      const filtering = q.value.trim() !== '' || toggles.some((t) => !t.checked);
+      const filtering = publication.value!=='all' || q.value.trim() !== '' || toggles.some((t) => !t.checked);
       list.hidden = !(filtering || showAll);
-      showAllBtn.hidden = !list.hidden;
+      showAllBtn.hidden = publication.value==='all' && showAll && !q.value.trim() && toggles.every(t=>t.checked);
       if (list.hidden) {
         count.textContent = 'Search or change the levels to list matching articles.';
         return;
@@ -114,13 +125,15 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
       let shown = 0;
       for (const li of items) {
         const text = li.dataset.text ?? '';
-        const ok = levels.has(li.dataset.level ?? '') && terms.every((t) => text.includes(t));
+        const ok = (publication.value==='all' || li.dataset.status===publication.value) && levels.has(li.dataset.level ?? '') && terms.every((t) => text.includes(t));
         li.hidden = !ok;
         if (ok) shown++;
       }
       count.textContent = shown === 1 ? '1 article' : `${shown} articles`;
     };
     q.addEventListener('input', apply);
+    publication.addEventListener('change',()=>{showAll=true;apply();});
+    apply();
     toggles.forEach((t) => t.addEventListener('change', apply));
   }
 </script>
@@ -157,7 +170,7 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: 0;
-    color: var(--part);
+    color: var(--qe-part-text);
     margin-bottom: 0.25rem;
   }
   .part-head p {
@@ -193,7 +206,7 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
   .mnum {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
-    color: var(--part);
+    color: var(--qe-part-text);
   }
   .mtitle {
     color: var(--sl-color-white);
@@ -317,7 +330,7 @@ const levelKeys = Object.keys(LEVELS) as LevelKey[];
   .rmod {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
-    color: var(--part);
+    color: var(--qe-part-text);
     font-size: 0.8125rem;
   }
   .rtitle {

@@ -40,6 +40,8 @@ import { customers, orders } from './data';
   </details>
 </qe-joingrid>
 
+<noscript><p class="static-example">Six customers crossed with six orders give 36 pairs. Equating customer id and order cust_id keeps five pairs: Asha/101, Asha/103, Chen/102, Dara/104, Farah/105. A NATURAL JOIN keeps cust_id once; adding a shared updated_at field requires that field to match too.</p></noscript>
+
 <script>
   type C = { id: number; name: string; segment: string; region: string; updated_at: string };
   type O = { order_id: number; cust_id: number; amount: number; updated_at: string };
@@ -133,9 +135,14 @@ import { customers, orders } from './data';
       this.querySelector('[data-note]')!.textContent = notes[this.cond];
       this.querySelector<HTMLElement>('[data-note]')!.dataset.tone = this.cond === 'natural' && withUpdated ? 'bad' : '';
 
-      const head = '<thead><tr><th>c.id</th><th>name</th><th>order_id</th><th>cust_id</th><th>amount</th></tr></thead>';
+      const natural=this.cond==='natural';
+      const columns=natural ? ['cust_id','name','order_id','amount',...(withUpdated ? ['updated_at'] : [])] : ['c.id','name','order_id','cust_id','amount'];
+      const head=`<thead><tr>${columns.map(c=>`<th scope="col">${c}</th>`).join('')}</tr></thead>`;
       const body = rows
-        .map(([c, o]) => `<tr><td>${c.id}</td><td>${c.name}</td><td>${o.order_id}</td><td>${o.cust_id}</td><td>${o.amount}</td></tr>`)
+        .map(([c,o])=>{
+          const values=natural ? [c.id,c.name,o.order_id,o.amount,...(withUpdated ? [c.updated_at] : [])] : [c.id,c.name,o.order_id,o.cust_id,o.amount];
+          return `<tr>${values.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+        })
         .join('');
       this.querySelector('[data-result]')!.innerHTML = rows.length
         ? head + `<tbody>${body}</tbody>`

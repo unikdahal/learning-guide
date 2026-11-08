@@ -8,7 +8,7 @@
 //! - `trips(trip_id, hour, distance_km, fare)`: a small CSV for the embedding example.
 
 use std::error::Error;
-use std::fs::{File, create_dir_all};
+use std::fs::{File, create_dir_all, remove_dir_all, rename};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -31,8 +31,34 @@ pub const SEGMENTS: [&str; 5] = [
 ];
 pub const REGIONS: [&str; 5] = ["AFRICA", "AMERICA", "ASIA", "EUROPE", "MIDDLE EAST"];
 
-/// Rows per generated batch. Big enough to be efficient, small enough to keep memory flat.
+/// Version 2 fixes the trips fare formula. Customer/orders rows are unchanged from v1.
+pub const GENERATOR_VERSION: u32 = 2;
+/// Rows per batch keep generation memory bounded.
 const CHUNK: usize = 65_536;
+
+pub fn row_counts(scale: f64) -> Result<(usize, usize)> {
+    let customers = (150_000.0 * scale).floor();
+    let orders = (1_500_000.0 * scale).floor();
+    let limit = if usize::BITS < 64 {
+        usize::MAX as f64
+    } else {
+        i64::MAX as f64
+    };
+    if !scale.is_finite()
+        || scale <= 0.0
+        || customers < 1.0
+        || !orders.is_finite()
+        || customers >= limit
+        || orders >= limit
+    {
+        return Err("scale must be finite and positive, produce at least one customer, and fit integer row IDs".into());
+    }
+    Ok((customers as usize, orders as usize))
+}
+
+fn fare_for_distance(distance: f64) -> f64 {
+    ((2.5 + distance * 1.8) * 100.0).round() / 100.0
+}
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -124,10 +150,7 @@ fn trips_batch(rng: &mut Rng, start: usize, end: usize) -> Result<RecordBatch> {
         })
         .collect();
     let dist: Vec<f64> = (0..n).map(|_| 0.5 + rng.unit() * 20.0).collect();
-    let fare: Vec<f64> = dist
-        .iter()
-        .map(|d| (2.5 + d * 1.8 * 100.0).round() / 100.0)
-        .collect();
+    let fare: Vec<f64> = dist.iter().map(|d| fare_for_distance(*d)).collect();
     let cols: Vec<ArrayRef> = vec![
         Arc::new(Int64Array::from(ids)),
         Arc::new(Int64Array::from(hours)),
@@ -152,10 +175,41 @@ where
 /// Writes `customer.parquet`, `orders.parquet` and `trips.csv` into `dir`.
 /// `scale` multiplies the TPC-H scale-factor-1 row counts.
 pub fn generate(dir: &Path, scale: f64) -> Result<()> {
+    let (customers, orders) = row_counts(scale)?; // Validate before touching existing files.
     create_dir_all(dir)?;
-    let customers = (150_000.0 * scale) as usize;
-    let orders = (1_500_000.0 * scale) as usize;
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_nanos();
+    let staging = dir.join(format!(".generate-{}-{nonce}", std::process::id()));
+    create_dir_all(&staging)?;
+    struct Cleanup(std::path::PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = remove_dir_all(&self.0);
+        }
+    }
+    let _cleanup = Cleanup(staging.clone());
+    generate_into(&staging, customers, orders)?;
+    std::fs::write(
+        staging.join("generator.json"),
+        format!(
+            "{{\"version\":{GENERATOR_VERSION},\"scale\":{scale},\"customers\":{customers},\"orders\":{orders},\"trips\":200000,\"chunk\":{CHUNK}}}\n"
+        ),
+    )?;
+    // Publish only after every writer has finished. Writer errors leave existing files intact.
+    // Renames are per file; an I/O failure during publication can still require a rerun.
+    for name in [
+        "customer.parquet",
+        "orders.parquet",
+        "trips.csv",
+        "generator.json",
+    ] {
+        rename(staging.join(name), dir.join(name))?;
+    }
+    Ok(())
+}
 
+fn generate_into(dir: &Path, customers: usize, orders: usize) -> Result<()> {
     let mut rng = Rng::new(42);
     write_parquet(
         &dir.join("customer.parquet"),
@@ -189,4 +243,70 @@ pub fn data_file(name: &str) -> String {
         .join(name)
         .to_string_lossy()
         .into_owned()
+}
+
+/// Checks the scale-1 revenue map outside the measured interval, ignoring row order.
+pub fn assert_revenue(batches: &[RecordBatch]) {
+    use datafusion::arrow::util::display::array_value_to_string;
+    use std::collections::BTreeMap;
+    let mut actual = BTreeMap::new();
+    for batch in batches {
+        for i in 0..batch.num_rows() {
+            let region = array_value_to_string(batch.column(0), i).unwrap();
+            let value = array_value_to_string(batch.column(1), i).unwrap();
+            assert!(
+                actual.insert(region, value).is_none(),
+                "duplicate revenue group"
+            );
+        }
+    }
+    let expected = [
+        ("AFRICA", "146087670.17"),
+        ("AMERICA", "149691110.90"),
+        ("ASIA", "150049799.10"),
+        ("EUROPE", "150911354.33"),
+        ("MIDDLE EAST", "149423247.54"),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_owned(), v.to_owned()))
+    .collect();
+    assert_eq!(
+        actual, expected,
+        "revenue evidence requires generator scale 1; wrong keys or decimal sums"
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn scale_bounds_protect_foreign_keys() {
+        for scale in [0.0, -1.0, f64::NAN, f64::INFINITY, 1e300, 0.000001] {
+            assert!(row_counts(scale).is_err());
+        }
+        assert_eq!(row_counts(1.0).unwrap(), (150_000, 1_500_000));
+        assert_eq!(row_counts(0.00001).unwrap(), (1, 15));
+    }
+    #[test]
+    fn invalid_scale_does_not_touch_the_output() {
+        let path = std::env::temp_dir().join(format!("qe-invalid-scale-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&path);
+        assert!(generate(&path, f64::NAN).is_err());
+        assert!(!path.exists());
+    }
+    #[test]
+    fn logical_rows_and_fares_are_deterministic() {
+        assert_eq!(fare_for_distance(1.0), 4.30);
+        assert_eq!(fare_for_distance(10.0), 20.50);
+        let a = customer_batch(&mut Rng::new(42), 0, 8).unwrap();
+        let b = customer_batch(&mut Rng::new(42), 0, 8).unwrap();
+        assert_eq!(a, b);
+        let orders = orders_batch(&mut Rng::new(43), 0, 15, 1).unwrap();
+        let keys = orders
+            .column(1)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+        assert!(keys.values().iter().all(|key| *key == 1));
+    }
 }

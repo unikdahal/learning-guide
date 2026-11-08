@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSyllabus } from './syllabus.mjs';
+import { articleStatus, frontmatter } from './frontmatter.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const docsDir = join(root, 'src/content/docs');
@@ -15,11 +16,18 @@ const { parts, modules, articleCount } = loadSyllabus();
 
 const yamlStr = (s) => JSON.stringify(s); // JSON strings are valid YAML scalars
 
+const check = process.argv.includes('--check');
+const problems = [];
+const outputs = new Map();
+const write = (file, text) => {
+  if (check) {
+    if (!existsSync(file) || readFileSync(file,'utf8') !== text) problems.push(`${file}: generated output is stale; run npm run generate`);
+  } else outputs.set(file,text);
+};
 // Published status lives in each article's frontmatter, so read it back for the data file.
 function readStatus(file) {
   if (!existsSync(file)) return 'planned';
-  const m = readFileSync(file, 'utf8').match(/^status:\s*(\w+)/m);
-  return m ? m[1] : 'published';
+  return articleStatus(readFileSync(file, 'utf8'), file);
 }
 
 let created = 0;
@@ -27,13 +35,12 @@ let overviews = 0;
 
 for (const m of modules) {
   const dir = join(docsDir, m.slug);
-  mkdirSync(dir, { recursive: true });
 
   // Module overview: regenerate only while it still carries the generated marker.
   const indexFile = join(dir, 'index.mdx');
-  const isGenerated = !existsSync(indexFile) || /^generated:\s*true/m.test(readFileSync(indexFile, 'utf8'));
+  const isGenerated = !existsSync(indexFile) || frontmatter(readFileSync(indexFile,'utf8'),indexFile).data.generated === true;
   if (isGenerated) {
-    writeFileSync(
+    write(
       indexFile,
       `---
 title: ${yamlStr(m.title)}
@@ -54,8 +61,18 @@ import ModuleOverview from '@components/ModuleOverview.astro';
 
   for (const a of m.articles) {
     const file = join(dir, `${a.slug}.mdx`);
-    if (existsSync(file)) continue;
-    writeFileSync(
+    if (existsSync(file)) {
+      const text = readFileSync(file,'utf8');
+      const fm = frontmatter(text,file).data;
+      for (const [key,want] of Object.entries({title:a.title,level:a.level,module:m.id})) {
+        if (fm[key] !== want) problems.push(`${file}: ${key} differs from syllabus (${want})`);
+      }
+      if (fm.sidebar?.order !== a.index) problems.push(`${file}: sidebar.order must be ${a.index}`);
+      const status = articleStatus(text,file);
+      if ((fm.sidebar?.attrs?.['data-status'] ?? 'published') !== status) problems.push(`${file}: sidebar publication marker differs from status; use npm run publish`);
+      continue;
+    }
+    write(
       file,
       `---
 title: ${yamlStr(a.title)}
@@ -64,6 +81,7 @@ level: ${a.level}
 status: planned
 module: "${m.id}"
 tableOfContents: false
+pagefind: false
 sidebar:
   order: ${a.index}
   attrs:
@@ -83,9 +101,9 @@ import ArticlePlan from '@components/ArticlePlan.astro';
 const known = new Set(modules.flatMap((m) => m.articles.map((a) => `${m.slug}/${a.slug}.mdx`)));
 for (const m of modules) {
   const dir = join(docsDir, m.slug);
-  for (const f of readdirSync(dir)) {
+  for (const f of existsSync(dir) ? readdirSync(dir) : []) {
     if (f === 'index.mdx' || !f.endsWith('.mdx')) continue;
-    if (!known.has(`${m.slug}/${f}`)) console.warn(`warning: ${m.slug}/${f} is not in the syllabus`);
+    if (!known.has(`${m.slug}/${f}`)) problems.push(`${m.slug}/${f} is not in the syllabus`);
   }
 }
 
@@ -113,11 +131,21 @@ const data = {
   ),
 };
 
-mkdirSync(dataDir, { recursive: true });
-writeFileSync(join(dataDir, 'syllabus.json'), JSON.stringify(data, null, 2) + '\n');
+write(join(dataDir, 'syllabus.json'), JSON.stringify(data, null, 2) + '\n');
 
 const published = Object.values(data.modules).flatMap((m) => m.articles).filter((a) => a.status === 'published').length;
 console.log(
   `syllabus: ${parts.length} parts, ${modules.length} modules, ${articleCount} articles (${published} published)`,
 );
 console.log(`generated: ${created} new stubs, ${overviews} module overviews`);
+
+for (const entry of readdirSync(docsDir,{withFileTypes:true})) {
+  if (entry.isDirectory() && !modules.some(m=>m.slug===entry.name)) problems.push(`${entry.name}: orphan module directory`);
+}
+if (problems.length) throw new Error(problems.join('\n'));
+
+// Validate the complete curriculum before changing any generated files.
+for (const [file,text] of outputs) {
+  mkdirSync(dirname(file), {recursive:true});
+  writeFileSync(file,text);
+}

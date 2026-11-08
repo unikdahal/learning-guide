@@ -1,4 +1,6 @@
 ---
+import { uniqueId } from '../lib/ids';
+const uid=uniqueId(Astro.locals,'hero-plan');
 // Landing hero: a hash-join plan executing. Record batches flow up three pipelines on a 10.5s loop:
 // build (scan + filter → hash table), probe (scan → join → partial groups), then emit.
 // Every animation shares one cycle and uses keyTimes, so they stay in sync without JS.
@@ -29,10 +31,10 @@ const visible = (at: number, until = 9.9) => ({
 });
 ---
 
-<figure class="hero-plan" aria-labelledby="hero-plan-caption">
-  <svg viewBox="16 14 448 392" role="img" aria-labelledby="hero-plan-title hero-plan-desc">
-    <title id="hero-plan-title">A hash join plan executing</title>
-    <desc id="hero-plan-desc">
+<figure class="hero-plan" aria-labelledby={`${uid}-caption`}>
+  <svg viewBox="16 14 448 392" role="img" aria-labelledby={`${uid}-title ${uid}-desc`}>
+    <title id={`${uid}-title`}>A hash join plan executing</title>
+    <desc id={`${uid}-desc`}>
       Record batches flow up from two table scans. Customer batches shrink as they pass the filter on segment = retail and fill the
       join's hash table. Then order batches probe the hash table and fill aggregate groups. Finally one result batch
       leaves the aggregate.
@@ -134,7 +136,7 @@ const visible = (at: number, until = 9.9) => ({
 
   </svg>
 
-  <figcaption id="hero-plan-caption">
+  <figcaption id={`${uid}-caption`}>
     <span class="key"><span class="swatch build"></span>Pipeline 1 builds the hash table</span>
     <span class="key"><span class="swatch probe"></span>Pipeline 2 probes it and groups rows</span>
     <span class="key"><span class="swatch emit"></span>Pipeline 3 emits results</span>

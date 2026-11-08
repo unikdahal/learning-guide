@@ -2,7 +2,7 @@
 // The 22 modules as a dependency graph, layered by depth. Tap a module to light up everything it
 // needs and everything it unlocks, or pick a suggested route. Built from syllabus/*.yaml, so it
 // stays correct as the syllabus changes. Without JavaScript it renders as layered lists.
-import { data, moduleById, url } from '../../lib/site';
+import { data, moduleById, url, routes } from '../../lib/site';
 
 const modules = data.parts.flatMap((p) => p.modules.map(moduleById));
 const byId = new Map(modules.map((m) => [m.id, m]));
@@ -25,11 +25,7 @@ const graph = Object.fromEntries(
   modules.map((m) => [m.id, { title: m.title, prereqs: m.prereqs, n: m.articles.length, href: url(`${m.slug}/`) }]),
 );
 
-const routes = [
-  { id: 'new', name: 'New to databases', steps: ['00', '01', '03', '05', '07', '08', '09'] },
-  { id: 'eng', name: 'Working data engineer', steps: ['05', '08', '13', '14', '15', '16', '18'] },
-  { id: 'interview', name: 'Preparing for engine roles', steps: ['02', '05', '08', '09', '11', '15', '20'] },
-];
+
 ---
 
 <qe-prereq class="qe-prereq not-content" data-graph={JSON.stringify(graph)} data-routes={JSON.stringify(routes)}>
@@ -298,9 +294,9 @@ const routes = [
     fill: none;
     stroke: var(--sl-color-gray-4);
     stroke-width: 1.25;
-    opacity: 0.55;
+    opacity: 1;
   }
-  .qe-prereq.has-focus svg.edges path { opacity: 0.15; }
+  .qe-prereq.has-focus svg.edges path { opacity: 1; }
   .qe-prereq svg.edges path.need {
     stroke: var(--qe-pipe-build);
     stroke-width: 2;
@@ -352,7 +348,7 @@ const routes = [
   .qe-prereq .nid {
     font-weight: 800;
     font-variant-numeric: tabular-nums;
-    color: var(--part);
+    color: var(--qe-part-text);
   }
   .qe-prereq .ntitle { font-weight: 600; }
   .qe-prereq .node:focus-visible,
@@ -360,7 +356,7 @@ const routes = [
     outline: 2px solid var(--sl-color-accent);
     outline-offset: 2px;
   }
-  .qe-prereq.has-focus .node { opacity: 0.45; }
+  .qe-prereq.has-focus .node { opacity: 1; }
   .qe-prereq.has-focus .node:is(.sel, .need, .unlock, .route) { opacity: 1; }
   .qe-prereq .node.sel {
     background: var(--sl-color-accent);

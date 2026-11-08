@@ -6,6 +6,7 @@
 */
 
 .qe-lab {
+  min-width: 0;
   display: grid;
   gap: 1.4rem;
   margin: 2rem 0;
@@ -16,6 +17,7 @@
   font-family: var(--sl-font);
   color: var(--sl-color-gray-2);
 }
+.qe-lab > *, .qe-chart, .qe-chart-plot { min-width: 0; }
 .qe-lab .qe-lab-part + .qe-lab-part {
   padding-top: 1.3rem;
   border-top: 1px solid var(--sl-color-gray-5);

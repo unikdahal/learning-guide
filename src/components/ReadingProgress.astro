@@ -2,7 +2,7 @@
 // Mounted on every page through the Footer override.
 // Everywhere: marks sidebar and module-list links as started or read.
 // On written articles: a reading progress bar, position tracking, and a "continue where you left off" offer.
-import { moduleById } from '../lib/site';
+import { allArticles, url, moduleById } from '../lib/site';
 
 const data = Astro.locals.starlightRoute.entry.data as { title: string; status?: string; module?: string };
 const isArticle = data.status === 'published' && !!data.module;
@@ -16,9 +16,17 @@ const moduleTitle = isArticle ? moduleById(data.module!).title : '';
   data-title={data.title}
   data-module={data.module}
   data-module-title={moduleTitle}
+  data-known-paths={JSON.stringify(allArticles().filter(a=>a.status==='published').map(a=>url(a.path+'/')))}
   hidden
 >
 </div>
+
+<noscript>
+  <style is:global>
+    main .not-content button, main .not-content input, main .not-content select {display:none !important;}
+    .qe-wvc .scenario[hidden] {display:block !important;}
+  </style>
+</noscript>
 
 {
   isArticle && (
@@ -45,9 +53,12 @@ const moduleTitle = isArticle ? moduleById(data.module!).title : '';
 }
 
 <script>
-  import { annotateLinks, load, trackArticle } from '../scripts/progress';
+  import { enhanceScrollableExamples } from "../scripts/accessibility";
+  enhanceScrollableExamples();
+  import { annotateLinks, configureProgress, load, trackArticle } from '../scripts/progress';
 
   const root = document.querySelector<HTMLElement>('[data-progress-root]');
+  configureProgress(JSON.parse(root?.dataset.knownPaths ?? '[]'));
   annotateLinks(load());
   if (root?.dataset.article) {
     trackArticle({
@@ -56,6 +67,8 @@ const moduleTitle = isArticle ? moduleById(data.module!).title : '';
       moduleTitle: root.dataset.moduleTitle ?? '',
     });
   }
+  addEventListener('storage',()=>annotateLinks(load()));
+  document.addEventListener('qe:progress-change',()=>annotateLinks(load()));
   // Keep marks fresh when the reader comes back to this tab after reading in another.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') annotateLinks(load());

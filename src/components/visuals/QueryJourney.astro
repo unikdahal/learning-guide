@@ -1,4 +1,6 @@
 ---
+import { uniqueId } from '../../lib/ids';
+const uid=uniqueId(Astro.locals,'qj');
 // One query, eight representations: follow it from SQL text to result rows.
 // Without JavaScript every stage renders in order; with it, stages become tabs.
 import PlanTree, { type PlanNode } from './PlanTree.astro';
@@ -273,8 +275,8 @@ GROUP BY c.region;`;
         <button
           type="button"
           role="tab"
-          id={`qj-tab-${s.id}`}
-          aria-controls={`qj-panel-${s.id}`}
+          id={`${uid}-tab-${s.id}`}
+          aria-controls={`${uid}-panel-${s.id}`}
           aria-selected={i === 0 ? 'true' : 'false'}
           tabindex={i === 0 ? 0 : -1}
         >
@@ -287,7 +289,7 @@ GROUP BY c.region;`;
 
   {
     stages.map((s, i) => (
-      <section class="qj-panel" id={`qj-panel-${s.id}`} role="tabpanel" aria-labelledby={`qj-tab-${s.id}`} data-stage={s.id}>
+      <section class="qj-panel" id={`${uid}-panel-${s.id}`} role="tabpanel" aria-labelledby={`${uid}-tab-${s.id}`} data-stage={s.id}>
         <header>
           <h3>
             <span class="n">{i + 1}</span> {s.name}
@@ -325,7 +327,7 @@ GROUP BY c.region;`;
               <PlanTree nodes={logical} />
               <p class="qj-note">
                 Binding also fixed the types: <code>amount</code> is a decimal, <code>region</code> a string, and{' '}
-                <code>sum(amount)</code> a wider decimal so it cannot overflow.
+                <code>sum(amount)</code> a wider decimal with defined precision and overflow behavior.
               </p>
             </>
           )}
@@ -426,6 +428,9 @@ GROUP BY c.region;`;
     tabs: HTMLButtonElement[] = [];
     panels: HTMLElement[] = [];
     ran = false;
+    runId = 0;
+    timers: ReturnType<typeof setTimeout>[] = [];
+    disconnectedCallback() { this.runId++; this.timers.forEach(clearTimeout); }
 
     connectedCallback() {
       this.tabs = [...this.querySelectorAll<HTMLButtonElement>('[role=tab]')];
@@ -459,7 +464,7 @@ GROUP BY c.region;`;
       const tab = this.tabs[this.i];
       // Keep the active chip visible inside the horizontally scrolling strip, without moving the page.
       const strip = tab.parentElement!;
-      strip.scrollTo({ left: tab.offsetLeft - strip.clientWidth / 2 + tab.clientWidth / 2, behavior: 'smooth' });
+      strip.scrollTo({ left: tab.offsetLeft - strip.clientWidth / 2 + tab.clientWidth / 2, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
       if (focusTab) tab.focus({ preventScroll: true });
       this.querySelector('.qj-pos')!.textContent = `${this.i + 1} of ${this.tabs.length}`;
       (this.querySelector('[data-prev]') as HTMLButtonElement).disabled = this.i === 0;
@@ -469,6 +474,8 @@ GROUP BY c.region;`;
 
     run() {
       this.ran = true;
+      const runId=++this.runId;
+      this.timers.forEach(clearTimeout);this.timers=[];
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const lanes = [...this.querySelectorAll<HTMLElement>('.qj-lane')];
       const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
@@ -488,18 +495,20 @@ GROUP BY c.region;`;
         // Pipelines run in order: build finishes before probe, probe before emit.
         const start = li * 1100;
         const dur = 1000;
-        setTimeout(() => {
+        this.timers.push(setTimeout(() => {
+          if (runId!==this.runId || !this.isConnected) return;
           bar.style.transition = `transform ${dur}ms linear`;
           bar.style.transform = 'scaleX(1)';
           const t0 = performance.now();
           const tick = (now: number) => {
+            if (runId!==this.runId || !this.isConnected) return;
             const p = Math.min(1, (now - t0) / dur);
             values.forEach((v) => (v.textContent = fmt(Number(v.dataset.target) * p)));
             if (p < 1) requestAnimationFrame(tick);
             else lane.classList.add('done');
           };
           requestAnimationFrame(tick);
-        }, start);
+        }, start));
       });
     }
   }
@@ -811,7 +820,7 @@ GROUP BY c.region;`;
     border-color: var(--sl-color-accent);
   }
   .qe-journey .qj-nav button:disabled {
-    opacity: 0.4;
+    opacity: 1;
     cursor: default;
   }
   .qe-journey .qj-nav button:focus-visible,

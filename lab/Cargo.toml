@@ -8,7 +8,7 @@ publish = false
 
 # One version of each dependency for the whole lab, so every exercise builds against the same engine.
 [workspace.dependencies]
-labkit = { path = "crates/labkit" }
+labkit = { path = "crates/labkit", default-features = false }
 datafusion = "55.2"
 tokio = { version = "1.54", features = ["rt-multi-thread", "macros"] }
 criterion = "0.8"

@@ -1,6 +1,8 @@
 import syllabus from '../data/syllabus.json';
-
-export type LevelKey = 'B' | 'I' | 'A' | 'E';
+import routeData from '../data/routes.json';
+import type { SiteData, ArticleStatus, Article as CurriculumArticle, Module as CurriculumModule, LevelKey } from '../../scripts/types';
+export type { ArticleStatus, LevelKey };
+export const routes = routeData;
 
 export const LEVELS: Record<LevelKey, { name: string; rank: number }> = {
   B: { name: 'Beginner', rank: 1 },
@@ -9,42 +11,23 @@ export const LEVELS: Record<LevelKey, { name: string; rank: number }> = {
   E: { name: 'Expert', rank: 4 },
 };
 
-export type Article = {
-  index: number;
-  title: string;
-  slug: string;
-  level: LevelKey;
-  scope: string;
-  visual: string | null;
-  path: string;
-  status: string;
-};
+export type Article = CurriculumArticle & {status: ArticleStatus};
+export type Module = Omit<CurriculumModule,'articles'> & {articles: Article[]};
+export type Part = SiteData['parts'][number];
 
-export type Module = {
-  id: string;
-  slug: string;
-  title: string;
-  goal: string;
-  prereqs: string[];
-  outcomes: string[];
-  part: number;
-  articles: Article[];
-};
+// The generator and check-only content gate validate this contract before a build.
+export const data = syllabus as SiteData;
+export const publishedCount = Object.values(data.modules).flatMap(m=>m.articles).filter(a=>a.status==='published').length;
+export const statusLabel = (status: ArticleStatus) => ({published:'Published',draft:'Draft',planned:'Planned'})[status];
+export function routeSummary(steps: string[]) {
+  const closure = new Set<string>();
+  const visit = (id: string) => { if (closure.has(id)) return; closure.add(id); moduleById(id).prereqs.forEach(visit); };
+  steps.forEach(visit);
+  const articles = steps.flatMap(id=>moduleById(id).articles);
+  const required = [...closure].flatMap(id=>moduleById(id).articles);
+  return {total:articles.length,published:articles.filter(a=>a.status==='published').length,withPrerequisites:required.length};
+}
 
-export type Part = {
-  id: number;
-  slug: string;
-  title: string;
-  color: string;
-  summary: string;
-  modules: string[];
-};
-
-export const data = syllabus as unknown as {
-  articleCount: number;
-  parts: Part[];
-  modules: Record<string, Module>;
-};
 
 /** Prefix an internal path with the site base, e.g. url('joins/') → '/learning-guide/joins/'. */
 export function url(path = ''): string {

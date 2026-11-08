@@ -1,0 +1,5 @@
+[
+  {"id":"new","name":"New to databases","title":"New to databases","text":"A complete prerequisite path from SQL meaning to single-machine scans, joins and aggregation.","assumes":"Basic programming and SQL; no database-internals background.","steps":["00","01","02","03","04","05","06","07","08","09"]},
+  {"id":"eng","name":"Working data engineer","title":"Working data engineer","text":"Execution models, joins, optimization, distributed work and lakehouse storage.","assumes":"Working SQL and the foundations in Modules 00–04 and expression semantics in 06. Follow Read first links to fill gaps.","steps":["05","08","13","14","15","16","18"]},
+  {"id":"interview","name":"Preparing for engine roles","title":"Preparing for engine roles","text":"Hardware, execution, memory, shuffle and a working engine.","assumes":"Relational semantics, representation, frontend, expressions and optimization. Follow each module’s Read first links before skipping ahead.","steps":["02","05","08","09","11","15","20"]}
+]

@@ -19,7 +19,6 @@ const preds = [
   { id: 'distinct', sql: "segment IS DISTINCT FROM 'retail'" },
   { id: 'notin', sql: 'id NOT IN (1, 4, NULL)' },
 ];
-const T = ['TRUE', 'FALSE', 'UNKNOWN'];
 ---
 
 <qe-3vl class="qe-3vl not-content" data-rows={JSON.stringify(customers)}>
@@ -43,6 +42,8 @@ const T = ['TRUE', 'FALSE', 'UNKNOWN'];
     <p class="note" data-note></p>
   </div>
 </qe-3vl>
+
+<noscript><p class="static-example">AND is FALSE if either input is FALSE, TRUE if both are TRUE, otherwise UNKNOWN. OR is TRUE if either input is TRUE, FALSE if both are FALSE, otherwise UNKNOWN. NOT UNKNOWN stays UNKNOWN. For customers 1/retail,2/wholesale,3/NULL,4/retail,5/NULL, WHERE segment=retail keeps 1 and 4; NOT IN (1,4,NULL) keeps none.</p></noscript>
 
 <script>
   type V = 'TRUE' | 'FALSE' | 'UNKNOWN';
@@ -278,7 +279,7 @@ const T = ['TRUE', 'FALSE', 'UNKNOWN'];
   }
   .qe-3vl .rows li.dropped .nm,
   .qe-3vl .rows li.dropped .seg {
-    opacity: 0.5;
+    opacity: 1;
   }
   .qe-3vl .nm {
     font-weight: 700;

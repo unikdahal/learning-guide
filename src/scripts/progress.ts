@@ -1,59 +1,59 @@
 // Reading progress, stored only in this browser (localStorage). Nothing is sent anywhere:
-// the site is static, so there is no server that could read it.
+// this application does not transmit reading history.
 //
 // What is stored, per article: title, module, furthest point reached (0–1), the section you were
 // last reading, whether you finished it, and when. Plus the path of the last article you read.
 
-export type ArticleProgress = {
-  t: string; // title
-  m: string; // module id
-  mt: string; // module title
-  p: number; // furthest progress, 0..1
-  s?: string; // id of the section heading last in view
-  st?: string; // that section's title
-  done?: boolean;
-  ts: number; // last visit, epoch ms
-};
-
-export type ProgressState = {
-  v: 1;
-  last?: string;
-  articles: Record<string, ArticleProgress>;
-};
-
-const KEY = 'qe:progress:v1';
+import { emptyState, INITIAL_GENERATION, sanitizeState, mergeProgress, type ArticleProgress, type ProgressState } from './progress-state';
+export type {ArticleProgress,ProgressState} from './progress-state';
+export const KEY = 'qe:progress:v2';
+const LEGACY_KEY = 'qe:progress:v1';
+const GENERATION_KEY = 'qe:progress:generation';
 const DONE_AT = 0.92;
 const STARTED_AT = 0.04;
-
+let knownPaths: ReadonlySet<string> | undefined;
+export function configureProgress(paths: string[]) { knownPaths=new Set(paths); }
+function generation(): string {
+  try { return localStorage.getItem(GENERATION_KEY) || INITIAL_GENERATION; }
+  catch { return INITIAL_GENERATION; }
+}
 export function load(): ProgressState {
+  const g=generation();
   try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s && s.v === 1 && typeof s.articles === 'object') return s as ProgressState;
+    const current=localStorage.getItem(KEY);
+    if (current) return sanitizeState(JSON.parse(current),g,knownPaths);
+    if (g===INITIAL_GENERATION) {
+      const old=localStorage.getItem(LEGACY_KEY);
+      if (old) {
+        const migrated=sanitizeState(JSON.parse(old),g,knownPaths);
+        save(migrated);
+        localStorage.removeItem(LEGACY_KEY);
+        return migrated;
+      }
     }
-  } catch {
-    // Private browsing, blocked storage or corrupt data: behave as a first visit.
-  }
-  return { v: 1, articles: {} };
+  } catch { /* Blocked storage and malformed JSON behave as a first visit. */ }
+  return emptyState(g);
 }
-
 export function save(state: ProgressState): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(state));
-  } catch {
-    // Storage full or blocked. Progress is a convenience; never break the page over it.
-  }
+  try { if (state.generation===generation()) localStorage.setItem(KEY,JSON.stringify(state)); }
+  catch { /* Progress is optional: quota errors must never break the lesson. */ }
 }
-
+function transaction(write: () => void): void {
+  if (navigator.locks) void navigator.locks.request('qe:progress',write).catch(()=>{});
+  else write(); // Older browsers still receive monotonic merge and durable reset protection.
+}
 export function clear(): void {
+  transaction(()=>{
   try {
-    localStorage.removeItem(KEY);
-  } catch {
-    /* ignore */
-  }
+    // A durable generation prevents an old tab (or v1 migration) reviving deleted history.
+    const g=crypto.randomUUID();
+    localStorage.setItem(GENERATION_KEY,g);
+    localStorage.removeItem(LEGACY_KEY);
+    localStorage.setItem(KEY,JSON.stringify(emptyState(g)));
+  } catch { /* Storage may be disabled. */ }
+  document.dispatchEvent(new Event('qe:progress-change'));
+  });
 }
-
 /** Canonical form of a site path: always with a trailing slash, no hash or query. */
 export function canonical(href: string): string {
   const u = new URL(href, location.href);
@@ -79,7 +79,9 @@ export function annotateLinks(state: ProgressState): void {
     const st = statusOf(state.articles[path]);
     if (st === 'none') {
       delete a.dataset.progress;
+      if (a.dataset.progressTitle) { a.title=a.dataset.progressTitle; delete a.dataset.progressTitle; }
     } else {
+      a.dataset.progressTitle ??= a.title;
       a.dataset.progress = st;
       a.title = st === 'done' ? 'Read' : `Started, ${Math.round(state.articles[path].p * 100)}%`;
     }
@@ -94,6 +96,7 @@ export function trackArticle(meta: ArticleMetaData): void {
   if (!content) return;
   const path = canonical(location.href);
   const state = load();
+  let activeGeneration=state.generation;
   const prior = state.articles[path];
 
   const bar = document.querySelector<HTMLElement>('[data-reading-bar]');
@@ -101,13 +104,32 @@ export function trackArticle(meta: ArticleMetaData): void {
     (h) => !h.closest('.not-content'),
   );
 
-  const entry: ArticleProgress = prior
+  let entry: ArticleProgress = prior
     ? { ...prior, t: meta.title, m: meta.module, mt: meta.moduleTitle }
     : { t: meta.title, m: meta.module, mt: meta.moduleTitle, p: 0, ts: Date.now() };
   let dirty = false;
   let becameLast = false;
+  let waitingForReading = false;
+  const reset = (g: string) => {
+    activeGeneration=g; dirty=false; becameLast=false; waitingForReading=true;
+    entry={t:meta.title,m:meta.module,mt:meta.moduleTitle,p:0,ts:Date.now()};
+    const toast=document.querySelector<HTMLElement>('[data-resume-toast]');
+    if (toast) toast.hidden=true;
+    annotateLinks(load());
+  };
+  const storageChanged = () => {
+    const latest=load();
+    if (latest.generation!==activeGeneration) reset(latest.generation);
+    annotateLinks(latest);
+  };
+  addEventListener('storage',storageChanged);
+  document.addEventListener('qe:progress-change',storageChanged);
 
-  const measure = () => {
+  const measure = (reading = false) => {
+    const latestGeneration=generation();
+    if (latestGeneration!==activeGeneration) reset(latestGeneration);
+    if (waitingForReading && !reading) return;
+    if (reading) waitingForReading=false;
     const rect = content.getBoundingClientRect();
     const seen = (window.innerHeight - rect.top) / rect.height;
     const p = Math.max(0, Math.min(1, seen));
@@ -125,8 +147,10 @@ export function trackArticle(meta: ArticleMetaData): void {
       entry.st = current.textContent?.trim() ?? '';
       dirty = true;
     }
+    if (dirty) entry.ts=Date.now();
     if (p > entry.p + 0.01) {
       entry.p = p;
+      entry.ts=Date.now();
       dirty = true;
     }
     if (!entry.done && entry.p >= DONE_AT) {
@@ -143,11 +167,16 @@ export function trackArticle(meta: ArticleMetaData): void {
   const flush = () => {
     if (!dirty) return;
     dirty = false;
-    const latest = load(); // another tab may have written meanwhile
-    entry.ts = Date.now();
-    latest.articles[path] = entry;
-    if (becameLast) latest.last = path;
-    save(latest);
+    const incoming={...entry};
+    transaction(()=>{
+      const latest=load();
+      if (latest.generation!==activeGeneration) { reset(latest.generation); return; }
+      const merged=mergeProgress(latest.articles[path],incoming);
+      latest.articles[path]=merged;
+      entry=mergeProgress(entry,merged);
+      if (becameLast && merged.ts >= (latest.last ? latest.articles[latest.last]?.ts ?? 0 : 0)) latest.last=path;
+      save(latest);
+    });
   };
 
   let queued = false;
@@ -158,13 +187,15 @@ export function trackArticle(meta: ArticleMetaData): void {
       queued = true;
       requestAnimationFrame(() => {
         queued = false;
-        measure();
+        measure(true);
       });
     },
     { passive: true },
   );
-  addEventListener('resize', measure, { passive: true });
-  setInterval(flush, 2000);
+  addEventListener('resize', () => measure(), { passive: true });
+  const timer=setInterval(flush,2000);
+  addEventListener('pagehide',()=>clearInterval(timer),{once:true});
+  addEventListener('pageshow',event=>{ if (event.persisted) location.reload(); });
   addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush());
   measure();

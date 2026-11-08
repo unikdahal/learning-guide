@@ -2,7 +2,7 @@
 // Generated overview for a module: goal, outcomes, prerequisites and the article sequence.
 import LevelMeter from './LevelMeter.astro';
 import LevelSpread from './LevelSpread.astro';
-import { moduleById, partOf, url } from '../lib/site';
+import { moduleById, partOf, url, statusLabel } from '../lib/site';
 
 interface Props {
   id: string;
@@ -56,7 +56,7 @@ const published = m.articles.filter((a) => a.status === 'published').length;
             <a href={url(a.path + '/')}>
               <span class="idx">{a.index}</span>
               <span class="body">
-                <span class="title">{a.title}</span>
+                <span class="title">{a.title} <small data-status-label>{statusLabel(a.status)}</small></span>
                 <span class="scope">{a.scope}</span>
               </span>
               <LevelMeter level={a.level} showLabel={false} />
@@ -83,7 +83,7 @@ const published = m.articles.filter((a) => a.status === 'published').length;
     font-family: var(--sl-font);
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--part);
+    color: var(--qe-part-text);
   }
   .goal {
     margin: 0;

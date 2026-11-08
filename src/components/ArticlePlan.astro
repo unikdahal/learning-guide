@@ -1,7 +1,7 @@
 ---
 // Body of a planned (not yet written) article: what it will cover and where it sits.
 import LevelMeter from './LevelMeter.astro';
-import { moduleById, partOf, url } from '../lib/site';
+import { moduleById, partOf, url, REPO } from '../lib/site';
 
 interface Props {
   module: string;
@@ -25,8 +25,10 @@ const neighbours = m.articles;
   </div>
 
   <p class="status" data-pagefind-ignore>
-    This article is planned and not written yet. Below is what it will cover.
+    {a.status === 'draft' ? 'This article is a draft and is not ready for reading yet.' : 'This article is planned and not written yet.'} Below is what it will cover.
   </p>
+
+  {m.id === '20' && <p><a href={`${REPO}/blob/main/docs/CAPSTONE.md`}>Capstone milestones, query capabilities and acceptance criteria</a></p>}
 
   <dl class="facts">
     <div>
@@ -99,7 +101,7 @@ const neighbours = m.articles;
     font-family: var(--sl-font);
   }
   .module-link .part {
-    color: var(--part);
+    color: var(--qe-part-text);
     font-size: 0.8125rem;
     font-weight: 600;
   }

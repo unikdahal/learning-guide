@@ -113,7 +113,7 @@ async fn main() -> datafusion::error::Result<()> {
             .find(|l| l.contains("Join"))
             .unwrap_or("")
             .trim();
-        let samples = repeat_async(2, 15, || async {
+        let samples = repeat_async(3, 20, || async {
             ctx.sql(&sql).await.unwrap().collect().await.unwrap()
         })
         .await;

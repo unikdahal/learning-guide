@@ -69,6 +69,8 @@ const ops = [
   <p class="summary" data-summary aria-live="polite"></p>
 </qe-setops>
 
+<noscript><p class="static-example">L has a×3,b×1,c×1; R has a×1,b×2,d×1. UNION ALL gives a×4,b×3,c×1,d×1; INTERSECT ALL gives a×1,b×1; EXCEPT ALL gives a×2,c×1. Without ALL, INTERSECT gives a,b and EXCEPT gives c.</p></noscript>
+
 <script>
   type Op = { id: string; sql: string; rule: string };
   const RULES: Record<string, (m: number, n: number) => number> = {
@@ -291,7 +293,7 @@ const ops = [
     cursor: pointer;
   }
   .qe-so .ctl button:disabled {
-    opacity: 0.3;
+    opacity: 1;
     cursor: default;
   }
   .qe-so .calc {

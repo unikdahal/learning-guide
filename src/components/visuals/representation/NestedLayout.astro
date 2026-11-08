@@ -94,7 +94,7 @@ const types: T[] = [
 <qe-nested class="qe-lab qe-nest not-content" data-t={JSON.stringify(types)}>
   <section class="qe-lab-part">
     <div class="qe-lab-chips prose" role="group" aria-label="Nested type">
-      {types.map((t, i) => <button type="button" data-k={t.key} aria-pressed={String(i === 0)}>{t.name.split('<')[0].replace(' of Int32 | Utf8', '')}</button>)}
+      {types.map((t, i) => <button type="button" data-k={t.key} aria-pressed={i === 0}>{t.name.split('<')[0].replace(' of Int32 | Utf8', '')}</button>)}
     </div>
     <p class="qe-lab-cap lbl" data-name></p>
     <div class="logical" data-logical role="group" aria-label="Logical values"></div>

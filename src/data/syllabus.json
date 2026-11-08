@@ -1722,18 +1722,20 @@
       "id": "20",
       "slug": "capstone-engine",
       "title": "Capstone: build a query engine in Rust",
-      "goal": "Assemble everything into a working engine that runs TPC-H queries.",
+      "goal": "Build a core engine, then earn all-22-query TPC-H coverage through explicit correctness milestones.",
       "prereqs": [
         "05",
         "07",
         "08",
         "09",
+        "10",
         "12"
       ],
       "outcomes": [
         "Ship a working SQL engine with scan, filter, project, join, aggregate and sort",
         "Add a rule-based optimizer and a simple cost model",
-        "Run and profile TPC-H queries"
+        "Validate a declared core SQL subset before adding correlated subqueries, CTEs, semi/anti joins and the full 22-query suite",
+        "Compare exact answers against an independent engine before profiling"
       ],
       "part": 7,
       "articles": [
@@ -1742,7 +1744,7 @@
           "title": "Capstone overview and architecture",
           "slug": "capstone-overview-and-architecture",
           "level": "I",
-          "scope": "What you will build, the crate layout, and milestones.",
+          "scope": "Core-engine, full-query-suite and bounded-resource milestones; explicit acceptance criteria and the query capability matrix.",
           "visual": "Architecture diagram of the capstone engine",
           "path": "capstone-engine/capstone-overview-and-architecture",
           "status": "planned"
@@ -1792,7 +1794,7 @@
           "title": "The expression evaluator",
           "slug": "the-expression-evaluator",
           "level": "I",
-          "scope": "Vectorized expression evaluation with arrow kernels.",
+          "scope": "Vectorized expressions with Arrow kernels, exact Decimal/date arithmetic, CASE, LIKE, EXTRACT and substring functions required by TPC-H.",
           "visual": null,
           "path": "capstone-engine/the-expression-evaluator",
           "status": "planned"
@@ -1862,7 +1864,7 @@
           "title": "Limit, union and the remaining operators",
           "slug": "limit-union-and-the-remaining-operators",
           "level": "I",
-          "scope": "Completing the operator set.",
+          "scope": "Completing the core operator set, lowering derived tables and CTEs, and adding scalar/correlated subqueries, IN and EXISTS with correct NULL and cardinality rules.",
           "visual": null,
           "path": "capstone-engine/limit-union-and-the-remaining-operators",
           "status": "planned"
@@ -1912,7 +1914,7 @@
           "title": "Running TPC-H",
           "slug": "running-tpc-h",
           "level": "A",
-          "scope": "Generating data, running all 22 queries, and checking results.",
+          "scope": "Generate the full TPC-H schema; validate Q1/Q3/Q6 first, then all 22 queries only after every capability and independent answer oracle is ready.",
           "visual": null,
           "path": "capstone-engine/running-tpc-h",
           "status": "planned"

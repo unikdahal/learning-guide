@@ -80,6 +80,25 @@ async fn main() {
         } else {
             "DIFFERS from the standard"
         };
+        if ["INTERSECT ALL", "EXCEPT ALL"].contains(op) {
+            // DataFusion 55.2.0: keep this expectation explicit until an engine upgrade.
+            assert_ne!(
+                &got_bag, want,
+                "upstream bug fixed: update the pinned lesson/expectation"
+            );
+            let pinned = if *op == "INTERSECT ALL" {
+                l.intersect(&r)
+                    .rows()
+                    .into_iter()
+                    .flat_map(|row| std::iter::repeat_n(row.clone(), l.count(&row)))
+                    .collect()
+            } else {
+                l.except(&r).rows()
+            };
+            assert_eq!(got_bag, Bag::from_rows(["x"], pinned));
+        } else {
+            assert_eq!(&got_bag, want, "unexpected SQL result");
+        }
         println!("{op:<14} {got_bag}   {verdict}");
     }
     for op in ["INTERSECT ALL", "EXCEPT ALL"] {
@@ -113,7 +132,7 @@ async fn main() {
         (
             "INTERSECT ALL",
             format!(
-                "SELECT a.x FROM ({}) a WHERE EXISTS (SELECT 1 FROM ({}) b WHERE b.x = a.x AND b.k = a.k)",
+                "SELECT a.x FROM ({}) a WHERE EXISTS (SELECT 1 FROM ({}) b WHERE (b.x IS NOT DISTINCT FROM a.x) AND b.k = a.k)",
                 numbered("l"),
                 numbered("r")
             ),
@@ -122,7 +141,7 @@ async fn main() {
         (
             "EXCEPT ALL",
             format!(
-                "SELECT a.x FROM ({}) a WHERE NOT EXISTS (SELECT 1 FROM ({}) b WHERE b.x = a.x AND b.k = a.k)",
+                "SELECT a.x FROM ({}) a WHERE NOT EXISTS (SELECT 1 FROM ({}) b WHERE (b.x IS NOT DISTINCT FROM a.x) AND b.k = a.k)",
                 numbered("l"),
                 numbered("r")
             ),
@@ -136,6 +155,10 @@ async fn main() {
         } else {
             "DIFFERS from the standard"
         };
+        assert_eq!(
+            &got, want,
+            "numbered-copy workaround must match SQL bag semantics"
+        );
         println!("{op:<14} rewritten: {got}   {verdict}");
     }
 

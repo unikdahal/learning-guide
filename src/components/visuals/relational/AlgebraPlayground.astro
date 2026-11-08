@@ -70,9 +70,10 @@ import { customers, customerAttrs } from './data';
   <p class="note" data-note aria-live="polite"></p>
 </qe-algebra>
 
+<noscript><p class="static-example">The six customers include four retail customers. Selecting retail and projecting region gives ASIA, ASIA, AFRICA, EUROPE as a SQL bag; DISTINCT returns ASIA, AFRICA, EUROPE. Dropping region before testing it makes that predicate unavailable.</p></noscript>
+
 <script>
   type Row = Record<string, string | number>;
-  const ATTRS = ['id', 'name', 'segment', 'region'];
 
   class QeAlgebra extends HTMLElement {
     rows: Row[] = [];
@@ -321,12 +322,12 @@ import { customers, customerAttrs } from './data';
     color: var(--sl-color-gray-2);
   }
   .qe-alg [data-input] tr.out td {
-    opacity: 0.25;
+    opacity: 1;
     text-decoration: line-through;
     text-decoration-color: var(--qe-warn);
   }
   .qe-alg [data-input] .drop {
-    opacity: 0.25;
+    opacity: 1;
   }
   .qe-alg [data-input] tr:not(.out) td:not(.drop) {
     background: color-mix(in srgb, var(--sl-color-accent) 14%, transparent);

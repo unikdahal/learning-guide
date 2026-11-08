@@ -56,6 +56,8 @@ const orders = [
   </section>
 </qe-ties>
 
+<noscript><p class="static-example">Amounts are 500,300,300,300,120,90,300,60. Top 3 includes 500 and any two 300s; ordering by unique id chooses a fixed pair, while WITH TIES includes all four 300s. Paging posts 6,5,4 then inserting post 7 makes OFFSET repeat post 4; the cursor posted<40 returns 3,2,1.</p></noscript>
+
 <script>
   type O = { id: number; amount: number };
   type P = { id: number; posted: number };
@@ -97,7 +99,11 @@ const orders = [
 
     run() {
       // Rows with equal amounts arrive in a random order, as they would from parallel partitions.
-      const shuffled = [...this.orders].sort(() => Math.random() - 0.5);
+      const shuffled=[...this.orders];
+      for (let i=shuffled.length-1;i>0;i--) {
+        const j=Math.floor(Math.random()*(i+1));
+        [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];
+      }
       const sorted =
         this.form === 'tiebreak'
           ? [...this.orders].sort((a, b) => b.amount - a.amount || a.id - b.id)

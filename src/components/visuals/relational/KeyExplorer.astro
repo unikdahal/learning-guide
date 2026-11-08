@@ -44,6 +44,8 @@ import { customers, customerAttrs } from './data';
   </p>
 </qe-keys>
 
+<noscript><p class="static-example">The sample customers have unique id and name values. Either alone is a minimal superkey of this instance; id plus region is a nonminimal superkey. Region alone is not unique. Only a schema constraint can promise uniqueness for future data.</p></noscript>
+
 <script>
   type Row = Record<string, string | number>;
 

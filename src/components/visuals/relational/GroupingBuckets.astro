@@ -39,7 +39,7 @@ const rows = [
   <div class="stages">
     <section>
       <h4><span class="n">1</span> Rows <span class="hint">FROM, WHERE</span></h4>
-      <ul class="rows" data-input></ul>
+      <ul class="rows" data-input>{rows.map(r=><li><span>{r.id}</span> <span>{r.region}</span> <span>{r.amount ?? 'NULL'}</span></li>)}</ul>
     </section>
     <section>
       <h4><span class="n">2</span> Partition <span class="hint">GROUP BY</span></h4>
@@ -52,6 +52,8 @@ const rows = [
   </div>
   <p class="note" data-note aria-live="polite"></p>
 </qe-groups>
+
+<noscript><p class="static-example">The input amounts are ASIA: 250,40,90; AFRICA:610; EUROPE:75,NULL,40. GROUP BY region with SUM returns ASIA=380, AFRICA=610, EUROPE=115. HAVING SUM(amount)>200 removes EUROPE. Empty ungrouped SUM is NULL, and HAVING can remove that one candidate row.</p></noscript>
 
 <script>
   type Row = { id: number; region: string; amount: number | null };
@@ -149,20 +151,16 @@ const rows = [
             .join('')
         : '<li class="emptyout">0 rows</li>';
 
-      const note = this.querySelector<HTMLElement>('[data-note]')!;
-      if (empty && nogroup) {
-        note.innerHTML = `No rows matched, and there is no GROUP BY, so the whole input is one group, an empty one. The query still returns exactly one row: <code>count(*)</code> is 0, but <code>sum</code>, <code>avg</code> and <code>max</code> of nothing are NULL, not 0.`;
-      } else if (empty) {
-        note.innerHTML = `No rows matched. With GROUP BY there is one output row per group, and there are no groups, so the result has zero rows. Remove GROUP BY to see the difference.`;
-      } else if (agg === 'count(amount)' || agg === 'avg(amount)') {
-        note.innerHTML = `Order 106 has no amount. <code>count(*)</code> counts rows, but <code>${agg}</code> skips the NULL: EUROPE has 3 rows and 2 amounts${agg === 'avg(amount)' ? ', so its average is 115 ÷ 2 = 57.5, not 115 ÷ 3' : ''}.`;
-      } else if (where) {
-        note.innerHTML = `WHERE runs before grouping, so the rows it rejects never reach a bucket. Order 106 is dropped too: <code>NULL &gt; 50</code> is UNKNOWN, and WHERE keeps only TRUE.`;
-      } else if (having) {
-        note.innerHTML = `HAVING runs after reduction, on one row per group, so it can test aggregates. WHERE can’t: when WHERE runs, no aggregate has been computed yet.`;
-      } else {
-        note.innerHTML = `Every row lands in exactly one bucket, chosen by its region. Each bucket then collapses to one output row. Columns other than <code>region</code> can only appear inside an aggregate, because a bucket holds many values for them.`;
-      }
+      const accepted=results.filter(r=>r.ok).length;
+      const groupCounts=[...groups].map(([k,xs])=>`${k}: ${xs.length} rows, ${xs.filter(r=>r.amount!==null).length} known amounts`).join('; ');
+      const parts=[`WHERE kept ${kept.length} of ${this.rows.length} input rows. ${nogroup ? 'The whole input forms one group, even when empty.' : `These rows form ${groups.size} groups.`}`];
+      if (groupCounts) parts.push(groupCounts+'.');
+      if (having) parts.push(`HAVING keeps only aggregates above 200; FALSE and UNKNOWN are rejected. Crossed-out values are intermediate candidates, not result rows.`);
+      parts.push(`Final output: ${accepted} ${accepted===1 ? 'row' : 'rows'}.`);
+      if (empty && nogroup) parts.push(`COUNT is 0; SUM, AVG and MAX are NULL on empty input. HAVING can remove this sole aggregate row.`);
+      if (agg==='avg(amount)') parts.push('AVG skips NULLs and is displayed rounded to one decimal.');
+      this.querySelector<HTMLElement>('[data-note]')!.textContent=parts.join(' ');
+      this.querySelector('[data-out]')!.setAttribute('aria-label',`Final output: ${accepted} rows; crossed-out candidates were rejected by HAVING`);
     }
   }
   if (!customElements.get('qe-groups')) customElements.define('qe-groups', QeGroups);
@@ -303,9 +301,9 @@ const rows = [
     border-color: var(--sl-color-accent);
   }
   .qe-gb li.out {
-    opacity: 0.4;
+    opacity: 1;
     border-style: dashed;
-    border-color: var(--sl-color-gray-4);
+    border-color: var(--sl-color-gray-2);
   }
   .qe-gb li .why {
     grid-column: 1 / -1;

@@ -175,6 +175,7 @@ const byWritten = [...steps].sort((a, b) => a.written - b.written);
 </qe-clauses>
 
 <script>
+  import { transition } from "../../../scripts/transition";
   class QeClauses extends HTMLElement {
     i = 0;
     connectedCallback() {
@@ -200,9 +201,7 @@ const byWritten = [...steps].sort((a, b) => a.written - b.written);
       const key = mode === 'logical' ? 'logical' : 'written';
       items.sort((a, b) => Number(a.dataset[key]) - Number(b.dataset[key]));
       const apply = () => list.replaceChildren(...items);
-      const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
-      if (doc.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) doc.startViewTransition(apply);
-      else apply();
+      transition(apply);
     }
 
     go(n: number) {
@@ -370,7 +369,7 @@ const byWritten = [...steps].sort((a, b) => a.written - b.written);
     color: var(--sl-color-gray-2);
   }
   .qe-co tr.struck td {
-    opacity: 0.4;
+    opacity: 1;
     text-decoration: line-through;
     text-decoration-color: var(--qe-warn);
   }
@@ -442,7 +441,7 @@ const byWritten = [...steps].sort((a, b) => a.written - b.written);
     border-color: var(--sl-color-accent);
   }
   .qe-co .nav button:disabled {
-    opacity: 0.4;
+    opacity: 1;
     cursor: default;
   }
   .qe-co [data-pos] {

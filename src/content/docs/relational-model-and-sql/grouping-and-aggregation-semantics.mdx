@@ -84,7 +84,7 @@ is one of the places where a declared but violated key would give quietly wrong 
 
 ## NULLs inside aggregates
 
-Aggregates other than `count(*)` skip NULL inputs. PostgreSQL's documentation describes `avg` as the mean
+The aggregates demonstrated here—`count(amount)`, `sum`, `avg`, `min` and `max`—skip NULL inputs. This is not a rule for every aggregate: `array_agg`, for example, can retain NULLs. PostgreSQL's documentation describes `avg` as the mean
 "of all the non-null input values" and `count(expression)` as "the number of input rows in which the input
 value is not null". The lab's orders include one order, 106 in EUROPE, with no amount:
 
@@ -161,7 +161,7 @@ The number of output rows depends on whether there is a `GROUP BY`:
 ++
 ```
 
-Without `GROUP BY`, the whole input is one group, even when it is empty, so there is exactly one output row:
+Without `GROUP BY`, the whole input is one group, even when it is empty, so there is one aggregate candidate row before any `HAVING` filter:
 a count of 0, and NULL for the sum and maximum. With `GROUP BY`, there is one row per group, and an empty
 input has no groups, so there are no rows at all.
 
@@ -201,7 +201,7 @@ Projection: orders.region, sum(orders.amount) AS total
 
 The `WHERE` is a `Filter` below the `Aggregate`, and the `HAVING` is a `Filter` above it: `HAVING` needs no
 operator of its own. Notice also `CAST(orders.amount AS Int64)`: the column holds 32-bit integers, and the
-engine widens them before summing so that the total can't overflow.
+engine widens them before summing to reduce overflow risk. The result is still finite-width: sufficiently large totals can overflow, so type rules and overflow checks remain important.
 
 Engines compute γ with one of two families of algorithm. **Hash aggregation** keeps a hash table from group
 key to running totals and updates it row by row; **sort-based aggregation** sorts by the grouping columns so
@@ -215,8 +215,8 @@ first article of [Module 09](../../aggregation/decomposable-and-holistic-aggrega
 
 ## Costs and trade-offs
 
-**Memory grows with the number of groups, not rows.** A hash aggregation over a billion rows with five
-regions needs five entries. Grouping by user id over the same rows may need hundreds of millions, which is
+**For fixed-size aggregate states, memory grows mainly with groups.** A hash aggregation over a billion rows with five
+regions needs five fixed-size accumulator entries. Exact DISTINCT sets, arrays, and other growing states can require memory proportional to input even within one group. Grouping by user id over the same rows may need hundreds of millions, which is
 when aggregation has to spill to disk.
 
 **Filter early.** Every row `WHERE` removes is a row that never touches the hash table. A `HAVING` condition

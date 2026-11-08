@@ -16,7 +16,7 @@ const cases = [
   <section class="qe-lab-part">
     <p class="qe-lab-cap">Distinct values in a 2-million-row string column</p>
     <div class="qe-lab-chips prose" role="group" aria-label="Cardinality">
-      {cases.map((c, i) => <button type="button" data-k={c.key} aria-pressed={String(i === 2)}>{c.label}</button>)}
+      {cases.map((c, i) => <button type="button" data-k={c.key} aria-pressed={i === 2}>{c.label}</button>)}
     </div>
     <div class="gauge">
       <p class="qe-lab-cap">Dictionary page <span data-gl></span></p>
