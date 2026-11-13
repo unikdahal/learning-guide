@@ -47,14 +47,18 @@ test('static worked examples remain without JavaScript',async({browser})=>{
  await page.goto('http://127.0.0.1:4322/learning-guide/relational-model-and-sql/null-and-three-valued-logic/');await expect(page.locator('.static-example')).toContainText('WHERE');await context.close();
 });
 test('each guide shows only its own sidebar and title',async({page})=>{
- await page.goto('lok-sewa/nec/');await expect(page.locator('.site-title')).toContainText('Lok Sewa & NEC');
- await expect(page.locator('nav[aria-label="Main"] a[href*="/orientation/"]')).toHaveCount(0);
- await expect(page).toHaveTitle(/\| Lok Sewa & NEC$/);
- await page.goto('orientation/');await expect(page.locator('.site-title')).toContainText('Query Execution');
+ await page.goto('nec/roadmap/');await expect(page.locator('.site-title')).toContainText('NEC Licence');
  await expect(page.locator('nav[aria-label="Main"] a[href*="/lok-sewa/"]')).toHaveCount(0);
+ await expect(page).toHaveTitle(/\| NEC Licence$/);
+ await page.goto('lok-sewa/computer-engineer/');await expect(page.locator('.site-title')).toContainText('Lok Sewa');
+ await expect(page.locator('nav[aria-label="Main"] a[href*="/nec/"]')).toHaveCount(0);
+ await expect(page.locator('nav[aria-label="Main"] a[href*="/orientation/"]')).toHaveCount(0);
+ await expect(page).toHaveTitle(/\| Lok Sewa$/);
+ await page.goto('orientation/');await expect(page.locator('.site-title')).toContainText('Query Execution');
+ await expect(page.locator('nav[aria-label="Main"] a[href*="/lok-sewa/"], nav[aria-label="Main"] a[href*="/nec/"]')).toHaveCount(0);
  await page.goto('guides/');await page.locator('main a[href$="/lok-sewa/"]').click();await expect(page).toHaveURL(/\/lok-sewa\/$/);
 });
-for(const path of ['', 'roadmap/', 'guides/', 'lok-sewa/', 'lok-sewa/nec/',...published.map(a=>a.path+'/')]) {
+for(const path of ['', 'roadmap/', 'guides/', 'nec/', 'nec/roadmap/', 'lok-sewa/', 'lok-sewa/computer-engineer/',...published.map(a=>a.path+'/')]) {
  test(`accessible main content in both themes: ${path || 'home'}`,async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(path || './');
   for(const theme of ['light','dark']) {

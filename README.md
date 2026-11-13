@@ -14,7 +14,8 @@ its own header title; `src/route-data.ts` keeps their sidebars and prev/next lin
 | Guide | URL | Content |
 | --- | --- | --- |
 | Query Execution | `/learning-guide/` (root, unchanged) | `src/content/docs/<module>/`, generated from `syllabus/` |
-| Lok Sewa & NEC | `/learning-guide/lok-sewa/` | `src/content/docs/lok-sewa/` (hand-written; not generated) |
+| NEC Licence | `/learning-guide/nec/` | `src/content/docs/nec/` (hand-written; not generated) |
+| Lok Sewa | `/learning-guide/lok-sewa/` | `src/content/docs/lok-sewa/` (hand-written; not generated) |
 | Hub of all guides | `/learning-guide/guides/` | `src/content/docs/guides.mdx` |
 
 To add a guide: add it to `src/data/sections.json` (before the root entry), add its sidebar groups in

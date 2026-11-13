@@ -9,11 +9,11 @@ interface Props {
   title: string;
   lede: string;
   actions?: Action[];
-  cardsTitle: string;
+  cardsTitle?: string;
   cardsNote?: string;
-  cards: Card[];
+  cards?: Card[];
 }
-const { title, lede, actions = [], cardsTitle, cardsNote, cards } = Astro.props;
+const { title, lede, actions = [], cardsTitle, cardsNote, cards = [] } = Astro.props;
 const colors = ['var(--qe-pipe-probe)', 'var(--qe-pipe-build)', 'var(--qe-pipe-emit)', 'var(--qe-warn)'];
 ---
 
@@ -28,6 +28,7 @@ const colors = ['var(--qe-pipe-probe)', 'var(--qe-pipe-build)', 'var(--qe-pipe-e
     )}
   </section>
 
+  {cards.length > 0 && (
   <section aria-labelledby="cards-title">
     <h2 id="cards-title">{cardsTitle}</h2>
     {cardsNote && <p class="note">{cardsNote}</p>}
@@ -44,6 +45,7 @@ const colors = ['var(--qe-pipe-probe)', 'var(--qe-pipe-build)', 'var(--qe-pipe-e
       ))}
     </ol>
   </section>
+  )}
 </div>
 
 <style>

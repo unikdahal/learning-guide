@@ -31,22 +31,32 @@ const queryExecutionSidebar = [
   })),
 ];
 
-// Lok Sewa & NEC: a separate guide under /lok-sewa/. src/route-data.ts shows each page only its
-// own guide's groups, so the two sidebars never mix.
+// Other guides, each under its own prefix. src/route-data.ts shows each page only its own guide's
+// groups, so the sidebars never mix.
+const necSidebar = [
+  {
+    label: 'NEC Licence',
+    items: [
+      { label: 'Overview', link: '/nec/' },
+      { label: 'Roadmap', link: '/nec/roadmap/' },
+      { label: 'Syllabus', link: '/nec/syllabus/' },
+    ],
+  },
+];
+
 const lokSewaSidebar = [
   {
-    label: 'Lok Sewa & NEC',
+    label: 'Lok Sewa',
     items: [
       { label: 'Overview', link: '/lok-sewa/' },
       { label: 'Roadmap', link: '/lok-sewa/roadmap/' },
     ],
   },
-  { label: 'NEC licensing exam', items: [{ autogenerate: { directory: 'lok-sewa/nec' } }] },
   { label: 'Computer Engineer', items: [{ autogenerate: { directory: 'lok-sewa/computer-engineer' } }] },
   { label: 'Computer Officer', items: [{ autogenerate: { directory: 'lok-sewa/computer-officer' } }] },
 ];
 
-const sidebar = [...queryExecutionSidebar, ...lokSewaSidebar];
+const sidebar = [...queryExecutionSidebar, ...necSidebar, ...lokSewaSidebar];
 
 export default defineConfig({
   site,
