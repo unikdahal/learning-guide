@@ -1,0 +1,81 @@
+---
+title: "12. Maximum power transfer"
+description: Maximum power transfer from scratch — why the load must match the source resistance, the 50% efficiency catch, the formula Vth²/4Rth, and the AC conjugate rule.
+sidebar:
+  label: "12. Maximum power transfer"
+  order: 12
+---
+import { Aside } from '@astrojs/starlight/components';
+import PowerTransferLab from '@components/visuals/electronics/PowerTransferLab.astro';
+
+**Goal:** choose the load that receives the most power, compute that power, and explain why it's only 50% efficient.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** — the model paper asks what **percentage** of power reaches the load at maximum power transfer. **Lok Sewa Computer Engineer 4.1.1** — statement plus a numerical. It returns in Part 6: amplifier output stages and transformer coupling are about matching a load.
+</Aside>
+
+## The question
+
+Any source can be reduced to its Thevenin form (Vth with Rth inside). Which load RL takes the **most power** from it?
+
+- Make RL tiny → lots of current, but almost no voltage across RL, so little power.
+- Make RL huge → plenty of voltage, but almost no current, so little power again.
+- Somewhere between, power peaks. Try it:
+
+<PowerTransferLab />
+
+## The rule
+
+> A load receives maximum power from a DC source when its resistance **equals the source's Thevenin resistance**: `RL = Rth`.
+
+At that point:
+
+`I = Vth / (2 Rth)`   `P_max = I² RL = Vth² / (4 Rth)`
+
+**Worked example.** From lesson 10: Vth = 9 V, Rth = 3 Ω. Best load: **3 Ω**. Maximum power: 9²/(4 × 3) = 81/12 = **6.75 W**.
+
+**Worked example.** A 12 V battery has 0.5 Ω internal resistance. Maximum power it can deliver to a load: 12²/(4 × 0.5) = **72 W**, into a 0.5 Ω load.
+
+## The catch: 50% efficiency
+
+At the matched point the same current flows through Rth and RL, and they're equal, so **they dissipate equal power**: half is wasted inside the source. Efficiency `η = RL / (Rth + RL) = 50%`.
+
+- **Communication and signal circuits** (antennas, audio amplifiers to speakers, sensor inputs) *want* maximum power — signals are weak and every microwatt counts. They match impedances deliberately.
+- **Power systems** (the NEA grid, a data-centre supply) never operate there: wasting half the energy would be absurd. They keep RL ≫ Rth for high efficiency.
+
+## In AC circuits
+
+With capacitors and inductors, resistance becomes **impedance** (Part 4). The rule becomes: load impedance = the **complex conjugate** of the source impedance, `ZL = Zth*` — same resistance, opposite reactance. Learn the phrase now; it'll make sense after the AC lessons.
+
+## Traps
+
+- Efficiency at maximum power transfer is **50%**, not 100%.
+- `Vth²/(4Rth)`, not `Vth²/Rth`.
+- The theorem fixes the **source** and picks the **load**. If you could choose Rth instead, you'd make it zero.
+
+## Check yourself
+
+1. Maximum power is transferred to a load when:
+   (a) RL = 0 (b) RL = ∞ (c) RL = Rth (d) RL = 2Rth
+
+<details><summary>Answer</summary>(c)</details>
+
+2. Under maximum power transfer, the percentage of the source's total power delivered to the load is:
+   (a) 25% (b) 50% (c) 75% (d) 100%
+
+<details><summary>Answer</summary>(b) 50%; the other half is lost in Rth.</details>
+
+3. A source with Vth = 20 V and Rth = 5 Ω can deliver at most:
+   (a) 80 W (b) 40 W (c) 20 W (d) 100 W
+
+<details><summary>Answer</summary>(c) 20²/(4 × 5) = 400/20 = 20 W.</details>
+
+4. For AC maximum power transfer, the load impedance must be:
+   (a) equal to Zth (b) the complex conjugate of Zth (c) zero (d) purely capacitive
+
+<details><summary>Answer</summary>(b) ZL = Zth*.</details>
+
+5. Power distribution systems are NOT designed for maximum power transfer because:
+   (a) it needs AC (b) efficiency would be only 50% (c) it gives too little voltage (d) loads would be too large
+
+<details><summary>Answer</summary>(b) half the generated energy would be wasted.</details>

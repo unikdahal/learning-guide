@@ -1,0 +1,105 @@
+---
+title: "10. Thevenin's theorem"
+description: Thevenin's theorem from scratch — reduce any linear network to one voltage source and one resistor, find Vth and Rth step by step, and use it for changing loads.
+sidebar:
+  label: "10. Thevenin's theorem"
+  order: 10
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** replace any linear network, as seen from two terminals, by a single voltage source Vth in series with a single resistor Rth — and use it to find a load current in seconds.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** — the model paper asks what the Thevenin voltage means. **Lok Sewa Computer Engineer unit 4.1.1** — "State Thevenin's theorem and find the current in RL" is a classic 5- or 10-mark Paper II question; the answer template is at the bottom.
+</Aside>
+
+## The idea
+
+Stand at two terminals, a and b, and look into a circuit full of sources and resistors. Whatever's inside, **from the outside it behaves exactly like one battery with one resistor in series**. Anything you connect across a–b (the **load**) can't tell the difference.
+
+> Any linear, bilateral two-terminal network can be replaced by an equivalent circuit of a voltage source **Vth** in series with a resistance **Rth**.
+
+- **Vth** = the **open-circuit voltage** across a–b (nothing connected).
+- **Rth** = the resistance seen **looking into** a–b with every independent source switched off (voltage sources shorted, current sources opened).
+
+Why bother? If the load changes — try 2 Ω, then 6 Ω, then 10 Ω — you'd otherwise re-solve the whole circuit each time. With Thevenin you solve it **once**, then each load is just `I_L = Vth / (Rth + RL)`.
+
+## Worked example
+
+<Figure caption="Left: a 12 V source with 4 Ω in series and 12 Ω across the terminals a–b. Right: its Thevenin equivalent.">
+  <Circuit name="thevenin" label="Left: a 12 volt battery, a 4 ohm resistor along the top wire, and a 12 ohm resistor across the output terminals a and b. Right: the equivalent — a 9 volt source in series with 3 ohms, feeding the same terminals a and b." />
+</Figure>
+
+**Step 1 — Vth (open-circuit voltage).** With nothing across a–b, the 4 Ω and 12 Ω are in series across 12 V. Vth is the voltage across the 12 Ω (voltage divider):
+
+`Vth = 12 × 12/(4 + 12) = 9 V`
+
+**Step 2 — Rth.** Short the 12 V source. Looking in from a–b you see 4 Ω and 12 Ω in parallel:
+
+`Rth = 4 × 12/(4 + 12) = 3 Ω`
+
+**Step 3 — use it.** Connect a load RL = 6 Ω:
+
+`I_L = 9/(3 + 6) = 1 A`
+
+**Check the long way.** 12 ∥ 6 = 4 Ω; total 4 + 4 = 8 Ω; supply current 12/8 = 1.5 A; voltage across a–b = 1.5 × 4 = 6 V; load current 6/6 = 1 A ✔.
+
+Now other loads cost one line each:
+
+| RL | I_L = 9/(3 + RL) | V_L = I_L × RL |
+| --- | --- | --- |
+| 1 Ω | 2.25 A | 2.25 V |
+| 3 Ω | 1.5 A | 4.5 V |
+| 6 Ω | 1 A | 6 V |
+| 15 Ω | 0.5 A | 7.5 V |
+| open (∞) | 0 | 9 V = Vth |
+
+The last row shows what Vth *is*: the voltage you'd measure with nothing connected.
+
+## A way to measure it on a real circuit
+
+- Measure the open-circuit voltage with a voltmeter → Vth.
+- Measure the short-circuit current with an ammeter (carefully) → Isc.
+- Then `Rth = Vth / Isc`. (Here: Isc = 12/4 = 3 A, and 9/3 = 3 Ω ✔.) This link to Norton is the next lesson.
+
+## Traps
+
+- Rth is found with sources **off**, Vth with sources **on**. Swapping these is the classic mistake.
+- Remove the load before finding Vth — it's an **open-circuit** voltage.
+- Only for linear networks; the load itself may be anything.
+
+## Lok Sewa answer template (5 marks)
+
+1. **Statement** (1 mark): the boxed definition above.
+2. **Diagram** (1 mark): original network → Vth in series with Rth feeding RL.
+3. **Procedure** (2 marks): remove RL; find Vth = open-circuit voltage; kill sources, find Rth; I_L = Vth/(Rth + RL).
+4. **Small example or use** (1 mark): this lesson's 12 V example, or "analysing a load that changes, such as a sensor or a transistor's biasing network".
+
+## Check yourself
+
+1. The Thevenin voltage is:
+   (a) the short-circuit voltage at the terminals (b) the open-circuit voltage at the terminals (c) the source's EMF (d) the voltage across Rth
+
+<details><summary>Answer</summary>(b) the voltage across a–b with the load removed.</details>
+
+2. To find Rth, the independent voltage sources are:
+   (a) open-circuited (b) short-circuited (c) left as they are (d) doubled
+
+<details><summary>Answer</summary>(b) replaced by short circuits.</details>
+
+3. A network has Vth = 10 V and Rth = 5 Ω. The current in a 15 Ω load is:
+   (a) 2 A (b) 0.5 A (c) 0.67 A (d) 1 A
+
+<details><summary>Answer</summary>(b) 10/(5 + 15) = 0.5 A.</details>
+
+4. 24 V in series with 6 Ω, with 6 Ω across the output terminals. Vth and Rth are:
+   (a) 24 V, 12 Ω (b) 12 V, 3 Ω (c) 12 V, 6 Ω (d) 24 V, 3 Ω
+
+<details><summary>Answer</summary>(b) Vth = 24 × 6/12 = 12 V; Rth = 6 ∥ 6 = 3 Ω.</details>
+
+5. Thevenin's equivalent circuit consists of:
+   (a) a current source in parallel with a resistor (b) a voltage source in series with a resistor (c) a voltage source in parallel with a resistor (d) a current source in series with a resistor
+
+<details><summary>Answer</summary>(b) Norton's is (a).</details>

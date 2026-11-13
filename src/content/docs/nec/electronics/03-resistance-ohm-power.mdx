@@ -6,8 +6,13 @@ sidebar:
   order: 3
 ---
 import { Aside } from '@astrojs/starlight/components';
+import OhmLab from '@components/visuals/electronics/OhmLab.astro';
 
 **Goal:** use `V = IR`, `P = VI` and `W = Pt` confidently, and know which materials conduct and why.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.1** — Ohm's law, power and energy numericals; resistivity and "which is the best conductor" facts. **Lok Sewa Computer Engineer 4.1.1**, Paper I. Same `P = VI` you'd use at work for rack power: a 48 V shelf drawing 20 A is 960 W of heat to remove.
+</Aside>
 
 ## 1. Resistance
 
@@ -54,6 +59,10 @@ A component that obeys Ohm's law has a straight-line V–I graph through the ori
 
 **Worked example.** 20 mA flows through a 1 kΩ resistor. Voltage across it?
 Plain units: 0.02 A × 1,000 Ω = **20 V**. (Or, by the kΩ × mA shortcut, 1 × 20 = 20 V.)
+
+Try it — change V and R and watch the current, the power and the point on the V–I line:
+
+<OhmLab />
 
 <Aside type="tip" title="Triangle trick">
 Write V on top, I and R below. Cover the one you want: V = I·R, I = V/R, R = V/I.

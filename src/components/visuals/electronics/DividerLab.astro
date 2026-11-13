@@ -1,0 +1,171 @@
+---
+// Series vs parallel lab: two resistors on a 12 V supply. In series the voltage splits; in parallel the current splits.
+---
+
+<qe-divider class="qe-lab qe-div not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Divider lab — 12 V supply, two resistors</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Connection">
+      <button type="button" data-mode="series" aria-pressed="true">Series</button>
+      <button type="button" data-mode="parallel" aria-pressed="false">Parallel</button>
+    </div>
+    <div class="ctl">
+      <label>R1 <output data-o1>2 Ω</output>
+        <input type="range" min="1" max="12" step="1" value="2" data-r1 aria-label="R1 in ohms" />
+      </label>
+      <label>R2 <output data-o2>4 Ω</output>
+        <input type="range" min="1" max="12" step="1" value="4" data-r2 aria-label="R2 in ohms" />
+      </label>
+    </div>
+    <p class="qe-lab-cap" data-cap>How the 12 V is shared</p>
+    <div class="bar" aria-hidden="true"><span class="b1" data-b1></span><span class="b2" data-b2></span></div>
+    <dl class="out">
+      <div><dt data-t1 class="k1">R1</dt><dd data-v1></dd></div>
+      <div><dt data-t2 class="k2">R2</dt><dd data-v2></dd></div>
+      <div><dt>Total R</dt><dd data-rt></dd></div>
+      <div><dt>Supply current</dt><dd data-it></dd></div>
+    </dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-divider>
+
+<script>
+  class QeDivider extends HTMLElement {
+    mode = 'series';
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const r1 = $('[data-r1]') as HTMLInputElement;
+      const r2 = $('[data-r2]') as HTMLInputElement;
+      const f = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(2));
+      const update = () => {
+        const R1 = +r1.value;
+        const R2 = +r2.value;
+        const V = 12;
+        ($('[data-o1]') as HTMLOutputElement).value = `${R1} Ω`;
+        ($('[data-o2]') as HTMLOutputElement).value = `${R2} Ω`;
+        let a: number, b: number, Rt: number, It: number, note: string;
+        if (this.mode === 'series') {
+          Rt = R1 + R2;
+          It = V / Rt;
+          a = It * R1;
+          b = It * R2;
+          $('[data-cap]').textContent = 'Series: the 12 V is shared — each bar is one resistor’s voltage';
+          $('[data-t1]').textContent = 'Voltage across R1';
+          $('[data-t2]').textContent = 'Voltage across R2';
+          $('[data-v1]').textContent = `${f(a)} V`;
+          $('[data-v2]').textContent = `${f(b)} V`;
+          note = `Same current (${f(It)} A) through both. The bigger resistor takes the bigger share of the voltage: V1 = 12 × ${R1}/${Rt} = ${f(a)} V. Total R = ${R1} + ${R2} = ${Rt} Ω, more than either one.`;
+        } else {
+          Rt = (R1 * R2) / (R1 + R2);
+          a = V / R1;
+          b = V / R2;
+          It = a + b;
+          $('[data-cap]').textContent = 'Parallel: the current is shared — each bar is one branch’s current';
+          $('[data-t1]').textContent = 'Current in R1';
+          $('[data-t2]').textContent = 'Current in R2';
+          $('[data-v1]').textContent = `${f(a)} A`;
+          $('[data-v2]').textContent = `${f(b)} A`;
+          note = `Same 12 V across both. The smaller resistor takes the bigger share of the current. Total R = ${R1}×${R2}/(${R1}+${R2}) = ${f(Rt)} Ω, less than either one.`;
+        }
+        $('[data-rt]').textContent = `${f(Rt)} Ω`;
+        $('[data-it]').textContent = `${f(It)} A`;
+        const pa = (a / (a + b)) * 100;
+        $('[data-b1]').style.width = `${pa}%`;
+        $('[data-b2]').style.width = `${100 - pa}%`;
+        $('[data-note]').textContent = note;
+      };
+      this.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((btn) =>
+        btn.addEventListener('click', () => {
+          this.mode = btn.dataset.mode!;
+          this.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === btn)));
+          update();
+        }),
+      );
+      r1.addEventListener('input', update);
+      r2.addEventListener('input', update);
+      update();
+    }
+  }
+  customElements.define('qe-divider', QeDivider);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.8rem 1.2rem;
+    margin: 0.9rem 0;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+    margin-left: 0.4rem;
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .bar {
+    display: flex;
+    height: 2.4rem;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--sl-color-gray-5);
+  }
+  .bar span {
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    color: #fff;
+    transition: width 0.2s;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .b1 {
+    background: var(--qe-pipe-build);
+  }
+  .b2 {
+    background: var(--qe-pipe-emit);
+  }
+  .out {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.6rem 1.2rem;
+    margin: 0.9rem 0 0;
+  }
+  .out dt.k1::before,
+  .out dt.k2::before {
+    content: '';
+    display: inline-block;
+    width: 0.7rem;
+    height: 0.7rem;
+    margin-right: 0.35rem;
+    border-radius: 2px;
+    vertical-align: -0.05rem;
+  }
+  .out dt.k1::before {
+    background: var(--qe-pipe-build);
+  }
+  .out dt.k2::before {
+    background: var(--qe-pipe-emit);
+  }
+  .out dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .out dd {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

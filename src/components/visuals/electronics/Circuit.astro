@@ -3,7 +3,7 @@
 // Resistors use the IEC box symbol; batteries put the long (+) plate on top.
 // Colours come from theme variables so the drawings work in light and dark mode.
 interface Props {
-  name: 'loop' | 'series-parallel' | 'kcl' | 'nodal' | 'star-delta' | 'bridge';
+  name: 'loop' | 'series-parallel' | 'kcl' | 'nodal' | 'star-delta' | 'bridge' | 'superposition' | 'thevenin' | 'norton';
   label: string;
 }
 const { name, label } = Astro.props;
@@ -20,6 +20,26 @@ const cell = (x: number, cy: number) =>
 const t = (x: number, y: number, s: string, cls = '') => `<text x="${x}" y="${y}" class="${cls}">${s}</text>`;
 const arrow = (x1: number, y1: number, x2: number, y2: number, cls = 'i') =>
   `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#${id}-a${cls === 'e' ? 'e' : ''})"/>`;
+
+/** An open terminal (small hollow circle) with a label. */
+const term = (x: number, y: number, s: string) =>
+  `<circle class="term" cx="${x}" cy="${y}" r="5"/>` + t(x + 10, y + 5, s, 'strong');
+/** Current source: circle with an upward arrow, centred on (x, cy). */
+const isrc = (x: number, cy: number) =>
+  `<circle class="r" cx="${x}" cy="${cy}" r="18"/>` +
+  `<line class="w" x1="${x}" y1="${cy + 10}" x2="${x}" y2="${cy - 6}"/>` +
+  `<path class="dot" d="M${x - 5} ${cy - 4} L${x} ${cy - 12} L${x + 5} ${cy - 4} Z"/>`;
+/** One copy of the two-source circuit, with either source replaced by a plain wire (a short). */
+const twoSource = (ox: number, left: boolean, right: boolean) => {
+  const L = ox + 30, N = ox + 180, R = ox + 330;
+  return (
+    `<path class="w" d="M${L} 60 H${R} V200 H${L} Z M${N} 60 V200"/>` +
+    (left ? cell(L, 130) + t(L - 48, 125, '10 V') : t(L + 8, 135, 'short', 'small')) +
+    (right ? cell(R, 130) + t(R + 18, 125, '6 V') : t(R - 46, 135, 'short', 'small')) +
+    box(ox + 105, 60) + box(ox + 255, 60) + box(N, 130, 90) +
+    t(ox + 92, 44, '2 Ω') + t(ox + 242, 44, '4 Ω') + t(N + 16, 135, '4 Ω')
+  );
+};
 
 let vb = '0 0 400 240';
 let body = '';
@@ -93,6 +113,33 @@ if (name === 'loop') {
     `<circle class="dot" cx="60" cy="120" r="5"/><circle class="dot" cx="300" cy="120" r="5"/><circle class="dot" cx="180" cy="40" r="5"/><circle class="dot" cx="180" cy="200" r="5"/>` +
     t(48, 108, 'A', 'strong') + t(304, 108, 'B', 'strong') + t(174, 28, 'C', 'strong') + t(174, 226, 'D', 'strong') +
     t(86, 62, '2 Ω') + t(248, 62, '4 Ω') + t(86, 192, '3 Ω') + t(248, 192, '6 Ω') + t(194, 125, '5 Ω');
+} else if (name === 'superposition') {
+  vb = '-30 0 800 250';
+  body =
+    twoSource(0, true, false) + t(60, 240, 'Only the 10 V source (6 V shorted)', 'small') +
+    twoSource(380, false, true) + t(440, 240, 'Only the 6 V source (10 V shorted)', 'small');
+} else if (name === 'thevenin') {
+  vb = '0 0 760 250';
+  body =
+    `<path class="w" d="M40 60 H300 M40 200 H300 M40 60 V200 M210 60 V200"/>` +
+    cell(40, 130) + box(120, 60) + box(210, 130, 90) +
+    t(4, 120, '12 V') + t(106, 44, '4 Ω') + t(226, 135, '12 Ω') +
+    term(300, 60, 'a') + term(300, 200, 'b') +
+    t(60, 240, 'The real circuit, seen from a–b', 'small') +
+    t(360, 138, '≡', 'big') +
+    `<path class="w" d="M460 60 H680 M460 200 H680 M460 60 V200"/>` +
+    cell(460, 130) + box(560, 60) +
+    t(400, 120, 'Vth') + t(404, 140, '9 V', 'small') + t(536, 44, 'Rth = 3 Ω') +
+    term(680, 60, 'a') + term(680, 200, 'b') +
+    t(470, 240, 'Thevenin equivalent', 'small');
+} else if (name === 'norton') {
+  vb = '0 0 380 250';
+  body =
+    `<path class="w" d="M70 60 H300 M70 200 H300 M70 60 V112 M70 148 V200 M200 60 V200"/>` +
+    isrc(70, 130) + box(200, 130, 90) +
+    t(4, 120, 'In') + t(4, 140, '3 A', 'small') + t(216, 135, 'Rn = 3 Ω') +
+    term(300, 60, 'a') + term(300, 200, 'b') +
+    t(60, 240, 'Norton equivalent of the same circuit', 'small');
 }
 ---
 
@@ -146,6 +193,15 @@ if (name === 'loop') {
   .circuit :global(text.small) {
     font-size: 14px;
     fill: var(--sl-color-gray-2);
+  }
+  .circuit :global(text.big) {
+    font-size: 40px;
+    font-weight: 700;
+  }
+  .circuit :global(.term) {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 2.5;
   }
   .circuit :global(text.strong) {
     font-weight: 700;

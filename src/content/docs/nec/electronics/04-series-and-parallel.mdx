@@ -8,8 +8,13 @@ sidebar:
 import { Aside } from '@astrojs/starlight/components';
 import Figure from '@components/Figure.astro';
 import Circuit from '@components/visuals/electronics/Circuit.astro';
+import DividerLab from '@components/visuals/electronics/DividerLab.astro';
 
 **Goal:** replace any series–parallel network with one equivalent resistor, then find every current and voltage in it.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.1** — equivalent-resistance and divider numericals. **Lok Sewa Computer Engineer 4.1.1**. Voltage dividers come back in transistor biasing (Part 5), where they're the most common bias circuit.
+</Aside>
 
 <Figure caption="Left: two resistors in series share one path. Right: two resistors in parallel each connect across the same two wires.">
   <Circuit name="series-parallel" label="Two circuits. Left: a battery with R1 and R2 one after another on a single loop. Right: a battery with R1 and R2 each connected directly across the battery's two wires." />
@@ -58,6 +63,10 @@ Note the **other** resistor on top: more current takes the easier (smaller-resis
 - R_total = (6 × 3) / (6 + 3) = 18 / 9 = 2 Ω
 - Branch currents: 12 / 6 = 2 A and 12 / 3 = 4 A. Total 6 A.
 - Check: 12 V / 2 Ω = 6 A. ✔
+
+Compare the two side by side — switch between series and parallel and move the sliders:
+
+<DividerLab />
 
 ## 3. Mixed networks — reduce step by step
 
