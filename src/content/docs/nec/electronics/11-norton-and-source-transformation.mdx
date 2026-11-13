@@ -1,0 +1,95 @@
+---
+title: "11. Norton's theorem and source transformation"
+description: Norton's equivalent circuit, its link to Thevenin, current sources, and converting between voltage-source and current-source forms.
+sidebar:
+  label: "11. Norton and source transformation"
+  order: 11
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** build the Norton equivalent, convert between Norton and Thevenin in one step, and use source transformation to simplify circuits.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** — "the Norton current is the ___ current" is a standard MCQ. **Lok Sewa Computer Engineer 4.1.1** — often asked together with Thevenin ("state and compare"). Later, transistor small-signal models (Part 5) use Norton-style current sources.
+</Aside>
+
+## The idea
+
+Thevenin said: a network looks like a **voltage source in series** with a resistor. Norton says the same network also looks like a **current source in parallel** with a resistor. Both are true at once; they're two descriptions of the same behaviour.
+
+> Any linear, bilateral two-terminal network can be replaced by a current source **In** in parallel with a resistance **Rn**.
+
+- **In** = the **short-circuit current**: connect a wire across a–b and measure the current through it.
+- **Rn** = the resistance seen from a–b with sources switched off — **exactly the same as Rth**.
+
+A **current source** (drawn as a circle with an arrow) pushes a fixed current whatever is connected — the "dual" of a voltage source, which holds a fixed voltage.
+
+## Same example as lesson 10
+
+12 V, 4 Ω in series, 12 Ω across a–b.
+
+- **In:** short a–b. The short sits directly across the 12 Ω, so the 12 Ω carries nothing, and the 12 V drives current through the 4 Ω alone: `In = 12/4 = 3 A`.
+- **Rn = Rth = 3 Ω** (from lesson 10).
+
+<Figure caption="Norton equivalent: a 3 A current source in parallel with 3 Ω.">
+  <Circuit name="norton" label="A 3 ampere current source, arrow pointing up, in parallel with a 3 ohm resistor, feeding terminals a and b." />
+</Figure>
+
+**Check with RL = 6 Ω:** the 3 A splits between Rn = 3 Ω and RL = 6 Ω (current divider): `I_L = 3 × 3/(3 + 6) = 1 A` ✔ — the same answer as Thevenin.
+
+## Converting Thevenin ⇄ Norton
+
+`Vth = In × Rn`   `In = Vth / Rth`   `Rth = Rn`
+
+Here: 3 A × 3 Ω = 9 V ✔.
+
+## Source transformation — a simplifying trick
+
+The same conversion works on **any part** of a circuit:
+
+- A voltage source V in **series** with R ⇄ a current source V/R in **parallel** with the same R.
+
+**Example.** 20 V in series with 5 Ω becomes 4 A in parallel with 5 Ω. Two such current sources sitting across the same two nodes can then simply be added, and their parallel resistors combined — often faster than nodal analysis.
+
+<Aside type="caution" title="Ideal sources can't be transformed">
+An ideal voltage source (R = 0) would need an infinite current source, and an ideal current source (R = ∞) an infinite voltage. Transformation needs a resistor in the right place.
+</Aside>
+
+## Thevenin vs Norton at a glance
+
+| | Thevenin | Norton |
+| --- | --- | --- |
+| Source | voltage source Vth | current source In |
+| Resistor | Rth in **series** | Rn in **parallel** |
+| Found by | open-circuit voltage | short-circuit current |
+| Resistance | same: sources killed, look in from a–b | same |
+| Link | Vth = In × Rn | In = Vth / Rth |
+
+## Check yourself
+
+1. The Norton current is the:
+   (a) open-circuit current (b) short-circuit current at the terminals (c) current through Rn (d) load current
+
+<details><summary>Answer</summary>(b) short-circuit current.</details>
+
+2. A circuit has Vth = 18 V and Rth = 6 Ω. Its Norton equivalent is:
+   (a) 3 A with 6 Ω in parallel (b) 108 A with 6 Ω (c) 3 A with 6 Ω in series (d) 18 A with 1 Ω
+
+<details><summary>Answer</summary>(a) In = 18/6 = 3 A, Rn = 6 Ω in parallel.</details>
+
+3. Norton's equivalent circuit is:
+   (a) a voltage source in series with R (b) a current source in parallel with R (c) a current source in series with R (d) a voltage source in parallel with R
+
+<details><summary>Answer</summary>(b)</details>
+
+4. A 10 V source in series with 2 Ω is equivalent to:
+   (a) 5 A in parallel with 2 Ω (b) 20 A in parallel with 2 Ω (c) 5 A in series with 2 Ω (d) 10 A in parallel with 2 Ω
+
+<details><summary>Answer</summary>(a) 10/2 = 5 A, same 2 Ω in parallel.</details>
+
+5. Rth and Rn of the same network are:
+   (a) always equal (b) reciprocals (c) Rth = 2Rn (d) unrelated
+
+<details><summary>Answer</summary>(a) always equal.</details>

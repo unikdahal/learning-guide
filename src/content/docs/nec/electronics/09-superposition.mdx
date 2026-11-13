@@ -1,0 +1,100 @@
+---
+title: "9. Superposition theorem"
+description: The superposition theorem from scratch — one source at a time, how to switch sources off, a full worked example, and why power can't be superposed.
+sidebar:
+  label: "9. Superposition"
+  order: 9
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** solve a circuit with several sources by handling one source at a time, and know exactly when the method is allowed.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** (network theorems), usually as "superposition applies to…" or "while applying it, a voltage source is replaced by…". **Lok Sewa Computer Engineer unit 4.1.1** (basic circuit theory): Paper I MCQs, and "state and explain with an example" as a 5-mark Paper II question.
+</Aside>
+
+## The idea
+
+Remember from [lesson 7](/learning-guide/nec/electronics/07-circuit-classification/): in a **linear** circuit, doubling a cause doubles its effect. A deeper consequence: **the effects of several causes simply add up.**
+
+So with two batteries in a circuit, you can find the current each battery would produce **on its own**, then add the two answers. That's the whole theorem:
+
+> In a linear, bilateral network with several independent sources, the current (or voltage) in any element is the **algebraic sum** of the currents (or voltages) produced by each source acting **alone**, with all other sources switched off.
+
+## Switching a source off
+
+"Off" means its effect is zero, but its internal resistance stays:
+
+- **Voltage source → replace with a short circuit** (a plain wire). An ideal voltage source has 0 Ω inside.
+- **Current source → replace with an open circuit** (remove it). An ideal current source has ∞ Ω inside.
+- A real source with internal resistance: switch off the ideal part, **keep the internal resistance**.
+
+## Worked example
+
+Take the two-source circuit from [lesson 5](/learning-guide/nec/electronics/05-kirchhoffs-laws/): 10 V and 2 Ω on the left, a 4 Ω resistor down the middle, 4 Ω and 6 V on the right. Find the current in the **middle 4 Ω**. (Lesson 5's nodal analysis gave 1.625 A — let's check it a second way.)
+
+<Figure caption="The same circuit twice, each time with one source replaced by a wire.">
+  <Circuit name="superposition" label="Two copies of the two-source circuit. Left copy: only the 10 volt source, with the 6 volt source replaced by a wire. Right copy: only the 6 volt source, with the 10 volt source replaced by a wire." />
+</Figure>
+
+**Step 1 — only the 10 V source** (6 V shorted).
+
+- The right 4 Ω and middle 4 Ω are now in parallel: 4 ∥ 4 = 2 Ω.
+- Total: 2 + 2 = 4 Ω, so the source current = 10/4 = 2.5 A.
+- Voltage across the parallel pair = 2.5 × 2 = 5 V, so the middle resistor carries 5/4 = **1.25 A** (downwards).
+
+**Step 2 — only the 6 V source** (10 V shorted).
+
+- The left 2 Ω and middle 4 Ω are now in parallel: 2 ∥ 4 = 8/6 = 1.333 Ω.
+- Total: 4 + 1.333 = 5.333 Ω, so the source current = 6/5.333 = 1.125 A.
+- Voltage across the parallel pair = 1.125 × 1.333 = 1.5 V, so the middle resistor carries 1.5/4 = **0.375 A** (also downwards).
+
+**Step 3 — add.** Both point the same way: 1.25 + 0.375 = **1.625 A** ✔ — the same answer as nodal analysis. If they'd pointed opposite ways, you'd subtract.
+
+## Why power can't be added
+
+Power is `I²R` — it depends on the **square** of current, which isn't linear. Check it:
+
+- True power in the middle resistor: 1.625² × 4 = **10.56 W**.
+- Adding each source's power separately: 1.25² × 4 + 0.375² × 4 = 6.25 + 0.56 = **6.81 W** — wrong.
+
+**Find the total current or voltage first, then compute power.**
+
+## When superposition fails
+
+- Non-linear circuits (diodes, transistors in switching) — the effects don't add.
+- Power directly (above).
+- **Dependent sources** (whose value depends on another voltage or current in the circuit) are never switched off — only independent sources are.
+
+<Aside type="tip" title="Is it worth it?">
+For two sources, nodal analysis is usually faster. Superposition shines when sources are of different kinds (a DC source and an AC signal together, as in every transistor amplifier you'll meet in Part 6) — you analyse the DC and AC parts separately and add.
+</Aside>
+
+## Check yourself
+
+1. The superposition theorem applies to:
+   (a) any circuit (b) linear circuits only (c) non-linear circuits only (d) circuits with one source only
+
+<details><summary>Answer</summary>(b) linear (and bilateral) circuits.</details>
+
+2. While applying superposition, an ideal voltage source not being considered is replaced by:
+   (a) an open circuit (b) a short circuit (c) its rated current (d) a 1 Ω resistor
+
+<details><summary>Answer</summary>(b) a short circuit (its internal resistance is zero).</details>
+
+3. An ideal current source not being considered is replaced by:
+   (a) a short circuit (b) an open circuit (c) a voltage source (d) a capacitor
+
+<details><summary>Answer</summary>(b) an open circuit.</details>
+
+4. Superposition can NOT be used directly to find:
+   (a) current (b) voltage (c) power (d) node voltage
+
+<details><summary>Answer</summary>(c) power, because P ∝ I² is not linear.</details>
+
+5. Two sources acting alone produce 3 A and 1 A in a resistor, in opposite directions. The actual current is:
+   (a) 4 A (b) 2 A (c) 3 A (d) 1 A
+
+<details><summary>Answer</summary>(b) 3 − 1 = 2 A, in the direction of the 3 A.</details>

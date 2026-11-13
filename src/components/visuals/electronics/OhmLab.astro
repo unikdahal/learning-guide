@@ -1,0 +1,215 @@
+---
+// Ohm's law lab: drag V and R, watch the current, the power and the operating point on the V–I line.
+// Charge dots in the loop move faster as current rises (static when the reader prefers reduced motion).
+---
+
+<qe-ohm class="qe-lab qe-ohm not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Ohm's law lab</p>
+    <div class="ctl">
+      <label>Voltage V <output data-vo>12 V</output>
+        <input type="range" min="0" max="24" step="1" value="12" data-v aria-label="Voltage in volts" />
+      </label>
+      <label>Resistance R <output data-ro>6 Ω</output>
+        <input type="range" min="1" max="24" step="1" value="6" data-r aria-label="Resistance in ohms" />
+      </label>
+    </div>
+    <div class="grid">
+      <svg viewBox="0 0 260 180" role="img" aria-label="Battery and resistor loop with moving charge dots; faster dots mean more current." class="loop">
+        <path class="w" d="M40 30 H220 V150 H40 Z" id="ohm-path" />
+        <rect class="gap" x="26" y="85" width="28" height="10" />
+        <line class="w" x1="27" y1="86" x2="53" y2="86" />
+        <line class="w thick" x1="34" y1="94" x2="46" y2="94" />
+        <rect class="res" x="213" y="68" width="14" height="44" />
+        <g data-dots></g>
+        <text x="4" y="94" class="lbl" data-vt>12 V</text>
+        <text x="232" y="94" class="lbl" data-rt>6 Ω</text>
+      </svg>
+      <svg viewBox="0 0 260 180" role="img" aria-label="Graph of current against voltage for the chosen resistance; the dot marks the present voltage and current." class="graph">
+        <line class="axis" x1="34" y1="150" x2="250" y2="150" />
+        <line class="axis" x1="34" y1="150" x2="34" y2="10" />
+        <text x="236" y="142" class="ax">V</text>
+        <text x="42" y="16" class="ax">I</text>
+        <text x="40" y="168" class="tick">0</text>
+        <text x="226" y="168" class="tick">24 V</text>
+        <text x="2" y="14" class="tick">4 A</text>
+        <line class="ref" data-line x1="34" y1="150" x2="250" y2="150" />
+        <circle class="pt" data-pt r="6" cx="34" cy="150" />
+      </svg>
+    </div>
+    <dl class="out">
+      <div><dt>Current I = V/R</dt><dd data-i>2 A</dd></div>
+      <div><dt>Power P = VI</dt><dd data-p>24 W</dd></div>
+    </dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-ohm>
+
+<script>
+  class QeOhm extends HTMLElement {
+    raf = 0;
+    phase = 0;
+    connectedCallback() {
+      const $ = <T extends Element>(s: string) => this.querySelector(s) as T;
+      const v = $<HTMLInputElement>('[data-v]');
+      const r = $<HTMLInputElement>('[data-r]');
+      const dots = $<SVGGElement>('[data-dots]');
+      const path = $<SVGPathElement>('#ohm-path');
+      const len = path.getTotalLength();
+      const n = 12;
+      for (let k = 0; k < n; k++) {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('r', '4');
+        c.setAttribute('class', 'q');
+        dots.appendChild(c);
+      }
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const fmt = (x: number, u: string) => `${Number.isInteger(x) ? x : x.toFixed(x < 1 ? 3 : 2)} ${u}`;
+      let current = 0;
+      const place = () => {
+        [...dots.children].forEach((c, k) => {
+          const d = ((k / n) * len + this.phase) % len;
+          const p = path.getPointAtLength(d);
+          c.setAttribute('cx', String(p.x));
+          c.setAttribute('cy', String(p.y));
+        });
+      };
+      const update = () => {
+        const V = +v.value;
+        const R = +r.value;
+        const I = V / R;
+        current = I;
+        $<HTMLOutputElement>('[data-vo]').value = `${V} V`;
+        $<HTMLOutputElement>('[data-ro]').value = `${R} Ω`;
+        $('[data-vt]').textContent = `${V} V`;
+        $('[data-rt]').textContent = `${R} Ω`;
+        $('[data-i]').textContent = fmt(I, 'A');
+        $('[data-p]').textContent = fmt(V * I, 'W');
+        // V–I line for this R: I = V/R, plotted to V = 24, clipped at I = 4
+        const x = (vv: number) => 34 + (vv / 24) * 216;
+        const y = (ii: number) => 150 - (Math.min(ii, 4) / 4) * 140;
+        const vEnd = Math.min(24, 4 * R);
+        const line = $<SVGLineElement>('[data-line]');
+        line.setAttribute('x2', String(x(vEnd)));
+        line.setAttribute('y2', String(y(vEnd / R)));
+        const pt = $<SVGCircleElement>('[data-pt]');
+        pt.setAttribute('cx', String(x(V)));
+        pt.setAttribute('cy', String(y(I)));
+        let note = `I = ${V} ÷ ${R} = ${fmt(I, 'A')}. `;
+        if (V === 0) note += 'No voltage, no push: the charges stand still.';
+        else if (I > 4) note += 'The dot is off the top of the graph: that is a lot of current for so little resistance — close to a short circuit.';
+        else note += `The line's slope is 1/R: a smaller R gives a steeper line (more current for the same push). Power ${fmt(V * I, 'W')} becomes heat in the resistor.`;
+        $('[data-note]').textContent = note;
+        if (still) place();
+      };
+      v.addEventListener('input', update);
+      r.addEventListener('input', update);
+      update();
+      place();
+      if (!still) {
+        const tick = () => {
+          this.phase = (this.phase + current * 0.9) % len;
+          place();
+          this.raf = requestAnimationFrame(tick);
+        };
+        this.raf = requestAnimationFrame(tick);
+      }
+    }
+    disconnectedCallback() {
+      cancelAnimationFrame(this.raf);
+    }
+  }
+  customElements.define('qe-ohm', QeOhm);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.8rem 1.2rem;
+    margin-bottom: 0.8rem;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+    margin-left: 0.4rem;
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 1rem;
+  }
+  svg {
+    width: 100%;
+    height: auto;
+    color: var(--sl-color-gray-1);
+  }
+  .w {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+  }
+  .thick {
+    stroke-width: 5;
+  }
+  .gap {
+    fill: var(--sl-color-gray-6);
+  }
+  .res {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 2.5;
+  }
+  .lbl,
+  .ax {
+    fill: currentColor;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .tick {
+    fill: var(--sl-color-gray-3);
+    font-size: 11px;
+  }
+  .axis {
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+  }
+  .ref {
+    stroke: var(--qe-pipe-build);
+    stroke-width: 3;
+  }
+  .pt {
+    fill: var(--qe-pipe-emit);
+  }
+  :global(.qe-ohm .q) {
+    fill: var(--qe-pipe-build);
+  }
+  .out {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.6rem;
+    margin: 0.8rem 0 0;
+  }
+  .out dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .out dd {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>
