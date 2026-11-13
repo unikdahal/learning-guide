@@ -10,7 +10,8 @@ const { parts } = loadSyllabus();
 const site = process.env.SITE ?? 'https://unikdahal.github.io';
 const base = process.env.BASE ?? '/learning-guide';
 
-const sidebar = [
+// Query Execution: the generated curriculum, at the site root.
+const queryExecutionSidebar = [
   {
     label: 'Start here',
     items: [
@@ -29,6 +30,33 @@ const sidebar = [
     })),
   })),
 ];
+
+// Other guides, each under its own prefix. src/route-data.ts shows each page only its own guide's
+// groups, so the sidebars never mix.
+const necSidebar = [
+  {
+    label: 'NEC Licence',
+    items: [
+      { label: 'Overview', link: '/nec/' },
+      { label: 'Roadmap', link: '/nec/roadmap/' },
+      { label: 'Syllabus', link: '/nec/syllabus/' },
+    ],
+  },
+];
+
+const lokSewaSidebar = [
+  {
+    label: 'Lok Sewa',
+    items: [
+      { label: 'Overview', link: '/lok-sewa/' },
+      { label: 'Roadmap', link: '/lok-sewa/roadmap/' },
+    ],
+  },
+  { label: 'Computer Engineer', items: [{ autogenerate: { directory: 'lok-sewa/computer-engineer' } }] },
+  { label: 'Computer Officer', items: [{ autogenerate: { directory: 'lok-sewa/computer-officer' } }] },
+];
+
+const sidebar = [...queryExecutionSidebar, ...necSidebar, ...lokSewaSidebar];
 
 export default defineConfig({
   site,
@@ -59,7 +87,11 @@ export default defineConfig({
         styleOverrides: { borderRadius: '6px', codeFontFamily: "'JetBrains Mono Variable', ui-monospace, monospace", codeFontSize: '0.875rem' },
       },
       sidebar,
-      components: { Footer: './src/components/overrides/Footer.astro' },
+      components: {
+        Footer: './src/components/overrides/Footer.astro',
+        SocialIcons: './src/components/overrides/SocialIcons.astro',
+      },
+      routeMiddleware: './src/route-data.ts',
     }),
   ],
 });

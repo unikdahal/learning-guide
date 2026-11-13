@@ -1,0 +1,29 @@
+---
+// Starlight's social icons, preceded by a link to the hub of every guide on this site.
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+import { url } from '../../lib/site';
+import { HUB_PATH } from '../../lib/sections';
+const current = Astro.url.pathname === url(HUB_PATH);
+---
+
+<a class="guides-link" href={url(HUB_PATH)} aria-current={current ? 'page' : undefined}>All guides</a>
+<Default />
+
+<style>
+  .guides-link {
+    font-family: var(--sl-font);
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+  }
+  .guides-link:hover,
+  .guides-link[aria-current='page'] {
+    color: var(--sl-color-white);
+    border-color: var(--sl-color-accent);
+  }
+</style>

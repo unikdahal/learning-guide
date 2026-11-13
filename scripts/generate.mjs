@@ -139,8 +139,11 @@ console.log(
 );
 console.log(`generated: ${created} new stubs, ${overviews} module overviews`);
 
+// Directories owned by other guides on the site (src/data/sections.json) are not curriculum modules.
+const sectionDirs = JSON.parse(readFileSync(join(root, 'src/data/sections.json'), 'utf8'))
+  .map((s) => s.prefix.replace(/\/$/, '')).filter(Boolean);
 for (const entry of readdirSync(docsDir,{withFileTypes:true})) {
-  if (entry.isDirectory() && !modules.some(m=>m.slug===entry.name)) problems.push(`${entry.name}: orphan module directory`);
+  if (entry.isDirectory() && !sectionDirs.includes(entry.name) && !modules.some(m=>m.slug===entry.name)) problems.push(`${entry.name}: orphan module directory`);
 }
 if (problems.length) throw new Error(problems.join('\n'));
 

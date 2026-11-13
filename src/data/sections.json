@@ -1,0 +1,20 @@
+[
+  {
+    "id": "nec",
+    "title": "NEC Licence",
+    "blurb": "Preparation for the Nepal Engineering Council licensing exam in computer engineering.",
+    "prefix": "nec/"
+  },
+  {
+    "id": "lok-sewa",
+    "title": "Lok Sewa",
+    "blurb": "Preparation for the Lok Sewa Computer Engineer and Computer Officer exams.",
+    "prefix": "lok-sewa/"
+  },
+  {
+    "id": "query-execution",
+    "title": "Query Execution",
+    "blurb": "How query engines execute queries, from first principles to engine internals.",
+    "prefix": ""
+  }
+]

@@ -1,0 +1,21 @@
+---
+title: All guides
+description: Every learning guide on this site.
+template: splash
+pagefind: false
+editUrl: false
+lastUpdated: false
+tableOfContents: false
+---
+import SectionLanding from '@components/SectionLanding.astro';
+
+<SectionLanding
+  title="Learning Guide"
+  lede="Separate guides that share one home. Pick one to continue."
+  cardsTitle="Guides"
+  cards={[
+    { label: 'Licence exam', title: 'NEC Licence', text: 'Nepal Engineering Council licensing exam in computer engineering.', href: 'nec/' },
+    { label: 'Civil service exam', title: 'Lok Sewa', text: 'Lok Sewa Computer Engineer and Computer Officer preparation.', href: 'lok-sewa/' },
+    { label: 'Deep dive', title: 'Query Execution', text: 'How query engines execute queries, from first principles to engine internals.', href: '' },
+  ]}
+/>
