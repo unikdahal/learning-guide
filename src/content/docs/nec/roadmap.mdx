@@ -1,143 +1,190 @@
 ---
-title: Study plan to 1 Jan
-description: Night-by-night NEC study plan from Mon 16 Nov 2026 to Fri 1 Jan 2027, weighted toward electrical and electronics.
+title: Study plan to the NEC exam (v2)
+description: Night-by-night plan from 16 Nov 2026 to 3 Jan 2027 — Lok Sewa-depth study of the NEC/Lok Sewa overlap until 20 Dec, then NEC-only topics and mocks.
 sidebar:
-  label: Study plan to 1 Jan
+  label: Study plan (v2)
 ---
 import { Aside } from '@astrojs/starlight/components';
 
-**Window:** Mon 16 Nov → Fri 1 Jan (7 weeks, about 147 hours). The exam window opens Mon 4 Jan; 2–3 Jan are for travel and a light taper.
+**Version 2, decided 13 Nov 2026.** Study everything NEC and Lok Sewa Computer Engineer share **at Lok Sewa depth** until **Sun 20 Dec**. Then spend **21 Dec – 3 Jan** on NEC-only topics and multiple-choice mocks. The exam window opens **Mon 4 Jan**; your exact day is on the admit card.
 
-## Daily shape
+## Why this order, and the four guardrails
 
-You get home around 21:00, so everything runs at night.
+**Why it works.** NEC chapters 1–9 are almost all on the Computer Engineer syllabus ([map](/learning-guide/lok-sewa/computer-engineer/)). Learning them once, deeply, with short written answers, serves both exams. You won't have to re-learn them in January. Chapter 10 (drawing, economics, the NEC Act) is pure memorisation and NEC-only, so it's best learned **close to the exam**, before you forget it.
+
+**Why "Lok Sewa study is enough for the licence" isn't quite true.** These NEC topics aren't in Lok Sewa, together worth roughly 15–20 of NEC's 100 marks:
+- Chapter 10, about 6–10 marks.
+- VHDL and RTOS details.
+- Larman-style object-oriented design (GRASP patterns, visibility).
+- C/C++ syntax traps.
+
+NEC is also **multiple-choice under time pressure**, which is a different skill from writing answers.
+
+**Guardrails:**
+
+1. **The NEC model paper diagnostic stays on Sat 21 Nov**, so you know your baseline early.
+2. **Every lesson ends with multiple-choice questions**, so practising the NEC format never stops.
+3. **Mid-point check, Sat 12 Dec:** if Mock 2 is below 50, move Chapter 10 forward to Sat 19 Dec and drop the Sunday writing in Week 5.
+4. **No Lok Sewa-only topics before NEC.** Compiler design, communications, emerging tech, technical writing and case studies all wait until January. The only exception is 30 minutes of general awareness on Sundays.
+
+<Aside type="caution" title="Why NEC still can't be risked">
+Whether the Computer Engineer post needs the NEC licence (and by when) is still unconfirmed. Until it is, treat passing NEC in January as part of the Lok Sewa plan, not a side task.
+</Aside>
+
+## Daily shape (unchanged)
 
 | Time | Block | What goes here |
 | --- | --- | --- |
-| Lunch break | 15 min | 20 MCQs on the current chapter, on your phone |
+| Lunch break | 15 min | 20 MCQs on the current topic, on your phone |
 | 21:00–21:45 | No study | Eat, shower, sit down |
-| 21:45–23:15 | **A — deep work** (90 min) | New theory and numericals. Phone in another room. |
+| 21:45–23:15 | **A — deep work** (90 min) | New theory, numericals, written answers |
 | 23:30–00:45 | **B — recall** (75 min) | MCQs, flashcards, error log |
 | By 01:45 | Lights out | Same time every night |
 
-**Friday** is Block B only (45 min) or a night off. **Saturday** is about 6.5 h (12:00–14:30, 16:00–18:00, 21:30–23:30). **Sunday** is about 4.5 h, with the evening off.
+**Friday:** Block B only (45 min) or a night off. **Saturday:** about 6.5 h (12:00–14:30, 16:00–18:00, 21:30–23:30). **Sunday:** about 4.5 h, evening off. Roughly 22 h a week.
+
+**"Write"** in the tables means one Lok Sewa Paper II answer, by hand, timed: 8 minutes for 5 marks, 16 for 10. Self-mark it (definition 2, structure 1, diagram 2, depth 3, example 1, conclusion 1) and rewrite anything under 6/10 within two days.
 
 <Aside type="tip" title="Bad day rule">
-Late office, rain on the ride, headache: do 45 minutes of Block A or 25 MCQs, then sleep. Two bad days in a row: drop the next Saturday's evening block. Don't try to repay the hours.
+Late office, rain on the ride, headache: 45 minutes of Block A or 25 MCQs, then sleep. Two bad days in a row: drop the next Saturday's evening block. Don't repay hours.
 </Aside>
 
-## The Lok Sewa thread
+## Phase A — the overlap at Lok Sewa depth (16 Nov – 20 Dec)
 
-NEC comes first, but every week also builds toward the Computer Engineer paper (Computer Officer is the backup):
+Order: your weakest area first (electronics), then the hardware chain (digital → microprocessor → architecture), then your strong areas (networks, DSA/DBMS/OS, SE, programming) as fast sweeps.
 
-- **Sunday 16:00 block:** write one Lok Sewa Paper II answer (10 marks, 16 minutes, by hand) from that week's chapter, using the "Paper II questions to write" list at the bottom of each chapter page. Self-mark: definition 2, structure 1, diagram 2, depth 3, example 1, conclusion 1.
-- **Cheap extras done in-week** (marked ★ below): topics on the Computer Engineer syllabus that sit next to what you're already studying for NEC.
-- Everything else Lok Sewa-only (electronic communications, compiler design, emerging tech, technical writing, case studies, general awareness) starts 4 Jan. The [Computer Engineer syllabus map](/learning-guide/lok-sewa/computer-engineer/) lists it.
+### Week 1 · 16–22 Nov · DC circuits and network theorems
 
-## Mocks
+Course: [Electronics from zero](/learning-guide/nec/electronics/00-start-here/), lessons 1–13. Lok Sewa CE unit 4.1.1.
+
+| Day | Block A | Block B / extra |
+| --- | --- | --- |
+| Mon 16 | Lessons 1–3: units, charge/current/voltage, Ohm's law and power | Their MCQs; start the error log |
+| Tue 17 | **Admin: register for NEC at register.nec.gov.np.** Lessons 4–5: series/parallel, Kirchhoff | MCQs |
+| Wed 18 | Lessons 6–7: star–delta, kinds of circuits | Lesson 8 review (target 16/20) |
+| Thu 19 | Lessons 9–10: superposition, Thevenin | MCQs |
+| Fri 20 | — | Formula flashcards |
+| Sat 21 | 12:00 **NEC diagnostic: official model paper, 100 Q, 2 h** · 16:00 lessons 11–12 | 21:30 lesson 13 review · Write: Thevenin (5) |
+| Sun 22 | Mark the diagnostic; log every miss by chapter | Write: KCL and KVL with example (5) |
+
+**Gate:** registered; diagnostic score recorded; lesson 8 ≥ 16/20, lesson 13 ≥ 12/15.
+
+### Week 2 · 23–29 Nov · Storage elements and AC
+
+Lessons 14–23. Lok Sewa CE 4.1.2–4.1.4 (AC, magnetic circuits and transformers, transients and filters).
+
+| Day | Block A | Block B / extra |
+| --- | --- | --- |
+| Mon 23 | Lesson 14 capacitors | MCQs |
+| Tue 24 | Lesson 15 inductors, including transformers | MCQs |
+| Wed 25 | **Admin: submit the Computer Officer application.** Lesson 16 RC/RL time constants | MCQs |
+| Thu 26 | Lessons 17–18 sine waves, RMS | MCQs |
+| Fri 27 | — | Flashcards |
+| Sat 28 | 12:00 lesson 19 reactance, impedance, filters · 16:00 lesson 20 resonance | 21:30 lesson 21 AC power |
+| Sun 29 | Lesson 22 three-phase · lesson 23 review (target 16/20) | Write: series resonance (10) · GK 30 min |
+
+### Week 3 · 30 Nov – 6 Dec · Semiconductors and signals
+
+Course Parts 5–6 (being written now). Lok Sewa CE 4.2.
+
+| Day | Block A | Block B / extra |
+| --- | --- | --- |
+| Mon 30 | Semiconductors, doping, the PN junction | MCQs |
+| Tue 1 Dec | **PSC regular deadline: check both applications.** Diodes, rectifiers, Zener | Rectifier numericals |
+| Wed 2 | BJT: structure, regions, configurations | MCQs |
+| Thu 3 | BJT biasing, load line, small-signal model | MCQs |
+| Fri 4 | **Admin: apply for leave (January NEC trip; 13–19 Mar PSC).** | Flashcards |
+| Sat 5 | 12:00 MOSFET and CMOS · 16:00 amplifier classes, push-pull, tuned amplifiers | 21:30 op-amps |
+| Sun 6 | Oscillators and feedback amplifiers · Chapter 1 mini-mock (20 Q) | Write: BJT configurations compared (10) · GK |
+
+**Gate:** NEC Chapter 1 complete; mini-mock ≥ 13/20.
+
+### Week 4 · 7–13 Dec · Digital logic, microprocessors, architecture
+
+NEC [Chapter 2](/learning-guide/nec/chapters/02-digital-logic-microprocessor/) and [Chapter 4](/learning-guide/nec/chapters/04-computer-organization-embedded/) (4.1–4.3). Lok Sewa CE units 2 and 3.
+
+| Day | Block A | Block B / extra |
+| --- | --- | --- |
+| Mon 7 | **NEC normal deadline: confirm "accepted".** 2.1–2.2 Boolean logic, K-maps, combinational circuits, IC logic families | Book January travel |
+| Tue 8 | 2.3 flip-flops, registers, counter design | MCQs |
+| Wed 9 | 2.4 8085/8086 architecture and programming | MCQs |
+| Thu 10 | 2.5–2.6 memory, 8255, serial, DMA, interrupts | 8085 interrupt table from memory |
+| Fri 11 | — | Flashcards |
+| Sat 12 | 12:00 4.1 control unit, pipelining, RISC/CISC, von Neumann/Harvard · 16:00 4.2 cache, IEEE 754 | 21:30 **Mock 2** (NEC format) |
+| Sun 13 | 4.3 I/O and multiprocessors · mark Mock 2 | Write: architecture vs organisation; processor–memory balance (10) · GK |
+
+**Checkpoint:** Mock 2 below 50 → apply guardrail 3.
+
+### Week 5 · 14–20 Dec · Your strong areas, fast
+
+NEC Chapters [5](/learning-guide/nec/chapters/05-networks-security/), [7](/learning-guide/nec/chapters/07-dsa-dbms-os/), [8](/learning-guide/nec/chapters/08-software-engineering-ooad/) (8.1–8.3), [3](/learning-guide/nec/chapters/03-programming-c-cpp/). Lok Sewa CE units 1, 6–10.
+
+| Day | Block A | Block B / extra |
+| --- | --- | --- |
+| Mon 14 | Networks: models, data link, IP, subnetting, routing | Subnetting drill |
+| Tue 15 | Networks: TCP/UDP, application layer, security, PKI; datagram vs virtual circuit | MCQs |
+| Wed 16 | DSA and DBMS sweep, plus CE extras (B+ trees, dynamic programming, normalisation) | MCQs |
+| Thu 17 | OS sweep (scheduling, deadlock, paging) | MCQs |
+| Fri 18 | — | Flashcards |
+| Sat 19 | 12:00 software engineering 8.1–8.3, plus design for reuse/change, maintenance · 16:00 DFD, ER and use case basics | 21:30 C/C++ sweep, OOP vs structured |
+| Sun 20 | Write: deadlock and its conditions (10) · Write: TCP vs UDP (5) · weekly review | **Start shifting sleep 30 min earlier every 2–3 days** |
+
+## Phase B — NEC-only topics and multiple-choice mocks (21 Dec – 3 Jan)
+
+Answer formats switch to multiple choice from here. No written answers until January.
+
+### Week 6 · 21–27 Dec · Chapter 10, embedded systems, theory of computation and AI
+
+| Day | Block A | Block B / extra |
+| --- | --- | --- |
+| Mon 21 | [10.1 drawing](/learning-guide/nec/chapters/10-project-planning/) · 10.2 interest, NPV, IRR, MARR | MCQs |
+| Tue 22 | 10.2 depreciation, Nepal tax · 10.3 CPM and PERT | One CPM network |
+| Wed 23 | 10.4–10.6 tendering, contracts, ethics, NEA, NEC Act | Read the NEC Act PDF once |
+| Thu 24 | 4.4–4.6 embedded design, RTOS, VHDL | MCQs |
+| Fri 25 | — | Chapter 10 flashcards |
+| Sat 26 | 12:00 [Chapter 6](/learning-guide/nec/chapters/06-toc-graphics/) theory of computation and graphics · 16:00 [Chapter 9](/learning-guide/nec/chapters/09-ai-neural-networks/) 9.1–9.3 | 21:30 **Mock 3** |
+| Sun 27 | 9.4–9.6 ML, neural networks · 8.4–8.6 OOAD, UML, GRASP · mark Mock 3 | Error log |
+
+### Week 7 · 28 Dec – 3 Jan · Repair and taper
+
+| Day | Block A | Block B / extra |
+| --- | --- | --- |
+| Mon 28 | Repass the lowest chapter from Mocks 2–3 | Its MCQs |
+| Tue 29 | Repass the second-lowest; C/C++ traps; complexity table | MCQs |
+| Wed 30 | **Mock 4** (2 h, timed) | Mark it |
+| Thu 31 | Chapter 10 second read; NEC Act; one-page formula sheet | Flashcards |
+| Fri 1 Jan | **Mock 5**, at the real exam time if you can take the day | Mark it; error log |
+| Sat 2 | Light review: formula sheet, every "know cold" list | Pack; travel if your admit card says so |
+| Sun 3 | Rest or travel. No new material. | Early sleep |
+
+## Mocks and targets
 
 | Date | Test | Target |
 | --- | --- | --- |
-| Sat 21 Nov | Diagnostic: NEC's official model paper, 100 Q, 2 h | Baseline, whatever it is |
-| Sat 12 Dec | Mock 2 | ≥ 55 |
-| Sat 19 Dec | Mock 3 | ≥ 60 |
-| Sat 26 Dec | Mock 4 | ≥ 65 |
-| Thu 31 Dec | Mock 5, at the real exam time | ≥ 70, every chapter ≥ 6 |
+| Sat 21 Nov | Diagnostic (official model paper) | baseline |
+| Sun 6 Dec | Chapter 1 mini-mock, 20 Q | ≥ 13 |
+| Sat 12 Dec | Mock 2 | ≥ 50 (checkpoint) |
+| Sat 26 Dec | Mock 3 | ≥ 60 |
+| Wed 30 Dec | Mock 4 | ≥ 65 |
+| Fri 1 Jan | Mock 5 | ≥ 70, every chapter ≥ 6 |
 
-NEC has published only one official model paper. Mocks 2–5 come from third-party sets (recalled past questions, practice banks); practice sets on this site will be added chapter by chapter.
+NEC has published only one official model paper. The other mocks come from third-party sets: recalled past questions and practice banks. Practice banks contain wrong answers (see [lesson 18](/learning-guide/nec/electronics/18-rms-average-form-factor/)), so check doubtful ones against the chapter pages.
 
-## Week 1 · 16–22 Nov · Chapter 10, then digital logic
+## What this gives you in January
 
-Chapter 10 first: it is pure memorisation and NEC asks it in every sitting.
+By 4 January you'll have done all of these:
+- Learnt Lok Sewa CE units 1–4 and 6–10 at written depth.
+- Written about 10 Paper II answers.
+- Started a general-awareness habit.
 
-| Day | Block A | Block B / extra |
-| --- | --- | --- |
-| Mon 16 | 10.1 Drawing: sheet sizes, lines, scales, first vs third angle | Read [Exam format](/learning-guide/nec/exam/); start the error log |
-| Tue 17 | **Admin: register for NEC at register.nec.gov.np.** 10.2 Interest, NPV, IRR, MARR, payback | 20 MCQs |
-| Wed 18 | 10.2 Depreciation (SL, DB, SYD, sinking fund), Nepal tax | Flashcards |
-| Thu 19 | 10.3 CPM: forward/backward pass, floats | One CPM numerical |
-| Fri 20 | — | 10.6 Read the NEC Act summary (45 min) |
-| Sat 21 | 12:00 **Diagnostic mock** (model paper) · 16:00 10.3 PERT, levelling vs smoothing | 21:30 10.4 Tendering and contracts |
-| Sun 22 | 10.5 Ethics, NEA, OHS · mark diagnostic, fill the error log | 2.1 Number systems, two's complement |
-
-**Gate:** registered, diagnostic done.
-
-## Week 2 · 23–29 Nov · Chapter 1, part 1
-
-| Day | Block A | Block B / extra |
-| --- | --- | --- |
-| Mon 23 | 1.1 Ohm, KCL/KVL, series/parallel, star–delta — [Electronics from zero](/learning-guide/nec/electronics/00-start-here/) lessons 1–8 (start early if you can) | 15 numericals |
-| Tue 24 | 1.2 Superposition, Thevenin, Norton, max power | Thevenin numericals |
-| Wed 25 | 1.2 RL/RC/RLC, resonance, active/reactive power. **Admin: submit Computer Officer application.** | Formula flashcards |
-| Thu 26 | 1.3 AC: RMS, average, form factor; three-phase | 20 MCQs |
-| Fri 27 | — | Chapter 1 flashcards |
-| Sat 28 | 12:00 1.4 Diode, rectifiers · 16:00 BJT configurations and biasing | 21:30 Timed 30 Q: Ch1 + Ch10 |
-| Sun 29 | 1.4 MOSFET, CMOS · 1.5 Oscillators, Barkhausen | Mark, error log · Lok Sewa answer: BJT biasing (5 marks) |
-
-## Week 3 · 30 Nov–6 Dec · Chapter 1 finish, Chapter 2
-
-| Day | Block A | Block B / extra |
-| --- | --- | --- |
-| Mon 30 | 1.6 Amplifier classes, efficiencies, push-pull | 20 MCQs |
-| Tue 1 Dec | 1.6 Op-amps, tuned amplifiers, dB. **PSC regular application deadline.** ★ Feedback amplifier topologies (15 min) | Chapter 1 re-quiz |
-| Wed 2 | 2.1–2.2 Boolean algebra, K-maps, MUX/decoder/encoder, adders | 20 MCQs |
-| Thu 3 | 2.3 Flip-flops, registers, counters. ★ IC logic families (TTL, CMOS, ECL) | Characteristic tables |
-| Fri 4 | **Admin: apply for office leave — the January NEC trip and 13–19 Mar for PSC.** | Flashcards |
-| Sat 5 | 12:00 2.4 8085/8086 architecture · 16:00 2.5 Memory, 8255, serial, DMA | 21:30 Ch2 timed set |
-| Sun 6 | 2.6 Interrupts · Chapter 1 weak-topic repass | Mark, error log · Lok Sewa answer: 8086 architecture (10 marks) |
-
-**Gate:** chapters 1, 2 and 10 first pass done.
-
-## Week 4 · 7–13 Dec · Chapter 4
-
-| Day | Block A | Block B / extra |
-| --- | --- | --- |
-| Mon 7 | **NEC normal deadline: confirm your application shows as accepted.** 4.1 Control unit, instruction formats, addressing modes. ★ von Neumann vs Harvard | Book January travel |
-| Tue 8 | 4.1 RISC vs CISC, pipelining, hazards | Pipeline numericals |
-| Wed 9 | 4.2 Cache mapping, replacement, write policy, IEEE 754 | Cache numericals |
-| Thu 10 | 4.3 I/O modes, DMA, multiprocessor interconnects | 20 MCQs |
-| Fri 11 | — | Flashcards |
-| Sat 12 | 12:00 4.4 Embedded design · 16:00 4.5 RTOS and control | 21:30 **Mock 2** |
-| Sun 13 | 4.6 VHDL · mark Mock 2 | Error log · Lok Sewa answer: architecture vs organisation, processor–memory balance (10 marks) |
-
-## Week 5 · 14–20 Dec · Chapter 6, Chapter 9 start
-
-| Day | Block A | Block B / extra |
-| --- | --- | --- |
-| Mon 14 | 6.1 DFA/NFA, minimisation, regex, pumping lemma. ★ Pigeonhole principle | 20 MCQs |
-| Tue 15 | 6.2 CFG, ambiguity, CNF/GNF, PDA | 20 MCQs |
-| Wed 16 | 6.3 Turing machines, decidability, complexity | Chomsky hierarchy card |
-| Thu 17 | 6.4–6.5 Graphics hardware, 2D transforms, clipping. ★ DDA and Bresenham | Matrix drills |
-| Fri 18 | — | Flashcards |
-| Sat 19 | 12:00 6.6 3D and projections · 16:00 9.1–9.2 Agents, search | 21:30 **Mock 3** |
-| Sun 20 | 9.3 Logic, resolution, Bayes · mark Mock 3 · Lok Sewa answer: knowledge representation and semantic nets (10 marks). **Start shifting sleep 30 min earlier every 2–3 days.** | Error log |
-
-**Gate:** Mock 3 ≥ 60.
-
-## Week 6 · 21–27 Dec · Chapter 9 finish, Chapter 8, quick sweeps
-
-| Day | Block A | Block B / extra |
-| --- | --- | --- |
-| Mon 21 | 9.4–9.5 Expert systems, NLP, ML, fuzzy, GA | 20 MCQs |
-| Tue 22 | 9.6 Neural networks | 20 MCQs |
-| Wed 23 | 8.1–8.3 Process models, design, testing, COCOMO, CMMI. ★ Design for reuse and change | 20 MCQs |
-| Thu 24 | 8.4–8.6 OOAD, UML, GRASP | 20 MCQs |
-| Fri 25 | — | Flashcards |
-| Sat 26 | 12:00 Chapter 5 sweep · 16:00 Chapter 7 sweep. ★ Datagram vs virtual circuit, PKI | 21:30 **Mock 4** |
-| Sun 27 | Chapter 3 traps · mark Mock 4 | Error log · Lok Sewa answer: TCP vs UDP + a /24 subnetting numerical |
-
-## Week 7 · 28 Dec–1 Jan · Repass and final mock
-
-| Day | Block A | Block B / extra |
-| --- | --- | --- |
-| Mon 28 | Repass the lowest-scoring chapter from Mocks 3–4 (likely Ch1) | Its MCQs |
-| Tue 29 | Repass the second-lowest chapter | Its MCQs |
-| Wed 30 | Chapter 10 and NEC Act final read; build the one-page formula sheet | Flashcards |
-| Thu 31 | **Mock 5 at the real exam time** (shifted clock) | Mark it |
-| Fri 1 Jan | Error log review; re-read every chapter's "know cold" list | Pack if travelling 2 Jan |
-
-**Gate:** Mock 5 ≥ 70 with every chapter ≥ 6.
+January can then go to what NEC never covered:
+- Electronic communications (unit 5).
+- Compiler design (13).
+- Emerging tech (15).
+- Theory of computation, graphics and AI in written form (11, 12, 14).
+- Technical writing and case studies (Section D).
+- General awareness and reasoning.
 
 ## Weekly review (Sunday, 15 min)
 
-Log four numbers: hours studied, sub-chapters finished out of 60, this week's mock score, and error-log entries added and cleared. If a score is flat for two weeks, change the method (more MCQs, more repasses), not the hours.
+Log hours, lessons or sub-chapters finished, the week's test score, and error-log entries added and cleared. If a score is flat for two weeks, change the method (more MCQs, more repasses), not the hours.

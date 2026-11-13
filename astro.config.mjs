@@ -40,7 +40,7 @@ const necSidebar = [
       { label: 'Overview', link: '/nec/' },
       { label: 'Exam format and dates', link: '/nec/exam/' },
       { label: 'Syllabus and priorities', link: '/nec/syllabus/' },
-      { label: 'Study plan to 1 Jan', link: '/nec/roadmap/' },
+      { label: 'Study plan (v2)', link: '/nec/roadmap/' },
     ],
   },
   { label: 'Electronics from zero', items: [{ autogenerate: { directory: 'nec/electronics' } }] },
