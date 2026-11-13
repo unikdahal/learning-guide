@@ -1,0 +1,111 @@
+---
+title: "21. AC power and power factor"
+description: Real, reactive and apparent power, the power triangle, power factor, why low power factor costs money, and power-factor correction.
+sidebar:
+  label: "21. AC power and power factor"
+  order: 21
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** compute P, Q and S for any AC load, use the power triangle, and explain power factor and its correction.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** (active and reactive power) — and the model paper asks the **maximum value of power factor**. **Lok Sewa Computer Engineer 4.1.2**. In your day job: UPS and server power supplies are rated in **VA** and **W** separately — this lesson is why.
+</Aside>
+
+## 1. Where the power goes
+
+Multiply voltage and current moment by moment: `p = v × i`.
+
+- **Resistor:** v and i are in phase, so p is always positive — energy flows one way and becomes heat.
+- **Pure inductor or capacitor:** 90° out of phase, so p is positive for a quarter cycle and negative for the next. Energy is **borrowed and returned** every cycle; on average **zero** power is used. But current still flows in the wires to carry that energy back and forth.
+
+## 2. Three kinds of power
+
+With RMS values V and I and phase angle φ:
+
+| Name | Formula | Unit | Meaning |
+| --- | --- | --- | --- |
+| **Real (active, true) power** P | `V I cos φ` | watt (W) | actually converted to heat, light, motion |
+| **Reactive power** Q | `V I sin φ` | volt-ampere reactive (VAR) | shuttled to and from L and C |
+| **Apparent power** S | `V I` | volt-ampere (VA) | what the wiring and source must carry |
+
+They form a right-angled triangle:
+
+<Figure caption="The power triangle: real power along the base, reactive power up the side, apparent power on the hypotenuse.">
+  <Circuit name="power-triangle" label="Right-angled triangle. Base: real power P equals V I cos phi in watts. Vertical side: reactive power Q equals V I sin phi in VAR. Hypotenuse: apparent power S equals V I in VA. The angle phi is between the base and the hypotenuse." />
+</Figure>
+
+`S² = P² + Q²`
+
+<Aside type="caution" title="A common wrong answer">
+Total ("apparent") power is **not** P + Q added like ordinary numbers — some practice banks get this wrong. It's the hypotenuse: S = √(P² + Q²).
+</Aside>
+
+## 3. Power factor
+
+`power factor = cos φ = P / S = R / |Z|`
+
+- Ranges from 0 to **1** (its maximum: a purely resistive load, φ = 0).
+- **Lagging** — current lags; inductive loads: motors, fans, transformers, fluorescent ballasts. Most real loads.
+- **Leading** — current leads; capacitive loads.
+
+**Worked example.** A motor on 230 V draws 10 A at pf 0.8 lagging.
+- S = 230 × 10 = **2,300 VA**
+- P = 2,300 × 0.8 = **1,840 W**
+- sin φ = √(1 − 0.64) = 0.6, so Q = 2,300 × 0.6 = **1,380 VAR**
+- Check: √(1,840² + 1,380²) = 2,300 ✔.
+
+**Your-world example.** A 1,000 VA UPS with output pf 0.8 can supply at most **800 W**. The VA rating limits current (wiring, semiconductors); the W rating is the real work done.
+
+## 4. Why low power factor is bad
+
+For the same real power P, current `I = P / (V cos φ)`. At pf 0.5 you need **twice** the current of pf 1.0:
+
+- I²R losses in cables and transformers rise **four times**.
+- Cables, transformers and generators must be bigger.
+- So utilities charge large industrial consumers for poor power factor.
+
+## 5. Power-factor correction
+
+Inductive loads draw lagging reactive power. Connect **capacitors in parallel** with them: capacitors supply leading reactive power locally, cancelling much of the inductive Q. Real power is unchanged; current from the supply falls; cos φ rises towards 1.
+
+## Traps
+
+- **Maximum** power factor = 1, at φ = 0 (pure resistance).
+- `P = VI cos φ` — only **real** power is in watts.
+- **Capacitors in parallel** correct a lagging power factor (not series, not inductors).
+
+## Check yourself
+
+1. The maximum value of power factor is:
+   (a) 0 (b) 0.707 (c) 1 (d) ∞
+
+<details><summary>Answer</summary>(c) 1, for a purely resistive load.</details>
+
+2. Power factor is the ratio of:
+   (a) reactive to real power (b) real to apparent power (c) apparent to real power (d) reactive to apparent power
+
+<details><summary>Answer</summary>(b) P/S.</details>
+
+3. Reactive power is measured in:
+   (a) W (b) VA (c) VAR (d) J
+
+<details><summary>Answer</summary>(c) VAR.</details>
+
+4. A load takes 4 kW at pf 0.8. Its apparent power is:
+   (a) 3.2 kVA (b) 5 kVA (c) 4.8 kVA (d) 6.4 kVA
+
+<details><summary>Answer</summary>(b) S = P/pf = 4/0.8 = 5 kVA.</details>
+
+5. Average power consumed by a pure inductor is:
+   (a) maximum (b) zero (c) VI (d) V²/XL
+
+<details><summary>Answer</summary>(b) zero — energy is stored and returned each cycle.</details>
+
+6. Power factor of an inductive load is improved by connecting:
+   (a) a resistor in series (b) an inductor in parallel (c) a capacitor in parallel (d) a capacitor in series with the supply
+
+<details><summary>Answer</summary>(c) a capacitor in parallel.</details>

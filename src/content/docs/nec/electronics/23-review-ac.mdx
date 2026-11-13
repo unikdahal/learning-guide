@@ -1,0 +1,77 @@
+---
+title: "23. Review: storage elements and AC"
+description: Twenty NEC-style questions covering capacitors, inductors, time constants, sine waves, RMS, reactance, resonance, AC power and three-phase.
+sidebar:
+  label: "23. Review: storage and AC"
+  order: 23
+---
+**How to use:** 20 questions, 20 minutes, no notes. Target **16/20**. Then, for Lok Sewa, write a 5-mark answer to "Explain series resonance with its characteristics" in 8 minutes (use the table in [lesson 20](/learning-guide/nec/electronics/20-resonance/)).
+
+1. 10 µF and 15 µF in series give:
+   (a) 25 µF (b) 6 µF (c) 150 µF (d) 12.5 µF
+2. Energy stored in a 20 µF capacitor at 200 V is:
+   (a) 0.4 J (b) 0.8 J (c) 4 J (d) 2 mJ
+3. Inductors in series combine like:
+   (a) capacitors in series (b) resistors in series (c) resistors in parallel (d) they can't be combined
+4. A coil's current changes by 2 A in 10 ms and the induced voltage is 40 V. Its inductance is:
+   (a) 0.2 H (b) 2 H (c) 20 H (d) 0.02 H
+5. R = 100 kΩ, C = 10 µF. Time to (practically) charge fully:
+   (a) 1 s (b) 5 s (c) 10 s (d) 0.5 s
+6. Just after switching, a de-energised inductor behaves as:
+   (a) a short circuit (b) an open circuit (c) a capacitor (d) a resistor of R
+7. `v = 200 sin(314t)`. Its RMS value is about:
+   (a) 200 V (b) 141 V (c) 127 V (d) 100 V
+8. The frequency of the wave in Q7 is:
+   (a) 314 Hz (b) 100 Hz (c) 50 Hz (d) 60 Hz
+9. The half-cycle average of a sine wave of peak 100 V is:
+   (a) 0 V (b) 63.7 V (c) 70.7 V (d) 50 V
+10. The peak factor of a sine wave is:
+    (a) 1.11 (b) 1.414 (c) 1.57 (d) 1
+11. Inductive reactance at 0 Hz (DC) is:
+    (a) infinite (b) zero (c) equal to R (d) 2πL
+12. In a pure inductor, current:
+    (a) leads voltage by 90° (b) lags voltage by 90° (c) is in phase (d) lags by 45°
+13. R = 8 Ω, XL = 6 Ω in series. The power factor is:
+    (a) 0.6 lagging (b) 0.8 lagging (c) 0.8 leading (d) 0.75
+14. L = 1 mH, C = 1 µF. The resonant frequency is about:
+    (a) 5 kHz (b) 1 kHz (c) 159 Hz (d) 50 Hz
+15. At parallel resonance, the line current is:
+    (a) maximum (b) minimum (c) zero always (d) Q times the supply current
+16. A series RLC circuit has Q = 20 at f0 = 10 kHz. Its bandwidth is:
+    (a) 200 kHz (b) 500 Hz (c) 50 Hz (d) 20 kHz
+17. P = 3 kW, Q = 4 kVAR. Apparent power S is:
+    (a) 7 kVA (b) 5 kVA (c) 1 kVA (d) 12 kVA
+18. A lagging power factor is corrected using:
+    (a) series inductors (b) parallel capacitors (c) series resistors (d) parallel inductors
+19. In a delta connection, the line voltage is:
+    (a) √3 × phase voltage (b) equal to phase voltage (c) phase voltage/√3 (d) 3 × phase voltage
+20. Total power of a balanced three-phase load with VL = 400 V, IL = 5 A, pf = 1:
+    (a) 2 kW (b) 3.46 kW (c) 6 kW (d) 1.15 kW
+
+<details>
+<summary>Answers and reasons</summary>
+
+1. **(b)** 150/25 = 6 µF.
+2. **(a)** ½ × 20 × 10⁻⁶ × 40,000 = 0.4 J.
+3. **(b)**
+4. **(a)** L = V/(di/dt) = 40/(2/0.01) = 40/200 = 0.2 H.
+5. **(b)** τ = 10⁵ × 10⁻⁵ = 1 s; 5τ = 5 s.
+6. **(b)** current can't jump, so no current at first.
+7. **(b)** 200 × 0.707 ≈ 141 V.
+8. **(c)** 314/2π ≈ 50 Hz.
+9. **(b)** 0.637 × 100.
+10. **(b)**
+11. **(b)** XL = 2πfL = 0.
+12. **(b)**
+13. **(b)** |Z| = 10 Ω; cos φ = 8/10, inductive → lagging.
+14. **(a)** 1/(2π√(10⁻⁹)) = 1/(2π × 3.16 × 10⁻⁵) ≈ 5.03 kHz.
+15. **(b)**
+16. **(b)** 10,000/20 = 500 Hz.
+17. **(b)** √(9 + 16) = 5 kVA.
+18. **(b)**
+19. **(b)**
+20. **(b)** 1.732 × 400 × 5 ≈ 3.46 kW.
+
+</details>
+
+**16+?** That's NEC 1.1–1.3 done. Next comes the electronics half: semiconductors, diodes, transistors (Part 5).

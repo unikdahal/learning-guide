@@ -1,0 +1,108 @@
+---
+title: "17. Alternating current: the sine wave"
+description: What AC is and why the world uses it, how a generator makes a sine wave, and every term — peak, peak-to-peak, period, frequency, angular frequency, phase.
+sidebar:
+  label: "17. AC and the sine wave"
+  order: 17
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** read an equation like `v = 325 sin(314t)` and pull out the peak, RMS, frequency and period in seconds; understand phase and phase difference.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.3** (alternating current fundamentals) — "the period of a sinusoid is…", "peak-to-peak value is…", generation of AC. **Lok Sewa Computer Engineer 4.1.2** (AC circuit fundamentals); the same ideas reappear in unit 5 (electronic communications), where signals are sine waves too.
+</Aside>
+
+## 1. Why AC exists
+
+DC flows one way at a steady value. **AC** reverses direction regularly. The world's grids use AC for one main reason: **transformers** ([lesson 15](/learning-guide/nec/electronics/15-inductors/)) can step AC voltage up and down cheaply and efficiently. Power stations step up to very high voltage for transmission (less current, so much less I²R loss in the long lines), and substations step it down to safe levels for homes.
+
+Nepal (like India) supplies about **230 V, 50 Hz** single-phase to homes, and 400 V three-phase to larger buildings.
+
+## 2. How a generator makes a sine wave
+
+Spin a coil inside a magnetic field. As it turns, the amount of field passing through it keeps changing, so by Faraday's law a voltage is induced. Work through the geometry and the voltage follows a **sine** function of the angle:
+
+`e = Em sin θ = Em sin(ωt)`
+
+- Coil face-on to the field → the field is changing slowest → voltage 0.
+- Coil edge-on → changing fastest → voltage at its peak.
+- Half a turn later the coil's sides have swapped places, so the voltage reverses.
+
+`Em = N B A ω` — more turns, stronger field, bigger coil or faster spin → bigger voltage.
+
+## 3. The vocabulary
+
+<Figure caption="One cycle of a sine wave with its key values.">
+  <Circuit name="sine" label="One cycle of a sine wave. Arrows mark the peak value Vm from the axis to the top, the peak-to-peak value from bottom to top equal to 2 Vm, a dashed line at 0.707 Vm for the RMS value, and a bracket underneath for one period T." />
+</Figure>
+
+| Term | Meaning | Symbol / formula |
+| --- | --- | --- |
+| Instantaneous value | value at one moment | v, i (lower case) |
+| Cycle | one complete repetition | — |
+| Period | time for one cycle | T, in seconds |
+| Frequency | cycles per second | `f = 1/T`, hertz (Hz) |
+| Angular frequency | radians per second | `ω = 2πf` |
+| Peak (amplitude, maximum) | largest value | Vm, Im |
+| Peak-to-peak | top to bottom | `Vpp = 2Vm` |
+| RMS (effective) | the DC-equivalent value | `Vm/√2` (next lesson) |
+
+**Worked example.** `v = 325 sin(314t)`.
+
+- Peak Vm = **325 V**.
+- ω = 314 rad/s → f = 314 / 2π ≈ **50 Hz**.
+- Period T = 1/50 = **20 ms**.
+- RMS = 325/√2 ≈ **230 V** — this is Nepal's mains, written as an equation.
+
+**Worked example.** What's the instantaneous value 2.5 ms after a zero crossing?
+ωt = 314 × 0.0025 = 0.785 rad = 45°, so v = 325 × sin 45° = 325 × 0.707 ≈ **230 V**.
+
+## 4. Phase and phase difference
+
+Two waves of the same frequency may not peak at the same time. The shift between them is the **phase difference**, in degrees or radians:
+
+- `v1 = Vm sin(ωt)`
+- `v2 = Vm sin(ωt − 30°)` → v2 reaches each point 30° **later**: v2 **lags** v1 by 30°.
+- `v3 = Vm sin(ωt + 60°)` → v3 **leads** v1 by 60°.
+
+**Minus means lags, plus means leads.** In circuits, the phase between voltage and current tells you what kind of load you have (lesson 19). In three-phase supplies, three voltages are 120° apart (lesson 22).
+
+<Aside type="tip" title="Degrees vs radians">
+2π rad = 360°, so π rad = 180° and π/2 = 90°. ω is always in rad/s, so convert ωt to degrees (× 180/π) before using a calculator in degree mode.
+</Aside>
+
+## Traps
+
+- **Peak-to-peak is 2 × peak**, not peak.
+- `ω = 2πf`: 314 rad/s is 50 Hz, not 314 Hz.
+- "230 V mains" is the **RMS** value; the peak is about 325 V.
+
+## Check yourself
+
+1. The period of a sinusoid is:
+   (a) the reciprocal of its frequency (b) equal to its frequency (c) 2π times its frequency (d) its peak value
+
+<details><summary>Answer</summary>(a) T = 1/f.</details>
+
+2. The peak-to-peak value of a sine wave of amplitude 10 V is:
+   (a) 10 V (b) 14.14 V (c) 20 V (d) 7.07 V
+
+<details><summary>Answer</summary>(c) 2 × 10 = 20 V.</details>
+
+3. For `i = 10 sin(628t)`, the frequency is:
+   (a) 628 Hz (b) 100 Hz (c) 50 Hz (d) 10 Hz
+
+<details><summary>Answer</summary>(b) 628 / 2π ≈ 100 Hz.</details>
+
+4. The period of a 50 Hz supply is:
+   (a) 50 ms (b) 20 ms (c) 2 ms (d) 0.5 s
+
+<details><summary>Answer</summary>(b) 1/50 = 0.02 s.</details>
+
+5. `v = Vm sin(ωt − π/6)` compared with `Vm sin(ωt)`:
+   (a) leads by 30° (b) lags by 30° (c) lags by 60° (d) is in phase
+
+<details><summary>Answer</summary>(b) π/6 = 30°, minus sign = lags.</details>

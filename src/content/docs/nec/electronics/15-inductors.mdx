@@ -1,0 +1,128 @@
+---
+title: "15. Inductors"
+description: Inductors from scratch — magnetic fields from current, Faraday's and Lenz's laws, V = L di/dt, stored energy, series and parallel inductors, and the capacitor–inductor mirror.
+sidebar:
+  label: "15. Inductors"
+  order: 15
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** explain why a coil opposes changes in current, use `V = L di/dt` and `E = ½LI²`, and know the capacitor–inductor "mirror" so you only memorise half.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** (RL circuits) and 1.3 (generating AC is the same law). **Lok Sewa Computer Engineer 4.1.3** (magnetic circuits and transformers) builds directly on this lesson — that unit isn't in NEC, so the transformer section here gives you a head start.
+</Aside>
+
+## 1. Current makes magnetism
+
+Any current in a wire creates a **magnetic field** around it. Wind the wire into a coil and the fields of all the turns add up. Put an iron core inside and the field gets much stronger still. That coil is an **inductor**.
+
+## 2. Changing magnetism makes voltage
+
+Two laws, discovered in the 1830s:
+
+- **Faraday's law:** a *changing* magnetic field through a coil **induces a voltage** in it. The faster the change, the bigger the voltage. (A steady field induces nothing.)
+- **Lenz's law:** the induced voltage always pushes **against the change** that caused it.
+
+Put them together for a single coil: if you try to increase the current, the growing field induces a voltage that fights the increase. Try to cut the current, and the collapsing field induces a voltage that tries to keep it going. **An inductor resists changes in current** — like a heavy flywheel resists changes in speed.
+
+## 3. Inductance: V = L di/dt
+
+`v = L × (di/dt)`
+
+- **L** is the **inductance**, in **henries** (H).
+- **di/dt** is how fast the current changes, in amperes per second.
+
+**Worked example.** A 2 H inductor's current rises steadily from 0 to 3 A in 0.5 s. di/dt = 3/0.5 = 6 A/s, so the induced voltage = 2 × 6 = **12 V**.
+
+**Worked example.** The same current is switched off in 1 ms. di/dt = 3/0.001 = 3,000 A/s → v = **6,000 V**! This is why switching off an inductive load (relay coil, motor) can spark — and why circuits add a "flyback" diode across coils (Part 5).
+
+### What makes inductance bigger
+
+`L = μ N² A / l`
+
+- **N** — number of turns, and it's **squared**: double the turns → **four times** the inductance.
+- **A** — core cross-section; **l** — coil length.
+- **μ** — permeability of the core; iron is hundreds to thousands of times better than air.
+
+## 4. Energy stored
+
+`E = ½ L I²`
+
+**Worked example.** 2 H carrying 3 A stores ½ × 2 × 9 = **9 J**.
+
+## 5. Behaviour in a circuit
+
+- **Its current can't change instantly.**
+- **On steady DC it acts like a short circuit** (just a piece of wire, apart from the wire's small resistance).
+- **On AC it opposes current**, more so at higher frequency (lesson 19).
+
+## 6. Series and parallel — like resistors
+
+(Assuming the coils' fields don't link each other.)
+
+- Series: `L = L1 + L2 + …`
+- Parallel: `1/L = 1/L1 + 1/L2 + …`
+
+## 7. The mirror — memorise half, get both
+
+| | Capacitor | Inductor |
+| --- | --- | --- |
+| Stores energy in | electric field | magnetic field |
+| Defining equation | `i = C dv/dt` | `v = L di/dt` |
+| Can't change instantly | **voltage** | **current** |
+| Steady DC | open circuit | short circuit |
+| Energy | `½CV²` | `½LI²` |
+| Series | reciprocal rule | add |
+| Parallel | add | reciprocal rule |
+| AC current | **leads** voltage by 90° | **lags** voltage by 90° |
+
+## 8. Head start for Lok Sewa: the transformer
+
+Two coils on one iron core. AC in the first (primary) makes a changing field, which induces a voltage in the second (secondary) — Faraday again.
+
+- `Vs / Vp = Ns / Np` (turns ratio). More secondary turns → step **up** the voltage.
+- Power is (ideally) conserved, so current goes the other way: `Is / Ip = Np / Ns`.
+- **Works only on AC** — DC gives a steady field, and a steady field induces nothing.
+- That's why grids use AC: step up to tens of kV for low-loss transmission (less current → less I²R loss), step down to 230 V at your house. Your laptop charger has a small one inside.
+
+**Example.** 230 V primary with 1,000 turns, 50-turn secondary → 230 × 50/1,000 = **11.5 V**.
+
+## Traps
+
+- Inductors in series **add** (like resistors), unlike capacitors.
+- Turns are **squared** in `L = μN²A/l`.
+- Steady DC: inductor = **short circuit**.
+- Transformers don't work on DC.
+
+## Check yourself
+
+1. The unit of inductance is the:
+   (a) farad (b) henry (c) weber (d) tesla
+
+<details><summary>Answer</summary>(b) henry.</details>
+
+2. The induced voltage opposes the change that produces it. This is:
+   (a) Ohm's law (b) Lenz's law (c) Kirchhoff's law (d) Coulomb's law
+
+<details><summary>Answer</summary>(b) Lenz's law.</details>
+
+3. Doubling the number of turns of a coil makes its inductance:
+   (a) double (b) half (c) four times (d) unchanged
+
+<details><summary>Answer</summary>(c) L ∝ N².</details>
+
+4. A 0.5 H inductor carries 4 A. The energy stored is:
+   (a) 1 J (b) 2 J (c) 4 J (d) 8 J
+
+<details><summary>Answer</summary>(c) ½ × 0.5 × 16 = 4 J.</details>
+
+5. In steady DC, an ideal inductor acts as:
+   (a) open circuit (b) short circuit (c) capacitor (d) voltage source
+
+<details><summary>Answer</summary>(b) short circuit.</details>
+
+6. A transformer has 500 primary and 100 secondary turns, with 230 V on the primary. The secondary voltage is:
+   (a) 1,150 V (b) 46 V (c) 23 V (d) 230 V
+
+<details><summary>Answer</summary>(b) 230 × 100/500 = 46 V.</details>

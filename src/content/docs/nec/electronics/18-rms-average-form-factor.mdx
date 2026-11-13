@@ -1,0 +1,107 @@
+---
+title: "18. RMS, average, form factor, peak factor"
+description: What RMS really means, why the full-cycle average of a sine is zero, the half-cycle average, form and peak factors for sine, square, triangle and rectified waves.
+sidebar:
+  label: "18. RMS and average values"
+  order: 18
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** know what RMS means physically, never confuse the full-cycle and half-cycle average, and recall form and peak factors for the common waveforms.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.3** — "Vrms = ?", "form factor of a sine wave is…", "average over a complete cycle is…". **Lok Sewa Computer Engineer 4.1.2**. The rectified-wave values here come back in Part 5 (rectifiers) and NEC 1.4.
+</Aside>
+
+## 1. The problem
+
+A sine wave spends equal time positive and negative. So what single number describes "how strong" 230 V AC is?
+
+## 2. Average value — two different things
+
+- **Over a full cycle:** the positive half cancels the negative half, so the average is **zero**. Correct, but useless for describing strength.
+- **Over a half cycle** (the usual "average value" in textbooks): `Vavg = 2Vm/π ≈ 0.637 Vm`.
+
+<Aside type="caution" title="Read the question carefully">
+Practice question banks are sloppy here: some say "the average value of a sine is zero", others "2Vm/π", and a few mark one as wrong. Both are right for their interval. If the question says **complete/full cycle → 0**. If it just says "average value" or "half cycle" → **0.637 Vm**.
+</Aside>
+
+## 3. RMS — the value that means something
+
+**RMS (root mean square)** is defined by heating:
+
+> The RMS value of an AC current is the **steady DC current that would produce the same heat** in the same resistor over the same time.
+
+That's why it's also called the **effective value**, and why a 230 V RMS kettle boils water exactly as fast as it would on 230 V DC.
+
+**Where `Vm/√2` comes from:** heating goes with `v²`. Square a sine wave and you get a wave that swings between 0 and Vm², averaging exactly half: **mean of sin² = ½**. So the mean of v² is Vm²/2, and its square root is:
+
+`Vrms = Vm / √2 ≈ 0.707 Vm`  and  `Vm = √2 Vrms ≈ 1.414 Vrms`
+
+- Mains: 230 V RMS → 325 V peak → 650 V peak-to-peak.
+- Ammeters and voltmeters for AC read **RMS** unless they say otherwise.
+
+## 4. Form factor and peak factor
+
+| Name | Definition | Sine value |
+| --- | --- | --- |
+| **Form factor** | RMS ÷ average (half-cycle) | π/(2√2) ≈ **1.11** |
+| **Peak (crest) factor** | peak ÷ RMS | √2 ≈ **1.414** |
+
+Rearranged (a favourite MCQ): **peak = RMS × peak factor**, **average = RMS ÷ form factor**.
+
+## 5. Other waveforms
+
+| Waveform | RMS | Average (half cycle) | Form factor | Peak factor |
+| --- | --- | --- | --- | --- |
+| Sine | Vm/√2 | 2Vm/π | 1.11 | 1.414 |
+| Square | Vm | Vm | **1** | **1** |
+| Triangle | Vm/√3 | Vm/2 | 1.155 | 1.732 |
+| Half-wave rectified sine | Vm/2 | Vm/π (full cycle) | 1.57 | 2 |
+| Full-wave rectified sine | Vm/√2 | 2Vm/π | 1.11 | 1.414 |
+
+A **square wave** has the same value all the time apart from its sign, so RMS = average = peak.
+
+## 6. Worked examples
+
+- A sine current has peak 14.14 A. RMS = 14.14 × 0.707 = **10 A**; half-cycle average = 14.14 × 0.637 = **9 A**; check form factor 10/9 = 1.11 ✔.
+- A heater on 230 V RMS with R = 46 Ω: I = 5 A RMS, P = 230 × 5 = **1,150 W** — use RMS values in power formulas.
+- A voltmeter reads 120 V on a sine supply. Peak = 120 × 1.414 = **170 V**.
+
+## Traps
+
+- Full-cycle average 0 vs half-cycle average 0.637 Vm (above).
+- **Use RMS** in `P = VI`, not peak.
+- Form factor is RMS/**average**; peak factor is **peak**/RMS.
+
+## Check yourself
+
+1. The RMS value of a sine wave of peak Vm is:
+   (a) Vm/2 (b) Vm/√2 (c) 2Vm/π (d) √2 Vm
+
+<details><summary>Answer</summary>(b) ≈ 0.707 Vm.</details>
+
+2. The average value of a sine current over a complete cycle is:
+   (a) zero (b) 0.637 Im (c) 0.707 Im (d) Im
+
+<details><summary>Answer</summary>(a) zero — the halves cancel.</details>
+
+3. The form factor of a sinusoidal wave is:
+   (a) 1.0 (b) 1.11 (c) 1.414 (d) 1.57
+
+<details><summary>Answer</summary>(b) 1.11.</details>
+
+4. The RMS value is the equivalent DC that produces the same:
+   (a) voltage (b) heating effect (c) frequency (d) magnetic field
+
+<details><summary>Answer</summary>(b) heating effect.</details>
+
+5. For a square wave, the peak factor is:
+   (a) 1 (b) 1.11 (c) 1.414 (d) 2
+
+<details><summary>Answer</summary>(a) 1 — peak and RMS are equal.</details>
+
+6. Average value in terms of RMS is:
+   (a) RMS × form factor (b) RMS / form factor (c) RMS / peak factor (d) RMS × peak factor
+
+<details><summary>Answer</summary>(b) because form factor = RMS/average.</details>

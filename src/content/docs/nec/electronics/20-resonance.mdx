@@ -1,0 +1,124 @@
+---
+title: "20. RLC circuits and resonance"
+description: Series and parallel RLC circuits, the resonant frequency, quality factor, bandwidth and half-power points, voltage magnification, and where resonance is used.
+sidebar:
+  label: "20. Resonance"
+  order: 20
+---
+import { Aside } from '@astrojs/starlight/components';
+import ResonanceLab from '@components/visuals/electronics/ResonanceLab.astro';
+
+**Goal:** find the resonant frequency, say what happens to impedance, current and power factor at resonance (series and parallel), and use Q and bandwidth.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** — resonance in series and parallel circuits is one of the most-asked items in this chapter: f0 formula, impedance minimum/maximum, unity power factor, V = Q × V. **Lok Sewa Computer Engineer 4.1.2**, and tuned circuits come back in 1.5–1.6 (LC oscillators, tuned amplifiers) and unit 5 (radio receivers).
+</Aside>
+
+## 1. Series RLC
+
+Put R, L and C in series. The inductor's voltage points one way (+90°), the capacitor's the opposite way (−90°), so their reactances **subtract**:
+
+`X = XL − XC`   `|Z| = √(R² + (XL − XC)²)`
+
+- XL > XC → net inductive → current lags.
+- XC > XL → net capacitive → current leads.
+
+## 2. Resonance
+
+XL grows with frequency and XC shrinks, so at exactly one frequency they're equal and **cancel**:
+
+`XL = XC` → `2πf0L = 1/(2πf0C)` → **`f0 = 1 / (2π√(LC))`**
+
+At series resonance:
+
+- |Z| = **R** — its **minimum**; the circuit looks purely resistive.
+- Current = V/R — its **maximum**.
+- Power factor = **1** (voltage and current in phase); power drawn is maximum.
+- The voltages across L and C are **equal and opposite** and can each be far bigger than the supply: `VL = VC = Q × V` (**voltage magnification**). Series resonance is called an **acceptor** circuit.
+
+<ResonanceLab />
+
+## 3. Quality factor and bandwidth
+
+**Q** measures how sharp the peak is:
+
+`Q = ω0L / R = (1/R) √(L/C)`
+
+**Bandwidth** is the range of frequencies between the two **half-power points**, where the current has fallen to Imax/√2 (0.707 Imax) and power to half:
+
+`BW = f2 − f1 = f0 / Q`
+
+Smaller R → higher Q → **taller, narrower** peak → more **selective**. Bandwidth is **inversely** proportional to Q.
+
+**Worked example.** L = 0.1 H, C = 10 µF, R = 20 Ω, V = 10 V (the lab's default circuit).
+- f0 = 1/(2π√(10⁻⁶)) = 1/(2π × 10⁻³) ≈ **159 Hz**.
+- Imax = 10/20 = **0.5 A**.
+- Q = (1/20) × √(0.1/10⁻⁵) = (1/20) × 100 = **5**.
+- BW = 159/5 ≈ **32 Hz**.
+- VL = VC = 5 × 10 = **50 V** — on a 10 V supply.
+
+## 4. Parallel resonance (the "tank" circuit)
+
+L and C in parallel (with R) resonate at the same f0 = 1/(2π√LC) for the ideal case, but behave the opposite way:
+
+- Impedance is **maximum**.
+- Line current is **minimum**, while a large current circulates between L and C (**current magnification**, Q × I).
+- Power factor = **1**.
+- Called a **rejector** circuit.
+
+| At resonance | Series | Parallel |
+| --- | --- | --- |
+| Impedance | minimum (= R) | maximum |
+| Line current | maximum | minimum |
+| Power factor | unity | unity |
+| Magnifies | voltage (Q × V) | current (Q × I) |
+| Name | acceptor | rejector |
+
+## 5. Where you meet it
+
+- **Radio tuning:** turning the dial changes C so f0 matches one station; high Q rejects neighbours. Your FM radio and Wi-Fi front-ends both do this.
+- **LC oscillators** (Part 6) use a tank circuit to set the frequency.
+- **Filters** that pass or block one band.
+
+## Traps
+
+- Series → impedance **minimum**; parallel → impedance **maximum**. Swapping these is the most common resonance error.
+- Both have **unity** power factor at resonance.
+- f0 doesn't depend on R; Q and bandwidth do.
+
+## Check yourself
+
+1. Resonance occurs when:
+   (a) R = XL (b) XL = XC (c) R = XC (d) Z = 0
+
+<details><summary>Answer</summary>(b) XL = XC.</details>
+
+2. At series resonance, the impedance is:
+   (a) maximum (b) minimum, equal to R (c) zero (d) infinite
+
+<details><summary>Answer</summary>(b) minimum, = R.</details>
+
+3. The power factor of a series RLC circuit at resonance is:
+   (a) zero (b) 0.707 (c) unity (d) leading
+
+<details><summary>Answer</summary>(c) unity.</details>
+
+4. The resonant frequency is:
+   (a) 1/(2π√(RC)) (b) 1/(2π√(LC)) (c) 2π√(LC) (d) 1/(2πRLC)
+
+<details><summary>Answer</summary>(b)</details>
+
+5. At series resonance, the voltage across the inductor is:
+   (a) zero (b) equal to supply voltage (c) Q times the supply voltage (d) 1/Q of the supply
+
+<details><summary>Answer</summary>(c) Q × V.</details>
+
+6. In a parallel RLC circuit, bandwidth is:
+   (a) directly proportional to Q (b) inversely proportional to Q (c) independent of Q (d) equal to Q
+
+<details><summary>Answer</summary>(b) BW = f0/Q.</details>
+
+7. A parallel resonant circuit is also called:
+   (a) an acceptor circuit (b) a rejector circuit (c) a rectifier (d) a filter capacitor
+
+<details><summary>Answer</summary>(b) rejector.</details>

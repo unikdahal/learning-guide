@@ -1,0 +1,124 @@
+---
+title: "14. Capacitors"
+description: Capacitors from scratch — what they are, Q = CV, what sets capacitance, stored energy, series and parallel combinations, and where they're used.
+sidebar:
+  label: "14. Capacitors"
+  order: 14
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** explain what a capacitor stores and how, use `Q = CV` and `E = ½CV²`, and combine capacitors in series and parallel without mixing up the rules.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** (RC circuits) and every later sub-chapter: capacitors filter rectifier ripple (1.4), set oscillator frequencies (1.5) and couple amplifier stages (1.6). **Lok Sewa Computer Engineer 4.1.1–4.1.4** (circuit theory, transients, filters). EEPROM and DRAM in Chapter 2 store bits as charge, which is a capacitor idea.
+</Aside>
+
+## 1. What a capacitor is
+
+Take two metal plates and hold them close together **without touching**, with an insulator (air, paper, ceramic, plastic) between them. Connect a battery:
+
+- The battery pulls electrons off one plate and pushes them onto the other.
+- One plate ends up with **+Q**, the other with **−Q**. No charge crosses the gap — the insulator stops it.
+- Charging continues until the plates' voltage equals the battery's. Then current stops.
+
+The separated charges create an **electric field** across the gap, and that field holds **energy**. That's all a capacitor is: a device that stores energy by keeping charges apart.
+
+<Figure caption="Left: a capacitor — two plates with opposite charges separated by an insulator, the electric field between them. Right: an inductor — a coil whose current builds a magnetic field (next lesson).">
+  <Circuit name="cap-ind" label="Left: two parallel plates, the left with plus signs and the right with minus signs, arrows showing the electric field across the insulating gap. Right: a coil of wire surrounded by a dashed loop representing its magnetic field." />
+</Figure>
+
+## 2. Capacitance: Q = CV
+
+The charge stored is proportional to the voltage:
+
+`Q = C × V`
+
+**C** is the **capacitance**, measured in **farads** (F). One farad stores one coulomb per volt. That's enormous; real parts are µF, nF and pF.
+
+**Worked example.** A 100 µF capacitor on 12 V stores Q = 100 × 10⁻⁶ × 12 = **1.2 mC**.
+
+### What makes capacitance bigger
+
+`C = ε A / d`
+
+- **A** — plate area: bigger plates hold more charge.
+- **d** — gap: closer plates → bigger C.
+- **ε** (epsilon) — permittivity of the insulator, `ε = ε₀ εr`, with ε₀ ≈ 8.854 × 10⁻¹² F/m and εr the **dielectric constant** (air ≈ 1, ceramics up to thousands).
+
+Double the area → double C. Halve the gap → double C.
+
+## 3. Energy stored
+
+`E = ½ C V²`  (joules)
+
+**Worked example.** The same 100 µF at 12 V: E = ½ × 100 × 10⁻⁶ × 144 = **7.2 mJ**. Small — but a camera flash capacitor at 300 V holds far more, which is why big capacitors can shock you even when unplugged.
+
+## 4. How a capacitor behaves in a circuit
+
+- **Its voltage can't change instantly.** Changing it means moving charge, which takes time (lesson 16). Current: `i = C × dv/dt`.
+- **On steady DC it acts like an open circuit**: once charged, no current flows.
+- **On AC it lets current through**: it keeps charging and discharging, and the faster the change, the easier (lesson 19).
+
+That pair — blocks DC, passes AC — is why capacitors **couple** signals between amplifier stages and **filter** ripple out of power supplies.
+
+## 5. Series and parallel — opposite to resistors
+
+| | Capacitors | (Resistors, for comparison) |
+| --- | --- | --- |
+| **Parallel** | `C = C1 + C2 + …` (plate area adds) | reciprocal rule |
+| **Series** | `1/C = 1/C1 + 1/C2 + …` (gap effectively grows) | add |
+| Two in series | `C1C2 / (C1 + C2)` | — |
+| Shared in series | same **charge** on each | same current |
+| Shared in parallel | same **voltage** | same voltage |
+
+**Worked example.** 6 µF and 3 µF: parallel = **9 µF**; series = 18/9 = **2 µF**.
+
+**Worked example.** In series on 12 V, the smaller capacitor gets the *bigger* voltage (same Q, and V = Q/C). With 6 µF and 3 µF in series: Q = 2 µF × 12 V = 24 µC; V across 6 µF = 24/6 = 4 V, across 3 µF = 24/3 = 8 V.
+
+## 6. Where you'll meet them
+
+- **Electrolytic** (large µF, polarised — fitting one backwards can make it burst), **ceramic** (small, non-polarised), **film**.
+- Power-supply smoothing after a rectifier (Part 5).
+- **Decoupling capacitors** beside every chip on a motherboard or server board, absorbing tiny voltage dips when the chip suddenly draws current.
+- Timing circuits (Part 6) and DRAM cells (one tiny capacitor per bit, refreshed because it leaks).
+
+## Traps
+
+- Capacitors in **series** use the reciprocal rule — opposite to resistors.
+- In series, the **smaller** capacitor takes the **larger** voltage.
+- `E = ½CV²`, not `CV²`.
+- Steady DC: capacitor = open circuit.
+
+## Check yourself
+
+1. The unit of capacitance is the:
+   (a) henry (b) farad (c) coulomb (d) ohm
+
+<details><summary>Answer</summary>(b) farad = coulomb per volt.</details>
+
+2. A capacitor stores energy in:
+   (a) a magnetic field (b) an electric field (c) its resistance (d) the battery
+
+<details><summary>Answer</summary>(b) electric field. Inductors use a magnetic field.</details>
+
+3. Halving the gap between capacitor plates makes the capacitance:
+   (a) half (b) double (c) four times (d) unchanged
+
+<details><summary>Answer</summary>(b) C = εA/d.</details>
+
+4. 4 µF and 12 µF in series give:
+   (a) 16 µF (b) 3 µF (c) 8 µF (d) 48 µF
+
+<details><summary>Answer</summary>(b) 48/16 = 3 µF.</details>
+
+5. A 50 µF capacitor charged to 100 V stores:
+   (a) 0.25 J (b) 0.5 J (c) 5 mJ (d) 2.5 J
+
+<details><summary>Answer</summary>(a) ½ × 50 × 10⁻⁶ × 10,000 = 0.25 J.</details>
+
+6. In steady-state DC, a fully charged capacitor acts as:
+   (a) a short circuit (b) an open circuit (c) a resistor (d) a voltage doubler
+
+<details><summary>Answer</summary>(b) open circuit — no current flows once it's charged.</details>

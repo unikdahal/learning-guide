@@ -1,0 +1,190 @@
+---
+// RC charging/discharging lab: pick R and C, see the exponential curve, τ = RC marked at 63.2%, and 5τ.
+---
+
+<qe-rc class="qe-lab qe-rc not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Capacitor charging lab — 10 V supply</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Process">
+      <button type="button" data-mode="charge" aria-pressed="true">Charging</button>
+      <button type="button" data-mode="discharge" aria-pressed="false">Discharging</button>
+    </div>
+    <div class="ctl">
+      <label>Resistance R <output data-ro>10 kΩ</output>
+        <input type="range" min="1" max="20" step="1" value="10" data-r aria-label="Resistance in kilo-ohms" />
+      </label>
+      <label>Capacitance C <output data-co>100 µF</output>
+        <input type="range" min="10" max="200" step="10" value="100" data-c aria-label="Capacitance in microfarads" />
+      </label>
+    </div>
+    <svg viewBox="0 0 340 210" role="img" aria-label="Capacitor voltage against time over 20 seconds. Dashed markers show one time constant at 63.2 percent and five time constants." class="plot">
+      <line class="axis" x1="40" y1="170" x2="330" y2="170" />
+      <line class="axis" x1="40" y1="170" x2="40" y2="14" />
+      <text x="290" y="200" class="ax">t (s)</text>
+      <text x="46" y="14" class="ax">Vc</text>
+      <text x="16" y="34" class="tick">10 V</text>
+      <text x="36" y="186" class="tick">0</text>
+      <text x="318" y="186" class="tick">20</text>
+      <line class="guide" data-g63 x1="40" x2="330" />
+      <text class="tick" data-g63t x="2"></text>
+      <line class="mark" data-tau y1="20" y2="170" />
+      <text class="tick" data-taut y="200"></text>
+      <line class="mark" data-five y1="20" y2="170" />
+      <text class="tick" data-fivet y="200"></text>
+      <path class="curve" data-curve />
+    </svg>
+    <dl class="out">
+      <div><dt>Time constant τ = RC</dt><dd data-tau-v></dd></div>
+      <div><dt>"Fully" done (5τ)</dt><dd data-five-v></dd></div>
+      <div><dt data-at>Vc after one τ</dt><dd data-v1></dd></div>
+    </dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-rc>
+
+<script>
+  class QeRc extends HTMLElement {
+    mode = 'charge';
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const r = $('[data-r]') as HTMLInputElement;
+      const c = $('[data-c]') as HTMLInputElement;
+      const E = 10;
+      const T = 20;
+      const X = (t: number) => 40 + (Math.min(t, T) / T) * 290;
+      const Y = (v: number) => 170 - (v / E) * 150;
+      const f = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(2));
+      const update = () => {
+        const Rk = +r.value;
+        const Cu = +c.value;
+        ($('[data-ro]') as HTMLOutputElement).value = `${Rk} kΩ`;
+        ($('[data-co]') as HTMLOutputElement).value = `${Cu} µF`;
+        const tau = Rk * 1e3 * Cu * 1e-6; // seconds
+        const charge = this.mode === 'charge';
+        const v = (t: number) => (charge ? E * (1 - Math.exp(-t / tau)) : E * Math.exp(-t / tau));
+        let d = '';
+        for (let k = 0; k <= 160; k++) {
+          const t = (k / 160) * T;
+          d += `${k ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(v(t)).toFixed(1)}`;
+        }
+        $('[data-curve]').setAttribute('d', d);
+        const level = charge ? 6.32 : 3.68;
+        const g = $('[data-g63]');
+        g.setAttribute('y1', String(Y(level)));
+        g.setAttribute('y2', String(Y(level)));
+        const gt = $('[data-g63t]');
+        gt.setAttribute('y', String(Y(level) + 4));
+        gt.textContent = charge ? '63%' : '37%';
+        const place = (sel: string, tsel: string, t: number, label: string) => {
+          const m = $(sel);
+          const on = t <= T;
+          m.setAttribute('x1', String(X(t)));
+          m.setAttribute('x2', String(X(t)));
+          m.style.display = on ? '' : 'none';
+          const tx = $(tsel);
+          tx.setAttribute('x', String(X(t) - 8));
+          tx.textContent = on ? label : '';
+        };
+        place('[data-tau]', '[data-taut]', tau, 'τ');
+        place('[data-five]', '[data-fivet]', 5 * tau, '5τ');
+        $('[data-tau-v]').textContent = `${f(tau)} s`;
+        $('[data-five-v]').textContent = `${f(5 * tau)} s`;
+        $('[data-at]').textContent = charge ? 'Vc after one τ (63.2%)' : 'Vc after one τ (36.8%)';
+        $('[data-v1]').textContent = `${f(v(tau))} V`;
+        let note = `τ = R × C = ${Rk} kΩ × ${Cu} µF = ${f(tau)} s. `;
+        note += charge
+          ? `The capacitor jumps fast at first, then slows: each τ closes 63% of the gap that's left. After 5τ (${f(5 * tau)} s) it's above 99% — treated as fully charged.`
+          : `Discharging mirrors charging: after each τ only 36.8% of the voltage remains. Bigger R or bigger C → slower.`;
+        if (5 * tau > T) note += ' (5τ is off the right edge of this 20-second graph.)';
+        $('[data-note]').textContent = note;
+      };
+      this.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.mode = b.dataset.mode!;
+          this.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          update();
+        }),
+      );
+      r.addEventListener('input', update);
+      c.addEventListener('input', update);
+      update();
+    }
+  }
+  customElements.define('qe-rc', QeRc);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.8rem 1.2rem;
+    margin: 0.9rem 0;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+    margin-left: 0.4rem;
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .plot {
+    width: 100%;
+    max-width: 560px;
+    height: auto;
+    display: block;
+    margin-inline: auto;
+  }
+  .axis {
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+  }
+  .ax {
+    fill: var(--sl-color-gray-1);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tick {
+    fill: var(--sl-color-gray-3);
+    font-size: 11px;
+  }
+  .guide {
+    stroke: var(--sl-color-gray-4);
+    stroke-dasharray: 3 3;
+  }
+  .mark {
+    stroke: var(--qe-pipe-emit);
+    stroke-dasharray: 4 3;
+    stroke-width: 1.5;
+  }
+  .curve {
+    fill: none;
+    stroke: var(--qe-pipe-build);
+    stroke-width: 3;
+  }
+  .out {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.6rem 1.2rem;
+    margin: 0.9rem 0 0;
+  }
+  .out dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .out dd {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

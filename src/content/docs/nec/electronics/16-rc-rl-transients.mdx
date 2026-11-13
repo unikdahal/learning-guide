@@ -1,0 +1,110 @@
+---
+title: "16. RC and RL circuits: time constants"
+description: How capacitors charge and inductors build current over time — the time constant τ, the 63.2% rule, 5τ, and the switching-instant rules.
+sidebar:
+  label: "16. RC and RL time constants"
+  order: 16
+---
+import { Aside } from '@astrojs/starlight/components';
+import RcLab from '@components/visuals/electronics/RcLab.astro';
+
+**Goal:** compute a time constant, say how charged a capacitor is after any number of time constants, and know what C and L look like at the instant of switching and long after.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2** (R-L and R-C circuits): "τ = ?", "after one time constant the capacitor reaches ___%". **Lok Sewa Computer Engineer 4.1.4** (transient analysis). The same curve sets the speed of every digital signal on a wire — a gate driving a long track is an RC circuit.
+</Aside>
+
+## 1. Charging a capacitor through a resistor
+
+Connect an uncharged capacitor C through a resistor R to a battery E:
+
+- **At the first instant** the capacitor has no voltage, so the full E sits across R. Maximum current: `E/R`.
+- As charge builds, the capacitor's voltage rises, so less voltage is left across R, so the current shrinks, so charging slows down.
+- It gets closer and closer to E without ever quite reaching it.
+
+That "fast at first, then slower and slower" shape is an **exponential** curve:
+
+`vC = E (1 − e^(−t/τ))`   and   `i = (E/R) e^(−t/τ)`
+
+where **τ = R × C** is the **time constant**, in seconds (Ω × F = s).
+
+<RcLab />
+
+## 2. The numbers to memorise
+
+| Time | Charging: vC reaches | Discharging: vC falls to |
+| --- | --- | --- |
+| 1τ | **63.2%** | **36.8%** |
+| 2τ | 86.5% | 13.5% |
+| 3τ | 95.0% | 5.0% |
+| 4τ | 98.2% | 1.8% |
+| 5τ | **99.3%** — treated as fully charged | 0.7% |
+
+The rule of thumb: **each τ closes 63% of the remaining gap.** After **5τ** the transient is considered over.
+
+**Worked example.** R = 10 kΩ, C = 100 µF, E = 10 V.
+τ = 10,000 × 0.0001 = **1 s**. After 1 s: 6.32 V. After 2 s: 8.65 V. Effectively full after **5 s**.
+
+**Worked example.** How long until a 47 µF capacitor through 2.2 kΩ is "fully" charged?
+τ = 2,200 × 47 × 10⁻⁶ ≈ 0.103 s, so 5τ ≈ **0.52 s**.
+
+## 3. Discharging
+
+Disconnect the battery and let the charged capacitor discharge through R: `vC = V₀ e^(−t/τ)`. After 1τ only 36.8% remains.
+
+## 4. RL circuits — the same shape, a different τ
+
+Switch a battery E onto a resistor R in series with an inductor L. The inductor fights the change, so the current rises gradually:
+
+`i = (E/R)(1 − e^(−t/τ))`   with   **τ = L / R**
+
+**Worked example.** L = 0.5 H, R = 10 Ω → τ = **0.05 s** (50 ms). The current reaches 63.2% of its final 1 A (for E = 10 V) after 50 ms.
+
+Note the difference: RC → **multiply**; RL → **divide** (L/R). A **bigger R makes an RC circuit slower but an RL circuit faster.**
+
+## 5. The switching-instant rules
+
+These solve most transient MCQs without any exponentials:
+
+| | Just after switching (t = 0⁺) | Long after (steady state) |
+| --- | --- | --- |
+| Uncharged capacitor | acts like a **short circuit** (voltage can't jump) | acts like an **open circuit** |
+| Inductor with no current | acts like an **open circuit** (current can't jump) | acts like a **short circuit** |
+
+## Traps
+
+- τ = RC but τ = **L/R** (not LR).
+- 63.2% is for **charging**; 36.8% is what **remains** when discharging.
+- "Fully charged" in exam language = **5τ**.
+
+## Check yourself
+
+1. The time constant of an RC circuit is:
+   (a) R/C (b) RC (c) 1/RC (d) C/R
+
+<details><summary>Answer</summary>(b) RC.</details>
+
+2. The time constant of an RL circuit is:
+   (a) LR (b) R/L (c) L/R (d) 1/LR
+
+<details><summary>Answer</summary>(c) L/R.</details>
+
+3. After one time constant, a charging capacitor reaches about:
+   (a) 36.8% (b) 50% (c) 63.2% (d) 100%
+
+<details><summary>Answer</summary>(c) 63.2% of the supply voltage.</details>
+
+4. R = 1 MΩ and C = 2 µF. The time constant is:
+   (a) 0.5 s (b) 2 s (c) 2 ms (d) 20 s
+
+<details><summary>Answer</summary>(b) 10⁶ × 2 × 10⁻⁶ = 2 s.</details>
+
+5. A capacitor is considered fully charged after about:
+   (a) 1τ (b) 2τ (c) 5τ (d) 10τ
+
+<details><summary>Answer</summary>(c) 5τ (≈ 99.3%).</details>
+
+6. At the instant a switch closes, an uncharged capacitor behaves like:
+   (a) an open circuit (b) a short circuit (c) an inductor (d) a current source
+
+<details><summary>Answer</summary>(b) a short circuit — its voltage is still zero.</details>

@@ -1,0 +1,198 @@
+---
+// Series RLC resonance lab: L = 0.1 H, C = 10 µF (f0 ≈ 159 Hz), 10 V supply.
+// Drag R to change sharpness (Q) and f to probe the curve; half-power points and bandwidth are marked.
+---
+
+<qe-res class="qe-lab qe-res not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Series resonance lab — L = 0.1 H, C = 10 µF, 10 V</p>
+    <div class="ctl">
+      <label>Resistance R <output data-ro>20 Ω</output>
+        <input type="range" min="5" max="100" step="5" value="20" data-r aria-label="Resistance in ohms" />
+      </label>
+      <label>Frequency f <output data-fo>100 Hz</output>
+        <input type="range" min="20" max="400" step="1" value="100" data-f aria-label="Frequency in hertz" />
+      </label>
+    </div>
+    <svg viewBox="0 0 340 210" role="img" aria-label="Current against frequency from 20 to 400 hertz. The curve peaks at the resonant frequency; a dashed line marks the half-power level and the bandwidth." class="plot">
+      <line class="axis" x1="40" y1="170" x2="330" y2="170" />
+      <line class="axis" x1="40" y1="170" x2="40" y2="14" />
+      <text x="292" y="200" class="ax">f (Hz)</text>
+      <text x="46" y="14" class="ax">I</text>
+      <text x="30" y="186" class="tick">20</text>
+      <text x="314" y="186" class="tick">400</text>
+      <line class="mark" data-f0 y1="18" y2="170" />
+      <text class="tick" data-f0t y="200"></text>
+      <line class="guide" data-hp x1="40" x2="330" />
+      <line class="bw" data-bw />
+      <path class="curve" data-curve />
+      <circle class="pt" data-pt r="6" />
+    </svg>
+    <dl class="out">
+      <div><dt>XL = 2πfL</dt><dd data-xl></dd></div>
+      <div><dt>XC = 1/(2πfC)</dt><dd data-xc></dd></div>
+      <div><dt>|Z|</dt><dd data-z></dd></div>
+      <div><dt>Current</dt><dd data-i></dd></div>
+      <div><dt>Q = (1/R)√(L/C)</dt><dd data-q></dd></div>
+      <div><dt>Bandwidth f0/Q</dt><dd data-b></dd></div>
+    </dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-res>
+
+<script>
+  class QeRes extends HTMLElement {
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const rIn = $('[data-r]') as HTMLInputElement;
+      const fIn = $('[data-f]') as HTMLInputElement;
+      const L = 0.1, C = 10e-6, V = 10;
+      const f0 = 1 / (2 * Math.PI * Math.sqrt(L * C));
+      const fmin = 20, fmax = 400;
+      const X = (f: number) => 40 + ((f - fmin) / (fmax - fmin)) * 290;
+      const Imax = V / 5;
+      const Y = (i: number) => 170 - (i / Imax) * 150;
+      const cur = (f: number, R: number) => {
+        const x = 2 * Math.PI * f * L - 1 / (2 * Math.PI * f * C);
+        return V / Math.hypot(R, x);
+      };
+      const update = () => {
+        const R = +rIn.value;
+        const f = +fIn.value;
+        ($('[data-ro]') as HTMLOutputElement).value = `${R} Ω`;
+        ($('[data-fo]') as HTMLOutputElement).value = `${f} Hz`;
+        let d = '';
+        for (let k = 0; k <= 200; k++) {
+          const ff = fmin + (k / 200) * (fmax - fmin);
+          d += `${k ? 'L' : 'M'}${X(ff).toFixed(1)} ${Y(cur(ff, R)).toFixed(1)}`;
+        }
+        $('[data-curve]').setAttribute('d', d);
+        const m = $('[data-f0]');
+        m.setAttribute('x1', String(X(f0)));
+        m.setAttribute('x2', String(X(f0)));
+        const mt = $('[data-f0t]');
+        mt.setAttribute('x', String(X(f0) - 10));
+        mt.textContent = `f0 ≈ ${f0.toFixed(0)}`;
+        const Ipk = V / R;
+        const hp = Ipk / Math.SQRT2;
+        const g = $('[data-hp]');
+        g.setAttribute('y1', String(Y(hp)));
+        g.setAttribute('y2', String(Y(hp)));
+        const Q = (1 / R) * Math.sqrt(L / C);
+        const B = f0 / Q;
+        const bw = $('[data-bw]');
+        bw.setAttribute('x1', String(X(Math.max(fmin, f0 - B / 2))));
+        bw.setAttribute('x2', String(X(Math.min(fmax, f0 + B / 2))));
+        bw.setAttribute('y1', String(Y(hp)));
+        bw.setAttribute('y2', String(Y(hp)));
+        const I = cur(f, R);
+        const pt = $('[data-pt]');
+        pt.setAttribute('cx', String(X(f)));
+        pt.setAttribute('cy', String(Y(I)));
+        const XL = 2 * Math.PI * f * L, XC = 1 / (2 * Math.PI * f * C);
+        $('[data-xl]').textContent = `${XL.toFixed(0)} Ω`;
+        $('[data-xc]').textContent = `${XC.toFixed(0)} Ω`;
+        $('[data-z]').textContent = `${Math.hypot(R, XL - XC).toFixed(0)} Ω`;
+        $('[data-i]').textContent = `${I.toFixed(2)} A`;
+        $('[data-q]').textContent = Q.toFixed(1);
+        $('[data-b]').textContent = `${B.toFixed(0)} Hz`;
+        let note: string;
+        if (Math.abs(f - f0) < 3)
+          note = `At resonance: XL ≈ XC, they cancel, |Z| = R = ${R} Ω (minimum), current is maximum (${(V / R).toFixed(2)} A), power factor 1. The voltage across L alone is Q × V ≈ ${(Q * V).toFixed(0)} V — much more than the 10 V supply.`;
+        else if (f < f0)
+          note = `Below f0: XC (${XC.toFixed(0)} Ω) is bigger than XL (${XL.toFixed(0)} Ω), so the circuit acts capacitive — current leads.`;
+        else note = `Above f0: XL (${XL.toFixed(0)} Ω) is bigger than XC (${XC.toFixed(0)} Ω), so the circuit acts inductive — current lags.`;
+        note += ` Smaller R → higher Q (${Q.toFixed(1)}) → sharper peak and narrower bandwidth (${B.toFixed(0)} Hz).`;
+        $('[data-note]').textContent = note;
+      };
+      rIn.addEventListener('input', update);
+      fIn.addEventListener('input', update);
+      update();
+    }
+  }
+  customElements.define('qe-res', QeRes);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.8rem 1.2rem;
+    margin-bottom: 0.8rem;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+    margin-left: 0.4rem;
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .plot {
+    width: 100%;
+    max-width: 560px;
+    height: auto;
+    display: block;
+    margin-inline: auto;
+  }
+  .axis {
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+  }
+  .ax {
+    fill: var(--sl-color-gray-1);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tick {
+    fill: var(--sl-color-gray-3);
+    font-size: 11px;
+  }
+  .guide {
+    stroke: var(--sl-color-gray-4);
+    stroke-dasharray: 3 3;
+  }
+  .bw {
+    stroke: var(--qe-pipe-emit);
+    stroke-width: 4;
+  }
+  .mark {
+    stroke: var(--sl-color-gray-4);
+    stroke-dasharray: 4 3;
+  }
+  .curve {
+    fill: none;
+    stroke: var(--qe-pipe-build);
+    stroke-width: 3;
+  }
+  .pt {
+    fill: var(--qe-pipe-emit);
+    stroke: var(--sl-color-gray-6);
+    stroke-width: 2;
+  }
+  .out {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 0.6rem 1.2rem;
+    margin: 0.9rem 0 0;
+  }
+  .out dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .out dd {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

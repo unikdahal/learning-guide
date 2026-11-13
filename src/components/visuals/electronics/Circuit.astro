@@ -3,7 +3,7 @@
 // Resistors use the IEC box symbol; batteries put the long (+) plate on top.
 // Colours come from theme variables so the drawings work in light and dark mode.
 interface Props {
-  name: 'loop' | 'series-parallel' | 'kcl' | 'nodal' | 'star-delta' | 'bridge' | 'superposition' | 'thevenin' | 'norton';
+  name: 'loop' | 'series-parallel' | 'kcl' | 'nodal' | 'star-delta' | 'bridge' | 'superposition' | 'thevenin' | 'norton' | 'cap-ind' | 'sine' | 'three-phase' | 'power-triangle';
   label: string;
 }
 const { name, label } = Astro.props;
@@ -140,6 +140,69 @@ if (name === 'loop') {
     t(4, 120, 'In') + t(4, 140, '3 A', 'small') + t(216, 135, 'Rn = 3 Ω') +
     term(300, 60, 'a') + term(300, 200, 'b') +
     t(60, 240, 'Norton equivalent of the same circuit', 'small');
+} else if (name === 'cap-ind') {
+  vb = '0 0 640 230';
+  const plus = [62, 86, 110, 134].map((y) => t(112, y + 5, '+', 'strong')).join('');
+  const minus = [62, 86, 110, 134].map((y) => t(180, y + 5, '−', 'strong')).join('');
+  const field = [70, 100, 130].map((y) => arrow(136, y, 164, y)).join('');
+  let coil = 'M380 120 H400';
+  for (let k = 0; k < 5; k++) coil += ' a12 14 0 0 1 24 0';
+  coil += ' H540';
+  body =
+    `<path class="w" d="M40 100 H130 M170 100 H260"/>` +
+    `<line class="w thick" x1="130" y1="50" x2="130" y2="150"/><line class="w thick" x1="170" y1="50" x2="170" y2="150"/>` +
+    plus + minus + field +
+    t(110, 36, '+Q') + t(166, 36, '−Q') +
+    t(96, 178, 'gap: insulator', 'small') + t(108, 198, '(dielectric)', 'small') +
+    t(60, 226, 'Capacitor: stores energy in an electric field', 'small') +
+    `<path class="w" d="${coil}"/>` +
+    `<ellipse class="field" cx="460" cy="112" rx="96" ry="52"/>` +
+    t(436, 160, 'L', 'strong') + t(412, 50, 'magnetic field', 'small') +
+    t(360, 226, 'Inductor: stores energy in a magnetic field', 'small');
+} else if (name === 'sine') {
+  vb = '0 0 440 256';
+  let d = '';
+  for (let k = 0; k <= 120; k++) {
+    const x = 30 + (k / 120) * 260;
+    const y = 120 - 80 * Math.sin((k / 120) * 2 * Math.PI);
+    d += `${k ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  const rms = 120 - 0.707 * 80;
+  body =
+    `<line class="axisd" x1="20" y1="120" x2="300" y2="120"/>` +
+    `<path class="wave" d="${d}"/>` +
+    `<line class="rms" x1="30" y1="${rms}" x2="290" y2="${rms}"/>` + t(310, rms + 5, 'Vrms = 0.707 Vm', 'small') +
+    arrow(95, 120, 95, 42) + t(102, 104, 'Vm', 'small') +
+    `<line class="i" x1="304" y1="42" x2="304" y2="198" marker-start="url(#${id}-a)" marker-end="url(#${id}-a)"/>` + t(312, 150, 'Vpp = 2Vm', 'small') +
+    `<path class="w" d="M30 226 V236 H290 V226"/>` + t(100, 254, 'one period T = 1/f', 'small') +
+    t(22, 140, '0', 'small') + t(152, 140, 'T/2', 'small');
+} else if (name === 'three-phase') {
+  vb = '0 0 440 220';
+  const wave = (shift: number) => {
+    let d = '';
+    for (let k = 0; k <= 120; k++) {
+      const x = 40 + (k / 120) * 360;
+      const y = 105 - 70 * Math.sin((k / 120) * 2 * Math.PI - shift);
+      d += `${k ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
+    }
+    return d;
+  };
+  body =
+    `<line class="axisd" x1="30" y1="105" x2="410" y2="105"/>` +
+    `<path class="wave" d="${wave(0)}"/>` +
+    `<path class="wave2" d="${wave((2 * Math.PI) / 3)}"/>` +
+    `<path class="wave3" d="${wave((4 * Math.PI) / 3)}"/>` +
+    t(124, 26, 'R', 'strong') + t(244, 26, 'Y', 'strong') + t(364, 26, 'B', 'strong') +
+    `<path class="w" d="M130 192 V200 H250 V192"/>` + t(160, 216, '120° apart', 'small');
+} else if (name === 'power-triangle') {
+  vb = '0 0 380 230';
+  body =
+    `<path class="w" d="M30 190 H250 V50 Z"/>` +
+    t(40, 214, 'P = VI cos φ (W), real') +
+    t(258, 118, 'Q = VI sin φ') + t(258, 138, '(VAR), reactive', 'small') +
+    t(64, 104, 'S = VI (VA)') + t(70, 124, 'apparent', 'small') +
+    `<path class="w" d="M80 190 A50 50 0 0 0 74 166"/>` + t(88, 180, 'φ', 'strong') +
+    `<path class="w" d="M236 190 V176 H250"/>`;
 }
 ---
 
@@ -193,6 +256,36 @@ if (name === 'loop') {
   .circuit :global(text.small) {
     font-size: 14px;
     fill: var(--sl-color-gray-2);
+  }
+  .circuit :global(.wave),
+  .circuit :global(.wave2),
+  .circuit :global(.wave3) {
+    fill: none;
+    stroke-width: 3;
+  }
+  .circuit :global(.wave) {
+    stroke: var(--qe-pipe-build);
+  }
+  .circuit :global(.wave2) {
+    stroke: var(--qe-pipe-emit);
+  }
+  .circuit :global(.wave3) {
+    stroke: var(--qe-warn);
+  }
+  .circuit :global(.axisd) {
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+  }
+  .circuit :global(.rms) {
+    stroke: var(--qe-pipe-emit);
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
+  }
+  .circuit :global(.field) {
+    fill: none;
+    stroke: var(--qe-pipe-emit);
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
   }
   .circuit :global(text.big) {
     font-size: 40px;

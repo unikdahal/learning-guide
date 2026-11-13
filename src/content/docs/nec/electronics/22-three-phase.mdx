@@ -1,0 +1,114 @@
+---
+title: "22. Three-phase systems"
+description: Three-phase AC from scratch — three windings 120° apart, star and delta connections, line and phase values, three-phase power, and why grids use it.
+sidebar:
+  label: "22. Three-phase"
+  order: 22
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** convert between line and phase values for star and delta, compute three-phase power, and list the advantages of three-phase.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.3** — "phase difference between adjacent phases is…", "line voltage = √3 × phase voltage". **Lok Sewa Computer Engineer 4.1.2**. Data centres take three-phase supply; every large UPS and server-room distribution board is three-phase.
+</Aside>
+
+## 1. What it is
+
+Put **three** coils on a generator, spaced 120° apart around the shaft. As it spins, each coil produces its own sine wave, each **120° behind the previous**. In Nepal and India the three phases are usually named **R, Y, B** (red, yellow, blue); the order they peak in, R → Y → B, is the **phase sequence**.
+
+<Figure caption="Three sine voltages of equal size, each 120° behind the one before.">
+  <Circuit name="three-phase" label="Three overlapping sine waves labelled R, Y and B, each shifted 120 degrees from the previous one." />
+</Figure>
+
+At every instant, the three balanced voltages (or currents) **add up to zero**.
+
+## 2. Two ways to connect three windings
+
+The shapes are the same as [star and delta](/learning-guide/nec/electronics/06-star-delta/) in lesson 6.
+
+**Vocabulary:** a **phase** quantity is across or through one winding; a **line** quantity is between two supply lines or in one line.
+
+### Star (Y)
+
+One end of each winding joins at a common **neutral** point.
+
+- `VL = √3 × Vph`  (line voltage is √3 times phase voltage; line voltage leads by 30°)
+- `IL = Iph`
+- Gives two voltages from one supply: Nepal's **400 V** between lines and **230 V** from line to neutral (400/√3 ≈ 230).
+- The neutral carries the imbalance; in a perfectly balanced load it carries **zero** current.
+
+### Delta (Δ)
+
+Windings are connected end to end in a loop; no neutral.
+
+- `VL = Vph`
+- `IL = √3 × Iph`
+
+| | Star | Delta |
+| --- | --- | --- |
+| Voltage | VL = √3 Vph | VL = Vph |
+| Current | IL = Iph | IL = √3 Iph |
+| Neutral | yes | no |
+
+## 3. Power
+
+For a balanced load, either connection:
+
+`P = √3 VL IL cos φ`  (= 3 × Vph Iph cos φ)
+
+Similarly `Q = √3 VL IL sin φ` and `S = √3 VL IL`.
+
+**Worked example.** A balanced star load on 400 V draws 10 A per line at pf 0.8.
+P = 1.732 × 400 × 10 × 0.8 ≈ **5.54 kW**. Phase voltage = 400/√3 ≈ **231 V**.
+
+**Worked example.** A delta-connected motor on 400 V takes 17.32 A line current. Phase current = 17.32/1.732 = **10 A**; each winding sees the full **400 V**.
+
+## 4. Why three-phase
+
+1. **Constant total power.** In single-phase, power pulses 100 times a second (at 50 Hz). In balanced three-phase, the three pulses overlap so the **total is constant** — motors run smoothly.
+2. **Less copper.** For the same power and voltage, three-phase lines need less conductor material than single-phase.
+3. **Self-starting motors.** Three-phase currents create a rotating magnetic field, so induction motors start on their own.
+4. **Two voltages from one system** (star: 400 V and 230 V).
+
+Motors are often started in star (lower voltage per winding, lower starting current) and then switched to delta to run — the **star–delta starter**.
+
+## Traps
+
+- **120°**, not 90° or 180°.
+- Star: **voltage** has the √3; delta: **current** has the √3.
+- Power uses **line** values with √3, or **phase** values with 3.
+
+## Check yourself
+
+1. In a three-phase system, the phase difference between adjacent phases is:
+   (a) 60° (b) 90° (c) 120° (d) 180°
+
+<details><summary>Answer</summary>(c) 120°.</details>
+
+2. In a star connection, line voltage equals:
+   (a) phase voltage (b) √3 × phase voltage (c) phase voltage/√3 (d) 3 × phase voltage
+
+<details><summary>Answer</summary>(b)</details>
+
+3. In a delta connection, line current equals:
+   (a) phase current (b) √3 × phase current (c) 3 × phase current (d) phase current/√3
+
+<details><summary>Answer</summary>(b)</details>
+
+4. A balanced star system has 230 V phase voltage. The line voltage is about:
+   (a) 230 V (b) 400 V (c) 690 V (d) 133 V
+
+<details><summary>Answer</summary>(b) 230 × 1.732 ≈ 400 V.</details>
+
+5. Three-phase power for a balanced load is:
+   (a) VL IL cos φ (b) √3 VL IL cos φ (c) 3 VL IL cos φ (d) √3 VL IL
+
+<details><summary>Answer</summary>(b) (√3 VL IL alone is apparent power.)</details>
+
+6. In a balanced star-connected load, the neutral current is:
+   (a) zero (b) equal to line current (c) √3 × line current (d) 3 × line current
+
+<details><summary>Answer</summary>(a) zero — the three currents sum to zero.</details>
