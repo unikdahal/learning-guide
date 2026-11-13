@@ -1,0 +1,92 @@
+---
+title: "35. Review: semiconductors, amplifiers, oscillators"
+description: Twenty-five NEC-style questions covering semiconductors, diodes, rectifiers, BJTs, biasing, small-signal amplifiers, FETs and CMOS, power amplifiers, feedback, op-amps and oscillators.
+sidebar:
+  label: "35. Review: devices and signals"
+  order: 35
+---
+**How to use:** 25 questions, 25 minutes, no notes. Target **19/25**. Then this is a full Chapter 1 checkpoint: do the [Chapter 1 summary page](/learning-guide/nec/chapters/01-electrical-electronics/) "know cold" list from memory.
+
+1. Germanium has a band gap of about:
+   (a) 0.3 eV (b) 0.7 eV (c) 1.1 eV (d) 3 eV
+2. Arsenic added to silicon produces:
+   (a) p-type, acceptor (b) n-type, donor (c) intrinsic silicon (d) an insulator
+3. The depletion region contains:
+   (a) free electrons only (b) holes only (c) immobile ions (d) majority carriers
+4. Forward biasing a PN junction:
+   (a) widens the depletion region (b) narrows it (c) has no effect (d) causes breakdown
+5. Avalanche breakdown occurs in:
+   (a) heavily doped junctions at low voltage (b) lightly doped junctions at higher voltage (c) forward bias (d) Schottky diodes only
+6. A diode that emits light when forward biased is the:
+   (a) photodiode (b) LED (c) varactor (d) Zener
+7. A half-wave rectifier fed at 50 Hz has a ripple frequency of:
+   (a) 25 Hz (b) 50 Hz (c) 100 Hz (d) 150 Hz
+8. The PIV of each diode in a bridge rectifier is:
+   (a) Vm (b) 2Vm (c) Vm/2 (d) 4Vm
+9. The ripple factor of a half-wave rectifier is:
+   (a) 0.482 (b) 1.11 (c) 1.21 (d) 1.57
+10. In a BJT, I_E = 5 mA and I_C = 4.9 mA. β is:
+    (a) 0.98 (b) 49 (c) 98 (d) 100
+11. For amplification, a BJT works in the:
+    (a) cut-off region (b) saturation region (c) active region (d) breakdown region
+12. The CC configuration is also called:
+    (a) emitter follower (b) common base (c) cascode (d) Darlington
+13. The bias whose Q-point is nearly independent of β is:
+    (a) fixed bias (b) collector feedback (c) voltage-divider bias (d) none
+14. In a CE amplifier, the output and input are:
+    (a) in phase (b) 90° apart (c) 180° apart (d) 45° apart
+15. h_ie represents:
+    (a) current gain (b) input impedance (c) output admittance (d) reverse voltage ratio
+16. A MOSFET's input impedance is very high because:
+    (a) the base is thin (b) the gate is insulated by oxide (c) it's heavily doped (d) of the Early effect
+17. In CMOS, static power dissipation is:
+    (a) very high (b) nearly zero (c) equal to dynamic power (d) proportional to frequency
+18. The maximum efficiency of a class A amplifier with a resistive load is:
+    (a) 25% (b) 50% (c) 78.5% (d) 90%
+19. Crossover distortion is removed by operating in class:
+    (a) A only (b) B (c) AB (d) C
+20. Negative feedback:
+    (a) increases gain (b) increases bandwidth (c) increases distortion (d) makes the circuit oscillate
+21. Voltage-series feedback makes output impedance:
+    (a) increase (b) decrease (c) infinite (d) unchanged
+22. An inverting op-amp with R_in = 5 kΩ, R_f = 50 kΩ and V_in = 0.2 V gives:
+    (a) 2 V (b) −2 V (c) −10 V (d) 2.2 V
+23. The output of an ideal op-amp integrator for a square-wave input is a:
+    (a) sine wave (b) triangular wave (c) square wave (d) DC
+24. An oscillator uses:
+    (a) negative feedback (b) positive feedback with loop gain 1 and phase 0°/360° (c) no feedback (d) feedback with 90° phase shift
+25. A 555 timer in astable mode with R_A = R_B = 10 kΩ and C = 0.1 µF oscillates at about:
+    (a) 48 Hz (b) 480 Hz (c) 1.44 kHz (d) 4.8 kHz
+
+<details>
+<summary>Answers and reasons</summary>
+
+1. **(b)**
+2. **(b)** arsenic is pentavalent → donor → n-type.
+3. **(c)**
+4. **(b)**
+5. **(b)**
+6. **(b)**
+7. **(b)** half-wave ripple = supply frequency.
+8. **(a)**
+9. **(c)**
+10. **(b)** I_B = 0.1 mA; β = 4.9/0.1 = 49.
+11. **(c)**
+12. **(a)**
+13. **(c)**
+14. **(c)**
+15. **(b)**
+16. **(b)**
+17. **(b)**
+18. **(a)**
+19. **(c)**
+20. **(b)** — and reduces gain.
+21. **(b)**
+22. **(b)** −(50/5) × 0.2 = −2 V.
+23. **(b)**
+24. **(b)**
+25. **(b)** 1.44/((10k + 20k) × 0.1 µF) = 1.44/0.003 ≈ 480 Hz.
+
+</details>
+
+**19+?** NEC Chapter 1 is complete — the chapter you started weakest in. Next in [plan v2](/learning-guide/nec/roadmap/): digital logic and microprocessors (Week 4).

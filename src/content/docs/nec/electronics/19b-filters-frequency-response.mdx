@@ -1,0 +1,135 @@
+---
+title: "19b. Filters and frequency response"
+description: Passive filters from scratch — low-pass, high-pass, band-pass and band-stop, cut-off frequency, decibels and −3 dB, roll-off, and a first look at Bode plots and active filters.
+sidebar:
+  label: "19b. Filters"
+  order: 19.5
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** design a first-order RC filter for a chosen cut-off, read gains in decibels, and explain low-, high-, band-pass and band-stop filters.
+
+<Aside type="note" title="Where this scores for you">
+**Lok Sewa Computer Engineer 4.1.4 (transient analysis, filters)** and unit 5 (communications — every receiver is a chain of filters). NEC asks the decibel relation (it's Q1 of the official model paper) and RC behaviour. Amplifier frequency response in Part 5 reuses everything here.
+</Aside>
+
+## 1. What a filter does
+
+A filter passes some frequencies and weakens (**attenuates**) others. You already have the parts: a capacitor's reactance falls with frequency; an inductor's rises. Put them in a voltage divider with a resistor and the output depends on frequency.
+
+| Filter | Passes | Blocks | Simplest circuit |
+| --- | --- | --- | --- |
+| **Low-pass** | low frequencies | high | R in series, **C across the output** (or L in series, R across output) |
+| **High-pass** | high | low | C in series, **R across the output** |
+| **Band-pass** | a band around f₀ | both sides | series RLC, output across R |
+| **Band-stop (notch)** | everything except a band | the band | parallel LC trap |
+
+Everyday uses: a speaker crossover sends lows to the woofer (low-pass) and highs to the tweeter (high-pass); a power supply's capacitor is a low-pass that removes ripple; a radio's tuned circuit is a band-pass; a 50 Hz notch removes mains hum from ECG signals.
+
+## 2. Decibels
+
+Ratios in electronics span huge ranges, so they're expressed in decibels (dB), a logarithmic scale:
+
+- Power ratio: `gain (dB) = 10 log₁₀(P₂/P₁)`
+- Voltage ratio (same impedance): `gain (dB) = 20 log₁₀(V₂/V₁)` — the 20 comes from P ∝ V².
+
+| Ratio | Power gain | Voltage gain |
+| --- | --- | --- |
+| × 2 | +3 dB | +6 dB |
+| × 10 | +10 dB | +20 dB |
+| × 100 | +20 dB | +40 dB |
+| × ½ | −3 dB | −6 dB |
+| × 0.707 (voltage) | −3 dB (half power) | −3 dB |
+
+Gains in a chain of stages **add** in dB (multiply as ratios).
+
+<Aside type="caution" title="The model-paper question">
+NEC's model paper asks for the decibel relation for power gain written with voltages and impedances: `N_dB = 20 log(V₂/V₁) + 10 log(Z₁/Z₂)`. It follows from P = V²/Z: 10 log((V₂²/Z₂)/(V₁²/Z₁)). When Z₁ = Z₂ the second term vanishes.
+</Aside>
+
+## 3. The first-order RC low-pass filter
+
+Output taken across C in an R–C divider.
+
+- **Cut-off (corner) frequency** where XC = R: **`fc = 1 / (2πRC)`**.
+- Gain magnitude: `|Vout/Vin| = 1 / √(1 + (f/fc)²)`.
+- At fc the gain is 1/√2 = 0.707 = **−3 dB** (half power), and the output lags the input by **45°**.
+
+| f | Gain | dB |
+| --- | --- | --- |
+| 0.1 fc | 0.995 | ≈ 0 |
+| fc | 0.707 | −3 |
+| 10 fc | 0.0995 | −20 |
+| 100 fc | 0.01 | −40 |
+
+Above fc the gain falls by **20 dB per decade** (each tenfold rise in frequency cuts the output tenfold) — the signature of a **first-order** filter. Second-order (e.g. RLC) filters roll off at 40 dB/decade.
+
+**High-pass** is the mirror: swap R and C, same fc, gain `(f/fc)/√(1 + (f/fc)²)`, rising 20 dB/decade below fc.
+
+**Worked example.** Design a low-pass with fc ≈ 1 kHz using C = 100 nF.
+R = 1/(2π × 1,000 × 10⁻⁷) ≈ **1.59 kΩ**. At 10 kHz the output is about −20 dB (one tenth).
+
+**RL version.** L in series, R across the output: low-pass with `fc = R / (2πL)`.
+
+## 4. Band-pass and bandwidth
+
+A series RLC with output across R passes frequencies near f₀ = 1/(2π√LC) — exactly the resonance curve of [lesson 20](/learning-guide/nec/electronics/20-resonance/). The **bandwidth** between the two −3 dB points is f₀/Q.
+
+## 5. Bode plots, in one paragraph
+
+A **Bode plot** draws gain in dB against frequency on a log scale (plus a phase plot). On it, a first-order low-pass is a flat line that bends at fc and then falls in a straight line at −20 dB/decade. Engineers sketch these "asymptotes" by hand to estimate a circuit's response in seconds.
+
+## 6. Passive vs active filters
+
+**Passive** filters (R, L, C only) can't amplify and get loaded by what follows. **Active** filters add an op-amp (Part 6): gain, buffering and no inductors needed — the norm at audio frequencies.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** What is a filter? Explain a first-order RC low-pass filter with its cut-off frequency and frequency response.
+
+<details>
+<summary>Model answer</summary>
+
+**Definition.** A filter is a frequency-selective circuit that passes signals in a desired band and attenuates others. Types: low-pass, high-pass, band-pass, band-stop.
+
+**RC low-pass.** R in series with the input; C across the output. *(Draw.)* At low frequency X_C is large, so most of the input appears across C; at high frequency X_C is small and the output falls.
+
+**Cut-off frequency.** At f_c = 1/(2πRC), X_C = R, the output is 0.707 of the input (−3 dB, half power), and lags by 45°.
+
+**Frequency response.** Gain = 1/√(1 + (f/f_c)²): flat below f_c, then falling at 20 dB per decade. *(Sketch gain in dB vs log f.)*
+
+**Use.** Removing high-frequency noise, smoothing power-supply ripple, anti-aliasing before sampling.
+
+</details>
+
+## Check yourself
+
+1. The cut-off frequency of an RC filter is:
+   (a) 1/(RC) (b) 1/(2πRC) (c) 2πRC (d) R/(2πC)
+
+<details><summary>Answer</summary>(b)</details>
+
+2. At the cut-off frequency, the output power is:
+   (a) maximum (b) half of maximum (c) zero (d) a quarter
+
+<details><summary>Answer</summary>(b) half power, −3 dB.</details>
+
+3. A voltage gain of 100 is:
+   (a) 20 dB (b) 40 dB (c) 100 dB (d) 10 dB
+
+<details><summary>Answer</summary>(b) 20 log 100 = 40 dB.</details>
+
+4. In an RC high-pass filter, the output is taken across:
+   (a) the capacitor (b) the resistor (c) the source (d) both
+
+<details><summary>Answer</summary>(b) the resistor.</details>
+
+5. A first-order filter's roll-off beyond cut-off is:
+   (a) 6 dB/decade (b) 20 dB/decade (c) 40 dB/decade (d) 3 dB/decade
+
+<details><summary>Answer</summary>(b) 20 dB per decade (equivalently 6 dB per octave).</details>
+
+6. Two amplifier stages have gains of 20 dB and 26 dB. Total gain:
+   (a) 520 dB (b) 46 dB (c) 6 dB (d) 23 dB
+
+<details><summary>Answer</summary>(b) dB values add.</details>

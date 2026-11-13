@@ -1,0 +1,130 @@
+---
+title: "29. Small-signal amplifiers and frequency response"
+description: How a biased transistor amplifies — coupling and bypass capacitors, the re model, CE voltage gain, input and output impedance, h-parameters, frequency response, bandwidth and multistage amplifiers.
+sidebar:
+  label: "29. Small-signal amplifiers"
+  order: 29
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** estimate the voltage gain of a CE amplifier in your head, name the four h-parameters, and explain why gain falls at low and high frequencies.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.4** ("small and large signal models") and 1.6. **Lok Sewa Computer Engineer 4.2.2** (transistor modelling) and **4.2.4** (small-signal amplifiers and frequency response) — these go deeper than NEC, so this lesson covers both.
+</Aside>
+
+## 1. The idea
+
+Bias sets a quiet Q-point (lesson 28). Now feed in a small AC signal:
+
+- An **input coupling capacitor** lets the AC signal into the base but blocks DC, so the source doesn't upset the bias.
+- The signal wiggles V_BE slightly → I_B wiggles → I_C wiggles β times more → the voltage across R_C wiggles a lot.
+- An **output coupling capacitor** passes the amplified AC to the load and blocks the DC collector voltage.
+- A **bypass capacitor** across R_E shorts it for AC, so the emitter is at AC ground — giving much more gain while keeping R_E's DC stability.
+
+"Small signal" means small enough that the transistor behaves almost linearly around the Q-point, so we can use simple linear models.
+
+## 2. The r_e model
+
+For small signals, the base–emitter junction looks like a small resistance:
+
+`r_e = 26 mV / I_E`  (at room temperature)
+
+**CE amplifier, emitter bypassed:**
+- Voltage gain **`A_v ≈ −R_C / r_e`** (with a load: −(R_C ∥ R_L)/r_e). The minus sign = **180° phase inversion**.
+- Input impedance ≈ R1 ∥ R2 ∥ β r_e.
+- Output impedance ≈ R_C.
+
+**Worked example (lesson 28's circuit).** I_E = 1.41 mA → r_e = 26/1.41 ≈ **18.4 Ω**.
+A_v ≈ −2,200/18.4 ≈ **−120**. Input impedance ≈ 47k ∥ 10k ∥ (100 × 18.4 = 1.84k) ≈ **1.5 kΩ**.
+
+**Same circuit, R_E not bypassed:** A_v ≈ −R_C/(r_e + R_E) ≈ −2,200/1,018 ≈ **−2.2**. Much less gain, but very stable and predictable (negative feedback, lesson 32).
+
+## 3. h-parameters (hybrid model)
+
+The transistor is treated as a two-port box described by four "hybrid" parameters (CE versions shown):
+
+| Parameter | Meaning | Typical CE value |
+| --- | --- | --- |
+| **h_ie** | input impedance (output shorted) | ≈ β r_e, about 1–2 kΩ |
+| **h_fe** | forward current gain (output shorted) | ≈ β, 50–300 |
+| **h_re** | reverse voltage ratio (input open) | ≈ 10⁻⁴ (usually ignored) |
+| **h_oe** | output admittance (input open) | ≈ 10–25 µS (1/h_oe ≈ 50 kΩ) |
+
+"Hybrid" because the units are mixed: ohms, a pure ratio, a pure ratio, siemens. With h_re and h_oe ignored, the approximate model is just h_ie at the input and a current source h_fe·i_b at the output — the same as the r_e model.
+
+## 4. Frequency response
+
+Plot gain against frequency (log scale) for a typical RC-coupled amplifier:
+
+- **Mid-band:** flat — the capacitors act as shorts and the transistor is fast enough.
+- **Low frequencies:** coupling and bypass capacitors' reactance (1/2πfC) becomes large, so gain falls. The **lower cut-off f_L** is where gain is down to 0.707 (−3 dB).
+- **High frequencies:** tiny internal junction capacitances (and stray wiring capacitance) start to short the signal; the **Miller effect** multiplies the base–collector capacitance by the gain. Gain falls again; that's the **upper cut-off f_H**.
+- **Bandwidth** = f_H − f_L (≈ f_H when f_L is small).
+- **Gain–bandwidth product** is roughly constant for a given transistor: more gain, less bandwidth.
+
+## 5. Multistage amplifiers
+
+One stage rarely gives enough gain, so stages are **cascaded**:
+
+- Total gain = product of stage gains (or the **sum** in dB).
+- **RC coupling:** cheapest and most common; doesn't amplify DC.
+- **Transformer coupling:** impedance matching; bulky; used in power and RF stages.
+- **Direct coupling:** passes DC (used inside ICs and op-amps).
+- Overall bandwidth is **narrower** than one stage's.
+
+**Example.** Two stages of −50 and −40: total gain = +2,000 (two inversions cancel) = 20 log 2,000 ≈ **66 dB** (34 dB + 32 dB).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Draw a single-stage RC-coupled CE amplifier and explain its frequency response.
+
+<details>
+<summary>Model answer</summary>
+
+**Circuit.** A voltage-divider-biased CE stage (R1, R2, R_C, R_E) with input coupling capacitor C_in, output coupling capacitor C_out and emitter bypass capacitor C_E. *(Draw.)*
+
+**Operation.** The bias sets the Q-point in the active region. The AC input, coupled by C_in, varies the base current; the collector current varies β times more, producing an amplified, 180° phase-inverted voltage across R_C, coupled to the load by C_out. C_E bypasses R_E for AC to maintain high gain. Mid-band gain ≈ −(R_C ∥ R_L)/r_e.
+
+**Frequency response.** *(Sketch gain vs log f: rising, flat, falling.)*
+1. *Low-frequency region:* the reactances of C_in, C_out and C_E increase, so signal is lost and feedback through un-bypassed R_E rises; gain falls below f_L.
+2. *Mid-band:* capacitors act as shorts and internal capacitances as opens; gain is constant and maximum.
+3. *High-frequency region:* junction capacitances (C_be, C_bc, magnified by the Miller effect) and stray capacitances shunt the signal, and β falls; gain drops above f_H.
+
+**Bandwidth.** f_L and f_H are the −3 dB (half-power) points; BW = f_H − f_L.
+
+**Application.** Audio and general-purpose voltage amplification in multistage amplifiers.
+
+</details>
+
+## Check yourself
+
+1. The AC emitter resistance r_e at I_E = 2 mA is about:
+   (a) 2 Ω (b) 13 Ω (c) 26 Ω (d) 52 Ω
+
+<details><summary>Answer</summary>(b) 26 mV / 2 mA = 13 Ω.</details>
+
+2. The voltage gain of a CE amplifier with R_C = 4.7 kΩ and r_e = 25 Ω (emitter bypassed) is about:
+   (a) −0.19 (b) −47 (c) −188 (d) +188
+
+<details><summary>Answer</summary>(c) −4,700/25 = −188.</details>
+
+3. The h-parameter representing forward current gain is:
+   (a) h_ie (b) h_re (c) h_fe (d) h_oe
+
+<details><summary>Answer</summary>(c) h_fe.</details>
+
+4. The fall in gain at low frequencies is due to:
+   (a) junction capacitances (b) coupling and bypass capacitors (c) the Miller effect (d) high β
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Bypassing the emitter resistor:
+   (a) reduces voltage gain (b) increases voltage gain (c) changes the DC bias (d) removes phase inversion
+
+<details><summary>Answer</summary>(b) — it doesn't change the DC bias because a capacitor blocks DC.</details>
+
+6. Three cascaded stages of 20 dB each give:
+   (a) 20 dB (b) 60 dB (c) 8,000 dB (d) 400 dB
+
+<details><summary>Answer</summary>(b) dB add — a voltage gain of 1,000.</details>

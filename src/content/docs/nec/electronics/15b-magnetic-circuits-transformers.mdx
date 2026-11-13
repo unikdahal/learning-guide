@@ -1,0 +1,155 @@
+---
+title: "15b. Magnetic circuits and transformers"
+description: Magnetic circuits from scratch — MMF, flux, reluctance, B–H curves, hysteresis and eddy losses — then the transformer, its EMF equation, losses, efficiency and tests.
+sidebar:
+  label: "15b. Magnetic circuits and transformers"
+  order: 15.5
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** solve a simple magnetic circuit with "magnetic Ohm's law", explain hysteresis and eddy currents, derive the transformer EMF equation and compute efficiency.
+
+<Aside type="note" title="Where this scores for you">
+**Lok Sewa Computer Engineer 4.1.3 — magnetic circuits and transformers.** This is on the Lok Sewa syllabus but **not** in NEC's computer engineering chapter, so it's a Lok Sewa-only lesson that sits naturally here. NEC may still touch it indirectly through Faraday's law and AC. Skip it in NEC week if short on time; do it in January.
+</Aside>
+
+## 1. A magnetic circuit is like an electric circuit
+
+Wrap N turns carrying current I around an iron ring. The current drives **magnetic flux** around the ring, just as a battery drives current around a loop.
+
+| Electric circuit | Magnetic circuit |
+| --- | --- |
+| EMF E (volts) | **MMF** `F = N I` (ampere-turns, AT) |
+| Current I (amperes) | **Flux** Φ (webers, Wb) |
+| Resistance `R = ρl/A` | **Reluctance** `S = l / (μA)` (AT/Wb) |
+| Ohm's law `I = E/R` | `Φ = F / S` |
+| Conductivity | Permeability μ |
+
+Two more quantities:
+
+- **Flux density** `B = Φ / A`, in tesla (T) — how concentrated the flux is.
+- **Magnetising force** (field intensity) `H = N I / l`, in AT/m — MMF per metre of path.
+- They're linked by the material: `B = μ H`, with `μ = μ₀ μr`, `μ₀ = 4π × 10⁻⁷` H/m. Iron's μr is in the hundreds to thousands; air's is 1.
+
+**Worked example.** An iron ring: mean length l = 0.5 m, area A = 4 cm² = 4 × 10⁻⁴ m², μr = 1,000, wound with 500 turns carrying 1 A.
+- MMF = 500 × 1 = 500 AT.
+- S = 0.5 / (4π × 10⁻⁷ × 1,000 × 4 × 10⁻⁴) ≈ 0.5 / (5.03 × 10⁻⁷) ≈ **9.95 × 10⁵ AT/Wb**.
+- Φ = 500 / 9.95 × 10⁵ ≈ **0.50 mWb**; B = Φ/A ≈ **1.26 T**.
+
+An **air gap** in the ring adds a big reluctance in series (μr = 1), just as a resistor in series cuts current — a 1 mm gap can need as much MMF as the whole iron path.
+
+## 2. The B–H curve and hysteresis
+
+- Increase H and B rises steeply at first, then levels off: the iron **saturates** (all its magnetic domains are aligned). Beyond that, more current buys little more flux.
+- Reduce H back to zero and B doesn't return to zero: some magnetism remains — the **residual flux density (retentivity)**.
+- You need a reverse H, the **coercive force**, to remove it.
+- Cycling H back and forth traces a closed loop, the **hysteresis loop**. Its area is the energy lost as heat per cycle per unit volume.
+
+**Soft** magnetic materials (silicon steel) have thin loops — low loss — used in transformers and motors. **Hard** materials (alnico, ferrite magnets) have fat loops and high retentivity — used for permanent magnets.
+
+## 3. Core losses
+
+1. **Hysteresis loss**, from that loop: `Ph ∝ f Bm^1.6` (Steinmetz). Reduced with silicon steel.
+2. **Eddy-current loss**: the changing flux induces little circulating currents in the solid iron core, which heat it. `Pe ∝ f² Bm² t²` (t = sheet thickness). Reduced by **laminating** the core into thin insulated sheets.
+
+Together these are the **iron (core) loss**. They depend on voltage and frequency, not on load, so they're roughly **constant**.
+
+## 4. The transformer
+
+**Construction.** Two windings — primary (N₁) and secondary (N₂) — on a laminated silicon-steel core. **Core type:** windings on the two outer limbs. **Shell type:** windings on the central limb, surrounded by the core.
+
+**Principle.** AC in the primary sets up an alternating flux in the core. The same flux links the secondary and induces an EMF there (mutual induction, Faraday's law). No electrical connection is needed between the windings. **It doesn't work on DC** — a steady flux induces nothing.
+
+### EMF equation
+
+Let the core flux be `Φ = Φm sin ωt`. By Faraday, the EMF per turn is `−dΦ/dt = −ω Φm cos ωt`, with peak `ω Φm = 2πf Φm`. RMS = peak/√2, so for N turns:
+
+**`E = (2π/√2) f N Φm = 4.44 f N Φm`**
+
+`E₁ = 4.44 f N₁ Φm` and `E₂ = 4.44 f N₂ Φm`, so `E₂/E₁ = N₂/N₁ = K` (the **transformation ratio**).
+
+- K > 1: step-up. K < 1: step-down.
+- Ideal transformer (no losses): input VA = output VA, so `I₂/I₁ = N₁/N₂` — current transforms the opposite way.
+
+**Worked example.** A 50 Hz transformer has 500 primary turns and peak core flux 10 mWb. E₁ = 4.44 × 50 × 500 × 0.01 = **1,110 V**. With 50 secondary turns, E₂ = **111 V**.
+
+### Losses, efficiency, regulation
+
+- **Copper loss** = I²R in both windings — varies with the **square of load**.
+- **Iron loss** — roughly constant at any load.
+- **Efficiency** `η = output / (output + iron loss + copper loss)`. Large transformers reach 97–99%: there are no moving parts.
+- **Maximum efficiency** occurs at the load where **copper loss = iron loss**.
+- **Voltage regulation** = how much the secondary voltage drops from no load to full load, as a percentage of full-load voltage. Lower is better.
+
+**Worked example.** A 10 kVA transformer has iron loss 100 W and full-load copper loss 200 W. At full load, pf 0.8: output = 8,000 W, so η = 8,000 / 8,300 = **96.4%**. At half load, copper loss = 200 × (½)² = 50 W, output = 4,000 W, η = 4,000/4,150 = **96.4%** — almost the same.
+
+### Tests
+
+- **Open-circuit (no-load) test:** rated voltage on one winding, the other open → the wattmeter reads **iron loss**.
+- **Short-circuit test:** the secondary is shorted and a small voltage drives full-load current → the wattmeter reads **full-load copper loss**.
+
+**Autotransformer:** a single winding with a tap — part of the winding is shared by primary and secondary. Uses less copper; no isolation. Used in variacs and motor starters.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the working principle of a transformer and derive its EMF equation. What are the losses in a transformer?
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Definition.** A transformer is a static device that transfers electrical energy from one AC circuit to another by mutual induction, changing voltage and current levels at the same frequency.
+
+**Construction.** Primary and secondary windings on a laminated silicon-steel core (core type or shell type). *(Draw two windings on a rectangular core.)*
+
+**Working principle.** An alternating voltage on the primary drives an alternating magnetising current, which sets up an alternating flux Φ in the core. This flux links both windings; by Faraday's law it induces EMF E₁ in the primary (opposing the supply, by Lenz's law) and E₂ in the secondary. Connecting a load to the secondary makes current flow, transferring power through the magnetic field.
+
+**EMF equation.** With `Φ = Φm sin 2πft`, the induced EMF per turn is `e = −dΦ/dt = −2πf Φm cos 2πft`, whose maximum is 2πfΦm. The RMS value per turn is 2πfΦm/√2 = 4.44 f Φm. For N₁ and N₂ turns: **E₁ = 4.44 f N₁ Φm, E₂ = 4.44 f N₂ Φm**, so E₂/E₁ = N₂/N₁ = K.
+
+**Losses.**
+1. *Iron (core) losses* — hysteresis (reduced by silicon steel) and eddy currents (reduced by laminations); practically constant.
+2. *Copper losses* — I²R in the windings; vary with the square of load current.
+
+There are no mechanical losses, so efficiency is very high (95–99%); maximum efficiency occurs when copper loss equals iron loss.
+
+**Applications.** Transmission and distribution (step-up/step-down), power adaptors, isolation, instrument transformers.
+
+</details>
+
+## Check yourself
+
+1. The unit of reluctance is:
+   (a) Wb (b) AT (c) AT/Wb (d) H
+
+<details><summary>Answer</summary>(c) ampere-turns per weber.</details>
+
+2. Magnetomotive force is given by:
+   (a) N/I (b) NI (c) Φ/A (d) μH
+
+<details><summary>Answer</summary>(b) NI ampere-turns.</details>
+
+3. Eddy-current loss in a transformer core is reduced by:
+   (a) using copper windings (b) laminating the core (c) increasing frequency (d) adding an air gap
+
+<details><summary>Answer</summary>(b) laminations.</details>
+
+4. The EMF equation of a transformer is:
+   (a) E = 4.44 f N Φm (b) E = 2πfNΦ (c) E = NΦ/f (d) E = 1.11 fNΦm
+
+<details><summary>Answer</summary>(a)</details>
+
+5. A transformer has maximum efficiency when:
+   (a) copper loss = 0 (b) iron loss = 0 (c) copper loss = iron loss (d) at no load
+
+<details><summary>Answer</summary>(c)</details>
+
+6. The open-circuit test of a transformer measures:
+   (a) copper loss (b) iron loss (c) winding resistance (d) efficiency directly
+
+<details><summary>Answer</summary>(b) iron loss.</details>
+
+7. A transformer cannot work on DC because:
+   (a) DC is too dangerous (b) a steady flux induces no EMF (c) the core saturates instantly (d) copper loss becomes infinite
+
+<details><summary>Answer</summary>(b) Faraday's law needs a changing flux. (In practice the primary would also draw a huge current, since only its small resistance limits it.)</details>

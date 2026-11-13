@@ -53,6 +53,33 @@ With capacitors and inductors, resistance becomes **impedance** (Part 4). The ru
 - `Vth²/(4Rth)`, not `Vth²/Rth`.
 - The theorem fixes the **source** and picks the **load**. If you could choose Rth instead, you'd make it zero.
 
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** State and prove the maximum power transfer theorem. What is the efficiency at maximum power transfer?
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Statement.** A resistive load receives maximum power from a linear DC network when the load resistance equals the Thevenin resistance of the network seen from the load terminals: `R_L = R_th`.
+
+**Proof.** Represent the network by V_th in series with R_th, feeding R_L. *(Draw.)*
+- Current: `I = V_th / (R_th + R_L)`.
+- Load power: `P = I² R_L = V_th² R_L / (R_th + R_L)²`.
+- For maximum P, set dP/dR_L = 0. Differentiating, the numerator becomes `(R_th + R_L)² − 2R_L(R_th + R_L) = 0`, i.e. `R_th + R_L − 2R_L = 0`, so **R_L = R_th**. (The second derivative is negative, so this is a maximum.)
+- Maximum power: `P_max = V_th² R_th / (2R_th)² = V_th² / (4R_th)`.
+
+**Efficiency.** At R_L = R_th, the same current flows through R_th and R_L, which are equal, so they dissipate equal power. Total power = V_th²/(2R_th), of which half reaches the load: **η = 50%**.
+
+**AC case.** For maximum power with reactive elements, the load impedance must be the complex conjugate of the source impedance, `Z_L = Z_th*`.
+
+**Applications.** Communication circuits, antennas, audio amplifier–speaker matching and sensor interfaces, where signal power matters more than efficiency. Power systems avoid it because 50% efficiency is unacceptable.
+
+**Example.** V_th = 9 V, R_th = 3 Ω → best load 3 Ω, P_max = 81/12 = 6.75 W.
+
+</details>
+
 ## Check yourself
 
 1. Maximum power is transferred to a load when:

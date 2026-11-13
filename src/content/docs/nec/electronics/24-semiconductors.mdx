@@ -1,0 +1,137 @@
+---
+title: "24. Semiconductors from scratch"
+description: Why silicon is special — energy bands, intrinsic semiconductors, electrons and holes, n-type and p-type doping, majority and minority carriers, drift and diffusion.
+sidebar:
+  label: "24. Semiconductors"
+  order: 24
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** explain what makes a material a semiconductor, what a hole is, and how doping creates n-type and p-type silicon — the foundation of every diode, transistor and chip.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.4** (semiconductor devices) starts here, and MCQs ask donor/acceptor impurities, majority carriers and band gaps. **Lok Sewa Computer Engineer 4.2.1** (semiconductors, diodes, transistors). Every CPU, DRAM cell and SSD you work with is built from what's on this page.
+</Aside>
+
+## 1. Conductors, insulators and the middle ground
+
+Recall [lesson 3](/learning-guide/nec/electronics/03-resistance-ohm-power/): metals have many free electrons, insulators almost none. Physics explains the difference with **energy bands**:
+
+- Electrons bound in atoms sit in the **valence band**.
+- To conduct, an electron must jump to the **conduction band**.
+- Between them lies a **forbidden gap** (band gap, E_g), measured in electron-volts (eV).
+
+| Material | Band gap | Result |
+| --- | --- | --- |
+| Conductor (copper) | bands overlap — no gap | always conducts |
+| Semiconductor | **silicon ≈ 1.1 eV, germanium ≈ 0.7 eV** | a few electrons jump at room temperature |
+| Insulator (diamond, glass) | large, ≈ 5 eV or more | essentially none jump |
+
+## 2. Pure (intrinsic) silicon
+
+Silicon and germanium are **tetravalent**: each atom has 4 valence electrons, shared in **covalent bonds** with 4 neighbours to form a crystal.
+
+- At absolute zero, every electron is locked in a bond: silicon is an insulator.
+- At room temperature, heat breaks a few bonds. Each freed electron leaves behind an empty spot, a **hole**.
+- A hole behaves like a **positive charge**: a neighbouring electron can hop into it, which moves the hole the other way.
+- So a semiconductor conducts by **two** carriers: free electrons (negative) and holes (positive). In pure silicon they come in equal numbers: `n = p = nᵢ` (the intrinsic concentration).
+- **Heat more → more bonds break → more carriers → resistance falls.** Semiconductors have a **negative temperature coefficient** of resistance, opposite to metals.
+
+## 3. Doping: making it useful
+
+Pure silicon conducts too little to be useful. Adding a tiny amount of impurity — **doping**, around 1 atom per million or less — changes everything.
+
+### n-type: add a pentavalent impurity
+
+Add atoms with **5** valence electrons: **phosphorus, arsenic, antimony**. Four electrons bond with silicon neighbours; the fifth is barely held and becomes **free**.
+
+- These impurities **donate** electrons → called **donors**.
+- **Majority carriers: electrons. Minority carriers: holes.**
+- Each donor that gives up its electron becomes a fixed **positive ion** in the crystal.
+
+### p-type: add a trivalent impurity
+
+Add atoms with **3** valence electrons: **boron, aluminium, gallium, indium**. One bond is left incomplete — a **hole**.
+
+- These impurities **accept** electrons into their holes → called **acceptors**.
+- **Majority carriers: holes. Minority carriers: electrons.**
+- Each acceptor that has taken an electron becomes a fixed **negative ion**.
+
+<Aside type="caution" title="Classic trap">
+**n-type and p-type material are both electrically neutral overall.** "n" and "p" name the majority **carrier**, not a net charge: every free electron in n-type is balanced by a positive donor ion.
+</Aside>
+
+**Mass-action law.** In any doped semiconductor at equilibrium, `n × p = nᵢ²`. Adding donors raises n and pushes p down by the same factor.
+
+## 4. How carriers move
+
+- **Drift:** an electric field pushes carriers — electrons against the field, holes with it. This is ordinary conduction.
+- **Diffusion:** carriers spread from where they're crowded to where they're sparse, with no field needed — like a drop of ink in water. Diffusion is what makes the PN junction work (next lesson).
+
+## 5. Silicon vs germanium
+
+| | Silicon | Germanium |
+| --- | --- | --- |
+| Band gap | ≈ 1.1 eV | ≈ 0.7 eV |
+| Diode knee voltage | ≈ 0.7 V | ≈ 0.3 V |
+| Leakage (reverse) current | nA — very small | µA — larger |
+| Maximum temperature | ≈ 150–200 °C | ≈ 75–100 °C |
+| Availability | sand — abundant, cheap | rare |
+
+Silicon wins for almost everything; that's why it's "Silicon Valley".
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Distinguish between intrinsic and extrinsic semiconductors. Explain n-type and p-type semiconductors.
+
+<details>
+<summary>Model answer</summary>
+
+**Intrinsic semiconductor.** A pure semiconductor (Si, Ge). Carriers are produced only by thermal breaking of covalent bonds, so the number of free electrons equals the number of holes (n = p = nᵢ). Conductivity is low and strongly temperature-dependent.
+
+**Extrinsic semiconductor.** A semiconductor doped with a small amount of impurity to increase conductivity; carrier concentrations are set mainly by the doping.
+
+**n-type.** Doped with a pentavalent (donor) impurity — P, As, Sb. Four of its valence electrons form covalent bonds; the fifth becomes free. Electrons are majority carriers, holes minority; donor atoms become immobile positive ions. *(Sketch the lattice with the extra electron.)*
+
+**p-type.** Doped with a trivalent (acceptor) impurity — B, Al, Ga, In. One bond is incomplete, creating a hole. Holes are majority carriers, electrons minority; acceptor atoms become immobile negative ions.
+
+Both types remain electrically neutral. In both, n·p = nᵢ² at equilibrium.
+
+</details>
+
+## Check yourself
+
+1. The band gap of silicon is about:
+   (a) 0.3 eV (b) 0.7 eV (c) 1.1 eV (d) 5 eV
+
+<details><summary>Answer</summary>(c) 1.1 eV. Germanium ≈ 0.7 eV.</details>
+
+2. Which impurity makes n-type silicon?
+   (a) boron (b) aluminium (c) phosphorus (d) gallium
+
+<details><summary>Answer</summary>(c) phosphorus — pentavalent, a donor.</details>
+
+3. In p-type material, the majority carriers are:
+   (a) free electrons (b) holes (c) positive ions (d) negative ions
+
+<details><summary>Answer</summary>(b) holes.</details>
+
+4. An n-type semiconductor is:
+   (a) negatively charged (b) positively charged (c) electrically neutral (d) charged depending on temperature
+
+<details><summary>Answer</summary>(c) neutral — the free electrons are balanced by positive donor ions.</details>
+
+5. As temperature rises, the resistance of a semiconductor:
+   (a) rises (b) falls (c) stays constant (d) becomes infinite
+
+<details><summary>Answer</summary>(b) falls — more electron-hole pairs.</details>
+
+6. Current caused by a difference in carrier concentration is called:
+   (a) drift current (b) diffusion current (c) leakage current (d) displacement current
+
+<details><summary>Answer</summary>(b) diffusion current.</details>
+
+7. Trivalent impurities are called:
+   (a) donors (b) acceptors (c) intrinsic atoms (d) dopant ions
+
+<details><summary>Answer</summary>(b) acceptors — they accept electrons into their holes.</details>

@@ -78,15 +78,64 @@ Guess any direction for an unknown current. If the answer comes out negative, th
 
 ## The other method: mesh analysis (KVL)
 
-Instead of node voltages, give each mesh a circulating current (I₁ in the left loop, I₂ in the right loop) and write KVL round each. A resistor shared by two meshes carries `I₁ − I₂`. For this circuit you'd get two equations in two unknowns — same answers.
+Same circuit, solved a second way. Give each window (**mesh**) its own circulating current, both clockwise: **I₁** in the left mesh, **I₂** in the right. The middle 4 Ω belongs to both meshes, so it carries **I₁ − I₂** (downwards).
 
-**Which to use?** Count unknowns: nodal needs one equation per node (minus the reference); mesh needs one per mesh. Pick whichever gives fewer. Exam MCQs mostly ask which law each method uses: **nodal → KCL**, **mesh → KVL**.
+**Left mesh, clockwise from the bottom-left corner:**
+- Up through the 10 V source, − to +: **+10**.
+- Through the 2 Ω, with I₁: **−2I₁**.
+- Down through the middle 4 Ω, with (I₁ − I₂): **−4(I₁ − I₂)**.
+- KVL: `10 − 2I₁ − 4(I₁ − I₂) = 0` → **`6I₁ − 4I₂ = 10`**.
+
+**Right mesh, clockwise from the middle node:**
+- Through the top-right 4 Ω, with I₂: **−4I₂**.
+- Down through the 6 V source, + to −: **−6**.
+- Up through the middle 4 Ω, with (I₂ − I₁): **−4(I₂ − I₁)**.
+- KVL: `−4I₂ − 6 − 4(I₂ − I₁) = 0` → **`4I₁ − 8I₂ = 6`**.
+
+**Solve.** Double the first equation: 12I₁ − 8I₂ = 20. Subtract the second: 8I₁ = 14 → **I₁ = 1.75 A**. Then 8I₂ = 4(1.75) − 6 = 1 → **I₂ = 0.125 A**.
+
+**Read the answers.**
+- Left source current = I₁ = 1.75 A ✔ (nodal analysis gave the same).
+- Middle resistor: I₁ − I₂ = **1.625 A** downwards ✔.
+- I₂ is positive and clockwise, so 0.125 A flows left-to-right along the top-right resistor and **into** the 6 V source's + terminal — charging it ✔.
+
+**Which to use?** Count unknowns: nodal needs one equation per node (minus the reference); mesh needs one per mesh. Here nodal needed 1 equation and mesh needed 2, so nodal was quicker. For MCQs remember: **nodal → KCL**, **mesh → KVL**. Mesh analysis works only for **planar** circuits (drawable without crossing wires).
 
 ## Traps
 
 - KCL ↔ charge; KVL ↔ energy. Swapping them is the single most common MCQ error.
 - Kirchhoff's laws apply to **any** circuit — linear or non-linear, DC or AC (with instantaneous or phasor values).
 - Mixing sign conventions halfway round a loop.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** State and explain Kirchhoff's current and voltage laws with suitable examples.
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Introduction.** Ohm's law relates voltage and current in one element. Kirchhoff's two laws (1845) describe how elements behave when connected into a network. Together they can solve any lumped electrical circuit.
+
+**1. Kirchhoff's current law (KCL).**
+*Statement:* the algebraic sum of currents meeting at a node is zero; that is, total current entering a node equals total current leaving it: `ΣI_in = ΣI_out`.
+*Basis:* conservation of charge — charge cannot be created, destroyed or stored at a junction.
+*Example:* at a node, I₁ = 3 A and I₂ = 2 A enter; the only leaving branch must carry I₃ = 5 A. *(Draw the node with three arrows.)*
+
+**2. Kirchhoff's voltage law (KVL).**
+*Statement:* the algebraic sum of all voltages around any closed loop is zero; that is, the sum of EMFs equals the sum of voltage drops: `ΣE = ΣIR`.
+*Basis:* conservation of energy — a charge returning to its starting point has gained and lost equal energy.
+*Sign convention:* a source traversed from − to + is a rise (+); a resistor traversed in the direction of current is a drop (−IR).
+*Example:* a 12 V battery with 2 Ω and 4 Ω in series: 12 − 2I − 4I = 0 → I = 2 A; drops are 4 V and 8 V, which add to 12 V. *(Draw the loop.)*
+
+**3. Applications.** KCL is the basis of **nodal analysis**; KVL is the basis of **mesh (loop) analysis**. Both are used to solve circuits with several sources that cannot be reduced by series–parallel rules.
+
+**4. Limitations.** Valid for lumped circuits; at very high frequencies (long lines, antennas) distributed effects need field theory.
+
+**Conclusion.** KCL and KVL, with Ohm's law, are the foundation of all circuit analysis methods and network theorems.
+
+</details>
 
 ## Check yourself
 

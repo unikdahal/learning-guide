@@ -70,12 +70,37 @@ The last row shows what Vth *is*: the voltage you'd measure with nothing connect
 - Remove the load before finding Vth — it's an **open-circuit** voltage.
 - Only for linear networks; the load itself may be anything.
 
-## Lok Sewa answer template (5 marks)
+## Lok Sewa: write it (10 marks · 16 minutes)
 
-1. **Statement** (1 mark): the boxed definition above.
-2. **Diagram** (1 mark): original network → Vth in series with Rth feeding RL.
-3. **Procedure** (2 marks): remove RL; find Vth = open-circuit voltage; kill sources, find Rth; I_L = Vth/(Rth + RL).
-4. **Small example or use** (1 mark): this lesson's 12 V example, or "analysing a load that changes, such as a sensor or a transistor's biasing network".
+**Question.** State Thevenin's theorem. Using it, find the current through a 6 Ω load connected across a–b of a network with a 12 V source, 4 Ω series resistance and 12 Ω across a–b.
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Statement.** Any linear, bilateral, two-terminal network can be replaced by an equivalent circuit consisting of a single voltage source V_th in series with a single resistance R_th, where V_th is the open-circuit voltage across the terminals and R_th is the resistance seen from the terminals with all independent sources replaced by their internal resistances.
+
+**Diagram.** Original network → V_th in series with R_th → load R_L across a–b. *(Draw both.)*
+
+**Procedure.**
+1. Remove the load R_L and mark terminals a–b.
+2. Find V_th: the open-circuit voltage across a–b.
+3. Find R_th: short voltage sources, open current sources, and compute the resistance seen from a–b.
+4. Draw the Thevenin equivalent, reconnect R_L: `I_L = V_th / (R_th + R_L)`.
+
+**Solution of the example.**
+- V_th = 12 × 12/(4 + 12) = 9 V.
+- R_th = 4 ∥ 12 = (4 × 12)/16 = 3 Ω.
+- I_L = 9/(3 + 6) = **1 A**. Check by direct method: 12 ∥ 6 = 4 Ω; total 8 Ω; supply 1.5 A; V_ab = 6 V; I_L = 6/6 = 1 A ✔.
+
+**Advantages.** The network is solved once; any number of load values can then be tried in one line. It also gives the load for maximum power transfer (R_L = R_th).
+
+**Limitations.** Only for linear networks; the equivalent is valid only at the terminals, not for power inside the network.
+
+**Conclusion.** Thevenin's theorem reduces a complex linear network to its simplest form as seen by a load; its dual is Norton's theorem (I_N = V_th/R_th, R_N = R_th).
+
+</details>
 
 ## Check yourself
 

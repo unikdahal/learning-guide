@@ -1,0 +1,147 @@
+---
+title: "27. The bipolar junction transistor (BJT)"
+description: BJT structure and operation from scratch — NPN and PNP, the three currents, alpha and beta, operating regions, input and output characteristics, and CE/CB/CC configurations.
+sidebar:
+  label: "27. BJT basics"
+  order: 27
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** explain how a small base current controls a large collector current, use α and β, identify the operating region from the junction biases, and compare the three configurations.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.4** — "BJT configuration and biasing": terminals in common base, α–β relation, which configuration has which gain. **Lok Sewa Computer Engineer 4.2.1–4.2.3**. Chips today are almost all MOSFETs (lesson 30), but the BJT is still how textbooks — and exams — teach amplification.
+</Aside>
+
+## 1. Structure
+
+Three doped layers, two junctions:
+
+- **NPN:** n–p–n. **PNP:** p–n–p.
+- **Emitter (E):** heavily doped — it **emits** the carriers.
+- **Base (B):** very **thin** and lightly doped — the control region.
+- **Collector (C):** moderately doped and the **largest** — it **collects** carriers and dissipates most of the heat.
+- Two junctions: base–emitter (BE) and collector–base (CB).
+
+<Figure caption="Symbols and current directions. The arrow is on the emitter and shows conventional current: out of an NPN, into a PNP.">
+  <Circuit name="bjt" label="Left: NPN transistor symbol with collector at top, base on the left, emitter at the bottom with arrow pointing outward; collector current and base current flow in, emitter current flows out and equals their sum. Right: PNP symbol with emitter at top and arrow pointing inward; emitter current flows in, base and collector currents flow out." />
+</Figure>
+
+Memory trick: **NPN — "Not Pointing iN"**.
+
+## 2. How it works (NPN, active region)
+
+Forward-bias BE (≈ 0.7 V) and reverse-bias CB:
+
+1. The forward-biased BE junction **injects** a flood of electrons from the emitter into the base.
+2. The base is thin and lightly doped, so only a **few** of them recombine there — that small flow out of the base terminal is **I_B**.
+3. The rest reach the CB junction, where its strong reverse field **sweeps them into the collector**: that's **I_C**, nearly all of the emitter current.
+
+So a **small base current controls a large collector current**. That's amplification.
+
+## 3. The three currents
+
+`I_E = I_B + I_C` (KCL — the transistor is just a node)
+
+- **α (alpha)** = I_C / I_E — the common-base current gain, just under 1 (0.95–0.995).
+- **β (beta, or h_FE)** = I_C / I_B — the common-emitter current gain, typically 50–300.
+- They're linked: **`β = α / (1 − α)`** and **`α = β / (1 + β)`**.
+
+**Worked example.** I_B = 40 µA and β = 100. Then I_C = 4 mA, I_E = 4.04 mA, α = 4/4.04 = **0.990**. Check: 0.99/(1 − 0.99) = 99 ≈ 100 ✔.
+
+**Leakage.** With the emitter open, a tiny current I_CBO flows across the reverse-biased CB junction. In common-emitter it's amplified: `I_CEO = (1 + β) I_CBO`. It doubles roughly every 10 °C — the root of thermal runaway (lesson 28).
+
+## 4. Operating regions
+
+| Region | BE junction | CB junction | Behaviour | Use |
+| --- | --- | --- | --- | --- |
+| **Cut-off** | reverse | reverse | I_C ≈ 0; switch OFF | digital "0"/open switch |
+| **Active** | **forward** | **reverse** | I_C = β I_B | **amplifier** |
+| **Saturation** | forward | forward | I_C at its max, V_CE ≈ 0.2 V; switch ON | digital "1"/closed switch |
+| Reverse active | reverse | forward | poor gain | rarely used |
+
+## 5. Characteristics (common emitter)
+
+- **Input characteristic** (I_B vs V_BE): looks just like a diode — nothing until ≈ 0.7 V, then a steep rise.
+- **Output characteristics** (I_C vs V_CE, one curve per I_B): after a small knee (saturation, V_CE ≈ 0.2 V), each curve is **nearly flat** — I_C depends on I_B, hardly on V_CE. They tilt up slightly because the effective base narrows as V_CE rises (the **Early effect**). Below the I_B = 0 curve is cut-off. Next lesson's lab draws these.
+
+## 6. Three configurations
+
+Which terminal is common to input and output names the configuration. Each has three terminals in use; one is shared.
+
+| | Common emitter (CE) | Common base (CB) | Common collector (CC) |
+| --- | --- | --- | --- |
+| Input → output | base → collector | emitter → collector | base → emitter |
+| Current gain | high (β) | below 1 (α) | high (β + 1) |
+| Voltage gain | high | high | ≈ 1 |
+| Power gain | **highest** | moderate | low |
+| Input impedance | medium (≈ 1 kΩ) | **low** (≈ 20 Ω) | **high** (hundreds of kΩ) |
+| Output impedance | medium–high | **high** | **low** |
+| Phase shift | **180°** | 0° | 0° |
+| Typical use | general amplifier | high-frequency, current buffer | **buffer**, impedance matching ("emitter follower") |
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the working of an NPN transistor in the active region. Derive the relation between α and β, and compare CE, CB and CC configurations.
+
+<details>
+<summary>Model answer</summary>
+
+**Structure.** An NPN transistor has a heavily doped n-type emitter, a thin lightly doped p-type base and a moderately doped, larger n-type collector, forming the BE and CB junctions. *(Draw the structure and symbol.)*
+
+**Working (active region).** BE is forward biased, CB reverse biased. Electrons are injected from the emitter into the base. Because the base is thin and lightly doped, only a small fraction (2–5%) recombine with holes, forming the base current I_B. The rest diffuse to the CB junction and are swept by its field into the collector, forming I_C. Thus `I_E = I_B + I_C`, and a small I_B controls a large I_C.
+
+**α–β relation.** α = I_C/I_E, β = I_C/I_B. Dividing I_E = I_B + I_C by I_C: 1/α = 1/β + 1 → **β = α/(1 − α)**, and **α = β/(1 + β)**. Example: α = 0.98 → β = 49.
+
+**Comparison of configurations.**
+
+| | CB | CE | CC |
+| --- | --- | --- | --- |
+| Current gain | α < 1 | β (high) | 1 + β |
+| Voltage gain | high | high | ≈ 1 |
+| Input / output impedance | low / high | medium / medium | high / low |
+| Phase shift | 0° | 180° | 0° |
+| Application | high-frequency amplifier | general amplifier | buffer |
+
+**Conclusion.** CE is the most widely used because it gives the highest power gain.
+
+</details>
+
+## Check yourself
+
+1. In the active region, the BE and CB junctions are:
+   (a) both forward (b) BE forward, CB reverse (c) BE reverse, CB forward (d) both reverse
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The most heavily doped region of a BJT is the:
+   (a) base (b) collector (c) emitter (d) all equal
+
+<details><summary>Answer</summary>(c) emitter.</details>
+
+3. If α = 0.98, β is:
+   (a) 0.98 (b) 9.8 (c) 49 (d) 98
+
+<details><summary>Answer</summary>(c) 0.98/0.02 = 49.</details>
+
+4. The configuration with voltage gain close to 1 and high input impedance is:
+   (a) CE (b) CB (c) CC (d) none
+
+<details><summary>Answer</summary>(c) common collector (emitter follower).</details>
+
+5. The number of terminals in a common-base configuration is:
+   (a) 2 (b) 3 (c) 4 (d) 1
+
+<details><summary>Answer</summary>(b) three — base, emitter, collector — with the base shared between input and output.</details>
+
+6. A transistor used as a closed switch operates in:
+   (a) cut-off (b) active (c) saturation (d) breakdown
+
+<details><summary>Answer</summary>(c) saturation.</details>
+
+7. The phase shift of a CE amplifier is:
+   (a) 0° (b) 90° (c) 180° (d) 270°
+
+<details><summary>Answer</summary>(c) 180°.</details>

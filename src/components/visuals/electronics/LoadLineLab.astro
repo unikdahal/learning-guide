@@ -1,0 +1,175 @@
+---
+// Transistor load-line lab: VCC = 12 V, β = 100. Choose RC and base current IB.
+// Draws simplified output characteristics (IC = β·IB above a 0.2 V knee), the DC load line and the Q-point,
+// and names the region: cut-off, active or saturation.
+---
+
+<qe-loadline class="qe-lab qe-ll not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Load-line lab — VCC = 12 V, β = 100</p>
+    <div class="ctl">
+      <label>Collector resistor RC <output data-ro>2 kΩ</output>
+        <input type="range" min="1" max="6" step="0.5" value="2" data-r aria-label="Collector resistance in kilo-ohms" />
+      </label>
+      <label>Base current IB <output data-bo>30 µA</output>
+        <input type="range" min="0" max="80" step="5" value="30" data-b aria-label="Base current in microamps" />
+      </label>
+    </div>
+    <svg viewBox="0 0 340 220" role="img" aria-label="Collector current against collector-emitter voltage: flat characteristic curves for several base currents, a straight DC load line from VCC on the voltage axis to VCC over RC on the current axis, and the operating point where the chosen base current meets the line." class="plot">
+      <line class="axis" x1="40" y1="180" x2="330" y2="180" />
+      <line class="axis" x1="40" y1="180" x2="40" y2="12" />
+      <text x="282" y="208" class="ax">VCE (V)</text>
+      <text x="46" y="14" class="ax">IC (mA)</text>
+      <text x="36" y="196" class="tick">0</text>
+      <text x="306" y="196" class="tick">12</text>
+      <text x="8" y="28" class="tick">12</text>
+      <g data-curves></g>
+      <line class="ll" data-ll />
+      <circle class="q" data-q r="6" />
+    </svg>
+    <dl class="out">
+      <div><dt>Q-point IC</dt><dd data-ic></dd></div>
+      <div><dt>Q-point VCE</dt><dd data-vce></dd></div>
+      <div><dt>Region</dt><dd data-reg></dd></div>
+    </dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-loadline>
+
+<script>
+  class QeLoadLine extends HTMLElement {
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const rIn = $('[data-r]') as HTMLInputElement;
+      const bIn = $('[data-b]') as HTMLInputElement;
+      const VCC = 12, beta = 100, sat = 0.2, Imax = 12; // mA axis
+      const X = (v: number) => 40 + (v / VCC) * 270;
+      const Y = (i: number) => 180 - (Math.min(i, Imax) / Imax) * 165;
+      const curves = $('[data-curves]');
+      const ns = 'http://www.w3.org/2000/svg';
+      for (const ib of [20, 40, 60, 80]) {
+        const ic = (beta * ib) / 1000;
+        const p = document.createElementNS(ns, 'path');
+        p.setAttribute('d', `M${X(0)} ${Y(0)} L${X(sat)} ${Y(ic)} L${X(VCC)} ${Y(ic * 1.04)}`);
+        p.setAttribute('class', 'cv');
+        curves.appendChild(p);
+        const tx = document.createElementNS(ns, 'text');
+        tx.setAttribute('x', String(X(VCC) - 52));
+        tx.setAttribute('y', String(Y(ic * 1.04) - 4));
+        tx.setAttribute('class', 'tick');
+        tx.textContent = `IB = ${ib} µA`;
+        curves.appendChild(tx);
+      }
+      const update = () => {
+        const RC = +rIn.value; // kΩ
+        const IB = +bIn.value; // µA
+        ($('[data-ro]') as HTMLOutputElement).value = `${RC} kΩ`;
+        ($('[data-bo]') as HTMLOutputElement).value = `${IB} µA`;
+        const Isat = (VCC - sat) / RC; // mA
+        const ll = $('[data-ll]');
+        ll.setAttribute('x1', String(X(0)));
+        ll.setAttribute('y1', String(Y(VCC / RC)));
+        ll.setAttribute('x2', String(X(VCC)));
+        ll.setAttribute('y2', String(Y(0)));
+        const want = (beta * IB) / 1000;
+        let IC: number, region: string;
+        if (IB === 0) { IC = 0; region = 'cut-off'; }
+        else if (want >= Isat) { IC = Isat; region = 'saturation'; }
+        else { IC = want; region = 'active'; }
+        const VCE = VCC - IC * RC;
+        const q = $('[data-q]');
+        q.setAttribute('cx', String(X(VCE)));
+        q.setAttribute('cy', String(Y(IC)));
+        $('[data-ic]').textContent = `${IC.toFixed(2)} mA`;
+        $('[data-vce]').textContent = `${VCE.toFixed(2)} V`;
+        $('[data-reg]').textContent = region;
+        const notes: Record<string, string> = {
+          'cut-off': 'No base current → no collector current. The transistor is OFF: VCE = VCC = 12 V. As a switch, this is "open".',
+          active: `Active region: IC = β × IB = 100 × ${IB} µA = ${IC.toFixed(2)} mA, and VCE = VCC − IC·RC = ${VCE.toFixed(2)} V. Small changes in IB make β-times bigger changes in IC — this is where amplifiers sit, ideally near the middle of the load line.`,
+          saturation: `Saturation: β × IB would need ${want.toFixed(1)} mA, but RC limits IC to about ${Isat.toFixed(2)} mA. The transistor is fully ON (VCE ≈ 0.2 V). As a switch, this is "closed"; for an amplifier it means clipping.`,
+        };
+        $('[data-note]').textContent = notes[region];
+      };
+      rIn.addEventListener('input', update);
+      bIn.addEventListener('input', update);
+      update();
+    }
+  }
+  customElements.define('qe-loadline', QeLoadLine);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.8rem 1.2rem;
+    margin-bottom: 0.8rem;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+    margin-left: 0.4rem;
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .plot {
+    width: 100%;
+    max-width: 560px;
+    height: auto;
+    display: block;
+    margin-inline: auto;
+  }
+  .axis {
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+  }
+  .ax {
+    fill: var(--sl-color-gray-1);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  :global(.qe-ll .tick) {
+    fill: var(--sl-color-gray-3);
+    font-size: 10px;
+  }
+  :global(.qe-ll .cv) {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 2;
+  }
+  .ll {
+    stroke: var(--qe-pipe-build);
+    stroke-width: 3;
+  }
+  .q {
+    fill: var(--qe-pipe-emit);
+    stroke: var(--sl-color-gray-6);
+    stroke-width: 2;
+  }
+  .out {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 0.6rem 1.2rem;
+    margin: 0.9rem 0 0;
+  }
+  .out dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .out dd {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

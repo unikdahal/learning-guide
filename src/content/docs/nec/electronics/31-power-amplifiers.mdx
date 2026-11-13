@@ -1,0 +1,127 @@
+---
+title: "31. Power amplifiers: classes A, B, AB, C"
+description: Output stages from scratch — classes by conduction angle, efficiency limits with derivations, push-pull and crossover distortion, class AB biasing, power transistors and heat sinks, tuned amplifiers.
+sidebar:
+  label: "31. Power amplifiers"
+  order: 31
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** classify an output stage by conduction angle, quote and derive each class's maximum efficiency, and explain crossover distortion and its cure.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.6** (amplifiers) lists exactly these: classification of output stages, class A, B, AB, biasing class AB, power BJTs, transformer-coupled push-pull, tuned amplifiers. The model paper asks the **class B push-pull efficiency** and **the amplifier class used for UHF signals**. **Lok Sewa Computer Engineer 4.2.5** (large-signal amplifiers).
+</Aside>
+
+## 1. Voltage amplifiers vs power amplifiers
+
+Small-signal stages (lesson 29) raise **voltage**. The last stage must deliver real **power** to a speaker, motor or antenna: large current and voltage swings. Now **efficiency** matters — wasted power becomes heat in the transistors.
+
+`Efficiency η = (AC power delivered to the load) / (DC power drawn from the supply)`
+
+## 2. Classes by conduction angle
+
+How much of each input cycle does the output transistor conduct?
+
+| Class | Conducts | Max efficiency | Distortion | Typical use |
+| --- | --- | --- | --- | --- |
+| **A** | full 360° | **25%** (resistive load), **50%** (transformer-coupled) | lowest | small, high-fidelity stages |
+| **B** | 180° (half) | **78.5%** (= π/4) | crossover distortion | push-pull audio output |
+| **AB** | a little more than 180° | between A and B (≈ 50–78%) | low | almost all audio amplifiers |
+| **C** | less than 180° | above 78.5%, up to ≈ 90%+ | very high — needs a tuned load | **RF transmitters** |
+| D (bonus) | switching (PWM) | > 90% in practice | filtered out | modern audio, class-D speakers |
+
+## 3. Class A
+
+Biased with the Q-point in the middle of the load line, so it conducts all the time — even with no signal, full quiescent current flows and heat is wasted.
+
+- With a resistor in the collector (series-fed): maximum η = **25%**.
+- With a transformer coupling the load: the DC drop in R_C disappears and the swing doubles, so maximum η = **50%**.
+
+## 4. Class B push-pull
+
+Two transistors, each biased exactly at cut-off, each handling **one half** of the waveform:
+
+- **Complementary-symmetry:** an NPN for the positive half and a PNP for the negative half, emitters joined at the output.
+- **Transformer-coupled push-pull:** two identical transistors driving a centre-tapped output transformer.
+
+No signal → no current → little waste.
+
+**Derivation of 78.5%.** For each transistor conducting a half-sine of peak I_m from supply V_CC (full swing, V_m = V_CC):
+- DC supply power: average current of a full-wave rectified sine is 2I_m/π, so `P_dc = V_CC × 2I_m/π`.
+- AC load power: `P_ac = (V_m/√2)(I_m/√2) = V_CC I_m / 2`.
+- `η = P_ac / P_dc = (V_CC I_m/2) / (2V_CC I_m/π) = π/4 ≈ 78.5%`.
+
+**Crossover distortion.** Each transistor needs ≈ 0.7 V on its base before it conducts, so for small signals around zero **neither** conducts — a flat step appears where the waveform crosses zero.
+
+## 5. Class AB — the cure
+
+Bias both transistors **just** into conduction — a small quiescent current — so one takes over smoothly as the other turns off. Usual biasing: **two diodes** (matching the two V_BE drops, and tracking their temperature) or a **V_BE multiplier** between the bases. Efficiency is slightly below class B; crossover distortion disappears.
+
+## 6. Class C and tuned amplifiers
+
+The transistor conducts only short pulses (much less than half a cycle) — highly distorted, but very efficient. A **tuned LC tank** as the load "rings" at its resonant frequency f₀ = 1/(2π√LC) and restores a clean sine wave ([lesson 20](/learning-guide/nec/electronics/20-resonance/)). That's why class C is used in **radio-frequency transmitters**, at a single frequency.
+
+A **tuned amplifier** in general uses an LC tank as the load so it amplifies a narrow band around f₀ (bandwidth f₀/Q) — radio IF and RF stages. **Single-tuned** has one tank; **double-tuned** couples two for a flatter, wider pass band.
+
+## 7. Power transistors and heat
+
+- Power BJTs (and MOSFETs) have large junction areas, lower β, and metal tabs for mounting.
+- Heat flows from junction to case to heat sink to air; each step has a **thermal resistance** (°C/W). Junction temperature = ambient + power × total thermal resistance.
+- Ratings are **derated** at high temperature. Thermal runaway (lesson 28) is the main danger.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the class B push-pull amplifier. Show that its maximum efficiency is 78.5%. What is crossover distortion and how is it removed?
+
+<details>
+<summary>Model answer</summary>
+
+**Circuit.** Two transistors operated in class B (biased at cut-off): in complementary-symmetry form, an NPN and a PNP with joined emitters driving the load; or two NPNs driving a centre-tapped output transformer. *(Draw.)*
+
+**Working.** During the positive half-cycle, Q1 conducts and supplies current to the load; Q2 is off. During the negative half-cycle, Q2 conducts and Q1 is off. The two halves combine in the load to form the full waveform. With no signal, neither transistor conducts, so standby dissipation is very low.
+
+**Efficiency.** With peak load current I_m and full swing V_m = V_CC:
+- P_dc = V_CC × (2I_m/π)
+- P_ac = V_m I_m/2 = V_CC I_m/2
+- η = P_ac/P_dc = π/4 = **78.5%** (maximum).
+
+**Crossover distortion.** Each transistor needs about 0.7 V of V_BE before it conducts, so near the zero crossing neither conducts and the output has a dead zone. *(Sketch the distorted waveform.)*
+
+**Remedy — class AB.** Apply a small forward bias to both bases (two diodes or a V_BE multiplier) so each transistor conducts slightly more than 180°; the hand-over becomes smooth. Diodes also track temperature, preventing thermal runaway.
+
+**Advantages.** High efficiency, low standby power, no DC in the load (complementary). **Applications.** Audio power output stages.
+
+</details>
+
+## Check yourself
+
+1. The maximum efficiency of a class B push-pull amplifier is:
+   (a) 25% (b) 50% (c) 78.5% (d) 100%
+
+<details><summary>Answer</summary>(c) π/4.</details>
+
+2. The maximum efficiency of a transformer-coupled class A amplifier is:
+   (a) 25% (b) 50% (c) 78.5% (d) 90%
+
+<details><summary>Answer</summary>(b) 50% (25% if resistively loaded).</details>
+
+3. Crossover distortion occurs in:
+   (a) class A (b) class B (c) class C (d) all classes equally
+
+<details><summary>Answer</summary>(b)</details>
+
+4. In class C, the transistor conducts for:
+   (a) 360° (b) 180° (c) less than 180° (d) between 180° and 360°
+
+<details><summary>Answer</summary>(c)</details>
+
+5. Class C amplifiers are mainly used in:
+   (a) audio pre-amplifiers (b) radio-frequency transmitters with tuned loads (c) DC amplifiers (d) op-amp input stages
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Class AB is biased:
+   (a) at cut-off (b) slightly above cut-off (c) in saturation (d) at the middle of the load line
+
+<details><summary>Answer</summary>(b) just into conduction, to remove crossover distortion.</details>

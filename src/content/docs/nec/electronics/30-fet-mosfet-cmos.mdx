@@ -1,0 +1,139 @@
+---
+title: "30. FETs, MOSFETs and CMOS"
+description: Field-effect transistors from scratch — JFET, enhancement and depletion MOSFETs, regions and equations, transconductance, BJT vs FET, and the CMOS inverter that every chip is built from.
+sidebar:
+  label: "30. FETs, MOSFETs and CMOS"
+  order: 30
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** explain how a gate voltage controls a channel, compute a MOSFET's drain current, compare BJT and FET, and explain why CMOS uses almost no power when idle.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.4** names "working principle and application of MOSFET and CMOS" explicitly. **Lok Sewa Computer Engineer 4.2** and unit 3 (IC logic families). Every CPU core in the servers you run is billions of these.
+</Aside>
+
+## 1. The field-effect idea
+
+A BJT is **current-controlled** (base current controls collector current). A **field-effect transistor (FET)** is **voltage-controlled**: the voltage on a **gate** creates an electric field that widens or narrows a conducting **channel** between **source** and **drain**. Almost no gate current flows, so the input impedance is **very high**.
+
+FETs are **unipolar** — only majority carriers carry current (electrons in n-channel, holes in p-channel). BJTs are **bipolar** — both carriers matter.
+
+## 2. JFET (briefly)
+
+A bar of n-type silicon (the channel) with p-type gate regions on its sides. The gate–channel junction is kept **reverse-biased**; more negative V_GS widens the depletion regions and squeezes the channel.
+
+- At V_GS = 0, maximum current **I_DSS** flows.
+- At V_GS = V_P (the **pinch-off** voltage, negative for n-channel), the channel closes: I_D = 0.
+- Shockley's equation: `I_D = I_DSS (1 − V_GS/V_P)²`.
+
+## 3. MOSFET
+
+**M**etal–**O**xide–**S**emiconductor FET: the gate is a conductor separated from the channel by a very thin layer of silicon dioxide, an **insulator**. Input impedance is enormous (≈ 10¹²–10¹⁵ Ω).
+
+**Enhancement MOSFET (n-channel)** — the kind in every chip:
+- **Normally OFF**: no channel exists at V_GS = 0.
+- Make V_GS positive beyond the **threshold voltage V_T** (≈ 0.3–1 V in modern chips), and electrons are drawn under the gate to form an n-channel: it turns ON.
+
+**Depletion MOSFET:** a channel is built in, so it's **normally ON**; V_GS can enhance or deplete it.
+
+**Regions (n-channel enhancement):**
+
+| Region | Condition | Behaviour | Use |
+| --- | --- | --- | --- |
+| Cut-off | V_GS < V_T | I_D ≈ 0 | switch OFF |
+| Ohmic / triode | V_GS > V_T, small V_DS | acts like a voltage-controlled resistor | switch ON |
+| Saturation | V_GS > V_T, V_DS ≥ V_GS − V_T | `I_D = k (V_GS − V_T)²`, nearly independent of V_DS | amplifier |
+
+**Transconductance** `g_m = ΔI_D/ΔV_GS = 2k(V_GS − V_T)` — the FET's "gain" (in siemens).
+
+**Worked example.** k = 0.5 mA/V², V_T = 1 V, V_GS = 3 V: I_D = 0.5 × (3 − 1)² = **2 mA**; g_m = 2 × 0.5 × 2 = **2 mA/V**.
+
+<Aside type="caution" title="Handle with care">
+The gate oxide is only nanometres thick; static electricity from a finger can punch through it. That's why chips ship in anti-static bags and have protection diodes on their pins.
+</Aside>
+
+## 4. BJT vs FET
+
+| | BJT | FET / MOSFET |
+| --- | --- | --- |
+| Controlled by | base **current** | gate **voltage** |
+| Carriers | both (bipolar) | majority only (unipolar) |
+| Input impedance | low–medium | very high |
+| Gain | higher voltage gain per stage | lower, but improving |
+| Noise | more | less |
+| Thermal stability | thermal runaway possible | better (current falls as it heats) |
+| Size, density | larger | very small — billions per chip |
+| Typical use | discrete analog, RF | digital ICs, power switching |
+
+## 5. CMOS — complementary MOS
+
+Pair an n-channel MOSFET (pull-down, to ground) with a p-channel MOSFET (pull-up, to V_DD), gates tied together. This is the **CMOS inverter**, the basic cell of digital logic:
+
+- **Input HIGH →** nMOS ON, pMOS OFF → output pulled to ground → **LOW**.
+- **Input LOW →** pMOS ON, nMOS OFF → output pulled to V_DD → **HIGH**.
+
+**In either steady state, one transistor is OFF**, so there's no path from V_DD to ground: **static power ≈ 0**. Power is used mainly while **switching**, charging and discharging the load capacitance:
+
+`P_dynamic ≈ C V_DD² f`
+
+That one formula explains a lot you've seen at work: CPUs get hotter at higher clock frequency f, and lowering supply voltage V_DD saves power quadratically — the reason for DVFS (dynamic voltage and frequency scaling).
+
+**Why CMOS dominates:** near-zero static power, high noise margin (output swings rail to rail), huge fan-out (gates draw no DC current), and tiny transistors that pack densely. NAND and NOR gates are built by combining nMOS and pMOS in series/parallel.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the construction and working of an n-channel enhancement MOSFET. Describe the CMOS inverter and its advantages.
+
+<details>
+<summary>Model answer</summary>
+
+**Construction.** A lightly doped p-type substrate with two heavily doped n⁺ regions — source and drain. A thin SiO₂ layer covers the region between them, and a metal (or polysilicon) gate sits on the oxide. The substrate (body) is usually tied to the source. *(Draw the cross-section and symbol.)*
+
+**Working.** With V_GS = 0 there is no channel; the drain–source path is two back-to-back PN junctions, so I_D ≈ 0 (normally off). When V_GS is made positive, the gate field repels holes and attracts electrons beneath the oxide. Above the threshold V_T an n-type **inversion layer** forms, linking source and drain. Applying V_DS drives drain current. Increasing V_GS enhances the channel and raises I_D.
+- Ohmic region (small V_DS): channel acts as a resistor controlled by V_GS.
+- Saturation (V_DS ≥ V_GS − V_T): channel pinches off at the drain end; `I_D = k(V_GS − V_T)²`.
+*(Sketch drain characteristics and the transfer curve.)*
+
+**CMOS inverter.** A pMOS (source to V_DD) and an nMOS (source to ground) with common gates (input) and common drains (output). Input high: nMOS on, pMOS off, output low. Input low: pMOS on, nMOS off, output high. *(Draw.)*
+
+**Advantages of CMOS.** Negligible static power dissipation; rail-to-rail output and high noise margin; very high input impedance and large fan-out; high packing density; operates over a wide supply range. Dynamic power P ≈ CV²f.
+
+</details>
+
+## Check yourself
+
+1. A MOSFET is controlled by:
+   (a) base current (b) gate voltage (c) drain current (d) emitter voltage
+
+<details><summary>Answer</summary>(b)</details>
+
+2. An enhancement MOSFET with V_GS = 0 is:
+   (a) ON (b) OFF (c) in saturation (d) in breakdown
+
+<details><summary>Answer</summary>(b) normally off.</details>
+
+3. The very high input impedance of a MOSFET is due to:
+   (a) the thin base (b) the insulating oxide layer under the gate (c) heavy doping (d) the pinch-off voltage
+
+<details><summary>Answer</summary>(b)</details>
+
+4. FETs are called unipolar because:
+   (a) they have one junction (b) only majority carriers conduct (c) they need one supply (d) they have one gate
+
+<details><summary>Answer</summary>(b)</details>
+
+5. The main advantage of CMOS logic is:
+   (a) high speed only (b) very low static power dissipation (c) bipolar operation (d) low input impedance
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Dynamic power of CMOS is proportional to:
+   (a) V (b) V² (c) 1/f (d) 1/C
+
+<details><summary>Answer</summary>(b) P ≈ CV²f.</details>
+
+7. For a JFET with I_DSS = 10 mA and V_P = −4 V, at V_GS = −2 V the drain current is:
+   (a) 10 mA (b) 5 mA (c) 2.5 mA (d) 0
+
+<details><summary>Answer</summary>(c) 10 × (1 − 0.5)² = 2.5 mA.</details>

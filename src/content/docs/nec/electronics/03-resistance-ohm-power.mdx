@@ -99,12 +99,25 @@ Use whichever matches what you know.
 **Worked example.** A 2 kW heater runs 3 hours a day for 30 days. Energy used?
 2 kW × 3 h × 30 = **180 kWh** (180 units).
 
+## 5. EMF, internal resistance and terminal voltage
+
+A real battery isn't a perfect voltage source. Its chemicals and plates have a little resistance of their own, the **internal resistance** r.
+
+- **EMF (E):** the voltage the battery generates, measured with no current drawn.
+- **Terminal voltage (V):** what you actually get across the terminals while current I flows: `V = E − I r`.
+- The "lost volts" `I r` heat the battery itself. That's why a phone battery warms up when fast-charging, and why a weak battery's voltage sags under load (its r has grown).
+- With a load R connected: `I = E / (R + r)`.
+
+**Worked example.** A 12 V battery with r = 0.5 Ω drives a 5.5 Ω load. I = 12/(5.5 + 0.5) = **2 A**; terminal voltage = 12 − 2 × 0.5 = **11 V**.
+
+This is the first real-world case of [Thevenin's theorem](/learning-guide/nec/electronics/10-thevenin/): E is V_th and r is R_th.
+
 ## Summary of formulas
 
 | What you want | Formulas |
 | --- | --- |
 | Current | `I = V/R`, `I = Q/t`, `I = P/V` |
-| Voltage | `V = IR`, `V = W/Q`, `V = P/I` |
+| Voltage | `V = IR`, `V = W/Q`, `V = P/I`, `V = E − Ir` |
 | Resistance | `R = V/I`, `R = ρL/A`, `R = V²/P` |
 | Power | `P = VI = I²R = V²/R = W/t` |
 | Energy | `W = Pt = VIt` |

@@ -3,7 +3,7 @@
 // Resistors use the IEC box symbol; batteries put the long (+) plate on top.
 // Colours come from theme variables so the drawings work in light and dark mode.
 interface Props {
-  name: 'loop' | 'series-parallel' | 'kcl' | 'nodal' | 'star-delta' | 'bridge' | 'superposition' | 'thevenin' | 'norton' | 'cap-ind' | 'sine' | 'three-phase' | 'power-triangle';
+  name: 'loop' | 'series-parallel' | 'kcl' | 'nodal' | 'star-delta' | 'bridge' | 'superposition' | 'thevenin' | 'norton' | 'cap-ind' | 'sine' | 'three-phase' | 'power-triangle' | 'pn-junction' | 'bjt' | 'vdb' | 'opamp';
   label: string;
 }
 const { name, label } = Astro.props;
@@ -40,6 +40,26 @@ const twoSource = (ox: number, left: boolean, right: boolean) => {
     t(ox + 92, 44, '2 Ω') + t(ox + 242, 44, '4 Ω') + t(N + 16, 135, '4 Ω')
   );
 };
+
+/** A wire-coloured arrow (for transistor emitter arrows). */
+const warrow = (x1: number, y1: number, x2: number, y2: number) =>
+  `<line class="w" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#${id}-aw)"/>`;
+/** Ground symbol hanging below (x, y). */
+const gnd = (x: number, y: number) =>
+  `<line class="w" x1="${x}" y1="${y}" x2="${x}" y2="${y + 8}"/>` +
+  `<line class="w" x1="${x - 12}" y1="${y + 8}" x2="${x + 12}" y2="${y + 8}"/>` +
+  `<line class="w" x1="${x - 7}" y1="${y + 13}" x2="${x + 7}" y2="${y + 13}"/>` +
+  `<line class="w" x1="${x - 3}" y1="${y + 18}" x2="${x + 3}" y2="${y + 18}"/>`;
+/** A bipolar transistor: base bar at x, centred on y. NPN: collector up, emitter down, arrow out. PNP: emitter up (arrow in), collector down. */
+const bjt = (x: number, y: number, npn: boolean) =>
+  `<line class="w thick" x1="${x}" y1="${y - 28}" x2="${x}" y2="${y + 28}"/>` +
+  (npn
+    ? `<line class="w" x1="${x}" y1="${y - 12}" x2="${x + 36}" y2="${y - 38}"/>` + warrow(x, y + 12, x + 36, y + 38)
+    : warrow(x + 36, y - 38, x + 4, y - 15) + `<line class="w" x1="${x}" y1="${y + 12}" x2="${x + 36}" y2="${y + 38}"/>`);
+/** Op-amp triangle with inputs at x (− on top, + below), output tip at x + 90. */
+const opamp = (x: number, y: number) =>
+  `<path class="r" d="M${x} ${y - 45} L${x} ${y + 45} L${x + 90} ${y} Z"/>` +
+  t(x + 6, y - 14, '−', 'strong') + t(x + 6, y + 26, '+', 'strong');
 
 let vb = '0 0 400 240';
 let body = '';
@@ -203,6 +223,69 @@ if (name === 'loop') {
     t(64, 104, 'S = VI (VA)') + t(70, 124, 'apparent', 'small') +
     `<path class="w" d="M80 190 A50 50 0 0 0 74 166"/>` + t(88, 180, 'φ', 'strong') +
     `<path class="w" d="M236 190 V176 H250"/>`;
+} else if (name === 'pn-junction') {
+  vb = '0 0 560 250';
+  const holes = [];
+  for (const yy of [72, 102, 132]) for (const xx of [62, 102, 142, 182]) holes.push(`<circle class="hole" cx="${xx}" cy="${yy}" r="6"/>`);
+  const elec = [];
+  for (const yy of [72, 102, 132]) for (const xx of [378, 418, 458, 498]) elec.push(`<circle class="dot" cx="${xx}" cy="${yy}" r="5"/>`);
+  const ions = [72, 102, 132].map((yy) => t(236, yy + 5, '−', 'strong') + t(258, yy + 5, '−', 'strong') + t(294, yy + 5, '+', 'strong') + t(316, yy + 5, '+', 'strong')).join('');
+  body =
+    `<rect class="preg" x="40" y="45" width="240" height="115"/>` +
+    `<rect class="nreg" x="280" y="45" width="240" height="115"/>` +
+    `<rect class="dep" x="226" y="45" width="108" height="115"/>` +
+    holes.join('') + elec.join('') + ions +
+    arrow(320, 178, 240, 178) + t(236, 198, 'built-in field', 'small') +
+    t(60, 30, 'P-type: holes (○) in majority', 'small') +
+    t(330, 30, 'N-type: free electrons (●)', 'small') +
+    t(206, 226, 'depletion region: fixed ions, no free carriers', 'small') +
+    t(222, 246, 'barrier ≈ 0.7 V (Si), 0.3 V (Ge)', 'small');
+} else if (name === 'bjt') {
+  vb = '0 0 540 250';
+  body =
+    // NPN
+    `<path class="w" d="M40 120 H110 M146 82 V30 M146 158 V215"/>` + bjt(110, 120, true) +
+    t(122, 24, 'C', 'strong') + t(34, 110, 'B', 'strong') + t(122, 232, 'E', 'strong') +
+    arrow(160, 36, 160, 70) + t(176, 58, 'IC', 'small') +
+    arrow(50, 132, 92, 132) + t(52, 152, 'IB', 'small') +
+    arrow(160, 170, 160, 206) + t(176, 194, 'IE = IB + IC', 'small') +
+    t(60, 248, 'NPN — arrow points out', 'small') +
+    // PNP
+    `<path class="w" d="M310 120 H380 M416 82 V30 M416 158 V215"/>` + bjt(380, 120, false) +
+    t(392, 24, 'E', 'strong') + t(304, 110, 'B', 'strong') + t(392, 232, 'C', 'strong') +
+    arrow(430, 36, 430, 70) + t(446, 58, 'IE', 'small') +
+    arrow(362, 132, 320, 132) + t(322, 152, 'IB', 'small') +
+    arrow(430, 170, 430, 206) + t(446, 194, 'IC', 'small') +
+    t(330, 248, 'PNP — arrow points in', 'small');
+} else if (name === 'vdb') {
+  vb = '0 0 470 320';
+  body =
+    `<path class="w" d="M60 40 H330 M100 40 V160 M100 160 V270 M100 160 H200 M236 122 V40 M236 198 V270 M60 270 H330 M236 122 V110 H330"/>` +
+    box(100, 95, 90) + box(100, 215, 90) + box(236, 75, 90) + box(236, 235, 90) +
+    bjt(200, 160, true) +
+    `<circle class="dot" cx="100" cy="160" r="4"/><circle class="dot" cx="236" cy="110" r="4"/>` +
+    term(330, 110, 'Vout') +
+    t(60, 30, 'VCC = 12 V', 'strong') +
+    t(64, 100, 'R1') + t(64, 220, 'R2') + t(250, 80, 'RC') + t(250, 240, 'RE') +
+    t(140, 152, 'VB', 'small') + t(250, 205, 'VE', 'small') +
+    gnd(200, 270) + t(60, 310, 'Voltage-divider bias: R1–R2 fix VB; RE stabilises IC', 'small');
+} else if (name === 'opamp') {
+  vb = '0 0 680 280';
+  body =
+    // inverting
+    `<path class="w" d="M20 105 H40 M96 105 H120 M110 105 V45 H240 V130 M210 130 H260 M120 155 H100 V180"/>` +
+    box(68, 105) + box(175, 45) + opamp(120, 130) + gnd(100, 180) +
+    `<circle class="dot" cx="110" cy="105" r="4"/>` +
+    term(20, 105, '') + t(6, 90, 'Vin', 'small') + term(260, 130, 'Vout') +
+    t(56, 90, 'Rin') + t(165, 30, 'Rf') +
+    t(30, 250, 'Inverting: Av = −Rf / Rin', 'small') +
+    // non-inverting
+    `<path class="w" d="M380 155 H470 M470 105 H440 V40 H590 V130 M560 130 H610 M440 105 H380"/>` +
+    box(515, 40) + box(410, 105) + opamp(470, 130) + gnd(380, 105) +
+    `<circle class="dot" cx="440" cy="105" r="4"/>` +
+    term(380, 155, '') + t(364, 182, 'Vin', 'small') + term(610, 130, 'Vout') +
+    t(505, 26, 'Rf') + t(400, 90, 'R1') +
+    t(380, 250, 'Non-inverting: Av = 1 + Rf / R1', 'small');
 }
 ---
 
@@ -214,6 +297,9 @@ if (name === 'loop') {
     </marker>
     <marker id={`${id}-ae`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" class="ahe"></path>
+    </marker>
+    <marker id={`${id}-aw`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" class="ahw"></path>
     </marker>
   </defs>
   <g set:html={body} />
@@ -320,6 +406,33 @@ if (name === 'loop') {
   }
   .circuit.series-parallel :global(text.small) {
     font-size: 22px;
+  }
+  .ahw {
+    fill: currentColor;
+  }
+  .circuit :global(.hole) {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+  .circuit :global(.preg) {
+    fill: var(--qe-pipe-build);
+    fill-opacity: 0.12;
+    stroke: currentColor;
+    stroke-width: 1.5;
+  }
+  .circuit :global(.nreg) {
+    fill: var(--qe-pipe-emit);
+    fill-opacity: 0.12;
+    stroke: currentColor;
+    stroke-width: 1.5;
+  }
+  .circuit :global(.dep) {
+    fill: var(--sl-color-gray-6);
+    fill-opacity: 0.85;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
   }
   .ah {
     fill: var(--qe-pipe-build);

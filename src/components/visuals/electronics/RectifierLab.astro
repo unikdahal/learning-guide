@@ -1,0 +1,189 @@
+---
+// Rectifier lab: 12 V-peak, 50 Hz input into a 1 kΩ load through a half-wave or bridge rectifier,
+// with an optional smoothing capacitor. Diode drops: 0.7 V (half-wave), 1.4 V (bridge: two diodes conduct).
+// The capacitor case is simulated step by step: it charges to the peak, then discharges exponentially until the next peak.
+---
+
+<qe-rect class="qe-lab qe-rect not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Rectifier lab — 12 V peak, 50 Hz, 1 kΩ load</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Rectifier">
+      <button type="button" data-kind="half" aria-pressed="false">Half-wave</button>
+      <button type="button" data-kind="bridge" aria-pressed="true">Full-wave (bridge)</button>
+    </div>
+    <div class="ctl">
+      <label>Smoothing capacitor <output data-co>0 µF (none)</output>
+        <input type="range" min="0" max="1000" step="50" value="0" data-c aria-label="Smoothing capacitance in microfarads" />
+      </label>
+    </div>
+    <svg viewBox="0 0 340 200" role="img" aria-label="Input sine wave (faint) and the rectifier output over three mains cycles. With a capacitor, the output becomes a nearly flat line with a small ripple." class="plot">
+      <line class="axis" x1="20" y1="100" x2="330" y2="100" />
+      <path class="in" data-in />
+      <path class="out" data-out />
+      <text x="22" y="16" class="tick">12 V</text>
+      <text x="22" y="194" class="tick">−12 V</text>
+      <text x="286" y="116" class="tick">60 ms</text>
+    </svg>
+    <p class="legend"><span class="sw in-sw"></span>Input <span class="sw out-sw"></span>Output across load</p>
+    <dl class="out-dl">
+      <div><dt>Ripple frequency</dt><dd data-rf></dd></div>
+      <div><dt>Peak output</dt><dd data-pk></dd></div>
+      <div><dt>Ripple (peak-to-peak)</dt><dd data-rp></dd></div>
+      <div><dt>Average (DC) output</dt><dd data-dc></dd></div>
+    </dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-rect>
+
+<script>
+  class QeRect extends HTMLElement {
+    kind = 'bridge';
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const cIn = $('[data-c]') as HTMLInputElement;
+      const Vm = 12, f = 50, R = 1000, T = 0.06, N = 1200;
+      const X = (t: number) => 20 + (t / T) * 310;
+      const Y = (v: number) => 100 - (v / Vm) * 84;
+      const update = () => {
+        const Cu = +cIn.value;
+        ($('[data-co]') as HTMLOutputElement).value = Cu ? `${Cu} µF` : '0 µF (none)';
+        const C = Cu * 1e-6;
+        const half = this.kind === 'half';
+        const drop = half ? 0.7 : 1.4;
+        const dt = T / N;
+        let din = '', dout = '';
+        let vc = 0, sum = 0, vmin = Infinity, vmax = -Infinity;
+        for (let k = 0; k <= N; k++) {
+          const t = k * dt;
+          const vin = Vm * Math.sin(2 * Math.PI * f * t);
+          const rect = Math.max(0, (half ? vin : Math.abs(vin)) - drop);
+          let vo: number;
+          if (!C) vo = rect;
+          else {
+            const decayed = vc * Math.exp(-dt / (R * C));
+            vc = Math.max(rect, decayed);
+            vo = vc;
+          }
+          if (t > 0.02) { vmin = Math.min(vmin, vo); vmax = Math.max(vmax, vo); sum += vo; }
+          if (k % 4 === 0) {
+            din += `${din ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(vin).toFixed(1)}`;
+            dout += `${dout ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(vo).toFixed(1)}`;
+          }
+        }
+        $('[data-in]').setAttribute('d', din);
+        $('[data-out]').setAttribute('d', dout);
+        const steady = N - Math.round(0.02 / dt);
+        const avg = sum / steady;
+        const fr = half ? 50 : 100;
+        $('[data-rf]').textContent = `${fr} Hz`;
+        $('[data-pk]').textContent = `${(Vm - drop).toFixed(1)} V`;
+        $('[data-rp]').textContent = `${(vmax - vmin).toFixed(2)} V`;
+        $('[data-dc]').textContent = `${avg.toFixed(2)} V`;
+        let note: string;
+        if (!C)
+          note = half
+            ? `Half-wave: only the positive half passes; the output is off half the time. Average ≈ (Vm − 0.7)/π ≈ ${avg.toFixed(1)} V, ripple at 50 Hz. Wasteful and very bumpy.`
+            : `Bridge: both halves are flipped positive, so pulses come at 100 Hz (twice the mains). Average ≈ 2(Vm − 1.4)/π ≈ ${avg.toFixed(1)} V — about double the half-wave.`;
+        else {
+          const est = (Vm - drop) / (fr * R * C);
+          note = `The capacitor charges to the peak, then supplies the load between peaks, discharging a little. Ripple ≈ Vpeak/(f·R·C) = ${est.toFixed(2)} V (estimate) — bigger C or a full-wave rectifier (higher ripple frequency) gives a flatter output.`;
+        }
+        $('[data-note]').textContent = note;
+      };
+      this.querySelectorAll<HTMLButtonElement>('[data-kind]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.kind = b.dataset.kind!;
+          this.querySelectorAll('[data-kind]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          update();
+        }),
+      );
+      cIn.addEventListener('input', update);
+      update();
+    }
+  }
+  customElements.define('qe-rect', QeRect);
+</script>
+
+<style>
+  .ctl {
+    margin: 0.9rem 0;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+    margin-left: 0.4rem;
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .plot {
+    width: 100%;
+    max-width: 560px;
+    height: auto;
+    display: block;
+    margin-inline: auto;
+  }
+  .axis {
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1;
+  }
+  .tick {
+    fill: var(--sl-color-gray-3);
+    font-size: 11px;
+  }
+  .in {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+  }
+  .out {
+    fill: none;
+    stroke: var(--qe-pipe-build);
+    stroke-width: 3;
+  }
+  .legend {
+    margin: 0.3rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-2);
+    text-align: center;
+  }
+  .sw {
+    display: inline-block;
+    width: 1.4rem;
+    height: 0;
+    margin: 0 0.35rem 0.25rem 0.9rem;
+    vertical-align: middle;
+  }
+  .in-sw {
+    border-top: 2px dashed var(--sl-color-gray-4);
+  }
+  .out-sw {
+    border-top: 3px solid var(--qe-pipe-build);
+  }
+  .out-dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 0.6rem 1.2rem;
+    margin: 0.9rem 0 0;
+  }
+  .out-dl dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .out-dl dd {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>
