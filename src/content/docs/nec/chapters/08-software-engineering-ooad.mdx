@@ -1,0 +1,94 @@
+---
+title: "8. Software engineering & OOAD"
+description: NEC ACtE Chapter 8 (ACtE08) — process models, requirements, design, testing, estimation, quality, UML and object-oriented design.
+sidebar:
+  label: "8. Software engineering & OOAD"
+  order: 8
+---
+**Code** ACtE08 · **Questions** about 10 (11 in the model paper) · **Your position** fair · **Plan** Week 6, 9 h · **Target** 8/10
+
+Practice teaches you the industry version; NEC asks the **textbook** version (Sommerville, Pressman, Larman). Learn their terms exactly.
+
+**Model-paper questions from this chapter** (paraphrased): the level at which a model becomes executable; the name of the requirements-gathering process; what a reference architecture is; which testing is also called acceptance testing; purpose of behaviour modelling; meaning of visibility; mapping class relationships to code; when the Agile model fits best; testing after fixes to check old features; the UML diagram showing user-level functions; the OO design principle for reuse.
+
+## 8.1 Software process and requirements
+
+**Syllabus:** software characteristics and quality attributes; process models (Agile, V-model, iterative, prototype, Big Bang); CASE; functional and non-functional, user and system requirements; interface specification; SRS; elicitation and analysis; validation and management.
+
+**Know cold**
+
+- Waterfall: sequential, fixed requirements. **V-model:** each development phase has a matching test phase (verification and validation). Iterative/incremental: build in cycles. **Prototype:** when requirements are unclear. Spiral: risk-driven. **Agile:** best when requirements change often — short iterations, working software, customer collaboration (Scrum, XP). **Big Bang:** little planning; tiny or experimental projects.
+- Functional requirements say what the system does; non-functional say how well (performance, security, usability, reliability).
+- **Requirements elicitation** (gathering): interviews, questionnaires, observation, workshops/JAD, prototyping. Validation: reviews, prototyping, test-case generation.
+- SRS = the software requirements specification document.
+
+## 8.2 Software design
+
+**Syllabus:** design process, concepts, heuristics; architectural decisions; system organisation; modular decomposition; control styles; reference architectures; multiprocessor, client–server and distributed-object architectures; inter-organisational computing; real-time design; component-based SE.
+
+**Know cold**
+
+- Design concepts: abstraction, modularity, information hiding, refinement. Aim for **high cohesion** (functional is best, coincidental worst) and **low coupling** (data coupling best, content coupling worst).
+- System organisation: repository, client–server, layered. Decomposition: object-oriented, function-oriented pipeline (pipe and filter).
+- Control styles: centralised (call–return, manager) vs event-based (broadcast, interrupt-driven).
+- **Reference architecture:** an idealised, generic architecture for a whole domain (OSI is the classic example), used to compare and guide real designs.
+- Client–server: thin vs fat client; two-tier vs three-tier. Distributed objects: CORBA-style middleware. CBSE: build from reusable components with defined interfaces.
+
+## 8.3 Testing, estimation, quality and configuration management
+
+**Syllabus:** unit, integration, system, component and acceptance testing; test case design and automation; testing metrics; algorithmic cost modelling; duration and staffing; SQA, formal technical reviews, statistical SQA; metrics; ISO standards; CMMI; SQA plan; configuration, change, version and release management; CASE tools.
+
+**Know cold**
+
+- Levels: unit → integration (top-down with stubs, bottom-up with drivers, big bang, sandwich) → system → **acceptance testing** (user acceptance; alpha at the developer's site, beta at the customer's).
+- **Regression testing:** re-running old tests after a change or fix to check nothing broke.
+- Black-box: equivalence partitioning, boundary-value analysis. White-box: statement, branch and basis-path coverage; cyclomatic complexity `V(G) = E − N + 2`.
+- **COCOMO (basic):** effort `E = a · KLOC^b` person-months; duration `D = c · E^d`; staff = E/D.
+
+  | Mode | a | b | c | d |
+  | --- | --- | --- | --- | --- |
+  | Organic | 2.4 | 1.05 | 2.5 | 0.38 |
+  | Semi-detached | 3.0 | 1.12 | 2.5 | 0.35 |
+  | Embedded | 3.6 | 1.20 | 2.5 | 0.32 |
+
+- **CMMI levels:** 1 Initial, 2 Managed, 3 Defined, 4 Quantitatively Managed, 5 Optimising. ISO 9001 = quality management systems.
+- FTRs: walkthroughs and inspections. Configuration management controls baselines, changes, versions and releases.
+
+## 8.4 OO fundamentals and analysis
+
+**Syllabus:** models, the requirement process, use cases, the OO development cycle, UML, conceptual models, associations and attributes, system behaviour.
+
+**Know cold**
+
+- **Use case:** a text story of an actor using the system to reach a goal (brief, casual, fully dressed). The **use case diagram** shows user-level functions: actors outside the system boundary, use cases inside, `include` and `extend`.
+- **Conceptual (domain) model:** real-world conceptual classes, associations and attributes — no methods.
+- **Behaviour modelling** shows how the system responds to events over time: system sequence diagrams, operation contracts, state and activity diagrams.
+- UML structural diagrams: class, object, component, deployment, package. Behavioural: use case, activity, state machine, sequence, communication (collaboration), timing.
+
+## 8.5 OO design
+
+**Syllabus:** analysis to design, elaborating use cases, collaboration diagrams, objects and patterns, visibility, class diagrams.
+
+**Know cold**
+
+- **GRASP patterns:** Information Expert, Creator, Controller, Low Coupling, High Cohesion, Polymorphism, Pure Fabrication, Indirection, Protected Variations.
+- **Visibility** = the ability of one object to see or reference another so it can send a message. Four kinds: attribute, parameter, local, global.
+- Design class diagram (DCD) adds methods, types and navigability to the domain model.
+- Reuse principles: favour composition, program to interfaces, open–closed principle. GoF patterns: creational, structural, behavioural.
+
+## 8.6 OO design implementation
+
+**Syllabus:** programming and development process; mapping designs to code; class definitions from DCDs; methods from collaboration diagrams; updating class definitions; classes in code; exceptions and errors.
+
+**Know cold**
+
+- Class definitions come from the DCD (attributes, method signatures); method bodies come from interaction (collaboration or sequence) diagrams.
+- An association becomes a reference attribute; one-to-many becomes a collection (list, map).
+- Implement from the least-coupled class to the most-coupled. Code and test together (test-first).
+
+## Before you move on
+
+- I can name the test level, the CMMI level and the GRASP pattern for any described situation.
+- I scored at least 8/10 on a Chapter 8 MCQ set.
+
+**Books for gaps only:** Ian Sommerville, *Software Engineering*; Roger Pressman, *Software Engineering: A Practitioner's Approach*; Craig Larman, *Applying UML and Patterns*.

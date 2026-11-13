@@ -1,0 +1,121 @@
+---
+title: "10. Project planning, design & implementation"
+description: NEC Chapter 10 (AALL10, common to all disciplines) — engineering drawing, engineering economics, CPM/PERT, project management and tendering, professional practice, NEC Act.
+sidebar:
+  label: "10. Project planning & NEC Act"
+  order: 10
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Code** AALL10 (same paper section for every engineering discipline) · **Questions** about 10 (6 in the model paper) · **Your position** gap, but pure memorisation · **Plan** Week 1, 14 h · **Target** 7/10
+
+<Aside type="tip" title="Why this comes first">
+CSE graduates usually skip this chapter, yet it is the most predictable one: sheet sizes, formulas, contract types and NEC Act facts. Learn it in Week 1 and revise it weekly with flashcards.
+</Aside>
+
+**Model-paper questions from this chapter** (paraphrased): A3 sheet dimensions; the depreciation method whose charge rises each year; optimising resources without extending project duration; capital structure and sources of finance; a society based on raising plants and animals; what the NEC Act requires of institutions. **Recalled from past sittings:** which contract is not cost-plus; the first-angle projection symbol; facts about the NEC registrar and auditor.
+
+## 10.1 Engineering drawing
+
+**Syllabus:** standard drawing sheets, dimensions, scale, line diagrams, orthographic and isometric projection, pictorial views, sectional drawings.
+
+**Know cold**
+
+- **ISO A-series sheets** (mm): A0 841 × 1189 (area 1 m²), A1 594 × 841, A2 420 × 594, **A3 297 × 420**, A4 210 × 297. Each size is half the one above; the ratio is 1 : √2.
+- The title block sits at the bottom right.
+- Lines: continuous thick = visible outlines; continuous thin = dimension, extension, leader and hatching lines; dashed = hidden edges; thin chain = centre lines; chain thick at the ends = cutting planes.
+- Scales: full 1 : 1, reducing (1 : 2, 1 : 100), enlarging (2 : 1).
+- **First-angle projection:** the object sits between the viewer and the plane; the top view is drawn **below** the front view; the side view from the left goes on the right. **Third-angle:** the plane sits between viewer and object; the top view goes **above** the front view. Each has a standard truncated-cone symbol — learn to tell them apart.
+- **Isometric:** the three axes are 120° apart (30° to the horizontal). An isometric *projection* uses the isometric scale (about 0.82 of true length); an isometric *view/drawing* uses true lengths.
+- Sectional views: full, half, offset, revolved; hatching at 45°.
+
+## 10.2 Engineering economics
+
+**Syllabus:** project cash flow, discount rate, interest and time value of money; discounted payback, NPV, IRR, MARR; comparing alternatives; depreciation and taxation in Nepal.
+
+**Know cold**
+
+- Compound interest: `F = P(1 + i)^n`; present worth `P = F / (1 + i)^n`. Effective annual rate `= (1 + r/m)^m − 1`.
+- **NPV** = sum of discounted cash flows minus the initial investment. Accept if NPV > 0.
+- **IRR** = the discount rate that makes NPV = 0. Accept if IRR ≥ MARR.
+- **MARR** = minimum attractive rate of return, the hurdle rate set by the cost of capital and risk.
+- Payback period ignores the time value of money; discounted payback doesn't. Benefit–cost ratio > 1 → accept.
+- Comparing alternatives: equal lives → present worth; unequal lives → annual worth (or the LCM of the lives); incremental analysis between pairs.
+- **Depreciation methods:**
+
+  | Method | Annual charge | Pattern |
+  | --- | --- | --- |
+  | Straight line | `(P − S) / n` | constant |
+  | Declining (diminishing) balance | fixed % of book value | falls each year |
+  | Sum of years' digits | `(n − t + 1) / SYD × (P − S)`, `SYD = n(n + 1)/2` | falls each year |
+  | Sinking fund | annual deposit plus interest | **rises each year** |
+
+- **Nepal taxation:** the Income Tax Act, 2058 sets depreciation by asset blocks using the diminishing-balance method: Block A 5% (buildings), B 25% (computers, furniture), C 20% (vehicles), D 15% (plant and machinery); Block E (intangibles) uses cost divided by useful life. Rates are in Schedule 2; annual Finance Acts change tax rates.
+
+## 10.3 Project planning and scheduling
+
+**Syllabus:** project classification, life-cycle phases, planning process, bar charts, CPM, PERT, resource levelling and smoothing, monitoring, evaluation and control.
+
+**Know cold**
+
+- Life cycle: concept/initiation → planning and design → execution → monitoring and control → closure.
+- **Bar (Gantt) chart:** simple, but shows no dependencies or critical path.
+- **CPM** (deterministic durations): the forward pass gives earliest start and finish (ES, EF); the backward pass gives latest (LS, LF). Total float `= LS − ES = LF − EF`. Free float `= ES of successor − EF`. The **critical path** has zero float and is the longest path.
+- **PERT** (probabilistic, beta distribution): expected time `te = (a + 4m + b) / 6`; `σ = (b − a) / 6`. Project σ = √(sum of variances on the critical path). `Z = (T − Te) / σ` gives the probability of finishing by T.
+- **Resource levelling:** caps resource use, and may **extend** the project. **Resource smoothing:** evens resource use **within float, without extending** the duration.
+- Crashing trades extra cost for shorter duration on critical activities.
+- Earned value: CV = EV − AC, SV = EV − PV, CPI = EV/AC, SPI = EV/PV.
+
+## 10.4 Project management
+
+**Syllabus:** information systems, project risk analysis and management, project financing, tendering and its process, contract management.
+
+**Know cold**
+
+- Risk process: identify → analyse (qualitative, quantitative) → respond (avoid, transfer, mitigate, accept) → monitor.
+- Financing: equity, debt (loans, bonds), grants, BOT/BOOT, public–private partnership. **Capital structure** = the mix of debt and equity used to fund the project.
+- Nepal public procurement is governed by the Public Procurement Act, 2063 and its Regulations; e-bidding runs on bolpatra.gov.np.
+- Tender process: prequalification → bid documents → invitation → bid submission with bid security → bid opening → evaluation → letter of acceptance → performance security → contract agreement.
+- **Contract types:** lump sum; item rate / unit rate (measured quantities); **cost-plus** (cost + percentage, cost + fixed fee, cost + incentive); turnkey / design–build; BOT. A lump-sum or item-rate contract is **not** cost-plus.
+- Contract management: variations, claims, extensions of time, dispute resolution (negotiation, dispute board, arbitration).
+
+## 10.5 Engineering professional practice
+
+**Syllabus:** environment and society; professional ethics; regulatory environment; contemporary engineering issues; occupational health and safety; roles of the Nepal Engineers' Association (NEA).
+
+**Know cold**
+
+- Ethics: public safety first, honesty, competence, confidentiality, avoiding conflicts of interest, no bribery.
+- **NEA** is the professional association (welfare and development of engineers). **NEC** is the statutory regulator (registration, recognition, conduct). Don't confuse them.
+- OHS: hazard identification, risk assessment, PPE, safety training, accident reporting.
+- Environmental studies before projects: IEE and EIA, under Nepal's environmental protection law.
+- Societies by economic base: hunting–gathering, pastoral, horticultural, agrarian, industrial, post-industrial.
+
+## 10.6 Engineering regulatory body — NEC Act and Regulations
+
+**Syllabus:** the Nepal Engineering Council (Act and Regulations).
+
+**Know cold**
+
+- **Nepal Engineering Council Act, 2055** — royal seal and publication 2055-11-27 BS (March 1999); first amendment 2079. **Regulations, 2057** — amended 2064, 2069 and 2080 (the third amendment took effect 16 May 2023).
+- No one may practise engineering in Nepal without registration with the Council; the Council also recognises engineering qualifications and educational institutions.
+- NEC functions: registration of engineers, recognition of degrees and institutions, monitoring of colleges, professional code of conduct and discipline.
+- Registration categories: General Registered Engineer, Professional Engineer, Non-Nepali Registered Engineer.
+- Commonly quoted (verify in the Act): the Council has 21 members; the Registrar is the member-secretary.
+
+<Aside type="caution" title="Read the Act itself">
+NEC has asked detailed questions here before (who appoints the auditor, the registrar's tenure). Those details aren't on this page yet. Read the official Act and Regulations PDFs below once in Week 1 and again in Week 7, and add any fact you'd want on a flashcard.
+</Aside>
+
+## Before you move on
+
+- I can draw a CPM network, find the critical path and compute floats.
+- I can compute NPV and SYD depreciation by hand.
+- I can name A0–A4 sizes and contract types from memory.
+
+## Sources
+
+- [NEC Act, 2055 (official PDF)](https://nec.gov.np/uploads/root/1763715733799_The%20Nepal%20Engineering%20Council%20Act,%202055%20(1999).pdf)
+- [NEC Regulations, 2057 with third amendment (official PDF)](https://nec.gov.np/uploads/root/1763715677170_Nepal%20Engineering%20Council%20Regulations,%202057%20(2001)%20with%20third%20amendment%202080%20(2023).pdf)
+- [Collegenp: NEC overview](https://www.collegenp.com/institute/nepal-engineering-council)
+- [Study Notes Nepal: depreciation blocks under the Income Tax Act](https://studynotesnepal.com/?p=4125)

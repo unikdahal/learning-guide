@@ -1,0 +1,90 @@
+---
+title: "5. Networks & security"
+description: NEC ACtE Chapter 5 (ACtE05) — OSI/TCP-IP, data link, IP and routing, transport, application protocols, network security.
+sidebar:
+  label: "5. Networks & security"
+  order: 5
+---
+**Code** ACtE05 · **Questions** about 10 (12 in the model paper) · **Your position** strong · **Plan** one sweep in Week 6, 7 h · **Target** 9/10
+
+NEC asks this chapter as **lookup facts**: port numbers, which layer, which protocol, which command. Learn the tables, then drill.
+
+**Model-paper questions from this chapter** (paraphrased): a physical-layer protocol; the OSI layer of PPP; types of routing algorithm; the transport protocol that does error control; an email protocol; which is not a firewall type; an account type needing the admin password; the connectionless unreliable protocol; the Windows command to view the ARP cache; the protocol on port 25; what FTP stands for; the OSI layer of SSL.
+
+## Syllabus by sub-chapter
+
+| Sub-chapter | Topics |
+| --- | --- |
+| 5.1 Models and physical layer | networking models, protocols and standards, OSI and TCP/IP, hubs, bridges, switches, routers, transmission media |
+| 5.2 Data link layer | services, error detection and correction, flow control, data link protocols, multiple access, LAN addressing and ARP, Ethernet (802.3), Token Bus (802.4), Token Ring (802.5), CSMA/CD, wireless LANs, PPP, WAN protocols |
+| 5.3 Network layer | Internet and classful addressing, subnetting, RIP, OSPF, BGP, unicast and multicast routing, shortest path, flooding, distance vector, link state, ARP, RARP, IP, ICMP, IPv6 formats, extension headers, IPv4→IPv6 transition, multicasting |
+| 5.4 Transport layer | transport service and protocols, ports and sockets, connection establishment and release, flow control and buffering, multiplexing, congestion control |
+| 5.5 Application layer | HTTP, HTTPS, FTP, PuTTY, WinSCP, email, DNS, P2P, socket programming, application servers, traffic analysers (MRTG, PRTG, SNMP, Packet Tracer, Wireshark) |
+| 5.6 Network security | types of security and attacks, cryptography, RSA, digital signatures, PGP, SSL, IPsec, VPN, WEP, firewalls |
+
+## Know cold
+
+**Layers and devices**
+
+| OSI layer | Unit | Examples |
+| --- | --- | --- |
+| 7 Application | data | HTTP, FTP, SMTP, DNS, SNMP |
+| 6 Presentation | data | encryption, compression, encoding |
+| 5 Session | data | session setup, dialogue control |
+| 4 Transport | segment | TCP, UDP |
+| 3 Network | packet | IP, ICMP, routers |
+| 2 Data link | frame | Ethernet, PPP, switches, bridges, MAC addresses |
+| 1 Physical | bits | cables, hubs, repeaters, RS-232, signalling |
+
+TCP/IP has four layers: link (network access), internet, transport, application.
+
+**Ports**
+
+| Port | Protocol | Port | Protocol |
+| --- | --- | --- | --- |
+| 20/21 | FTP data/control | 110 | POP3 |
+| 22 | SSH (SFTP, SCP — WinSCP, PuTTY) | 143 | IMAP |
+| 23 | Telnet | 161/162 | SNMP |
+| **25** | **SMTP** | 443 | HTTPS |
+| 53 | DNS | 3389 | RDP |
+| 67/68 | DHCP | 80 | HTTP |
+
+**Addressing**
+
+- Classful: A 1–126 (/8), B 128–191 (/16), C 192–223 (/24), D 224–239 (multicast), E 240–255 (reserved); 127.x is loopback.
+- Private ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16.
+- Usable hosts per subnet = `2^h − 2` (h = host bits).
+- IPv6: 128-bit, fixed 40-byte header, no header checksum, no broadcast (anycast instead). Transition: dual stack, tunnelling, header translation.
+- ARP: IP → MAC. RARP: MAC → IP. On Windows, `arp -a` shows the ARP cache. ICMP carries `ping` and `traceroute`.
+
+**Data link**
+
+- Error detection: parity, checksum, CRC. Correction: Hamming code (`2^r ≥ m + r + 1`).
+- Flow control: stop-and-wait; sliding window (Go-Back-N window ≤ `2^m − 1`, Selective Repeat ≤ `2^(m−1)`).
+- CSMA/CD for wired Ethernet; CSMA/CA for Wi-Fi (802.11). 802.3 Ethernet, 802.4 token bus, 802.5 token ring.
+
+**Routing and transport**
+
+- RIP: distance vector, hop count, max 15. OSPF: link state, Dijkstra. BGP: path vector, between autonomous systems. Flooding sends on every link.
+- **TCP:** connection-oriented, reliable (sequence numbers, ACKs, retransmission), flow and congestion control; three-way handshake SYN → SYN-ACK → ACK. **UDP:** connectionless and unreliable, low overhead (DNS, streaming).
+- Congestion control: slow start, congestion avoidance (additive increase, multiplicative decrease), fast retransmit; leaky bucket and token bucket shaping.
+
+**Application**
+
+- HTTP is stateless; cookies add state. DNS resolution is recursive or iterative. SMTP pushes mail; POP3 and IMAP retrieve it. FTP = File Transfer Protocol, with separate control and data connections.
+- MRTG and PRTG graph traffic using SNMP; Wireshark captures packets; Cisco Packet Tracer simulates networks.
+
+**Security**
+
+- CIA triad: confidentiality, integrity, availability. Passive attacks (eavesdropping, traffic analysis) vs active (masquerade, replay, modification, denial of service).
+- Symmetric: DES (56-bit key), 3DES, AES (128/192/256). Asymmetric: RSA — two keys, public and private.
+- **RSA:** `n = pq`, `φ = (p − 1)(q − 1)`, choose e coprime with φ, `d = e⁻¹ mod φ`. Encrypt `C = M^e mod n`, decrypt `M = C^d mod n`.
+- Digital signature: sign with the sender's private key, verify with the sender's public key.
+- PGP secures email; SSL/TLS secures TCP connections (sits between transport and application); IPsec secures the network layer (AH authenticates, ESP encrypts; transport and tunnel modes); VPNs commonly use IPsec or TLS; WEP (RC4) is broken — WPA2/WPA3 replace it.
+- Firewall types: packet filter, stateful inspection, application-level gateway (proxy), circuit-level gateway.
+
+## Before you move on
+
+- I can write the ports table and OSI devices from memory.
+- I can subnet a /24 into n subnets in under 4 minutes.
+- I scored at least 9/10 on a Chapter 5 MCQ set.

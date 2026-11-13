@@ -1,0 +1,71 @@
+---
+title: "7. DSA, DBMS & OS"
+description: NEC ACtE Chapter 7 (ACtE07) — data structures and algorithms, databases and transactions, operating systems.
+sidebar:
+  label: "7. DSA, DBMS & OS"
+  order: 7
+---
+**Code** ACtE07 · **Questions** about 10 (8 in the model paper) · **Your position** strong · **Plan** one sweep in Week 6, 7 h · **Target** 9/10
+
+Your day job covers most of this. Use it as a **textbook-definition** check: NEC wants the classic textbook answer, not the production one.
+
+**Model-paper questions from this chapter** (paraphrased): the division-method hash function; the normal form that reduces redundancy; what is stored before a transaction runs; primitives that enforce mutual exclusion; the previous pointer in a circular doubly linked list; best-case complexity of merge sort; what happens without mutual exclusion; the cause of a page fault.
+
+## Syllabus by sub-chapter
+
+| Sub-chapter | Topics |
+| --- | --- |
+| 7.1 Lists and trees | ADTs, Big O/Ω/Θ, stacks and queues, infix→postfix and evaluation, array and linked lists (singly, doubly, circular), binary tree operations and traversals, height/level/depth, AVL trees |
+| 7.2 Sorting, searching, graphs | insertion, selection, exchange, merge, radix, shell and heap sort; sequential, binary and tree search; hashing and collisions; graph representations, transitive closure, Warshall, DFS/BFS, topological sort, MST (Prim, Kruskal, round-robin), Dijkstra |
+| 7.3 Data models, normalisation, SQL | data abstraction and independence, schema and instance, E-R model, weak entities, keys, 1NF–BCNF, functional dependencies, constraints, DDL/DML, views, assertions, triggers, relational algebra, query cost, optimisation |
+| 7.4 Transactions and recovery | ACID, serializability, lock-based protocols, deadlock handling, failure classes, log-based recovery |
+| 7.5 OS and processes | OS types, structure and services, process states and control, threads, scheduling, concurrency, critical regions, race conditions, semaphores, mutexes, message passing, monitors, classical synchronisation problems |
+| 7.6 Memory, files, administration | swapping, free-space management, virtual memory, demand paging, page replacement, files and directories, allocation and fragmentation, disk layout, file-system performance, user accounts, startup and shutdown |
+
+## Know cold
+
+**Complexities**
+
+| Sort | Best | Average | Worst |
+| --- | --- | --- | --- |
+| Insertion | n | n² | n² |
+| Selection | n² | n² | n² |
+| Bubble (exchange) | n | n² | n² |
+| Merge | **n log n** | n log n | n log n |
+| Heap | n log n | n log n | n log n |
+| Quick | n log n | n log n | n² |
+| Radix | d(n + k) | d(n + k) | d(n + k) |
+
+Binary search O(log n); hash lookup O(1) average.
+
+**Structures**
+
+- Infix → postfix uses an operator stack; evaluating postfix uses an operand stack.
+- In a circular doubly linked list, the head's previous pointer points to the last node.
+- Binary tree with height h (root at height 0) has at most `2^(h+1) − 1` nodes; check which convention a question uses.
+- AVL balance factor ∈ −1, 0, +1; rotations LL, RR, LR, RL.
+- Hashing: division method `h(k) = k mod m` (m prime, away from powers of 2). Collisions: chaining, or open addressing (linear probing, quadratic probing, double hashing).
+- BFS uses a queue, DFS a stack. Topological sort works only on a DAG. Warshall computes transitive closure in O(n³). Prim and Kruskal give MSTs; Dijkstra needs non-negative weights.
+
+**Databases**
+
+- Keys: super → candidate (minimal) → primary; foreign keys reference another relation's key. A weak entity has no key of its own (double rectangle, partial key).
+- 1NF atomic values; 2NF + no partial dependency on a key; 3NF + no transitive dependency; **BCNF:** every determinant is a candidate key. Normalisation reduces redundancy and anomalies.
+- DDL (CREATE, ALTER, DROP), DML (SELECT, INSERT, UPDATE, DELETE), DCL (GRANT, REVOKE).
+- **ACID:** atomicity, consistency, isolation, durability.
+- Two-phase locking (growing then shrinking) guarantees conflict serializability; strict 2PL also avoids cascading aborts. Deadlock prevention: wait-die, wound-wait.
+- **Write-ahead logging:** the log record (old and new values) is written to stable storage before the data change, enabling undo and redo. Checkpoints shorten recovery.
+
+**Operating systems**
+
+- Process states: new → ready → running → waiting → terminated. The PCB stores the process's context.
+- Scheduling: FCFS (convoy effect), SJF/SRTF (optimal average wait, may starve long jobs — fix with aging), round robin (time quantum), priority.
+- Critical-section requirements: mutual exclusion, progress, bounded waiting. **Without mutual exclusion → race conditions** and inconsistent data.
+- Semaphores use `wait` (P) and `signal` (V); mutexes and monitors also enforce mutual exclusion. Classical problems: producer–consumer, readers–writers, dining philosophers.
+- Deadlock needs all four Coffman conditions: mutual exclusion, hold and wait, no preemption, circular wait. Banker's algorithm avoids deadlock.
+- **Page fault:** the referenced page is not in main memory. Replacement: FIFO (Belady's anomaly), optimal, LRU. Thrashing = too much paging.
+- Paging causes internal fragmentation; segmentation and contiguous allocation cause external fragmentation. File allocation: contiguous, linked, indexed.
+
+## Before you move on
+
+- I scored at least 9/10 on a Chapter 7 MCQ set, and logged every miss.

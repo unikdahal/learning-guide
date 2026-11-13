@@ -1,0 +1,102 @@
+---
+title: "6. Theory of computation & graphics"
+description: NEC ACtE Chapter 6 (ACtE06) — finite automata, context-free languages, Turing machines, graphics hardware, 2D and 3D transformations.
+sidebar:
+  label: "6. Theory of computation & graphics"
+  order: 6
+---
+**Code** ACtE06 · **Questions** about 10 · **Your position** revise · **Plan** Week 5, 14 h · **Target** 7/10
+
+**Model-paper questions from this chapter** (paraphrased): limitations of a finite state machine; the machine that accepts context-free grammars; a Turing machine's advantage over an FSM; the translation equation; what a composite transformation is; the name of an FSM's initial state; ε in a CFG; whether the halting problem is decidable; what controls a vector display; which property shear doesn't preserve.
+
+## 6.1 Finite automata
+
+**Syllabus:** finite automata and finite state machines; DFA and NFA equivalence; minimisation; regular expressions and their equivalence with FA; pumping lemma for regular languages.
+
+**Know cold**
+
+- DFA = (Q, Σ, δ, q0, F); q0 is the **start (initial) state**. Moore machines output on states, Mealy machines on transitions.
+- DFA and NFA (and ε-NFA) accept exactly the same languages. Subset construction can blow up to `2^n` DFA states.
+- Minimisation merges equivalent states (partition refinement; Myhill–Nerode).
+- **Limitation of FSMs:** finite memory, so they can't count without bound — `a^n b^n` and balanced brackets are not regular.
+- Kleene's theorem: regular expressions ≡ finite automata.
+- The **pumping lemma** is used to prove a language is **not** regular.
+- Regular languages are closed under union, concatenation, star, complement and intersection.
+
+## 6.2 Context-free languages
+
+**Syllabus:** CFGs; derivation trees (leftmost, rightmost); parse trees; ambiguous grammars; CNF, GNF, BNF; pushdown automata; CFL–PDA equivalence; pumping lemma for CFLs; properties of CFLs.
+
+**Know cold**
+
+- CFG = (V, T, P, S). An ε-production `A → ε` lets a variable vanish (ε is the empty string).
+- **Ambiguous:** some string has two parse trees (equivalently, two leftmost derivations).
+- **CNF:** every rule is `A → BC` or `A → a`. **GNF:** every rule is `A → aα` (a terminal followed by variables). **BNF** is a notation for writing grammars (`::=`).
+- **PDA** = finite automaton + stack; accepts exactly the CFLs. Deterministic PDAs are strictly weaker than non-deterministic ones.
+- CFLs are closed under union, concatenation and star, but **not** under intersection or complement.
+
+## 6.3 Turing machines
+
+**Syllabus:** TM notation and acceptance; TM as recogniser, computer of functions and enumerator; multi-track, multi-tape and non-deterministic TMs; Church–Turing thesis; universal TM; computational complexity, time and space, intractability, reducibility.
+
+**Know cold**
+
+- A TM has an infinite read/write tape, so it has unbounded memory — its advantage over an FSM (and over a PDA's stack-only access).
+- Multi-tape, multi-track and non-deterministic TMs all recognise the same languages as the basic TM (they may be faster).
+- **Universal TM:** takes an encoded TM and its input and simulates it — a programmable computer.
+- **Church–Turing thesis:** anything algorithmically computable is computable by a TM.
+- The **halting problem is undecidable.**
+- **Chomsky hierarchy:**
+
+  | Type | Grammar | Machine |
+  | --- | --- | --- |
+  | 0 | unrestricted | Turing machine |
+  | 1 | context-sensitive | linear bounded automaton |
+  | 2 | context-free | pushdown automaton |
+  | 3 | regular | finite automaton |
+
+- P = solvable in polynomial time; NP = verifiable in polynomial time; NP-complete = in NP and every NP problem reduces to it. Reducing A to B shows B is at least as hard as A.
+
+## 6.4 Graphics hardware and software
+
+**Syllabus:** overview of computer graphics; display technology; raster-scan architecture; vector displays; display processors; input and output devices; graphics software and standards.
+
+**Know cold**
+
+- **Raster scan:** the beam sweeps every line; the image is held in a **frame buffer**. Frame buffer size = resolution × bits per pixel (1024 × 768 × 24 bits ≈ 2.25 MB).
+- **Random-scan (vector) display:** draws lines directly from a **display file** of commands, executed by the **display processor**; sharp lines, poor at filled areas.
+- CRT: electron gun, focusing and deflection systems, phosphor (persistence). Also LCD, LED, plasma.
+- Standards and APIs: GKS, PHIGS, OpenGL.
+
+## 6.5 2D transformations and clipping
+
+**Syllabus:** translation, rotation, scaling, reflection, shear; composite transformations; 2D viewing pipeline; window-to-viewport; Cohen–Sutherland and Liang–Barsky line clipping.
+
+**Know cold**
+
+- Homogeneous coordinates use 3 × 3 matrices so translation becomes a multiplication.
+- Translation: `x' = x + tx`, `y' = y + ty`. Rotation about the origin: `x' = x cos θ − y sin θ`, `y' = x sin θ + y cos θ`. Scaling: `x' = sx · x`, `y' = sy · y`.
+- Reflection about the x-axis negates y; about the y-axis negates x; about `y = x` swaps x and y.
+- **Shear** keeps parallel lines parallel and preserves area, but **does not preserve angles or lengths**.
+- **Composite transformation:** several transformations multiplied into one matrix; order matters (applied right to left). Rotating about a point = translate to origin, rotate, translate back.
+- Viewing pipeline: modelling → world → viewing → normalised → device coordinates.
+- **Cohen–Sutherland:** 4-bit region codes (top, bottom, right, left). Both codes 0000 → accept; bitwise AND not 0000 → reject; otherwise clip and repeat.
+- **Liang–Barsky:** parametric form with `p` and `q` values; fewer intersection calculations, usually faster.
+
+## 6.6 3D transformations and projections
+
+**Syllabus:** 3D translation, rotation, scaling, reflection, shear; composite transformations; 3D viewing pipeline; orthographic, parallel and perspective projections.
+
+**Know cold**
+
+- 4 × 4 homogeneous matrices; rotation about the x, y or z axis.
+- **Parallel projection** (projectors parallel): orthographic (front, top, side; axonometric — isometric, dimetric, trimetric) and oblique (cavalier, cabinet).
+- **Perspective projection** (projectors meet at the centre of projection): farther objects look smaller, parallel lines converge at vanishing points; one-, two- and three-point perspective.
+
+## Before you move on
+
+- I can draw a DFA for a simple language and recite the Chomsky table.
+- I can write the 2D rotation matrix and run Cohen–Sutherland by hand.
+- I scored at least 7/10 on a Chapter 6 MCQ set.
+
+**Books for gaps only:** Hopcroft, Motwani & Ullman, *Introduction to Automata Theory*; Hearn & Baker, *Computer Graphics*.
