@@ -1,0 +1,139 @@
+---
+title: "28. BJT biasing and the load line"
+description: Why transistors need biasing, the DC load line and Q-point, fixed bias vs collector-feedback vs voltage-divider bias with worked numbers, stability and thermal runaway.
+sidebar:
+  label: "28. Biasing and load line"
+  order: 28
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+import LoadLineLab from '@components/visuals/electronics/LoadLineLab.astro';
+
+**Goal:** draw a DC load line, place the Q-point, compute the bias of a voltage-divider circuit, and explain why that circuit is the most stable.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.4** ("BJT configuration and biasing") and **Lok Sewa Computer Engineer 4.2.3** (biasing and amplification). "Which bias is most stable?" and "what is thermal runaway?" are favourite questions.
+</Aside>
+
+## 1. Why bias?
+
+An amplifier must work in the **active** region for the whole signal swing. A signal is AC — it swings both ways — so we first set a steady DC operating point in the middle of the active region, the **Q-point (quiescent point)**, and let the signal ride on top of it. Setting that DC point is **biasing**.
+
+A badly placed Q-point **clips** the signal: too close to saturation clips one side, too close to cut-off clips the other.
+
+## 2. The DC load line
+
+In a CE stage with collector resistor R_C, KVL around the output gives:
+
+`V_CE = V_CC − I_C R_C`
+
+That's a straight line on the output characteristics, the **DC load line**:
+
+- I_C = 0 → V_CE = V_CC (cut-off end).
+- V_CE = 0 → I_C = V_CC / R_C (saturation end).
+
+The transistor's operating point must lie on this line; the base current picks **where**. Play with it:
+
+<LoadLineLab />
+
+## 3. Fixed bias — simple but unstable
+
+One resistor R_B from V_CC to the base: `I_B = (V_CC − 0.7)/R_B`, `I_C = β I_B`.
+
+**Worked example.** V_CC = 12 V, R_B = 470 kΩ, R_C = 2.2 kΩ, β = 100.
+I_B = 11.3/470k = 24 µA; I_C = 2.4 mA; V_CE = 12 − 2.4 × 2.2 = **6.7 V** — nicely mid-line.
+
+Now swap in a transistor with β = 200 (same part number — β varies widely): I_C = 4.8 mA, V_CE = 12 − 10.6 = **1.4 V** — almost saturated. **The Q-point depends directly on β**, which also rises with temperature. Stability factor S = 1 + β: bad.
+
+## 4. Collector-feedback bias — better
+
+R_B goes from the **collector** (not V_CC) to the base. If I_C rises, V_C falls, which cuts I_B and pulls I_C back. Negative feedback, moderately stable.
+
+## 5. Voltage-divider bias — the standard
+
+<Figure caption="Voltage-divider bias: R1 and R2 hold the base voltage; the emitter resistor RE sets the current.">
+  <Circuit name="vdb" label="Common-emitter amplifier biased by a voltage divider: R1 from VCC to the base node and R2 from the base node to ground; collector resistor RC from VCC to the collector, where the output is taken; emitter resistor RE from the emitter to ground." />
+</Figure>
+
+**How to solve it (the approximate method, valid when β·R_E ≥ 10·R2):**
+
+1. Base voltage from the divider: `V_B = V_CC × R2/(R1 + R2)`.
+2. Emitter voltage: `V_E = V_B − 0.7`.
+3. Emitter current: `I_E = V_E / R_E`, and `I_C ≈ I_E`.
+4. `V_CE = V_CC − I_C (R_C + R_E)`.
+
+**Worked example.** V_CC = 12 V, R1 = 47 kΩ, R2 = 10 kΩ, R_C = 2.2 kΩ, R_E = 1 kΩ, β = 100.
+- V_B = 12 × 10/57 = **2.11 V**
+- V_E = 1.41 V → I_E = 1.41 mA ≈ I_C
+- V_C = 12 − 1.41 × 2.2 = 8.9 V; V_CE = 12 − 1.41 × 3.2 = **7.5 V**
+
+**β never appeared.** Double β to 200 and the Q-point barely moves. That's why this is the most stable and most used bias. The emitter resistor provides the feedback: if I_C rises, V_E rises, so V_BE falls, so I_B falls, which pulls I_C back.
+
+## 6. Stability and thermal runaway
+
+The Q-point drifts with temperature because:
+1. I_CBO (leakage) doubles about every 10 °C;
+2. V_BE falls about 2.5 mV per °C;
+3. β rises with temperature.
+
+**Thermal runaway:** more heat → more I_C → more power `V_CE × I_C` → more heat… until the transistor destroys itself. Prevented by stable bias (an emitter resistor), heat sinks and correct ratings.
+
+The **stability factor** S = ∂I_C/∂I_CBO measures sensitivity: fixed bias S = 1 + β (worst); voltage-divider S is small (best).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is biasing? Explain voltage-divider bias and show why it is the most stable biasing method.
+
+<details>
+<summary>Model answer</summary>
+
+**Biasing** is the application of DC voltages to a transistor to set a fixed operating point (Q-point) in the active region, so that an AC signal is amplified without distortion. The Q-point must also stay stable against changes in β and temperature.
+
+**DC load line.** From V_CE = V_CC − I_C R_C, the line joins (V_CC, 0) and (0, V_CC/R_C); the Q-point lies on it, ideally near the middle. *(Sketch output characteristics with the load line and Q.)*
+
+**Voltage-divider bias.** R1 and R2 form a divider from V_CC fixing the base voltage; R_C is in the collector and R_E in the emitter. *(Draw.)*
+- `V_B = V_CC R2/(R1 + R2)`, `V_E = V_B − V_BE`, `I_C ≈ I_E = V_E/R_E`, `V_CE = V_CC − I_C(R_C + R_E)`.
+
+**Why it is stable.**
+1. I_C depends on V_B, V_BE and R_E — **not on β** — so transistor replacement or temperature changes in β hardly move the Q-point.
+2. R_E provides negative feedback: if I_C rises, V_E rises, V_BE falls, I_B falls and I_C is restored.
+3. Its stability factor is small (close to 1 with a stiff divider), compared with 1 + β for fixed bias.
+
+**Example.** V_CC = 12 V, R1 = 47 kΩ, R2 = 10 kΩ, R_C = 2.2 kΩ, R_E = 1 kΩ: V_B = 2.11 V, I_C ≈ 1.41 mA, V_CE ≈ 7.5 V.
+
+**Note.** For AC, R_E is bypassed by a capacitor to keep the voltage gain high.
+
+</details>
+
+## Check yourself
+
+1. The DC load line of a CE amplifier joins:
+   (a) (0, 0) and (V_CC, V_CC/R_C) (b) (V_CC, 0) and (0, V_CC/R_C) (c) (V_CC, V_CC) and (0, 0) (d) (0, V_CC) and (V_CC/R_C, 0)
+
+<details><summary>Answer</summary>(b) in (V_CE, I_C) coordinates.</details>
+
+2. The most stable biasing method is:
+   (a) fixed bias (b) collector-to-base bias (c) voltage-divider bias (d) no bias
+
+<details><summary>Answer</summary>(c)</details>
+
+3. In fixed bias, the stability factor S is:
+   (a) 0 (b) 1 (c) 1 + β (d) β/2
+
+<details><summary>Answer</summary>(c) 1 + β — the worst.</details>
+
+4. V_CC = 10 V, R_C = 2 kΩ, I_C = 3 mA. V_CE is:
+   (a) 4 V (b) 6 V (c) 3 V (d) 10 V
+
+<details><summary>Answer</summary>(a) 10 − 3 × 2 = 4 V.</details>
+
+5. Thermal runaway is prevented mainly by:
+   (a) removing R_E (b) a stable bias with an emitter resistor and heat sinking (c) increasing β (d) reverse biasing BE
+
+<details><summary>Answer</summary>(b)</details>
+
+6. In voltage-divider bias with R1 = 30 kΩ, R2 = 10 kΩ, V_CC = 12 V, R_E = 1 kΩ, I_E is about:
+   (a) 2.3 mA (b) 3 mA (c) 1 mA (d) 0.7 mA
+
+<details><summary>Answer</summary>(a) V_B = 3 V, V_E = 2.3 V, I_E = 2.3 mA.</details>

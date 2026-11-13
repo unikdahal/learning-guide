@@ -86,6 +86,37 @@ L and C in parallel (with R) resonate at the same f0 = 1/(2π√LC) for the idea
 - Both have **unity** power factor at resonance.
 - f0 doesn't depend on R; Q and bandwidth do.
 
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is series resonance? Derive the resonant frequency and explain its characteristics, quality factor and bandwidth.
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Definition.** A series R-L-C circuit is at resonance when its inductive and capacitive reactances are equal, so the net reactance is zero and the circuit behaves as a pure resistance.
+
+**Resonant frequency.** `X_L = X_C` → `2πf₀L = 1/(2πf₀C)` → `f₀² = 1/(4π²LC)` → **`f₀ = 1/(2π√(LC))`**.
+
+**Characteristics at resonance.**
+1. Impedance is minimum: Z = R.
+2. Current is maximum: I₀ = V/R.
+3. Power factor is unity; voltage and current in phase; power is maximum.
+4. V_L and V_C are equal and 180° apart, and each equals Q·V (**voltage magnification**).
+5. Below f₀ the circuit is capacitive; above f₀ inductive.
+6. Called an **acceptor** circuit because it accepts (passes) the resonant frequency.
+
+**Quality factor.** `Q = V_L/V = ω₀L/R = (1/R)√(L/C)` — a measure of selectivity.
+
+**Bandwidth.** The half-power points f₁ and f₂ are where I = I₀/√2. Bandwidth `BW = f₂ − f₁ = f₀/Q = R/(2πL)`. Higher Q → narrower bandwidth → sharper selectivity. *(Draw the I–f curve with f₁, f₀, f₂ and the 0.707 I₀ line.)*
+
+**Example.** L = 0.1 H, C = 10 µF, R = 20 Ω: f₀ ≈ 159 Hz, Q = 5, BW ≈ 32 Hz; with 10 V supply, V_L = V_C = 50 V.
+
+**Applications.** Radio tuning, band-pass filters, oscillators.
+
+</details>
+
 ## Check yourself
 
 1. Resonance occurs when:

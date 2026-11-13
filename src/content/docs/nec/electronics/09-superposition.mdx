@@ -72,6 +72,29 @@ Power is `I²R` — it depends on the **square** of current, which isn't linear.
 For two sources, nodal analysis is usually faster. Superposition shines when sources are of different kinds (a DC source and an AC signal together, as in every transistor amplifier you'll meet in Part 6) — you analyse the DC and AC parts separately and add.
 </Aside>
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** State the superposition theorem. Explain the procedure and its limitations.
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Statement.** In a linear, bilateral network containing more than one independent source, the response (current or voltage) in any element equals the algebraic sum of the responses caused by each source acting alone, all other independent sources being replaced by their internal resistances.
+
+**Procedure.**
+1. Keep one source; replace other ideal voltage sources by short circuits and ideal current sources by open circuits (keep internal resistances).
+2. Find the required current/voltage due to this source.
+3. Repeat for every source.
+4. Add the individual responses algebraically, taking directions into account.
+
+**Example.** In the two-source circuit (10 V, 6 V), the middle 4 Ω current is 1.25 A due to the 10 V source and 0.375 A due to the 6 V source, so 1.625 A in total.
+
+**Limitations.** Not applicable to non-linear circuits or directly to power (P ∝ I²); dependent sources are never removed.
+
+</details>
+
 ## Check yourself
 
 1. The superposition theorem applies to:

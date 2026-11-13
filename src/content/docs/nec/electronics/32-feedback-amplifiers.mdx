@@ -1,0 +1,109 @@
+---
+title: "32. Feedback amplifiers"
+description: Negative feedback from scratch — the gain formula, why it stabilises gain and widens bandwidth, its effect on distortion and impedance, the four feedback topologies, and positive feedback.
+sidebar:
+  label: "32. Feedback amplifiers"
+  order: 32
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** use `A_f = A/(1 + Aβ)`, list the benefits and cost of negative feedback, and match each topology to its effect on input and output impedance.
+
+<Aside type="note" title="Where this scores for you">
+**Lok Sewa Computer Engineer 4.2.5** (feedback amplifiers, oscillators) — "advantages of negative feedback" is a classic short question. **NEC 1.5–1.6** use the idea: oscillators are positive feedback, op-amps run on negative feedback.
+</Aside>
+
+## 1. The idea
+
+Take a fraction β of the output and feed it back to the input:
+
+- **Negative feedback:** the fed-back signal **opposes** the input. The amplifier corrects its own errors.
+- **Positive feedback:** it **adds** to the input. Gain grows, and at the limit the circuit oscillates (lesson 34).
+
+Engineering systems everywhere use negative feedback: a thermostat, cruise control, the body's temperature regulation — and every op-amp circuit.
+
+## 2. The gain formula
+
+With open-loop gain A and feedback fraction β:
+
+`A_f = A / (1 + Aβ)`
+
+- `Aβ` is the **loop gain**; `1 + Aβ` is the **amount of feedback** (often in dB).
+- If `Aβ ≫ 1`, then **`A_f ≈ 1/β`** — the gain depends only on the feedback network (usually two resistors), **not on the transistor**.
+
+**Worked example.** A = 1,000, β = 0.1: A_f = 1,000/101 = **9.90**. Now A drops by half to 500 (a different transistor, or heat): A_f = 500/51 = **9.80**. A 50% change in A caused a **1%** change in A_f. That's the point.
+
+## 3. What negative feedback buys — and costs
+
+**Benefits:**
+1. **Stable gain** — insensitive to transistor variations and temperature.
+2. **Wider bandwidth** — gain × bandwidth stays roughly constant, so dividing gain by (1 + Aβ) multiplies bandwidth by about the same factor.
+3. **Less distortion and noise** generated inside the loop — reduced by (1 + Aβ).
+4. **Controlled input and output impedances** (next section).
+
+**Cost:** lower gain — fixed by adding more stages, since gain is cheap and stability isn't.
+
+## 4. Four topologies
+
+Two questions: what's **sampled** at the output (voltage or current), and how it's **mixed** at the input (series or shunt/parallel)?
+
+| Topology | Samples | Mixes | Input impedance | Output impedance | Stabilises | Example |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Voltage-series** (series-shunt) | voltage | series | **↑** increases | **↓** decreases | voltage gain | op-amp non-inverting, emitter follower |
+| **Voltage-shunt** (shunt-shunt) | voltage | shunt | ↓ | ↓ | transresistance | op-amp inverting |
+| **Current-series** (series-series) | current | series | ↑ | ↑ | transconductance | CE stage with un-bypassed R_E |
+| **Current-shunt** (shunt-series) | current | shunt | ↓ | ↑ | current gain | — |
+
+Rule of thumb: **series mixing raises input impedance; shunt lowers it. Voltage sampling lowers output impedance; current sampling raises it** — each by the factor (1 + Aβ).
+
+## 5. Stability
+
+Too much feedback with too much phase shift around the loop can turn negative feedback into positive at some frequency, and the amplifier oscillates. Designers check **gain and phase margins** to make sure that never happens.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** What is negative feedback? Derive the gain with feedback and state its advantages.
+
+<details>
+<summary>Model answer</summary>
+
+**Definition.** Negative feedback returns a fraction β of the output to the input in opposition to the input signal. *(Draw the block diagram: input → summing point → amplifier A → output, with β back to the summing point.)*
+
+**Derivation.** Error signal `e = V_s − βV_o`; output `V_o = A e = A(V_s − βV_o)`. So `V_o(1 + Aβ) = A V_s`, giving **`A_f = A/(1 + Aβ)`**. If Aβ ≫ 1, A_f ≈ 1/β.
+
+**Advantages.**
+1. Gain becomes stable and predictable.
+2. Bandwidth increases (gain–bandwidth product constant).
+3. Non-linear distortion and internal noise reduce.
+4. Input and output impedances can be raised or lowered as needed (series/shunt, voltage/current).
+
+**Disadvantage.** Overall gain is reduced; excessive loop phase shift can cause oscillation.
+
+</details>
+
+## Check yourself
+
+1. With negative feedback, the closed-loop gain is:
+   (a) A(1 + Aβ) (b) A/(1 + Aβ) (c) A/(1 − Aβ) (d) 1 + Aβ
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Negative feedback in an amplifier:
+   (a) increases gain and bandwidth (b) decreases gain, increases bandwidth (c) increases distortion (d) decreases stability
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Voltage-series feedback makes the input impedance:
+   (a) increase (b) decrease (c) zero (d) unchanged
+
+<details><summary>Answer</summary>(a) and output impedance decreases.</details>
+
+4. A = 200, β = 0.05. A_f is:
+   (a) 200 (b) 18.2 (c) 20 (d) 10
+
+<details><summary>Answer</summary>(b) 200/(1 + 10) ≈ 18.2.</details>
+
+5. Positive feedback is used in:
+   (a) voltage amplifiers (b) oscillators (c) regulators (d) attenuators
+
+<details><summary>Answer</summary>(b)</details>

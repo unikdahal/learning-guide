@@ -1,0 +1,158 @@
+---
+title: "25. The PN junction and the diode"
+description: How a PN junction forms, the depletion region and barrier potential, forward and reverse bias, the V–I characteristic and diode equation, breakdown, diode models, and special diodes.
+sidebar:
+  label: "25. PN junction and diode"
+  order: 25
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** explain why a diode conducts one way, sketch and label its V–I curve, use the 0.7 V model, and know Zener, LED, photodiode, Schottky and varactor diodes.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.4** — "semiconductor diode and its characteristics": knee voltage, reverse saturation current, breakdown types, special diodes. **Lok Sewa Computer Engineer 4.2.1** — "Explain the V–I characteristics of a PN junction diode" is a standard written question (model answer below).
+</Aside>
+
+## 1. Forming the junction
+
+Join p-type and n-type silicon in one crystal:
+
+1. Electrons from the n side **diffuse** into the p side, and holes from p into n (lesson 24, diffusion).
+2. Near the junction they meet and **recombine** — they cancel each other out.
+3. What's left behind is a thin layer of **fixed ions** with no free carriers: negative acceptor ions on the p side, positive donor ions on the n side. This is the **depletion region**.
+4. Those ions create an electric field pointing from n to p, which pushes back against further diffusion. Equilibrium is reached quickly.
+5. The voltage across the depletion region is the **barrier (built-in) potential**: about **0.7 V for silicon, 0.3 V for germanium**.
+
+<Figure caption="A PN junction at equilibrium: majority carriers on each side, and a depletion region of fixed ions with a built-in field between them.">
+  <Circuit name="pn-junction" label="Left block: P-type with hollow circles for holes. Right block: N-type with dots for free electrons. In the middle, a dashed depletion region containing minus signs on the P side and plus signs on the N side, with an arrow for the built-in field pointing from N to P." />
+</Figure>
+
+## 2. Forward bias: it conducts
+
+Connect **p to +** and **n to −**.
+
+- The external voltage opposes the barrier, so the depletion region **narrows**.
+- Once the applied voltage passes the barrier — the **knee (cut-in) voltage**, ≈ 0.7 V for Si — majority carriers flood across and current **rises steeply**.
+- In a working circuit a forward-biased silicon diode drops about 0.6–0.8 V almost whatever the current.
+
+## 3. Reverse bias: it blocks
+
+Connect **p to −** and **n to +**.
+
+- The external voltage adds to the barrier, so the depletion region **widens**.
+- Majority carriers can't cross. Only a tiny **reverse saturation current** I_s flows, carried by **minority** carriers: nanoamps for Si, microamps for Ge.
+- I_s depends on temperature (roughly doubling every 10 °C), not on the reverse voltage.
+
+## 4. The V–I characteristic and diode equation
+
+- **Forward:** almost no current until the knee, then a steep exponential rise.
+- **Reverse:** a tiny constant leakage current, until **breakdown**, where current shoots up.
+
+The **diode (Shockley) equation**:
+
+`I = I_s (e^(V / (η V_T)) − 1)`
+
+- V_T = kT/q ≈ **26 mV** at room temperature (the thermal voltage).
+- η (ideality factor) is 1–2.
+- Forward, V ≫ 26 mV, so I grows exponentially. Reverse, the exponential vanishes and I ≈ −I_s.
+
+**Resistances.** Static (DC) resistance `R = V/I`. **Dynamic (AC) resistance** `r_d = ΔV/ΔI ≈ η V_T / I ≈ 26 mV / I` — at 1 mA, about 26 Ω.
+
+## 5. Breakdown
+
+Push the reverse voltage high enough and current suddenly rises. Two mechanisms:
+
+| | Zener breakdown | Avalanche breakdown |
+| --- | --- | --- |
+| Doping | heavy (thin depletion layer) | light |
+| Voltage | low, below about 5–6 V | higher |
+| Mechanism | strong field pulls electrons straight out of bonds (tunnelling) | fast carriers knock out more carriers in a chain reaction |
+| Temperature coefficient | negative | positive |
+
+Breakdown isn't destructive if current is limited — **Zener diodes** are designed to operate there as voltage references (lesson 26).
+
+## 6. Diode models for calculations
+
+1. **Ideal:** a perfect switch — 0 V when forward, open when reverse.
+2. **Constant-voltage drop (most used):** 0.7 V when forward (0.3 V Ge), open when reverse.
+3. **Piecewise linear:** 0.7 V plus a small series resistance r_d.
+
+**Worked example.** A 5 V source, a 1 kΩ resistor and a silicon diode in series, forward biased: I = (5 − 0.7)/1,000 = **4.3 mA**. Reverse it: I ≈ 0, and the diode has all **5 V** across it.
+
+## 7. Capacitances
+
+- **Transition (depletion) capacitance** — reverse bias; the depletion layer acts like a capacitor's gap, so more reverse voltage → wider gap → **less** capacitance. Used on purpose in the varactor.
+- **Diffusion capacitance** — forward bias; from stored charge; larger.
+
+These capacitances limit how fast a diode can switch.
+
+## 8. Special diodes
+
+| Diode | Biased | What it does | Use |
+| --- | --- | --- | --- |
+| **Zener** | reverse, in breakdown | holds a fixed voltage | voltage regulators, references |
+| **LED** | forward | emits light as electrons and holes recombine (≈ 1.8–3.3 V drop by colour) | indicators, displays, lighting |
+| **Photodiode** | reverse | light creates carriers → current proportional to light | sensors, optical receivers (fibre) |
+| **Schottky** | forward | metal–semiconductor junction; ≈ 0.2–0.3 V drop, very fast | switching supplies, high-speed clamps |
+| **Varactor (varicap)** | reverse | capacitance varies with voltage | electronic tuning of radios, VCOs |
+| **Tunnel** | forward | very heavy doping → negative resistance region | microwave oscillators |
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the formation of a PN junction and the V–I characteristics of a PN junction diode under forward and reverse bias.
+
+<details>
+<summary>Model answer</summary>
+
+**Formation.** When p-type and n-type regions are formed in one crystal, majority carriers diffuse across the junction (electrons to p, holes to n) and recombine. This leaves immobile negative acceptor ions on the p side and positive donor ions on the n side — the **depletion region**, devoid of mobile carriers. The ions set up a field (and barrier potential ≈ 0.7 V for Si, 0.3 V for Ge) that stops further diffusion. *(Draw the junction with ions and the barrier.)*
+
+**Forward bias** (p to +, n to −). The applied voltage opposes the barrier; the depletion region narrows. Below the **cut-in voltage** the current is negligible; above it, majority carriers cross and current rises exponentially, limited only by external resistance.
+
+**Reverse bias** (p to −, n to +). The barrier increases and the depletion region widens. Only a small, nearly constant **reverse saturation current** flows due to minority carriers (nA for Si). It depends on temperature, not voltage.
+
+**Breakdown.** At a large reverse voltage the current rises sharply by Zener or avalanche action; without current limiting the diode may be damaged.
+
+**Characteristic.** *(Sketch: first quadrant — flat until ≈ 0.7 V, then steep; third quadrant — small constant current, then a sharp drop at V_BR.)* Diode equation: I = I_s(e^(V/ηV_T) − 1), V_T ≈ 26 mV.
+
+**Conclusion.** The diode conducts in one direction only, so it's used for rectification, clipping, clamping, protection and switching.
+
+</details>
+
+## Check yourself
+
+1. The barrier potential of a silicon PN junction is about:
+   (a) 0.3 V (b) 0.7 V (c) 1.1 V (d) 5 V
+
+<details><summary>Answer</summary>(b) 0.7 V.</details>
+
+2. Under reverse bias, the depletion region:
+   (a) narrows (b) widens (c) disappears (d) is unchanged
+
+<details><summary>Answer</summary>(b) widens.</details>
+
+3. Reverse saturation current is due to:
+   (a) majority carriers (b) minority carriers (c) donor ions (d) acceptor ions
+
+<details><summary>Answer</summary>(b) minority carriers.</details>
+
+4. Zener breakdown occurs in:
+   (a) lightly doped diodes at high voltage (b) heavily doped diodes at low voltage (c) forward bias (d) any diode at 0.7 V
+
+<details><summary>Answer</summary>(b) heavily doped, low breakdown voltage.</details>
+
+5. A diode used for electronic tuning because its capacitance varies with voltage is the:
+   (a) Zener (b) LED (c) varactor (d) Schottky
+
+<details><summary>Answer</summary>(c) varactor.</details>
+
+6. A Schottky diode is preferred in fast switching because it has:
+   (a) a high barrier and slow recovery (b) a low forward drop and very fast switching (c) negative resistance (d) light emission
+
+<details><summary>Answer</summary>(b)</details>
+
+7. The dynamic resistance of a diode carrying 2 mA at room temperature (η = 1) is about:
+   (a) 13 Ω (b) 26 Ω (c) 52 Ω (d) 350 Ω
+
+<details><summary>Answer</summary>(a) 26 mV / 2 mA = 13 Ω.</details>

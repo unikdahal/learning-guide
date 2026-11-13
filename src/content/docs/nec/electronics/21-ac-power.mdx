@@ -78,6 +78,40 @@ Inductive loads draw lagging reactive power. Connect **capacitors in parallel** 
 - `P = VI cos φ` — only **real** power is in watts.
 - **Capacitors in parallel** correct a lagging power factor (not series, not inductors).
 
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Define active, reactive and apparent power. What is power factor? Explain the causes and effects of low power factor and methods of improvement.
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Definitions.** For RMS voltage V, current I and phase angle φ:
+- Active (real) power `P = VI cos φ`, in watts — the power actually converted.
+- Reactive power `Q = VI sin φ`, in VAR — power exchanged between the source and the fields of L and C.
+- Apparent power `S = VI`, in VA — the product the source and wiring must carry.
+They form the power triangle: `S² = P² + Q²`. *(Draw the triangle.)*
+
+**Power factor.** `pf = cos φ = P/S = R/Z`; between 0 and 1; lagging for inductive loads, leading for capacitive.
+
+**Causes of low pf.** Induction motors (especially lightly loaded), transformers on light load, fluorescent lamp chokes, arc furnaces, welding sets — all inductive.
+
+**Effects.** For a given P, current `I = P/(V cos φ)` increases, so:
+1. Higher copper losses (I²R) and lower efficiency.
+2. Larger conductors, transformers and switchgear needed.
+3. Poorer voltage regulation (larger drops).
+4. Utilities penalise industrial consumers for low pf.
+
+**Improvement.** Supply leading reactive power near the load:
+1. **Static capacitors** in parallel (most common; capacitor banks in substations and factories).
+2. Synchronous condensers (over-excited synchronous motors).
+3. Phase advancers for large induction motors.
+
+**Example.** A 230 V load draws 10 A at pf 0.8: S = 2.3 kVA, P = 1.84 kW, Q = 1.38 kVAR. Correcting to pf 1.0 would cut the current to 8 A for the same power.
+
+</details>
+
 ## Check yourself
 
 1. The maximum value of power factor is:

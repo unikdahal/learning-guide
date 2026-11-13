@@ -1,0 +1,152 @@
+---
+title: "33. Operational amplifiers"
+description: Op-amps from scratch — ideal characteristics, virtual short, inverting and non-inverting amplifiers with derivations, follower, summer, difference amplifier, integrator, differentiator, comparator, and real limits (CMRR, slew rate, offset).
+sidebar:
+  label: "33. Op-amps"
+  order: 33
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** design an inverting or non-inverting amplifier for any gain, derive both gain formulas, and know the standard op-amp circuits and real-world limits.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.6** ends with "op-amps"; expect ideal characteristics, gain formulas, CMRR and slew rate. **Lok Sewa Computer Engineer 4.2.6** (operational amplifiers) — gain derivations are standard written questions (model answer below).
+</Aside>
+
+## 1. What an op-amp is
+
+An integrated circuit amplifier (the classic is the **741**) with:
+
+- two inputs: **inverting (−)** and **non-inverting (+)**;
+- one output;
+- power pins, usually ±V_CC (e.g. ±15 V).
+
+It amplifies the **difference** between its inputs by a huge **open-loop gain** A: `V_out = A (V₊ − V₋)`. Used open-loop, the output slams into a supply rail at the slightest difference — so op-amps are almost always used with **negative feedback** (lesson 32), which makes the gain depend only on resistors.
+
+## 2. The ideal op-amp
+
+| Property | Ideal | Real 741 (typical) |
+| --- | --- | --- |
+| Open-loop gain A | ∞ | ≈ 2 × 10⁵ |
+| Input impedance | ∞ | ≈ 2 MΩ (FET-input types: 10¹² Ω) |
+| Output impedance | 0 | ≈ 75 Ω |
+| Bandwidth | ∞ | gain–bandwidth ≈ 1 MHz |
+| CMRR | ∞ | ≈ 90 dB |
+| Slew rate | ∞ | ≈ 0.5 V/µs |
+| Offset voltage | 0 | ≈ 1–2 mV |
+
+## 3. The two golden rules (with negative feedback)
+
+1. **No current flows into either input** (infinite input impedance).
+2. **The output does whatever it takes to make `V₋ = V₊`** (infinite gain) — the **virtual short**. If V₊ is grounded, V₋ is also at 0 V: a **virtual ground**.
+
+Every op-amp derivation is just these two rules plus Ohm's law.
+
+<Figure caption="The two basic amplifiers.">
+  <Circuit name="opamp" label="Left: inverting amplifier — input through Rin to the minus input, feedback resistor Rf from output to the minus input, plus input grounded; gain is minus Rf over Rin. Right: non-inverting amplifier — input to the plus input, R1 from the minus input to ground, Rf from output to the minus input; gain is one plus Rf over R1." />
+</Figure>
+
+## 4. Inverting amplifier
+
+Input through R_in to (−); R_f from output back to (−); (+) grounded.
+
+**Derivation.** (−) is a virtual ground (0 V). Current in R_in: `I = V_in / R_in`. No current enters the op-amp, so the same I flows through R_f: `I = (0 − V_out)/R_f`. Equate: `V_in/R_in = −V_out/R_f` →
+
+**`A_v = V_out / V_in = −R_f / R_in`**
+
+- Output inverted (180°).
+- Input impedance = R_in.
+
+**Example.** R_in = 10 kΩ, R_f = 100 kΩ → A_v = −10. 0.5 V in → **−5 V** out. 2 V in would ask for −20 V, but on ±15 V supplies the output **saturates** at about ±13–14 V.
+
+## 5. Non-inverting amplifier
+
+Input to (+); R1 from (−) to ground; R_f from output to (−).
+
+**Derivation.** V₋ = V₊ = V_in. R1 and R_f form a divider from the output: `V₋ = V_out × R1/(R1 + R_f)`. So `V_in = V_out R1/(R1 + R_f)` →
+
+**`A_v = 1 + R_f / R1`**
+
+- No inversion; gain is always ≥ 1.
+- Input impedance ≈ ∞ (voltage-series feedback).
+
+**Voltage follower (buffer):** R_f = 0, R1 = ∞ → **A_v = 1**. Very high input, very low output impedance: isolates a weak source from a heavy load.
+
+## 6. More standard circuits
+
+| Circuit | Output | Use |
+| --- | --- | --- |
+| **Summing (inverting)** | `−R_f (V₁/R₁ + V₂/R₂ + …)` | audio mixer, simple DAC |
+| **Difference** (matched resistors) | `(R_f/R₁)(V₂ − V₁)` | sensors, instrumentation |
+| **Integrator** (C in feedback) | `−(1/RC) ∫ V_in dt` | square → triangle, analog computing, active filters |
+| **Differentiator** (C at input) | `−RC dV_in/dt` | edge detection (noisy in practice) |
+| **Comparator** (no feedback) | +V_sat if V₊ > V₋, else −V_sat | zero-crossing detector, ADCs |
+| **Schmitt trigger** (positive feedback) | comparator with two thresholds (hysteresis) | cleaning noisy edges |
+
+## 7. Real-world limits
+
+- **CMRR (common-mode rejection ratio)** = A_d/A_cm, usually in dB. How well the op-amp ignores noise that appears equally on both inputs. Higher is better.
+- **Slew rate** = the fastest the output can change (V/µs). Large, fast signals get distorted into triangles. Full-power bandwidth: `f_max = SR / (2π V_peak)`.
+  *Example:* 741 (0.5 V/µs) with a 10 V-peak output: f_max = 0.5 × 10⁶/(2π × 10) ≈ **8 kHz**.
+- **Gain–bandwidth product** is constant: a 1 MHz GBW op-amp set to a gain of 100 has about 10 kHz bandwidth.
+- **Input offset voltage, bias current:** small DC errors that matter in precision circuits.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** List the characteristics of an ideal op-amp. Derive the voltage gain of inverting and non-inverting amplifiers.
+
+<details>
+<summary>Model answer</summary>
+
+**Op-amp.** A high-gain, direct-coupled differential amplifier IC with inverting and non-inverting inputs, used with external feedback. *(Draw the symbol.)*
+
+**Ideal characteristics.** Infinite open-loop gain; infinite input impedance; zero output impedance; infinite bandwidth; infinite CMRR; infinite slew rate; zero offset voltage and drift.
+
+**Inverting amplifier.** *(Draw: V_in–R_in–(−), R_f from output to (−), (+) grounded.)* With negative feedback the (−) input is a virtual ground and draws no current. Then I = V_in/R_in = −V_out/R_f, so **A_v = −R_f/R_in**. The output is 180° out of phase; input impedance = R_in.
+
+**Non-inverting amplifier.** *(Draw: V_in to (+), R1 from (−) to ground, R_f from output to (−).)* By the virtual short, V₋ = V_in. From the divider, V₋ = V_out R1/(R1 + R_f). Therefore **A_v = 1 + R_f/R1**; no phase inversion; very high input impedance. With R_f = 0 (and R1 open) it becomes a voltage follower with A_v = 1.
+
+**Example.** R1 = 10 kΩ, R_f = 90 kΩ: non-inverting gain 10; inverting gain (R_in = 10 kΩ) −9.
+
+**Applications.** Amplifiers, summers, integrators, filters, comparators, oscillators.
+
+</details>
+
+## Check yourself
+
+1. An ideal op-amp has input impedance:
+   (a) zero (b) infinite (c) 75 Ω (d) 1 kΩ
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Gain of an inverting amplifier with R_in = 2 kΩ and R_f = 20 kΩ:
+   (a) 10 (b) −10 (c) 11 (d) −11
+
+<details><summary>Answer</summary>(b) −R_f/R_in.</details>
+
+3. Gain of a non-inverting amplifier with R1 = 1 kΩ and R_f = 9 kΩ:
+   (a) 9 (b) −9 (c) 10 (d) 0.9
+
+<details><summary>Answer</summary>(c) 1 + 9/1.</details>
+
+4. A voltage follower has a gain of:
+   (a) 0 (b) 1 (c) ∞ (d) −1
+
+<details><summary>Answer</summary>(b)</details>
+
+5. CMRR is the ratio of:
+   (a) common-mode gain to differential gain (b) differential gain to common-mode gain (c) output to input impedance (d) slew rate to bandwidth
+
+<details><summary>Answer</summary>(b) A_d/A_cm.</details>
+
+6. An op-amp integrator converts a square wave into a:
+   (a) sine wave (b) triangular wave (c) spike train (d) DC level
+
+<details><summary>Answer</summary>(b)</details>
+
+7. The concept that both op-amp inputs are at the same voltage under negative feedback is called:
+   (a) virtual short (b) slew rate (c) offset (d) common mode
+
+<details><summary>Answer</summary>(a)</details>

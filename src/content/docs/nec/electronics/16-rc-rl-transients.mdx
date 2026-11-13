@@ -77,6 +77,37 @@ These solve most transient MCQs without any exponentials:
 - 63.2% is for **charging**; 36.8% is what **remains** when discharging.
 - "Fully charged" in exam language = **5τ**.
 
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Derive the expression for the voltage across a capacitor charging through a resistor from a DC source. Define time constant.
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Circuit.** A DC source E, a resistor R and an initially uncharged capacitor C in series; the switch closes at t = 0. *(Draw.)*
+
+**Derivation.**
+- KVL: `E = iR + v_C`.
+- Capacitor current: `i = C dv_C/dt`.
+- Substituting: `RC (dv_C/dt) + v_C = E`.
+- Separating variables: `dv_C / (E − v_C) = dt / (RC)`.
+- Integrating from v_C = 0 at t = 0: `−ln(E − v_C) + ln E = t/RC`.
+- Therefore **`v_C = E (1 − e^(−t/RC))`** and **`i = (E/R) e^(−t/RC)`**.
+
+**Time constant.** τ = RC (seconds). It is the time in which the capacitor voltage would reach its final value if it kept rising at its initial rate; equivalently, the time to reach **63.2%** of the final value (since 1 − e⁻¹ = 0.632). The current falls to 36.8% of its initial value in one τ.
+
+**Practical completion.** After 5τ the capacitor reaches 99.3% and the transient is considered over.
+
+**RL dual.** For an inductor switched onto E through R: `i = (E/R)(1 − e^(−tR/L))`, with τ = L/R.
+
+**Example.** R = 10 kΩ, C = 100 µF, E = 10 V: τ = 1 s; v_C(2 s) = 10(1 − e⁻²) = 8.65 V.
+
+**Applications.** Timing circuits, delay elements, smoothing, and the rise time of digital signals on interconnects.
+
+</details>
+
 ## Check yourself
 
 1. The time constant of an RC circuit is:

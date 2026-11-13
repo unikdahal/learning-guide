@@ -64,6 +64,8 @@ A **phasor** is an arrow whose length is the RMS value and whose angle is the ph
 
 ## 3. A first look at filters
 
+(Decibels, roll-off, band-pass and band-stop are in [lesson 19b](/learning-guide/nec/electronics/19b-filters-frequency-response/).)
+
 Put R and C in series and take the output across one of them:
 
 - **Output across C → low-pass filter.** At low f, XC is large, so C gets most of the voltage; at high f, XC is small and the output drops. Passes low frequencies.
@@ -77,6 +79,34 @@ Put R and C in series and take the output across one of them:
 - XL ∝ f; XC ∝ **1/f**.
 - Impedance adds **as vectors**: 30 Ω and 40 Ω give 50 Ω, not 70 Ω.
 - Pure L or C: phase 90°. RL or RC: somewhere between 0° and 90°.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain a series R-L circuit fed by a sinusoidal voltage. Draw its phasor diagram and impedance triangle, and define power factor.
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Circuit.** Resistance R in series with inductance L across `v = V_m sin ωt`. The same current I flows through both. *(Draw.)*
+
+**Voltages.**
+- Across R: `V_R = IR`, in phase with I.
+- Across L: `V_L = I X_L` with `X_L = ωL = 2πfL`, leading I by 90°.
+
+**Phasor diagram.** Take I as reference (horizontal). V_R is along I; V_L is vertical (90° ahead). The supply voltage is their phasor sum: `V = √(V_R² + V_L²)`, leading I by φ. *(Draw: I horizontal, V_R along it, V_L upward, V as the hypotenuse.)*
+
+**Impedance.** Dividing each side by I gives the impedance triangle: R (base), X_L (height), Z (hypotenuse):
+`Z = √(R² + X_L²)`, `φ = tan⁻¹(X_L/R)`, and `I = V/Z`. In complex form `Z = R + jX_L`.
+
+**Power factor.** cos φ = R/Z = P/S. For R-L it is **lagging** because current lags voltage. Real power `P = VI cos φ = I²R`; reactive power `Q = VI sin φ = I²X_L`.
+
+**Example.** R = 30 Ω, X_L = 40 Ω, V = 230 V: Z = 50 Ω, I = 4.6 A, φ = 53.1°, pf = 0.6 lagging, P = 4.6² × 30 = 635 W.
+
+**Conclusion.** The R-L circuit models most practical loads (motors, coils); its lagging power factor is why power-factor correction is needed.
+
+</details>
 
 ## Check yourself
 

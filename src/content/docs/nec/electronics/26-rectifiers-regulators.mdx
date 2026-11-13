@@ -1,0 +1,148 @@
+---
+title: "26. Rectifiers, filters and regulators"
+description: Building a DC power supply — half-wave, centre-tap and bridge rectifiers with all their figures, capacitor smoothing and ripple, Zener regulators, IC regulators, clippers and clampers.
+sidebar:
+  label: "26. Rectifiers and power supplies"
+  order: 26
+---
+import { Aside } from '@astrojs/starlight/components';
+import RectifierLab from '@components/visuals/electronics/RectifierLab.astro';
+
+**Goal:** compare the three rectifiers on every figure NEC asks (PIV, ripple frequency, efficiency, ripple factor), size a smoothing capacitor and a Zener regulator, and draw the block diagram of a power supply.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.4** — rectifier PIV and ripple frequency are a near-certain MCQ (a third-party NEC practice set opens with exactly this). **Lok Sewa Computer Engineer 4.2.1** (diode circuits) — "Explain a full-wave bridge rectifier with waveforms" is a classic written question (model answer below).
+</Aside>
+
+## 1. The DC power supply, as blocks
+
+Every laptop charger, phone charger and server PSU does this (modern ones with switching tricks, but the same idea):
+
+**230 V AC → transformer (step down) → rectifier (AC → pulsing DC) → filter (smooth it) → regulator (hold it exactly) → load**
+
+## 2. Three rectifiers
+
+Try them first — switch between half-wave and bridge, then add a capacitor:
+
+<RectifierLab />
+
+**Half-wave:** one diode. Conducts on positive half-cycles only; the output is zero for half the time.
+
+**Centre-tap full-wave:** two diodes and a transformer with a centre tap on its secondary. Each diode handles one half-cycle; both halves come out positive.
+
+**Bridge full-wave:** four diodes in a bridge, no centre tap needed. Two diodes conduct on each half-cycle, so the output loses two diode drops (≈ 1.4 V).
+
+| Figure (Vm = peak input to the diodes) | Half-wave | Centre-tap | Bridge |
+| --- | --- | --- | --- |
+| Diodes | 1 | 2 | 4 |
+| DC (average) output | Vm/π = 0.318 Vm | 2Vm/π = 0.637 Vm | 2Vm/π |
+| RMS output | Vm/2 | Vm/√2 | Vm/√2 |
+| **Ripple frequency** | **f** (50 Hz) | **2f** (100 Hz) | **2f** |
+| **Peak inverse voltage (PIV)** | **Vm** | **2Vm** | **Vm** |
+| Ripple factor | 1.21 | 0.482 | 0.482 |
+| Max efficiency | 40.6% | 81.2% | 81.2% |
+| Transformer utilisation factor | 0.287 | 0.693 | 0.812 |
+
+*(Vm for the centre-tap is the peak of each half of the secondary.)*
+
+**Ripple factor** γ = (RMS of the AC part) / (DC value) = √((V_rms/V_dc)² − 1). Lower is smoother. **PIV** is the largest reverse voltage a diode must survive — choose diodes rated above it.
+
+**Why the bridge is the usual choice:** full-wave output and the low PIV of Vm, with no centre-tapped transformer. Its cost: four diodes and two diode drops.
+
+## 3. Smoothing with a capacitor
+
+A large capacitor across the load charges to the peak each pulse, then supplies the load between pulses, discharging slightly. The leftover wobble is the **ripple**:
+
+`V_ripple (peak-to-peak) ≈ I_load / (f_r C) = V_peak / (f_r R C)`
+
+where f_r is the **ripple frequency** (50 Hz half-wave, 100 Hz full-wave).
+
+**Worked example.** A bridge gives V_peak = 10.6 V into R = 1 kΩ (≈ 10.6 mA) with C = 470 µF:
+V_ripple ≈ 10.6 / (100 × 1,000 × 470 × 10⁻⁶) = 10.6/47 ≈ **0.23 V**. With a half-wave rectifier, f_r = 50 Hz, so ripple **doubles**.
+
+Bigger C, lighter load or full-wave → less ripple. Other filters: an inductor in series (choke input, LC) or a π filter (C–L–C) for smoother output.
+
+## 4. The Zener regulator
+
+Ripple and load changes still move the voltage. A Zener diode in reverse breakdown holds an almost fixed voltage:
+
+- Series resistor R_s from the unregulated supply, Zener (reverse) across the load.
+- `V_out ≈ V_Z`. Extra current goes through the Zener; when the load draws more, the Zener takes less.
+- Design: `R_s = (V_in(min) − V_Z) / (I_L(max) + I_Z(min))`.
+
+**Worked example.** V_in = 12 V, V_Z = 5.1 V, load 20 mA, keep at least 5 mA in the Zener: R_s = (12 − 5.1)/(0.025) = **276 Ω** → use 270 Ω.
+
+**IC regulators** do the job better: the **78xx** series gives fixed positive outputs (7805 → +5 V, 7812 → +12 V), 79xx negative; LM317 is adjustable. They need the input a couple of volts above the output.
+
+## 5. Other diode circuits (briefly)
+
+- **Clipper (limiter):** diodes cut off the part of a waveform above or below a level — input protection.
+- **Clamper (DC restorer):** a capacitor and diode shift a waveform up or down without changing its shape.
+- **Voltage doubler:** diodes and capacitors stack charges to get about 2Vm DC.
+- **Flyback (freewheeling) diode** across a relay or motor coil absorbs the voltage spike when it switches off ([lesson 15](/learning-guide/nec/electronics/15-inductors/)).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the working of a full-wave bridge rectifier with circuit and waveforms. Derive its average output voltage and state its PIV, ripple frequency and efficiency.
+
+<details>
+<summary>Model answer</summary>
+
+**Circuit.** Four diodes D1–D4 in a bridge; the AC (transformer secondary) connects across one diagonal and the load R_L across the other. *(Draw.)*
+
+**Working.** During the positive half-cycle, D1 and D2 are forward biased and conduct; current flows through R_L from top to bottom. During the negative half-cycle, D3 and D4 conduct and current flows through R_L **in the same direction**. Hence both halves appear positive across the load. *(Draw input sine and output full-wave pulses.)*
+
+**Average output.** `V_dc = (1/π) ∫₀^π V_m sin θ dθ = (V_m/π)[−cos θ]₀^π = 2V_m/π ≈ 0.637 V_m` (ignoring diode drops; with drops, use V_m − 1.4 V).
+
+**Figures.**
+- PIV per diode = V_m.
+- Ripple frequency = 2f (100 Hz for 50 Hz mains).
+- RMS output = V_m/√2; ripple factor = 0.482; maximum efficiency = 81.2%.
+
+**Advantages.** Full-wave output without a centre-tapped transformer; low PIV; better transformer utilisation (0.812). **Disadvantages.** Four diodes; two diode drops.
+
+**Filtering.** A capacitor across R_L smooths the output; ripple ≈ V_peak/(2fR_LC).
+
+</details>
+
+## Check yourself
+
+1. The peak inverse voltage of each diode in a centre-tap full-wave rectifier is:
+   (a) Vm (b) 2Vm (c) Vm/2 (d) √2 Vm
+
+<details><summary>Answer</summary>(b) 2Vm.</details>
+
+2. For a 50 Hz input, the ripple frequency of a bridge rectifier is:
+   (a) 25 Hz (b) 50 Hz (c) 100 Hz (d) 200 Hz
+
+<details><summary>Answer</summary>(c) 100 Hz.</details>
+
+3. The maximum efficiency of a half-wave rectifier is:
+   (a) 40.6% (b) 50% (c) 81.2% (d) 100%
+
+<details><summary>Answer</summary>(a)</details>
+
+4. The ripple factor of a full-wave rectifier is:
+   (a) 1.21 (b) 0.482 (c) 1.11 (d) 0.707
+
+<details><summary>Answer</summary>(b)</details>
+
+5. A full-wave rectifier with 20 V peak (ideal diodes) gives an average output of about:
+   (a) 6.4 V (b) 12.7 V (c) 14.1 V (d) 20 V
+
+<details><summary>Answer</summary>(b) 0.637 × 20 = 12.7 V.</details>
+
+6. Increasing the smoothing capacitor:
+   (a) increases ripple (b) decreases ripple (c) changes the ripple frequency (d) reduces PIV
+
+<details><summary>Answer</summary>(b)</details>
+
+7. A 7805 regulator gives:
+   (a) −5 V (b) +5 V (c) adjustable 1.2–37 V (d) +8 V
+
+<details><summary>Answer</summary>(b) +5 V.</details>
+
+8. In a Zener voltage regulator, the Zener is connected:
+   (a) forward biased in series (b) reverse biased in parallel with the load (c) forward biased in parallel (d) reverse biased in series
+
+<details><summary>Answer</summary>(b)</details>

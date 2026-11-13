@@ -81,6 +81,37 @@ Motors are often started in star (lower voltage per winding, lower starting curr
 - Star: **voltage** has the √3; delta: **current** has the √3.
 - Power uses **line** values with √3, or **phase** values with 3.
 
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Compare star and delta connections. Show that line voltage is √3 times phase voltage in a balanced star system.
+
+Write your own answer first, by hand and timed. Then compare.
+
+<details>
+<summary>Model answer</summary>
+
+**Star (Y) connection.** One end of each of the three phase windings is joined to a common neutral; the other ends go to the lines. **Delta (Δ):** the windings are connected end-to-end in a closed loop and the lines are taken from the junctions. *(Draw both.)*
+
+**Proof: V_L = √3 V_ph in star.** The line voltage between R and Y is the phasor difference of the phase voltages: `V_RY = V_R − V_Y`. V_R and V_Y are equal in magnitude (V_ph) and 120° apart, so −V_Y is 60° from V_R. Adding V_R and −V_Y by the parallelogram rule gives a resultant along the bisector:
+`V_RY = 2 V_ph cos 30° = 2 V_ph × (√3/2) = √3 V_ph`, leading V_R by 30°. *(Draw the phasor diagram.)*
+
+**Comparison.**
+
+| | Star | Delta |
+| --- | --- | --- |
+| Voltage | V_L = √3 V_ph | V_L = V_ph |
+| Current | I_L = I_ph | I_L = √3 I_ph |
+| Neutral | available (3-phase 4-wire) | none |
+| Voltages available | two (e.g. 400 V and 230 V) | one |
+| Winding insulation | for V_L/√3 — cheaper | for full V_L |
+| Use | distribution, transmission | motors, industrial loads |
+
+**Power.** For either connection: `P = √3 V_L I_L cos φ`.
+
+**Example.** Star, V_ph = 230 V → V_L ≈ 400 V; a 10 A, pf 0.8 balanced load takes P = √3 × 400 × 10 × 0.8 ≈ 5.54 kW.
+
+</details>
+
 ## Check yourself
 
 1. In a three-phase system, the phase difference between adjacent phases is:
