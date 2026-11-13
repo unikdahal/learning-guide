@@ -5,7 +5,13 @@ sidebar:
   label: "7. DSA, DBMS & OS"
   order: 7
 ---
+import { Aside } from '@astrojs/starlight/components';
+
 **Code** ACtE07 · **Questions** about 10 (8 in the model paper) · **Your position** strong · **Plan** one sweep in Week 6, 7 h · **Target** 9/10
+
+<Aside type="note" title="Lok Sewa link">
+Computer Engineer **units 7, 9, 10** (Section B) and the Section D case study. Computer Officer **DSA 8%, OS 10%, DBMS 14%**, Paper II Sections A and C. See the [Computer Engineer](/learning-guide/lok-sewa/computer-engineer/) and [Computer Officer](/learning-guide/lok-sewa/computer-officer/) syllabus maps.
+</Aside>
 
 Your day job covers most of this. Use it as a **textbook-definition** check: NEC wants the classic textbook answer, not the production one.
 
@@ -65,6 +71,24 @@ Binary search O(log n); hash lookup O(1) average.
 - Deadlock needs all four Coffman conditions: mutual exclusion, hold and wait, no preemption, circular wait. Banker's algorithm avoids deadlock.
 - **Page fault:** the referenced page is not in main memory. Replacement: FIFO (Belady's anomaly), optimal, LRU. Thrashing = too much paging.
 - Paging causes internal fragmentation; segmentation and contiguous allocation cause external fragmentation. File allocation: contiguous, linked, indexed.
+
+## For Lok Sewa
+
+NEC needs the facts above; Lok Sewa Paper II needs them as **written answers**, plus these extras. Do the extras in January unless a week has slack.
+
+**Extra topics beyond NEC**
+
+- Algorithm design: greedy, divide and conquer, dynamic programming; red-black, 2-3 and splay trees.
+- DBMS: B+ tree and hash indexing, query optimisation, distributed and OO databases, data mining and warehousing.
+- OS: microkernels, SMP, disk scheduling, distributed systems (RPC), security and trusted systems.
+- For Computer Officer: hand-written SQL (joins, GROUP BY, subqueries, views, GRANT/REVOKE).
+
+**Paper II questions to write** (one per Sunday; past questions are as reported in your draft and not yet checked against the papers)
+
+- Define deadlock; necessary conditions (reported, CE 2078)
+- Process scheduling algorithms (reported, CE 2078)
+- Functional dependency and its role in design (reported, CE 2078)
+- Tree traversals with examples; virtual memory, paging vs segmentation; DBMS concurrency control (reported, CO 2083)
 
 ## Before you move on
 

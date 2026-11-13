@@ -1,10 +1,84 @@
 ---
 title: Computer Engineer
-description: Syllabus and preparation for the Lok Sewa Computer Engineer exam.
-status: planned
+description: Lok Sewa Computer Engineer (Nepal Miscellaneous Service, Gazetted Third) — exam scheme, full syllabus, and what NEC prep already covers.
 sidebar:
-  label: Computer Engineer overview
+  label: Computer Engineer syllabus
 ---
 import { Aside } from '@astrojs/starlight/components';
 
-<Aside>This page is a placeholder. The Computer Engineer syllabus and study material will be added here.</Aside>
+**Primary target.** Ads 17325–17331/083-84 · written exams 17–18 March 2027 (from your advertisement).
+
+<Aside type="caution" title="Source">
+Section weights and the Section D rules come from the official PSC syllabus PDF on psc.gov.np, quoted in search results. The unit-by-unit list is from a provincial copy whose text matches the federal one wherever both are visible; the full federal PDF couldn't be fetched from here. Download the official [Paper I](https://psc.gov.np/site_uploads/course/20231110070747654dd6c388682.pdf) and [Paper II](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf) PDFs and check against them.
+</Aside>
+
+## Exam scheme
+
+| Stage | Paper | Marks | Format |
+| --- | --- | --- | --- |
+| Written | Paper I, Part I — general awareness (25) + general ability/reasoning (25) | 50 | MCQ, negative marking for wrong answers (verify the rate) |
+| Written | Paper I, Part II — general technical: Section A 34%, B 36%, C 30% of units 1–15 | 50 | MCQ per your draft (a provincial copy shows a written format — verify) |
+| Written | Paper II — technical subject, Sections A 25, B 25, C 20, D 30 | 100 | Written, 3 h |
+| Final | Group test (leaderless discussion) 10 + board interview 30 | 40 | — |
+
+## Syllabus and NEC coverage
+
+**Covered** = NEC notes already teach it (you still need to practise writing it). **Partial** = NEC covers the core; the extras are listed on that NEC chapter page. **New** = not in NEC; study it from January.
+
+### Section A (Paper II 25 marks · Paper I Part II 34%)
+
+| Unit | Sub-units | NEC chapter | Coverage |
+| --- | --- | --- | --- |
+| 1 Computer networks | protocol stack, switching; link layer, ARP, Ethernet, CSMA/CD, WLAN, PPP; network layer, datagram vs virtual circuit, routing, IP, fragmentation, ICMP, RIP, OSPF, router internals, IPv6; transport, UDP, TCP, congestion; application, web caching, FTP, email, DNS, sockets; distributed systems, clusters | [5](/learning-guide/nec/chapters/05-networks-security/) | Partial |
+| 2 Architecture, organisation, microprocessors | sequential circuits, state tables, von Neumann/Harvard, RISC/CISC; addressing, data representation, bus structures, instruction and execution cycle; instruction formats; addressing modes; I/O, memory-mapped I/O, interrupts, DMA; arithmetic; memory systems; 808X programming and interfacing | [4](/learning-guide/nec/chapters/04-computer-organization-embedded/), [2](/learning-guide/nec/chapters/02-digital-logic-microprocessor/) | Covered |
+| 3 Digital design | number systems, logic elements, combinational and sequential logic, arithmetic circuits, MSI circuits, counters and registers, IC logic families, interfacing with analog devices, memory devices | [2](/learning-guide/nec/chapters/02-digital-logic-microprocessor/) | Partial |
+| 4 Basic electrical & electronics | circuit theory, AC, magnetic circuits and transformers, transients, filters; diodes, transistors, transistor modelling, biasing, small-signal amplifiers and frequency response, large-signal and feedback amplifiers, oscillators, op-amps | [1](/learning-guide/nec/chapters/01-electrical-electronics/) | Partial |
+| 5 Electronic communications | analog/digital communication block diagrams, analog and digital modulation, error detection and correction, SNR and BER | — | **New** |
+
+### Section B (Paper II 25 marks · Paper I Part II 36%)
+
+| Unit | Sub-units | NEC chapter | Coverage |
+| --- | --- | --- | --- |
+| 6 Structured and OO programming | data types, ADTs, control structures, functions, classes, encapsulation, inheritance, composition, polymorphism, patterns and frameworks | [3](/learning-guide/nec/chapters/03-programming-c-cpp/) | Covered |
+| 7 Data structures | complexity analysis; linear structures; trees incl. BST, AVL, 2-3, red-black, splay; greedy, divide and conquer, dynamic programming, recursion; hashing; graphs; sorting | [7](/learning-guide/nec/chapters/07-dsa-dbms-os/) | Partial |
+| 8 Software engineering (SAD) | process models, risk-driven; project management, cost models, configuration, QA, metrics; requirements; design for reuse and change; implementation and testing; maintenance; formal methods, CASE, SEI-CMM, ISO | [8](/learning-guide/nec/chapters/08-software-engineering-ooad/) | Partial |
+| 9 DBMS | relational and ER models, SQL, FDs and design; transactions and concurrency; crash recovery; query processing and optimisation; hash and tree indexing; distributed and OO databases; data mining and warehousing; security | [7](/learning-guide/nec/chapters/07-dsa-dbms-os/) | Partial |
+| 10 Operating systems | processes, threads, SMP, microkernels, concurrency, deadlock; scheduling; memory; I/O, disks, file systems; distributed systems, RPC; security and trusted systems | [7](/learning-guide/nec/chapters/07-dsa-dbms-os/) | Partial |
+
+### Section C (Paper II 20 marks · Paper I Part II 30%)
+
+| Unit | Sub-units | NEC chapter | Coverage |
+| --- | --- | --- | --- |
+| 11 Artificial intelligence | search, NLP, game playing, learning, automated reasoning, planning, vision and robotics | [9](/learning-guide/nec/chapters/09-ai-neural-networks/) | Partial (planning is new) |
+| 12 Theory of computation | BNF, grammars; DFA/NFA, regex; closure, homomorphism; **pigeonhole principle**, pumping lemma; CFG, PDA; TM; RE languages, unrestricted grammars; Chomsky hierarchy, undecidability, Church's thesis; P and NP | [6](/learning-guide/nec/chapters/06-toc-graphics/) | Partial |
+| 13 Compiler design | structure, lexical analysis, top-down and bottom-up parsing, SDT, type checking, runtime storage, intermediate code, data-flow analysis and optimisation | — | **New** |
+| 14 Computer graphics | concepts, input devices, raster algorithms, scan conversion, hardware, 2D and 3D transforms and viewing, hierarchical modelling, projections, hidden-surface removal, shading and rendering | [6](/learning-guide/nec/chapters/06-toc-graphics/) | Partial |
+| 15 Emerging technology & electives | simulation; parallel and distributed computing; high-speed networks; ANN and vision; adaptive web; software architecture; distributed objects (ORB, DCOM); speech processing; cryptography and security; e-commerce; software project management; embedded systems; image processing; multimedia; expert systems; GIS/remote sensing/GPS | [5](/learning-guide/nec/chapters/05-networks-security/), [9](/learning-guide/nec/chapters/09-ai-neural-networks/), [4](/learning-guide/nec/chapters/04-computer-organization-embedded/), [10](/learning-guide/nec/chapters/10-project-planning/) | Partial — many new items |
+
+### Section D (Paper II 30 marks)
+
+| Unit | What it asks | NEC chapter | Coverage |
+| --- | --- | --- | --- |
+| 16.1 Technical writing (10) | a technical proposal on a given specification, or an essay, or views and critique on a computer-technology topic; your own reasoning is rewarded | — | **New** — a skill, not content |
+| 16.2 Case study (20) | analysis and design of a software system from a scenario, using one paradigm; may combine software engineering, DBMS and OS | [8](/learning-guide/nec/chapters/08-software-engineering-ooad/), [7](/learning-guide/nec/chapters/07-dsa-dbms-os/), [10](/learning-guide/nec/chapters/10-project-planning/) (feasibility) | Partial — needs DFD/ER practice |
+
+**Paper I, Part I** (general awareness and reasoning, 50 marks) has no NEC overlap at all.
+
+## What NEC doesn't give you
+
+Plan these for Phase 2 (4 Jan – 12 Mar):
+
+1. **Unit 5 Electronic communications** — modulation (AM, FM, PM; ASK, FSK, PSK, QAM), sampling and PCM, SNR, BER, Shannon capacity.
+2. **Unit 13 Compiler design** — whole unit.
+3. **Unit 15 emerging-tech items** not in NEC — simulation and random-number tests, distributed objects, image processing, multimedia, GIS/GPS, adaptive web, high-speed networks.
+4. **Section D** — weekly technical-writing and case-study practice (DFD, ER, use case, sequence diagrams, feasibility).
+5. **Paper I Part I** — general awareness and reasoning.
+6. The **Partial** extras listed at the bottom of each NEC chapter page.
+
+**NEC chapter 10** (drawing, economics, NEC Act) is NEC-only, apart from feasibility and budgeting in Section D.
+
+## Sources
+
+- [PSC Computer Engineer syllabus, Paper II (official PDF)](https://psc.gov.np/uploads/course/20231110070747654dd6c3886821.pdf)
+- [Provincial copy of the same syllabus (full unit text)](https://giwmscdnone.gov.np/media/pdf_upload/computer-engineer_uadle0n.pdf)
+- [Berojgar Engineer: links to the official CE and CO syllabus PDFs](https://berojgarengineer.com/blog/nijamati-sangh-computer-engineer-computer-officer/)
