@@ -1,0 +1,130 @@
+---
+title: "4. Series and parallel circuits"
+description: Series and parallel resistors, equivalent resistance, voltage and current dividers, and reducing mixed networks step by step.
+sidebar:
+  label: "4. Series and parallel"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** replace any series–parallel network with one equivalent resistor, then find every current and voltage in it.
+
+<Figure caption="Left: two resistors in series share one path. Right: two resistors in parallel each connect across the same two wires.">
+  <Circuit name="series-parallel" label="Two circuits. Left: a battery with R1 and R2 one after another on a single loop. Right: a battery with R1 and R2 each connected directly across the battery's two wires." />
+</Figure>
+
+## 1. Series
+
+Components are in **series** when they're connected end to end with **no branch** between them, so there's only **one path**.
+
+- **Same current** through every component.
+- **Voltages add up:** `V = V1 + V2 + …` (the source's push is shared out).
+- **Resistances add:** `R_total = R1 + R2 + …` — always **bigger** than the largest one.
+- One break anywhere stops everything (old-style festival lights).
+
+**Voltage divider** (two resistors in series across V):
+
+`V1 = V × R1 / (R1 + R2)`
+
+The bigger resistor gets the bigger share of the voltage.
+
+**Worked example.** 2 Ω, 3 Ω and 5 Ω in series across 20 V.
+
+- R_total = 2 + 3 + 5 = 10 Ω
+- I = 20 / 10 = 2 A (the same through all three)
+- Drops: 2 × 2 = 4 V, 2 × 3 = 6 V, 2 × 5 = 10 V. Check: 4 + 6 + 10 = 20 V. ✔
+
+## 2. Parallel
+
+Components are in **parallel** when both ends of each are connected to the **same two points**.
+
+- **Same voltage** across every component.
+- **Currents add up:** `I = I1 + I2 + …` (the current splits between branches).
+- **Reciprocals add:** `1/R_total = 1/R1 + 1/R2 + …` — always **smaller** than the smallest one.
+- Two resistors: `R_total = R1 × R2 / (R1 + R2)` ("product over sum").
+- n equal resistors R: `R_total = R / n`.
+- Houses are wired in parallel: every appliance gets the full 230 V, and switching one off doesn't affect the others.
+
+**Current divider** (two branches sharing current I):
+
+`I1 = I × R2 / (R1 + R2)`
+
+Note the **other** resistor on top: more current takes the easier (smaller-resistance) path.
+
+**Worked example.** 6 Ω and 3 Ω in parallel across 12 V.
+
+- R_total = (6 × 3) / (6 + 3) = 18 / 9 = 2 Ω
+- Branch currents: 12 / 6 = 2 A and 12 / 3 = 4 A. Total 6 A.
+- Check: 12 V / 2 Ω = 6 A. ✔
+
+## 3. Mixed networks — reduce step by step
+
+Find a group that's purely series or purely parallel, replace it with one resistor, redraw, repeat.
+
+**Worked example.** 4 Ω in series with (6 Ω ∥ 3 Ω), across 12 V. Find every current.
+
+1. 6 ∥ 3 = 2 Ω.
+2. Now 4 + 2 = 6 Ω total.
+3. Supply current I = 12 / 6 = **2 A** (it all flows through the 4 Ω).
+4. Voltage across the 4 Ω = 2 × 4 = 8 V, so the parallel pair gets 12 − 8 = **4 V**.
+5. Branch currents: 4 / 6 = **0.67 A** and 4 / 3 = **1.33 A** (they add to 2 A ✔).
+
+<Aside type="tip" title="Sanity checks that catch most errors">
+Series total must be bigger than every part. Parallel total must be smaller than every branch. Branch currents must add back to the supply current.
+</Aside>
+
+## 4. Short and open circuits
+
+- A **short circuit** across a resistor (a wire with ~0 Ω in parallel) takes all the current: the resistor carries nothing and has 0 V across it.
+- An **open circuit** (a break, ∞ Ω) carries no current, but the full voltage can appear across the gap.
+
+## 5. Power in series and parallel
+
+Total power is always the **sum** of individual powers, whichever way they're connected.
+
+A classic question: two identical bulbs on the same supply — which arrangement is brighter? In **parallel**, each bulb gets the full voltage, so P = V²/R each. In **series**, each gets V/2, so each glows at **a quarter** of that power.
+
+## Traps
+
+- "In series, voltage is the same" — no: **current** is the same in series; **voltage** is the same in parallel.
+- Putting the wrong resistor on top in the current divider.
+- Forgetting that adding a resistor **in parallel always lowers** the total resistance.
+
+## Check yourself
+
+1. In a series circuit, the current:
+   (a) is the same through each component (b) is different in each (c) divides between components (d) is zero in the largest resistor
+
+<details><summary>Answer</summary>(a) one path, so the same current everywhere.</details>
+
+2. Three 9 Ω resistors in parallel have an equivalent resistance of:
+   (a) 27 Ω (b) 9 Ω (c) 3 Ω (d) 1/3 Ω
+
+<details><summary>Answer</summary>(c) R/n = 9/3 = 3 Ω.</details>
+
+3. 10 Ω and 40 Ω in series across 100 V. The voltage across the 40 Ω is:
+   (a) 20 V (b) 50 V (c) 80 V (d) 100 V
+
+<details><summary>Answer</summary>(c) Divider: 100 × 40/50 = 80 V.</details>
+
+4. 12 A splits between 4 Ω and 2 Ω in parallel. Current in the 4 Ω branch?
+   (a) 8 A (b) 6 A (c) 4 A (d) 3 A
+
+<details><summary>Answer</summary>(c) 12 × 2/(4 + 2) = 4 A. The 2 Ω branch takes 8 A.</details>
+
+5. Adding another resistor in parallel to an existing network:
+   (a) increases total resistance (b) decreases total resistance (c) leaves it unchanged (d) makes it infinite
+
+<details><summary>Answer</summary>(b) it always gives current another path.</details>
+
+6. 3 Ω in series with (4 Ω ∥ 12 Ω). Total resistance?
+   (a) 19 Ω (b) 6 Ω (c) 4.5 Ω (d) 3 Ω
+
+<details><summary>Answer</summary>(b) 4 ∥ 12 = 48/16 = 3 Ω; 3 + 3 = 6 Ω.</details>
+
+7. Household appliances are connected in parallel mainly because:
+   (a) it uses less wire (b) each gets the full supply voltage and works independently (c) it reduces total current (d) it increases resistance
+
+<details><summary>Answer</summary>(b) same voltage across each, and each can be switched separately.</details>

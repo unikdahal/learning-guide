@@ -58,7 +58,7 @@ test('each guide shows only its own sidebar and title',async({page})=>{
  await expect(page.locator('nav[aria-label="Main"] a[href*="/lok-sewa/"], nav[aria-label="Main"] a[href*="/nec/"]')).toHaveCount(0);
  await page.goto('guides/');await page.locator('main a[href$="/lok-sewa/"]').click();await expect(page).toHaveURL(/\/lok-sewa\/$/);
 });
-for(const path of ['', 'roadmap/', 'guides/', 'nec/', 'nec/roadmap/', 'nec/syllabus/', 'nec/exam/', 'nec/chapters/01-electrical-electronics/', 'nec/chapters/05-networks-security/', 'lok-sewa/', 'lok-sewa/computer-engineer/',...published.map(a=>a.path+'/')]) {
+for(const path of ['', 'roadmap/', 'guides/', 'nec/', 'nec/roadmap/', 'nec/syllabus/', 'nec/exam/', 'nec/chapters/01-electrical-electronics/', 'nec/chapters/05-networks-security/', 'lok-sewa/computer-officer/', 'nec/electronics/02-charge-current-voltage/', 'nec/electronics/06-star-delta/', 'nec/electronics/08-review-dc-basics/', 'lok-sewa/', 'lok-sewa/computer-engineer/',...published.map(a=>a.path+'/')]) {
  test(`accessible main content in both themes: ${path || 'home'}`,async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(path || './');
   for(const theme of ['light','dark']) {

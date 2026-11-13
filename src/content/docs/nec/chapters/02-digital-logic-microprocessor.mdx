@@ -9,6 +9,10 @@ import { Aside } from '@astrojs/starlight/components';
 
 **Code** AExE02 · **Questions** about 10 · **Your position** partial; the hardware side (2.4–2.6) is weaker · **Plan** Week 3, 18 h · **Target** 7/10
 
+<Aside type="note" title="Lok Sewa link">
+Computer Engineer **unit 3** (digital design) and **unit 2.8** (808X programming and interfacing), Section A. Computer Officer: barely (architecture, 4%). See the [Computer Engineer](/learning-guide/lok-sewa/computer-engineer/) and [Computer Officer](/learning-guide/lok-sewa/computer-officer/) syllabus maps.
+</Aside>
+
 **Model-paper questions from this chapter** (paraphrased): EEPROM floating-gate detail; two's complement; basic building block of combinational circuits; clock-driven synchronous circuits; meaning of microprocessor bandwidth; 8255 internal bus width; when an ISR runs; NOR gates needed for AND; range of an unsigned 8-bit number; purpose of the interrupt flag.
 
 ## 2.1 Digital logic
@@ -105,6 +109,21 @@ import { Aside } from '@astrojs/starlight/components';
 - **8086:** NMI (non-maskable), INTR (maskable, gated by the **IF flag** — `STI` sets it, `CLI` clears it), and software `INT n`. The vector table holds 256 entries of 4 bytes at 00000H–003FFH.
 - **Processing:** the CPU finishes the current instruction, saves the return address (and flags on the 8086), jumps to the **ISR**, which saves registers, services the device, restores them and returns (`RET`/`IRET`).
 - Polling wastes CPU time; interrupts don't. Several sources are prioritised by daisy-chaining or a priority controller (8259 PIC).
+
+## For Lok Sewa
+
+NEC needs the facts above; Lok Sewa Paper II needs them as **written answers**, plus these extras. Do the extras in January unless a week has slack.
+
+**Extra topics beyond NEC**
+
+- IC logic families: TTL, CMOS, ECL — fan-out, noise margin, propagation delay, power.
+- Interfacing with analog devices: ADC and DAC types (flash, successive approximation, R-2R).
+- MSI circuits and memory devices as building blocks; 8086 interfacing (memory and 8255) as written answers.
+
+**Paper II questions to write** (one per Sunday; past questions are as reported in your draft and not yet checked against the papers)
+
+- Write a 5-mark answer: design a mod-6 synchronous counter.
+- Write a 10-mark answer: 8086 architecture with BIU/EU diagram.
 
 ## Before you move on
 

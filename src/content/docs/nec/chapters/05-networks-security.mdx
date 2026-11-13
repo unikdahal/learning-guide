@@ -5,7 +5,13 @@ sidebar:
   label: "5. Networks & security"
   order: 5
 ---
+import { Aside } from '@astrojs/starlight/components';
+
 **Code** ACtE05 · **Questions** about 10 (12 in the model paper) · **Your position** strong · **Plan** one sweep in Week 6, 7 h · **Target** 9/10
+
+<Aside type="note" title="Lok Sewa link">
+Computer Engineer **unit 1** (Section A) and **15.9 cryptography and network security** (Section C). Computer Officer **networking, 10%**, Paper II Section D. See the [Computer Engineer](/learning-guide/lok-sewa/computer-engineer/) and [Computer Officer](/learning-guide/lok-sewa/computer-officer/) syllabus maps.
+</Aside>
 
 NEC asks this chapter as **lookup facts**: port numbers, which layer, which protocol, which command. Learn the tables, then drill.
 
@@ -82,6 +88,25 @@ TCP/IP has four layers: link (network access), internet, transport, application.
 - Digital signature: sign with the sender's private key, verify with the sender's public key.
 - PGP secures email; SSL/TLS secures TCP connections (sits between transport and application); IPsec secures the network layer (AH authenticates, ESP encrypts; transport and tunnel modes); VPNs commonly use IPsec or TLS; WEP (RC4) is broken — WPA2/WPA3 replace it.
 - Firewall types: packet filter, stateful inspection, application-level gateway (proxy), circuit-level gateway.
+
+## For Lok Sewa
+
+NEC needs the facts above; Lok Sewa Paper II needs them as **written answers**, plus these extras. Do the extras in January unless a week has slack.
+
+**Extra topics beyond NEC**
+
+- Datagram vs virtual-circuit networks, router internals, IP fragmentation, web caching.
+- Unit 5 electronic communications is **not** in NEC: modulation, PCM, SNR, BER, Shannon — study it in January.
+- Public key infrastructure (certificates, CA, RA, CRL) and attacks such as man-in-the-middle on Wi-Fi.
+- For Computer Officer: DHCP and DNS resolution step by step, VLAN, VPN, NAS/SAN.
+
+**Paper II questions to write** (one per Sunday; past questions are as reported in your draft and not yet checked against the papers)
+
+- Compare TCP and UDP (reported, CE 2078)
+- Subnet 200.168.10.0/24 into 7 subnets and find a host's network, broadcast and range (reported, CE 2078)
+- Datagram vs virtual-circuit networks, with diagrams (reported, CE 2079)
+- Cryptography and PKI (reported, CE 2078); MITM on Wi-Fi (reported, CE 2079)
+- DNS resolution and DHCP working (reported, CO 2083)
 
 ## Before you move on
 

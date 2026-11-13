@@ -1,0 +1,95 @@
+---
+title: "7. Kinds of circuits and elements"
+description: Linear vs non-linear, bilateral vs unilateral, active vs passive elements, and ideal voltage and current sources.
+sidebar:
+  label: "7. Kinds of circuits"
+  order: 7
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** classify any element in one second. NEC turns this into very quick MCQs, and the next part (network theorems) depends on it: several theorems work **only for linear, bilateral** circuits.
+
+## Linear vs non-linear
+
+- **Linear element:** its parameter (R, L or C) stays constant whatever the voltage or current. Its V–I graph is a straight line through the origin. Double the cause → double the effect.
+  - Examples: resistor (at constant temperature), inductor, capacitor.
+- **Non-linear element:** its parameter changes with voltage or current; curved V–I graph.
+  - Examples: diode, transistor, bulb filament, thermistor.
+- A **linear circuit** contains only linear elements (and sources). **Superposition and Thevenin's theorem apply only to linear circuits.**
+
+## Bilateral vs unilateral
+
+- **Bilateral:** behaves the same whichever way current flows through it. Reverse the battery → same size of current, opposite direction.
+  - Examples: resistor, inductor, capacitor, plain wire.
+- **Unilateral:** behaviour depends on direction.
+  - Example: **diode** (conducts one way, blocks the other); transistors.
+
+## Active vs passive
+
+- **Active element:** can **supply energy** (or provide power gain) to the circuit.
+  - Examples: voltage source, current source, battery, generator. Transistors and op-amps are called active devices because they can amplify — using energy from a power supply.
+- **Passive element:** can only **absorb or store** energy; never delivers more than it received.
+  - **Resistor** — absorbs and dissipates energy as heat.
+  - **Inductor** — stores energy in a magnetic field.
+  - **Capacitor** — stores energy in an electric field.
+
+| Element | Linear? | Bilateral? | Active/passive |
+| --- | --- | --- | --- |
+| Resistor | yes | yes | passive |
+| Inductor | yes | yes | passive |
+| Capacitor | yes | yes | passive |
+| Diode | no | **no** (unilateral) | passive* |
+| Transistor | no | no | active device |
+| Battery / source | — | — | active |
+
+\*A diode can't supply energy, so it's classed as passive in most textbooks, though some list all semiconductor devices as "active components". MCQs usually ask about R, L, C (passive) vs sources (active), so that's the safe answer.
+
+## Ideal sources
+
+You'll need these for network theorems:
+
+- **Ideal voltage source:** keeps the same voltage whatever current is drawn. **Internal resistance = 0.** A real battery has a small internal resistance, so its terminal voltage drops a little under load.
+- **Ideal current source:** delivers the same current whatever the load. **Internal resistance = ∞.**
+- To "kill" (switch off) a source when using theorems: **replace a voltage source by a short circuit** and **a current source by an open circuit**.
+
+<Aside type="note" title="Two more pairs you may meet">
+**Lumped vs distributed:** in a lumped circuit each element sits at one place (normal circuits); in a distributed one, R, L and C are spread along a length (long transmission lines). **Time-invariant vs time-varying:** whether element values change with time. Rarely asked, but good to recognise.
+</Aside>
+
+## Traps
+
+- A **diode** is the stock example of both **non-linear** and **unilateral**.
+- **Inductor and capacitor are passive** even though they store energy — they can only give back what they took in.
+- Ideal voltage source: 0 Ω inside. Ideal current source: ∞ Ω inside. Don't swap them.
+
+## Check yourself
+
+1. Which is a passive element?
+   (a) battery (b) generator (c) capacitor (d) current source
+
+<details><summary>Answer</summary>(c) capacitor — it stores energy but can't supply net energy.</details>
+
+2. A diode is:
+   (a) linear and bilateral (b) non-linear and unilateral (c) linear and unilateral (d) non-linear and bilateral
+
+<details><summary>Answer</summary>(b) its V–I graph curves and it conducts one way.</details>
+
+3. A resistor at constant temperature is:
+   (a) linear and bilateral (b) non-linear and bilateral (c) linear and unilateral (d) active
+
+<details><summary>Answer</summary>(a)</details>
+
+4. The internal resistance of an ideal voltage source is:
+   (a) zero (b) infinite (c) equal to the load (d) 1 Ω
+
+<details><summary>Answer</summary>(a) zero, so its terminal voltage never drops.</details>
+
+5. When applying a theorem, an ideal current source is "killed" by replacing it with:
+   (a) a short circuit (b) an open circuit (c) a 1 Ω resistor (d) a voltage source
+
+<details><summary>Answer</summary>(b) an open circuit (its internal resistance is infinite).</details>
+
+6. In a linear circuit:
+   (a) doubling the source doubles every current (b) currents depend on direction (c) superposition can't be used (d) all elements are active
+
+<details><summary>Answer</summary>(a) that proportionality is what "linear" means.</details>

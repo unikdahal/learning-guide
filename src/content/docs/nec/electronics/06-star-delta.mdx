@@ -1,0 +1,111 @@
+---
+title: "6. Star–delta conversion"
+description: Star (Y) and delta (Δ) resistor networks, the conversion formulas, the equal-resistor shortcut, and the balanced bridge.
+sidebar:
+  label: "6. Star–delta"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** convert between star and delta in either direction, use the "divide by 3 / multiply by 3" shortcut, and spot a balanced bridge.
+
+## The problem it solves
+
+Some networks have no resistor pair that is purely series or purely parallel — the classic case is a **bridge** (below). Star–delta conversion swaps three resistors for three others that behave **identically from the outside**, which unlocks series–parallel reduction.
+
+<Figure caption="The same three terminals a, b, c, connected two ways. Delta: a resistor between each pair of terminals. Star: each terminal joins a shared centre point n.">
+  <Circuit name="star-delta" label="Left: a triangle (delta) with corners a, b, c and resistors Rab, Rbc, Rca on its sides. Right: a Y shape (star) with arms Ra, Rb, Rc from a centre point n to terminals a, b, c." />
+</Figure>
+
+Delta is also called **mesh** or **pi (π)**; star is also called **wye (Y)** or **tee (T)**.
+
+## Delta → star
+
+Each star resistor = **(product of the two delta resistors touching that terminal) ÷ (sum of all three)**:
+
+`Ra = (Rab × Rca) / (Rab + Rbc + Rca)`
+`Rb = (Rab × Rbc) / (Rab + Rbc + Rca)`
+`Rc = (Rbc × Rca) / (Rab + Rbc + Rca)`
+
+## Star → delta
+
+Each delta resistor = **(sum of the pairwise products of the star resistors) ÷ (the star resistor opposite)**:
+
+`Rab = (RaRb + RbRc + RcRa) / Rc`
+`Rbc = (RaRb + RbRc + RcRa) / Ra`
+`Rca = (RaRb + RbRc + RcRa) / Rb`
+
+## The shortcut — memorise this one
+
+If all three resistors are **equal**:
+
+- Delta → star: `R_star = R_delta / 3`
+- Star → delta: `R_delta = 3 × R_star`
+
+So a delta of three 3 Ω resistors becomes a star of three 1 Ω resistors — a question NEC has asked.
+
+**Worked example (unequal).** Delta: Rab = 10 Ω, Rbc = 20 Ω, Rca = 30 Ω. Sum = 60 Ω.
+
+- Ra = (10 × 30)/60 = **5 Ω**
+- Rb = (10 × 20)/60 = **3.33 Ω**
+- Rc = (20 × 30)/60 = **10 Ω**
+
+Check by converting back: RaRb + RbRc + RcRa = 16.67 + 33.33 + 50 = 100. Rab = 100/Rc = 100/10 = 10 Ω ✔.
+
+<Aside type="tip" title="How to remember which is which">
+Delta → star divides (star resistors come out smaller). Star → delta divides by the **opposite** star resistor (delta resistors come out bigger).
+</Aside>
+
+## The bridge, and when you don't need any conversion
+
+<Figure caption="A bridge network between A and B. The 5 Ω resistor links the two middle points C and D.">
+  <Circuit name="bridge" label="Diamond-shaped bridge: from A, 2 ohms up to C and 3 ohms down to D; from C, 4 ohms to B; from D, 6 ohms to B; 5 ohms between C and D." />
+</Figure>
+
+**Balanced bridge.** If `R_AC / R_CB = R_AD / R_DB`, points C and D sit at the same voltage, so **no current** flows through the middle resistor and you can simply delete it. This is the principle of the **Wheatstone bridge**, used to measure an unknown resistance.
+
+Here 2/4 = 3/6 = 0.5, so the bridge is balanced:
+
+- Remove the 5 Ω.
+- Top path: 2 + 4 = 6 Ω. Bottom path: 3 + 6 = 9 Ω.
+- R_AB = 6 ∥ 9 = 54/15 = **3.6 Ω**.
+
+**Unbalanced bridge.** If the ratios don't match, convert one triangle (for example A–C–D) from delta to star, then reduce with series–parallel rules.
+
+## Where else you'll see star and delta
+
+Three-phase power (lesson coming in Part 4) uses star and delta connections of generator windings and loads, and motors are often started in star and run in delta. Same shapes, different question.
+
+## Traps
+
+- Using the wrong pair in the delta → star numerator: it's the two resistors **touching** that terminal.
+- Forgetting the bridge balance check before doing a long conversion.
+
+## Check yourself
+
+1. Three 9 Ω resistors in delta are equivalent to a star of:
+   (a) 27 Ω each (b) 9 Ω each (c) 3 Ω each (d) 1 Ω each
+
+<details><summary>Answer</summary>(c) R_delta / 3 = 3 Ω.</details>
+
+2. A star of three 5 Ω resistors is equivalent to a delta of:
+   (a) 5/3 Ω each (b) 5 Ω each (c) 10 Ω each (d) 15 Ω each
+
+<details><summary>Answer</summary>(d) 3 × 5 = 15 Ω.</details>
+
+3. Delta with Rab = 6, Rbc = 6, Rca = 12 Ω. The star resistor Ra is:
+   (a) 3 Ω (b) 2.4 Ω (c) 1.5 Ω (d) 6 Ω
+
+<details><summary>Answer</summary>(a) Ra = (Rab × Rca)/sum = (6 × 12)/24 = 3 Ω.</details>
+
+4. In a balanced Wheatstone bridge, the current through the middle (galvanometer) arm is:
+   (a) maximum (b) zero (c) equal to the supply current (d) half the supply current
+
+<details><summary>Answer</summary>(b) zero, because both ends of that arm are at the same voltage.</details>
+
+5. Star–delta conversion is most useful when:
+   (a) all resistors are in series (b) all resistors are in parallel (c) the network can't be reduced by series–parallel rules (d) the circuit has only one resistor
+
+<details><summary>Answer</summary>(c) e.g. an unbalanced bridge.</details>

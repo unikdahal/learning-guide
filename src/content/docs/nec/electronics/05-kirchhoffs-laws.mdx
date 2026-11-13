@@ -1,0 +1,117 @@
+---
+title: "5. Kirchhoff's laws"
+description: Kirchhoff's current law and voltage law, sign conventions, and solving a circuit that can't be reduced with series and parallel rules (nodal and mesh analysis).
+sidebar:
+  label: "5. Kirchhoff's laws"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** state KCL and KVL, say what each conserves, and use them to solve a circuit with two sources.
+
+## Why we need them
+
+Series and parallel rules only work when a network *can* be split into series and parallel groups. Put two batteries in different branches and those rules stop working. Kirchhoff's two laws work on **any** circuit.
+
+First, three words:
+
+- **Node:** a point where two or more components connect (a junction).
+- **Branch:** a path between two nodes containing one or more components.
+- **Loop:** any closed path; a **mesh** is a loop with no other loop inside it.
+
+## Kirchhoff's current law (KCL)
+
+> At any node, the total current flowing **in** equals the total current flowing **out**. Equivalently, the algebraic sum of currents at a node is zero.
+
+KCL is **conservation of charge**: charge can't pile up at a junction or vanish there.
+
+<Figure caption="KCL at a node: 3 A and 2 A flow in, so 5 A must flow out.">
+  <Circuit name="kcl" label="A single node with two currents flowing in, 3 A and 2 A, and one current flowing out, marked as unknown; it equals 5 A." />
+</Figure>
+
+## Kirchhoff's voltage law (KVL)
+
+> Around any closed loop, the algebraic sum of all voltages is zero. Equivalently, the total EMF (rises) equals the total voltage drops.
+
+KVL is **conservation of energy**: a coulomb that goes all the way around a loop and returns to its start point ends with the same energy it began with.
+
+**Sign convention** (pick one and stick to it): walk around the loop. Going through a source from − to + is a **rise** (+V). Going through a resistor *in the direction of the current* is a **drop** (−IR).
+
+**Quick example.** A 12 V battery drives current through 2 Ω and 4 Ω in series. KVL: `12 − 2I − 4I = 0` → `I = 2 A`. That's exactly what the series rule gave — KVL is where that rule comes from.
+
+## Solving a real circuit: nodal analysis (KCL)
+
+<Figure caption="Two sources that can't be reduced with series–parallel rules. Unknown: the voltage V at the top middle node.">
+  <Circuit name="nodal" label="A 10 V source on the left feeds a 2 ohm resistor to a middle node V; a 4 ohm resistor runs from that node down to the 0 V bottom wire; another 4 ohm resistor runs from the node to a 6 V source on the right. Both sources have + on top." />
+</Figure>
+
+**Step 1 — choose a reference.** The bottom wire is 0 V. The only unknown is the node voltage **V**.
+
+**Step 2 — write each branch current with Ohm's law**, flowing *into* the node:
+
+- From the 10 V source through 2 Ω: `(10 − V) / 2`
+- From the 6 V source through 4 Ω: `(6 − V) / 4`
+- Out of the node, down through 4 Ω: `V / 4`
+
+**Step 3 — KCL: in = out.**
+
+`(10 − V)/2 + (6 − V)/4 = V/4`
+
+Multiply every term by 4: `2(10 − V) + (6 − V) = V` → `20 − 2V + 6 − V = V` → `26 = 4V` → **V = 6.5 V**.
+
+**Step 4 — find the currents.**
+
+- Left branch: (10 − 6.5)/2 = **1.75 A** into the node.
+- Right branch: (6 − 6.5)/4 = **−0.125 A**. The minus sign means our guess was wrong: 0.125 A actually flows **out** of the node, into the 6 V source (it's being charged).
+- Middle: 6.5/4 = **1.625 A** down.
+- Check with KCL: 1.75 − 0.125 = 1.625. ✔
+
+<Aside type="tip" title="Negative answers aren't mistakes">
+Guess any direction for an unknown current. If the answer comes out negative, the real current flows the other way, with the same size.
+</Aside>
+
+## The other method: mesh analysis (KVL)
+
+Instead of node voltages, give each mesh a circulating current (I₁ in the left loop, I₂ in the right loop) and write KVL round each. A resistor shared by two meshes carries `I₁ − I₂`. For this circuit you'd get two equations in two unknowns — same answers.
+
+**Which to use?** Count unknowns: nodal needs one equation per node (minus the reference); mesh needs one per mesh. Pick whichever gives fewer. Exam MCQs mostly ask which law each method uses: **nodal → KCL**, **mesh → KVL**.
+
+## Traps
+
+- KCL ↔ charge; KVL ↔ energy. Swapping them is the single most common MCQ error.
+- Kirchhoff's laws apply to **any** circuit — linear or non-linear, DC or AC (with instantaneous or phasor values).
+- Mixing sign conventions halfway round a loop.
+
+## Check yourself
+
+1. Kirchhoff's current law is based on conservation of:
+   (a) energy (b) charge (c) momentum (d) power
+
+<details><summary>Answer</summary>(b) charge.</details>
+
+2. Kirchhoff's voltage law is based on conservation of:
+   (a) charge (b) energy (c) mass (d) current
+
+<details><summary>Answer</summary>(b) energy.</details>
+
+3. Currents of 5 A and 3 A enter a node, and 6 A leaves through one wire. The fourth wire carries:
+   (a) 2 A in (b) 2 A out (c) 14 A out (d) 8 A out
+
+<details><summary>Answer</summary>(b) In = 8 A, out so far = 6 A, so 2 A more must leave.</details>
+
+4. Nodal analysis is based on:
+   (a) KVL (b) KCL (c) Ohm's law only (d) superposition
+
+<details><summary>Answer</summary>(b) KCL at each node. Mesh analysis uses KVL.</details>
+
+5. In a loop, a 24 V source drives current through 2 Ω, 4 Ω and 6 Ω in series. The drop across the 4 Ω is:
+   (a) 2 V (b) 4 V (c) 8 V (d) 12 V
+
+<details><summary>Answer</summary>(c) I = 24/12 = 2 A; 2 × 4 = 8 V.</details>
+
+6. Solving a circuit, you get a branch current of −3 A. This means:
+   (a) you made a mistake (b) the current is 3 A in the opposite direction to the one assumed (c) the branch is open (d) the source is faulty
+
+<details><summary>Answer</summary>(b) the assumed direction was wrong; the size is still 3 A.</details>

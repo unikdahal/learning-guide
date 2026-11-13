@@ -1,0 +1,130 @@
+---
+title: "2. Charge, current and voltage"
+description: What electricity is, from scratch — electric charge, current as flowing charge, voltage as energy per charge, conventional current vs electron flow, DC vs AC.
+sidebar:
+  label: "2. Charge, current, voltage"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import Circuit from '@components/visuals/electronics/Circuit.astro';
+
+**Goal:** explain in plain words what charge, current and voltage are, and use `I = Q/t` and `V = W/Q`.
+
+## 1. Charge — the thing that moves
+
+Everything is made of atoms. An atom has a centre (nucleus) with **protons**, which carry positive charge, surrounded by **electrons**, which carry negative charge. Opposite charges attract; like charges repel.
+
+**Charge** (symbol Q) is measured in **coulombs** (C). One electron carries a tiny charge: about 1.6 × 10⁻¹⁹ C. So one coulomb is the charge of about 6.24 × 10¹⁸ electrons — a useful fact for MCQs.
+
+In a metal wire, some electrons in each atom are only loosely held. These **free electrons** wander randomly through the metal. Electricity in a wire is these free electrons moving together in one direction.
+
+## 2. Current — how fast charge flows
+
+**Current** (I) is the amount of charge passing a point each second:
+
+`I = Q / t`  (amperes = coulombs per second)
+
+One **ampere** (A) means one coulomb passes every second.
+
+**Worked example.** 30 C of charge passes through a wire in 1 minute. Current?
+Convert time first: 1 minute = 60 s. `I = 30 / 60 = 0.5 A`.
+
+**Worked example.** A phone charger supplies 2 A for 1 hour. How much charge?
+`Q = I × t = 2 × 3,600 = 7,200 C`.
+
+### Conventional current vs electron flow
+
+Early scientists guessed that positive charge flows, from the **+ terminal to the − terminal**. We now know that in metals it's electrons that move, from − to +. Nobody rewrote the textbooks, so:
+
+- **Conventional current** (what every circuit diagram and formula uses) flows **+ → −** outside the source.
+- **Electron flow** is the opposite direction.
+
+Both describe the same thing; the maths gives identical answers. **Always use conventional current** unless a question says "electron flow".
+
+<Figure caption="A battery driving current through a resistor. Conventional current leaves the + terminal; electrons drift the opposite way.">
+  <Circuit name="loop" label="Closed loop: battery on the left with + on top, resistor R on the right. Conventional current flows clockwise from the + terminal; electrons drift anticlockwise." />
+</Figure>
+
+<Aside type="note" title="Electrons are slow, the signal is fast">
+Individual electrons drift through a wire at well under a millimetre per second. A lamp still lights instantly because the wire is already full of free electrons: pushing at one end moves all of them at once, like pushing a tube already full of marbles.
+</Aside>
+
+## 3. Voltage — the push
+
+Charge doesn't flow on its own. Something must give it energy. **Voltage** (V) is the **energy given to (or used by) each coulomb of charge**:
+
+`V = W / Q`  (volts = joules per coulomb)
+
+One **volt** means each coulomb carries one joule of energy. A 9 V battery gives every coulomb 9 J.
+
+- **Voltage is always between two points.** "The voltage at point A" really means "between A and a chosen reference point", usually called **ground** or 0 V.
+- That's why it's also called **potential difference (p.d.)**.
+- **EMF (electromotive force)** is the voltage a *source* (battery, generator) creates — energy supplied per coulomb. **Potential difference** across a component is energy *used* per coulomb there. Both are measured in volts.
+
+**Worked example.** A battery moves 5 C through a lamp and the lamp converts 60 J of energy. Voltage across the lamp?
+`V = 60 / 5 = 12 V`.
+
+### The water analogy, and where it breaks
+
+| Electricity | Water in pipes |
+| --- | --- |
+| Voltage | water pressure difference (pump) |
+| Current | flow rate (litres per second) |
+| Resistance (next lesson) | a narrow section of pipe |
+
+Useful for intuition, but don't push it far: wires are never "empty" and charge doesn't leak out of an open wire.
+
+## 4. A complete circuit
+
+Current flows only around a **closed loop**: source → wire → component → wire → back to the source. Break the loop anywhere (a switch, a cut wire) and current stops everywhere in that loop. That's an **open circuit**.
+
+A path with almost zero resistance connecting the two terminals of a source is a **short circuit** — huge current, heat, often fire. Fuses and circuit breakers exist to stop it.
+
+## 5. DC and AC
+
+- **DC (direct current):** flows in one direction at a steady value. Batteries, phone chargers' outputs, solar panels.
+- **AC (alternating current):** reverses direction many times a second. Mains electricity in Nepal and India: about 230 V, 50 Hz (50 complete reversals per second). AC has its own lessons later.
+
+## How to measure
+
+- An **ammeter** measures current. It goes **in series** (the current must pass through it), so it has very **low** resistance.
+- A **voltmeter** measures voltage. It goes **in parallel** (across the two points), so it has very **high** resistance.
+
+## Traps
+
+- "Voltage flows through a resistor" — wrong. Current flows *through*; voltage is *across*.
+- Energy per unit charge = **voltage**. Charge per unit time = **current**. Energy per unit time = **power** (next lesson).
+- Forgetting to convert minutes and hours to seconds in `I = Q/t`.
+
+## Check yourself
+
+1. Energy per unit charge is:
+   (a) power (b) voltage (c) current (d) capacitance
+
+<details><summary>Answer</summary>(b) voltage — 1 V = 1 J/C.</details>
+
+2. One ampere equals:
+   (a) 1 J/s (b) 1 C/s (c) 1 J/C (d) 1 V/Ω·s
+
+<details><summary>Answer</summary>(b) one coulomb per second.</details>
+
+3. 120 C flows through a heater in 2 minutes. The current is:
+   (a) 60 A (b) 2 A (c) 1 A (d) 0.5 A
+
+<details><summary>Answer</summary>(c) 1 A — 120 C ÷ 120 s.</details>
+
+4. In a circuit diagram, conventional current flows:
+   (a) from − to + outside the source (b) from + to − outside the source (c) in the direction electrons move (d) only in AC circuits
+
+<details><summary>Answer</summary>(b) from + to − through the external circuit; electrons move the other way.</details>
+
+5. An ammeter is connected:
+   (a) in parallel and has high resistance (b) in series and has low resistance (c) in series and has high resistance (d) in parallel and has low resistance
+
+<details><summary>Answer</summary>(b) In series, with low resistance so it doesn't change the current it measures.</details>
+
+6. Approximately how many electrons make up one coulomb?
+   (a) 1.6 × 10⁻¹⁹ (b) 6.24 × 10¹⁸ (c) 9.1 × 10⁻³¹ (d) 3 × 10⁸
+
+<details><summary>Answer</summary>(b) 6.24 × 10¹⁸ = 1 ÷ 1.6 × 10⁻¹⁹. (1.6 × 10⁻¹⁹ C is one electron's charge.)</details>

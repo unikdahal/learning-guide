@@ -1,0 +1,181 @@
+---
+// Small, hand-drawn circuit diagrams for the "Electronics from zero" lessons.
+// Resistors use the IEC box symbol; batteries put the long (+) plate on top.
+// Colours come from theme variables so the drawings work in light and dark mode.
+interface Props {
+  name: 'loop' | 'series-parallel' | 'kcl' | 'nodal' | 'star-delta' | 'bridge';
+  label: string;
+}
+const { name, label } = Astro.props;
+const id = `cx-${name}`;
+
+/** A resistor box centred on (cx, cy), rotated by `deg`. */
+const box = (cx: number, cy: number, deg = 0) =>
+  `<rect class="r" x="${cx - 18}" y="${cy - 7}" width="36" height="14" transform="rotate(${deg} ${cx} ${cy})"/>`;
+/** A vertical battery centred on (x, cy): long + plate above, short − plate below. */
+const cell = (x: number, cy: number) =>
+  `<rect class="gap" x="${x - 14}" y="${cy - 5}" width="28" height="10"/>` +
+  `<line class="w" x1="${x - 13}" y1="${cy - 4}" x2="${x + 13}" y2="${cy - 4}"/>` +
+  `<line class="w thick" x1="${x - 6}" y1="${cy + 4}" x2="${x + 6}" y2="${cy + 4}"/>`;
+const t = (x: number, y: number, s: string, cls = '') => `<text x="${x}" y="${y}" class="${cls}">${s}</text>`;
+const arrow = (x1: number, y1: number, x2: number, y2: number, cls = 'i') =>
+  `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#${id}-a${cls === 'e' ? 'e' : ''})"/>`;
+
+let vb = '0 0 400 240';
+let body = '';
+
+if (name === 'loop') {
+  vb = '0 0 400 250';
+  body =
+    `<path class="w" d="M70 60 H300 V180 H70 Z"/>` +
+    cell(70, 120) +
+    box(300, 120, 90) +
+    t(88, 112, '+') + t(88, 140, '−') +
+    t(22, 125, 'V') + t(320, 125, 'R') +
+    arrow(130, 44, 240, 44) + t(130, 32, 'conventional current I (+ → −)', 'small i-t') +
+    // the bottom wire carries conventional current right→left, so electrons drift left→right
+    arrow(130, 200, 240, 200, 'e') + t(118, 228, 'electrons drift the other way', 'small e-t');
+} else if (name === 'series-parallel') {
+  vb = '0 0 640 256';
+  body =
+    // series
+    `<path class="w" d="M40 60 H270 V190 H40 Z"/>` +
+    cell(40, 125) + box(110, 60) + box(200, 60) +
+    t(100, 44, 'R1') + t(190, 44, 'R2') +
+    t(40, 240, 'Series: same current', 'small') +
+    // parallel
+    `<path class="w" d="M360 60 H580 V190 H360 Z M470 60 V190"/>` +
+    cell(360, 125) + box(470, 125, 90) + box(580, 125, 90) +
+    t(488, 130, 'R1') + t(598, 130, 'R2') +
+    t(360, 240, 'Parallel: same voltage', 'small');
+} else if (name === 'kcl') {
+  vb = '0 0 380 230';
+  body =
+    arrow(30, 110, 170, 110) + arrow(190, 20, 190, 98) +
+    arrow(202, 110, 350, 110) +
+    `<circle class="dot" cx="190" cy="110" r="6"/>` +
+    t(60, 98, 'I1 = 3 A in') + t(200, 50, 'I2 = 2 A in') + t(240, 98, 'I3 = ? out') +
+    t(60, 170, 'Charge can’t pile up at a node:', 'small') +
+    t(60, 192, 'in = out, so I3 = 3 + 2 = 5 A', 'small');
+} else if (name === 'nodal') {
+  vb = '-40 0 500 260';
+  body =
+    `<path class="w" d="M40 60 H380 V200 H40 Z M210 60 V200"/>` +
+    cell(40, 130) + cell(380, 130) +
+    box(120, 60) + box(300, 60) + box(210, 130, 90) +
+    `<circle class="dot" cx="210" cy="60" r="5"/>` +
+    t(104, 44, '2 Ω') + t(284, 44, '4 Ω') + t(226, 135, '4 Ω') +
+    t(200, 40, 'V', 'strong') +
+    t(-36, 135, '10 V') + t(400, 135, '6 V') +
+    t(150, 228, 'bottom wire = 0 V (reference)', 'small');
+} else if (name === 'star-delta') {
+  vb = '0 0 620 250';
+  body =
+    // delta
+    `<path class="w" d="M120 40 L40 190 H200 Z"/>` +
+    box(80, 115, 118) + box(160, 115, 62) + box(120, 190) +
+    `<circle class="dot" cx="120" cy="40" r="5"/><circle class="dot" cx="40" cy="190" r="5"/><circle class="dot" cx="200" cy="190" r="5"/>` +
+    t(113, 26, 'a', 'strong') + t(20, 205, 'b', 'strong') + t(210, 205, 'c', 'strong') +
+    t(20, 110, 'Rab') + t(178, 110, 'Rca') + t(104, 222, 'Rbc') +
+    t(70, 246, 'Delta (Δ)', 'small') +
+    // star
+    `<path class="w" d="M470 40 V125 M470 125 L390 190 M470 125 L550 190"/>` +
+    box(470, 82, 90) + box(430, 157, 141) + box(510, 157, 39) +
+    `<circle class="dot" cx="470" cy="40" r="5"/><circle class="dot" cx="390" cy="190" r="5"/><circle class="dot" cx="550" cy="190" r="5"/><circle class="dot" cx="470" cy="125" r="4"/>` +
+    t(463, 26, 'a', 'strong') + t(370, 205, 'b', 'strong') + t(560, 205, 'c', 'strong') +
+    t(488, 86, 'Ra') + t(396, 150, 'Rb') + t(528, 150, 'Rc') + t(482, 130, 'n', 'small') +
+    t(430, 246, 'Star (Y)', 'small');
+} else if (name === 'bridge') {
+  vb = '0 0 380 250';
+  body =
+    `<path class="w" d="M20 120 H60 L180 40 L300 120 L180 200 L60 120 M180 40 V200 M300 120 H350"/>` +
+    box(120, 80, -33.7) + box(240, 80, 33.7) + box(120, 160, 33.7) + box(240, 160, -33.7) + box(180, 120, 90) +
+    `<circle class="dot" cx="60" cy="120" r="5"/><circle class="dot" cx="300" cy="120" r="5"/><circle class="dot" cx="180" cy="40" r="5"/><circle class="dot" cx="180" cy="200" r="5"/>` +
+    t(48, 108, 'A', 'strong') + t(304, 108, 'B', 'strong') + t(174, 28, 'C', 'strong') + t(174, 226, 'D', 'strong') +
+    t(86, 62, '2 Ω') + t(248, 62, '4 Ω') + t(86, 192, '3 Ω') + t(248, 192, '6 Ω') + t(194, 125, '5 Ω');
+}
+---
+
+<svg class:list={['circuit', name]} viewBox={vb} role="img" aria-labelledby={`${id}-t`} xmlns="http://www.w3.org/2000/svg">
+  <title id={`${id}-t`}>{label}</title>
+  <defs>
+    <marker id={`${id}-a`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" class="ah"></path>
+    </marker>
+    <marker id={`${id}-ae`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" class="ahe"></path>
+    </marker>
+  </defs>
+  <g set:html={body} />
+</svg>
+
+<style>
+  .circuit {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+    height: auto;
+    margin-inline: auto;
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font);
+  }
+  .circuit :global(.w) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+  }
+  .circuit :global(.thick) {
+    stroke-width: 5;
+  }
+  .circuit :global(.r) {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 2.5;
+  }
+  .circuit :global(.gap) {
+    fill: var(--sl-color-gray-6);
+  }
+  .circuit :global(.dot) {
+    fill: currentColor;
+  }
+  .circuit :global(text) {
+    fill: currentColor;
+    font-size: 16px;
+  }
+  .circuit :global(text.small) {
+    font-size: 14px;
+    fill: var(--sl-color-gray-2);
+  }
+  .circuit :global(text.strong) {
+    font-weight: 700;
+  }
+  .circuit :global(.i) {
+    stroke: var(--qe-pipe-build);
+    stroke-width: 2.5;
+  }
+  .circuit :global(.e) {
+    stroke: var(--qe-pipe-emit);
+    stroke-width: 2.5;
+    stroke-dasharray: 6 4;
+  }
+  .circuit :global(.i-t) {
+    fill: var(--qe-pipe-build);
+  }
+  .circuit :global(.e-t) {
+    fill: var(--qe-pipe-emit);
+  }
+  /* the two-panel drawing shrinks most on phones, so its labels are larger */
+  .circuit.series-parallel :global(text) {
+    font-size: 24px;
+  }
+  .circuit.series-parallel :global(text.small) {
+    font-size: 22px;
+  }
+  .ah {
+    fill: var(--qe-pipe-build);
+  }
+  .ahe {
+    fill: var(--qe-pipe-emit);
+  }
+</style>
