@@ -1,0 +1,148 @@
+---
+title: "1. Basic electrical & electronics"
+description: NEC ACtE Chapter 1 (AExE01) — circuits, network theorems, AC, semiconductor devices, oscillators, amplifiers.
+sidebar:
+  label: "1. Electrical & electronics"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Code** AExE01 · **Questions** about 10 · **Your position** weak — top priority · **Plan** Weeks 2–3, 24 h · **Target** 6/10
+
+<Aside type="tip" title="How to study this chapter">
+NEC asks one-line facts and tiny numericals here, not derivations. For each sub-chapter: learn the "know cold" list until you can write it from memory, then do 15–20 MCQs. Every formula here belongs on the one-page formula sheet.
+</Aside>
+
+**Model-paper questions from this chapter** (paraphrased): dB formula for power gain; percentage of power delivered at maximum power transfer; maximum value of power factor; which element is passive; what the Thevenin voltage means; terminals in common-base configuration; maximum efficiency of class B push-pull; amplifier class for UHF signals.
+
+## 1.1 Basic concepts
+
+**Syllabus:** Ohm's law; voltage, current, power and energy; conducting and insulating materials; series and parallel circuits; star–delta and delta–star conversion; Kirchhoff's laws; linear and non-linear, bilateral and unilateral, active and passive circuits.
+
+**Know cold**
+
+- `V = IR`. `P = VI = I²R = V²/R`. Energy `W = Pt`; 1 kWh = 1 unit = 3.6 MJ.
+- Resistance `R = ρL/A`: longer wire → more resistance, thicker wire → less. Good conductors: silver, copper, aluminium. Insulators: glass, mica, PVC, rubber.
+- **Series:** same current, `R = R1 + R2 + …`, voltage divides in proportion to R. **Parallel:** same voltage, `1/R = 1/R1 + 1/R2 + …`; two resistors give `R1R2/(R1 + R2)`; current divides inversely to R.
+- **KCL:** currents into a node sum to zero (conservation of charge). **KVL:** voltages around a loop sum to zero (conservation of energy).
+- **Delta → star:** `Ra = (Rab · Rca) / (Rab + Rbc + Rca)`. Equal resistors: `R_star = R_delta / 3`, so a 3 Ω delta becomes a 1 Ω star.
+- **Star → delta:** `Rab = (RaRb + RbRc + RcRa) / Rc`. Equal resistors: `R_delta = 3 · R_star`.
+- **Linear:** parameters don't change with voltage or current; superposition holds (R, L, C). **Non-linear:** diode, transistor.
+- **Bilateral:** same behaviour in both directions (resistor). **Unilateral:** direction matters (diode).
+- **Active elements** supply energy (voltage and current sources, transistors in the small-signal sense). **Passive elements** only absorb or store it: R, L, C.
+
+## 1.2 Network theorems
+
+**Syllabus:** superposition, Thevenin, Norton, maximum power transfer; RL, RC and RLC circuits; series and parallel resonance; active and reactive power.
+
+**Know cold**
+
+- **Superposition:** linear circuits only. One source at a time: voltage sources become shorts, current sources become opens. Doesn't apply to power directly.
+- **Thevenin:** `Vth` = open-circuit voltage at the terminals; `Rth` = resistance seen with all independent sources killed.
+- **Norton:** `In` = short-circuit current; `Rn = Rth`; `Vth = In · Rth`.
+- **Maximum power transfer:** `RL = Rth` (DC) or `ZL = Zth*`, the complex conjugate (AC). `Pmax = Vth² / (4 Rth)`. Efficiency at that point is **50%**.
+- Time constants: RC circuit `τ = RC`, RL circuit `τ = L/R`. After one τ a charging capacitor reaches 63.2%; after 5τ it is effectively done.
+- Reactances: `XL = 2πfL` (rises with f), `XC = 1/(2πfC)` (falls with f). Inductor: current lags voltage by 90°. Capacitor: current leads by 90°.
+- **Resonance:** `XL = XC`, `f0 = 1 / (2π√(LC))`, power factor = 1.
+  - Series: impedance minimum (= R), current maximum, "acceptor" circuit, voltage magnification.
+  - Parallel: impedance maximum, line current minimum, "rejector" circuit.
+  - Quality factor (series) `Q = ω0L/R`; bandwidth `= f0/Q`. Higher Q → sharper, narrower.
+- **Power in AC:** real `P = VI cos φ` (W), reactive `Q = VI sin φ` (VAR), apparent `S = VI` (VA), `S² = P² + Q²`. Power factor `cos φ = P/S`, **maximum value 1** (purely resistive).
+
+## 1.3 AC fundamentals
+
+**Syllabus:** generation of alternating voltage and current, equations and waveforms; average, peak and RMS values; three-phase systems.
+
+**Know cold**
+
+- A coil rotating in a magnetic field gives `e = Em sin ωt` (Faraday's law), with `ω = 2πf`. Frequency is cycles per second (Hz); time period `T = 1/f`.
+- For a sine wave: `Vrms = Vm/√2 ≈ 0.707 Vm`; half-cycle average `Vavg = 2Vm/π ≈ 0.637 Vm`.
+- **Form factor** = RMS/average = **1.11** (sine). **Peak (crest) factor** = peak/RMS = **1.414** (sine). Square wave: both are 1.
+- Mains meters read RMS; 230 V RMS means about 325 V peak.
+- **Three-phase:** three voltages 120° apart.
+  - Star (Y): `VL = √3 Vph`, `IL = Iph`; has a neutral.
+  - Delta (Δ): `VL = Vph`, `IL = √3 Iph`.
+  - Total power `P = √3 VL IL cos φ` for either connection.
+- Advantages of three-phase: constant power delivery, less conductor for the same power, self-starting motors.
+
+## 1.4 Semiconductor devices
+
+**Syllabus:** diode and its characteristics; BJT configurations and biasing; small and large signal models; MOSFET and CMOS working principles and applications.
+
+**Know cold**
+
+- **PN diode:** conducts in forward bias after the knee (cut-in) voltage, about **0.7 V for silicon, 0.3 V for germanium**. Reverse bias: tiny saturation current until breakdown (Zener or avalanche). A Zener diode in reverse breakdown is a voltage regulator.
+- **Rectifiers** (input frequency f, peak Vm):
+
+  | | Half-wave | Centre-tap full-wave | Bridge |
+  | --- | --- | --- | --- |
+  | Ripple frequency | f | 2f | 2f |
+  | Peak inverse voltage | Vm | 2Vm | Vm |
+  | Max efficiency | 40.6% | 81.2% | 81.2% |
+  | Ripple factor | 1.21 | 0.482 | 0.482 |
+
+- **BJT currents:** `IE = IB + IC`; `α = IC/IE` (just under 1); `β = IC/IB` (often 50–300); `β = α/(1 − α)`.
+- **Regions:** active (BE forward, CB reverse) → amplifier; saturation and cut-off → switch.
+- **Configurations:**
+
+  | | Common emitter | Common base | Common collector |
+  | --- | --- | --- | --- |
+  | Current gain | high (β) | below 1 (α) | high (β + 1) |
+  | Voltage gain | high | high | about 1 |
+  | Input impedance | medium | low | high |
+  | Output impedance | medium | high | low |
+  | Phase shift | 180° | 0° | 0° |
+  | Use | general amplifier | high frequency | buffer (emitter follower) |
+
+  Every configuration has three terminals; one is common to input and output and names the configuration.
+- **Biasing** sets the Q-point on the DC load line. Fixed bias is least stable; **voltage-divider bias is the most stable** and most used.
+- Small-signal models (h-parameters, re model with `re ≈ 25 mV / IE`) handle small AC swings around the Q-point; large-signal models handle switching and power stages.
+- **MOSFET:** voltage-controlled, very high input impedance (insulated gate). Enhancement type needs `VGS` beyond the threshold to form a channel; depletion type has a channel at `VGS = 0`. Saturation-region current `ID = (k/2)(VGS − Vt)²`.
+- **CMOS:** an nMOS and a pMOS in complementary pairs. In a steady state one is always off, so static power is almost zero; power is spent mainly while switching. High noise margin and density → used in almost all digital ICs.
+
+## 1.5 Signal generators
+
+**Syllabus:** oscillator principles; RC, LC and crystal oscillators; waveform generators.
+
+**Know cold**
+
+- An oscillator is an amplifier with **positive feedback** and no input signal.
+- **Barkhausen criterion:** loop gain `|Aβ| = 1` and total loop phase shift 0° (or 360°).
+- **RC phase-shift:** three RC sections give 180°, the amplifier gives 180°; `f = 1 / (2πRC√6)`; amplifier gain must be at least 29. Audio range.
+- **Wien bridge:** `f = 1 / (2πRC)`; gain of 3 needed; low-distortion audio oscillator.
+- **LC oscillators** (radio frequencies): **Hartley** uses a tapped inductor (two inductors, one capacitor). **Colpitts** uses a tapped capacitor (two capacitors, one inductor). `f = 1 / (2π√(LC))` with the equivalent L or C.
+- **Crystal oscillator:** quartz's piezoelectric effect gives a very high Q and the most stable frequency (clocks, microprocessors). It has a series resonance below its parallel resonance.
+- **Waveform generators:** astable multivibrator (free-running square wave, no stable state), monostable (one stable state, one-shot pulse), **bistable** (two stable states — this is the flip-flop; an SR flip-flop is a bistable multivibrator). The 555 timer works in astable and monostable modes. A Schmitt trigger squares up slow edges using hysteresis.
+
+## 1.6 Amplifiers
+
+**Syllabus:** classification of output stages; class A, B and AB stages; biasing class AB; power BJTs; transformer-coupled push-pull; tuned amplifiers; op-amps.
+
+**Know cold**
+
+- **Classes by conduction angle** (how much of the input cycle the transistor conducts):
+
+  | Class | Conduction | Max efficiency | Note |
+  | --- | --- | --- | --- |
+  | A | 360° | 25% (resistive load), 50% (transformer-coupled) | lowest distortion |
+  | B | 180° | **78.5%** (π/4) | crossover distortion; used as push-pull |
+  | AB | between 180° and 360° | between A and B | small bias removes crossover distortion |
+  | C | under 180° | above 78.5% (up to about 90%) | needs a tuned LC load; RF transmitters |
+
+- **Push-pull:** two transistors each amplify one half-cycle. Transformer coupling also matches the load impedance.
+- **Class AB biasing:** two diodes (or a VBE multiplier) hold both transistors just at the edge of conduction.
+- **Power BJTs:** large area, low β, need heat sinks; watch for thermal runaway.
+- **Tuned amplifiers:** an LC tank as the load amplifies a narrow band around `f0` — radio IF and RF stages.
+- **Ideal op-amp:** infinite open-loop gain, infinite input impedance, zero output impedance, infinite bandwidth, infinite CMRR.
+  - Inverting gain `−Rf/Rin`. Non-inverting gain `1 + Rf/R1`. Voltage follower gain 1 (buffer).
+  - Also: summing amplifier, integrator, differentiator, comparator.
+  - `CMRR = Ad/Acm` (often in dB). Slew rate = maximum rate of change of the output (V/µs).
+- **Decibels:** power gain `= 10 log10(P2/P1)` dB; voltage gain `= 20 log10(V2/V1)` dB (equal impedances). +3 dB ≈ double the power; +20 dB = 10× voltage.
+
+## Before you move on
+
+- I can write every formula on this page from memory.
+- I can do a Thevenin equivalent and a star–delta conversion in under 3 minutes.
+- I scored at least 6/10 on a Chapter 1 MCQ set.
+
+**Books for gaps only:** B. L. Theraja (circuits and AC); Boylestad & Nashelsky or Sedra & Smith (devices and amplifiers).

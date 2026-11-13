@@ -1,0 +1,115 @@
+---
+title: "2. Digital logic & microprocessor"
+description: NEC ACtE Chapter 2 (AExE02) — Boolean logic, combinational and sequential circuits, 8085/8086, memory and I/O interfacing, interrupts.
+sidebar:
+  label: "2. Digital logic & microprocessor"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Code** AExE02 · **Questions** about 10 · **Your position** partial; the hardware side (2.4–2.6) is weaker · **Plan** Week 3, 18 h · **Target** 7/10
+
+**Model-paper questions from this chapter** (paraphrased): EEPROM floating-gate detail; two's complement; basic building block of combinational circuits; clock-driven synchronous circuits; meaning of microprocessor bandwidth; 8255 internal bus width; when an ISR runs; NOR gates needed for AND; range of an unsigned 8-bit number; purpose of the interrupt flag.
+
+## 2.1 Digital logic
+
+**Syllabus:** number systems, logic levels, logic gates, Boolean algebra, SOP and POS, truth table to Karnaugh map.
+
+**Know cold**
+
+- Conversions between binary, octal, decimal and hex; BCD (each decimal digit in 4 bits); Gray code (one bit changes between neighbours); excess-3 (BCD + 3, self-complementing).
+- **Two's complement:** invert every bit and add 1. n-bit signed range: `−2^(n−1)` to `2^(n−1) − 1` (8-bit: −128 to 127). Unsigned range: `0` to `2^n − 1` (8-bit: 0 to 255).
+- **Universal gates:** NAND and NOR — each can build any function.
+
+  | Build | from NAND | from NOR |
+  | --- | --- | --- |
+  | NOT | 1 | 1 |
+  | AND | 2 | 3 |
+  | OR | 3 | 2 |
+  | XOR | 4 | 5 |
+
+- De Morgan: `(AB)' = A' + B'`, `(A + B)' = A'B'`.
+- **SOP** = sum of minterms (Σm), natural for AND–OR / NAND–NAND. **POS** = product of maxterms (ΠM), natural for OR–AND / NOR–NOR.
+- **K-map:** Gray-code ordering; group 1s in powers of two (1, 2, 4, 8), as large as possible, wrapping around edges; don't-cares (X) may be included.
+
+## 2.2 Combinational and arithmetic circuits
+
+**Syllabus:** MUX, DEMUX, decoder, encoder; binary addition and subtraction; unsigned and signed binary operations.
+
+**Know cold**
+
+- Combinational output depends only on present inputs (no memory); logic **gates** are its basic building block.
+- **MUX:** 2ⁿ inputs, n select lines, 1 output — "data selector"; a MUX can implement any Boolean function. **DEMUX:** 1 input to 2ⁿ outputs.
+- **Decoder:** n inputs → 2ⁿ outputs (3:8, 4:16; a 4:16 can be built from two 3:8). **Encoder:** 2ⁿ inputs → n outputs, built from OR gates. **Priority encoder** handles several active inputs.
+- **Half adder:** `S = A ⊕ B`, `C = AB`. **Full adder:** `S = A ⊕ B ⊕ Cin`, `Cout = AB + Cin(A ⊕ B)`; equals two half adders plus an OR gate. Half subtractor borrow `= A'B`.
+- Ripple-carry adders are slow (carry propagates); carry look-ahead computes carries in parallel.
+- **Overflow** in signed addition: two operands of the same sign give a result of the opposite sign (carry into MSB ≠ carry out of MSB).
+
+## 2.3 Sequential logic circuits
+
+**Syllabus:** RS, gated, edge-triggered and master–slave flip-flops; registers and shift-register applications; asynchronous and synchronous counters.
+
+**Know cold**
+
+- Sequential output depends on present inputs **and** stored state. A flip-flop stores one bit.
+- **SR:** `S = R = 1` is forbidden (NOR latch). **JK:** like SR but `J = K = 1` toggles; level-triggered JK suffers race-around, fixed by master–slave or edge triggering. **D:** `Q+ = D` (data latch). **T:** toggles when `T = 1`.
+- Characteristic equations: SR `Q+ = S + R'Q`; JK `Q+ = JQ' + K'Q`; D `Q+ = D`; T `Q+ = T ⊕ Q`.
+- **Registers:** SISO, SIPO, PISO, PIPO. Shift-register uses: serial↔parallel conversion, delay lines, ring counter (n states with n flip-flops), Johnson/twisted-ring counter (2n states).
+- **Asynchronous (ripple) counter:** only the first flip-flop gets the clock; delays add up, so it's slow. **Synchronous counter:** all flip-flops share one clock (clock-driven), so it's faster.
+- n flip-flops count up to 2ⁿ states; a mod-N counter needs `⌈log2 N⌉` flip-flops.
+
+## 2.4 Microprocessor
+
+**Syllabus:** internal architecture and features; assembly language programming.
+
+**Know cold**
+
+- **8085:** 8-bit data bus, 16-bit address bus (64 KB), 40 pins, AD0–AD7 multiplexed and separated using ALE. Registers A (accumulator), B, C, D, E, H, L (pairs BC, DE, HL), 16-bit SP and PC. Five flags: Sign, Zero, Auxiliary carry, Parity, Carry.
+- **8086:** 16-bit data, 20-bit address (1 MB) via segments (CS, DS, SS, ES; physical address = segment × 16 + offset). Split into BIU (fetch, 6-byte prefetch queue — an early pipeline) and EU (execute). Nine flags: six status, three control (TF, IF, DF).
+- **Word length (bandwidth):** the number of bits the processor handles in one operation — 8 for the 8085, 16 for the 8086.
+- 8085 addressing modes: immediate (`MVI A, 05H`), register (`MOV A, B`), direct (`LDA 2050H`), register indirect (`MOV A, M`), implied (`CMA`).
+- An opcode fetch takes 4 T-states on the 8085. Machine cycle = one bus operation; instruction cycle = all the machine cycles of one instruction.
+
+## 2.5 Microprocessor system
+
+**Syllabus:** memory classification and hierarchy; interfacing I/O and memory; parallel interface and the 8255 PPI; serial interface, synchronous and asynchronous transmission, serial standards; DMA and DMA controllers.
+
+**Know cold**
+
+- Hierarchy: registers → cache → main memory → secondary storage (faster and costlier toward the top).
+- **SRAM** (flip-flops, fast, no refresh → cache) vs **DRAM** (capacitor, needs refresh, dense → main memory).
+- ROM family: mask ROM; PROM (program once); EPROM (erased by UV light); **EEPROM** (erased electrically, byte by byte, via a floating gate); flash (electrically erased by blocks).
+- **Memory-mapped I/O:** devices share the memory address space and all memory instructions. **I/O-mapped (isolated):** separate space; on the 8085 `IN`/`OUT` use an 8-bit port address, so 256 ports.
+- **8255 PPI:** three 8-bit ports (A, B, C), 8-bit internal data bus. Modes: BSR (bit set/reset on port C), Mode 0 (simple I/O), Mode 1 (strobed, handshake), Mode 2 (bidirectional, port A only).
+- **Serial:** synchronous sends blocks with a shared clock; asynchronous sends characters framed by start and stop bits. USART 8251. RS-232 is the classic serial standard (negative voltage = logic 1).
+- **DMA:** a controller (8237; the 8257 with the 8085) moves data between I/O and memory directly. It raises **HOLD**; the CPU finishes its bus cycle, answers **HLDA** and tri-states its buses (CPU in the hold state). Modes: burst, cycle stealing, transparent.
+
+## 2.6 Interrupt operations
+
+**Syllabus:** interrupt, interrupt service routine, interrupt processing.
+
+**Know cold**
+
+- Types: hardware vs software; maskable vs non-maskable; vectored vs non-vectored.
+- **8085 interrupts, highest priority first:**
+
+  | Interrupt | Maskable | Trigger | Vector |
+  | --- | --- | --- | --- |
+  | TRAP | **No** | edge and level | 0024H |
+  | RST 7.5 | yes | rising edge | 003CH |
+  | RST 6.5 | yes | level | 0034H |
+  | RST 5.5 | yes | level | 002CH |
+  | INTR | yes | level | non-vectored |
+
+  `EI`/`DI` enable or disable maskable interrupts; `SIM`/`RIM` set and read masks.
+- **8086:** NMI (non-maskable), INTR (maskable, gated by the **IF flag** — `STI` sets it, `CLI` clears it), and software `INT n`. The vector table holds 256 entries of 4 bytes at 00000H–003FFH.
+- **Processing:** the CPU finishes the current instruction, saves the return address (and flags on the 8086), jumps to the **ISR**, which saves registers, services the device, restores them and returns (`RET`/`IRET`).
+- Polling wastes CPU time; interrupts don't. Several sources are prioritised by daisy-chaining or a priority controller (8259 PIC).
+
+## Before you move on
+
+- I can minimise a 4-variable K-map and draw a full adder.
+- I can list the 8085 interrupt table from memory.
+- I scored at least 7/10 on a Chapter 2 MCQ set.
+
+**Books for gaps only:** Morris Mano, *Digital Logic and Computer Design*; Ramesh Gaonkar, *Microprocessor Architecture, Programming and Applications with the 8085*.

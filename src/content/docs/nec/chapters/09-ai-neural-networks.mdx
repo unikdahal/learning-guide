@@ -1,0 +1,98 @@
+---
+title: "9. AI & neural networks"
+description: NEC ACtE Chapter 9 (ACtE09) — agents, search, knowledge representation and logic, expert systems and NLP, machine learning, neural networks.
+sidebar:
+  label: "9. AI & neural networks"
+  order: 9
+---
+**Code** ACtE09 · **Questions** about 10 (12 in the model paper) · **Your position** revise · **Plan** Weeks 5–6, 12 h · **Target** 8/10
+
+**Model-paper questions from this chapter** (paraphrased): a clustering technique with a graphical display; the environment whose next state is fully determined; the search guaranteed optimal without path costs; the goal of resolution; the main goal of NLU; what fuzzy learning is; the network for sequential data; AI in self-driving cars; what A* combines; the FOPL negation symbol; the purpose of sentiment analysis; the effect of a low learning rate.
+
+## 9.1 AI and intelligent agents
+
+**Syllabus:** concept, perspectives, history, applications and foundations of AI; agents — structure, properties, PEAS; simple reflex, model-based, goal-based and utility-based agents; environment types.
+
+**Know cold**
+
+- Four views of AI: think humanly, act humanly (Turing test), think rationally (laws of thought), act rationally (rational agent).
+- Agent = perceives through sensors, acts through actuators. **PEAS:** Performance measure, Environment, Actuators, Sensors (self-driving taxi: safety and speed; roads and traffic; steering and brakes; cameras, lidar, GPS).
+- Agent types in increasing power: simple reflex → model-based reflex → goal-based → utility-based; any can be a learning agent.
+- Environments: fully vs partially observable; **deterministic** (next state fully determined by the current state and action) vs stochastic; episodic vs sequential; static vs dynamic; discrete vs continuous; single- vs multi-agent.
+
+## 9.2 Search
+
+**Syllabus:** state-space search, problem formulation, CSPs; uninformed (DFS, BFS, depth-limited, iterative deepening, bidirectional); informed (greedy best-first, A*, hill climbing, simulated annealing); game playing, minimax, alpha–beta.
+
+**Know cold**
+
+| Search | Complete | Optimal | Note |
+| --- | --- | --- | --- |
+| BFS | yes | yes, if all steps cost the same | memory `O(b^d)` |
+| DFS | no (infinite paths) | no | memory `O(bm)` |
+| Uniform cost | yes | yes | expands lowest path cost g(n) |
+| Iterative deepening | yes | yes, equal step costs | BFS optimality with DFS memory |
+| Greedy best-first | no | no | uses `f(n) = h(n)` |
+| A* | yes | yes, with admissible h | `f(n) = g(n) + h(n)` |
+
+- Admissible heuristic: never overestimates. Consistent: `h(n) ≤ c(n, n') + h(n')`.
+- Hill climbing gets stuck on local maxima, plateaus and ridges. Simulated annealing sometimes accepts worse moves, with a probability that falls as the temperature drops.
+- Minimax for two-player zero-sum games; alpha–beta prunes branches that can't change the result (best case examines about `b^(d/2)` nodes).
+- CSP = variables, domains, constraints; solved by backtracking with forward checking, MRV and arc consistency.
+
+## 9.3 Knowledge representation
+
+**Syllabus:** approaches and issues; semantic nets; frames; propositional logic (syntax, semantics, tautology, validity, WFFs, resolution); predicate logic (FOPL, quantifiers, inference rules, unification, resolution refutation); Bayes' rule; Bayesian networks.
+
+**Know cold**
+
+- Semantic net: nodes are concepts, labelled arcs are relations (is-a, has-a); supports inheritance. Frames: slots and fillers, with defaults.
+- Connectives: ¬ (negation), ∧, ∨, → (implies), ↔. Tautology: true under every interpretation.
+- **Resolution** proves a query by contradiction: add the negated query to the KB (in CNF) and resolve until the **empty clause** appears.
+- FOPL: quantifiers ∀ (universal), ∃ (existential). **Unification** finds substitutions that make two expressions identical.
+- Bayes: `P(A|B) = P(B|A) · P(A) / P(B)`. A Bayesian network is a DAG with a conditional probability table per node.
+
+## 9.4 Expert systems and NLP
+
+**Syllabus:** expert systems — architecture, knowledge acquisition, declarative vs procedural knowledge, development; NLP terminology, understanding and generation, steps, applications, challenges; machine vision concepts and stages; robotics.
+
+**Know cold**
+
+- Expert system = knowledge base + inference engine (forward chaining is data-driven, backward chaining is goal-driven) + user interface + explanation facility. Knowledge comes from experts via a knowledge engineer. Classic examples: MYCIN, DENDRAL.
+- Declarative knowledge = facts (knowing what); procedural = how to do something.
+- **NLU** turns language into a meaning representation; NLG turns meaning into language. NLP stages: lexical/morphological, syntactic, semantic, discourse, pragmatic. The main challenge is ambiguity.
+- **Sentiment analysis** finds the opinion or emotion in text (positive, negative, neutral).
+- Machine vision stages: image acquisition → preprocessing → segmentation → feature extraction → recognition and interpretation.
+
+## 9.5 Machine learning
+
+**Syllabus:** concepts of learning; supervised, unsupervised and reinforcement learning; decision trees; naive Bayes; fuzzy learning, fuzzy inference systems and methods; genetic algorithms (operators, encoding, selection, fitness, parameters).
+
+**Know cold**
+
+- **Supervised:** labelled data (classification, regression; decision trees, naive Bayes — naive Bayes is supervised). **Unsupervised:** unlabelled (clustering such as k-means; hierarchical clustering is drawn as a **dendrogram**). **Reinforcement:** learns from rewards.
+- Decision trees (ID3) split on the attribute with the highest information gain (entropy reduction).
+- Naive Bayes assumes features are conditionally independent given the class.
+- **Fuzzy logic:** membership degrees from 0 to 1 instead of true/false. Fuzzy inference: fuzzification → rule evaluation → aggregation → defuzzification (e.g. centroid). Mamdani vs Sugeno systems.
+- **Genetic algorithm:** encode candidates (often binary strings) → evaluate fitness → select (roulette wheel, tournament, rank) → crossover → mutation → repeat.
+
+## 9.6 Neural networks
+
+**Syllabus:** biological vs artificial neurons; McCulloch–Pitts neuron; mathematical model of ANN; activation functions; architectures; perceptron; learning rate; gradient descent; delta rule; Hebbian learning; Adaline; multilayer perceptrons; backpropagation; Hopfield networks.
+
+**Know cold**
+
+- McCulloch–Pitts: binary inputs, fixed weights, threshold — no learning.
+- Activations: step, sigmoid (0 to 1), tanh (−1 to 1), ReLU.
+- A single **perceptron** learns only linearly separable functions (it can't learn XOR). An MLP trained with **backpropagation** (chain rule + gradient descent) can.
+- **Learning rate:** too low → very slow convergence; too high → overshoots or diverges.
+- Delta rule (Widrow–Hoff, LMS) trains **Adaline**. Hebbian rule: neurons that fire together wire together, `Δw = η · x · y`.
+- **Hopfield network:** recurrent, symmetric weights, an energy function; works as associative (content-addressable) memory.
+- Sequential data (text, time series) → recurrent networks (RNN, LSTM).
+
+## Before you move on
+
+- I can fill the search table and run one resolution proof from memory.
+- I scored at least 8/10 on a Chapter 9 MCQ set.
+
+**Books for gaps only:** Russell & Norvig, *Artificial Intelligence: A Modern Approach*.

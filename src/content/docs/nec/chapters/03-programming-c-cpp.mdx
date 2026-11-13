@@ -1,0 +1,46 @@
+---
+title: "3. Programming in C & C++"
+description: NEC ACtE Chapter 3 (ACtE03) — C fundamentals, pointers, structures, files; C++ classes, OOP, virtual functions, templates, exceptions.
+sidebar:
+  label: "3. Programming (C & C++)"
+  order: 3
+---
+**Code** ACtE03 · **Questions** about 10 · **Your position** strong · **Plan** one sweep in Week 6, 4 h · **Target** 9/10
+
+You already write code daily, so this chapter is about **exam traps**, not learning. Skim the syllabus, then do MCQs and note only what you get wrong.
+
+**Model-paper questions from this chapter** (paraphrased): which type is not a C data type; size of a pointer; access specifier for class-only access; meaning of operator overloading; `ifstream` vs `ofstream`; purpose of a class template; an example of indirect recursion; declaring a friend function; effect of method overriding; declaring a virtual function; what happens to an uncaught exception.
+
+## Syllabus by sub-chapter
+
+| Sub-chapter | Topics |
+| --- | --- |
+| 3.1 C basics | tokens, operators, formatted and unformatted I/O, control statements, loops, user-defined and recursive functions, 1-D/2-D/multi-dimensional arrays, strings |
+| 3.2 Pointers, structures, files in C | pointer arithmetic, pointers and arrays, passing pointers, structure vs union, arrays of structures, structures and pointers, file I/O, sequential and random access |
+| 3.3 C++ constructs, classes, objects | namespaces, function overloading, inline functions, default arguments, pass/return by reference, classes and objects, access specifiers, member functions, constructors and destructors, dynamic objects, `this`, static members, const members and objects, friend functions and classes |
+| 3.4 OOP features | unary and binary operator overloading, data conversion, single/multiple/multilevel/hybrid/multipath inheritance, constructor and destructor order |
+| 3.5 Virtual functions and file handling | virtual functions, dynamic binding, opening and closing files, file I/O and error handling, stream class hierarchy, formatted I/O with `ios` flags and manipulators |
+| 3.6 Templates and exceptions | function and class templates, overloading templates, STL containers/algorithms/iterators, `try`/`catch`/`throw`, multiple handlers, rethrow, catch-all, exceptions with arguments, exception specifications, uncaught and unexpected exceptions |
+
+## Exam traps
+
+- **Pointer size** depends on the architecture, not the pointed-to type: typically 4 bytes on 32-bit, 8 on 64-bit. On a 16-bit (Turbo C) model, 2 bytes — read the question's assumptions.
+- `sizeof(char)` is always 1. A string literal `"abc"` occupies 4 bytes (null terminator).
+- A **union**'s size is its largest member (plus padding); a structure's is at least the sum.
+- `printf` format specifiers: `%d` int, `%u` unsigned, `%ld` long, `%f` float/double, `%c` char, `%s` string, `%p` pointer, `%x` hex, `%o` octal, `%e` scientific.
+- Storage classes: `auto`, `register`, `static`, `extern`.
+- File modes: `"r"`, `"w"` (truncates), `"a"`, plus `+` and `b`. Random access: `fseek`, `ftell`, `rewind`.
+- **Indirect recursion:** A calls B, and B calls A.
+- Default access: `private` in a `class`, `public` in a `struct`. `protected` = class and derived classes.
+- A **friend** function is declared inside the class with the `friend` keyword but is not a member.
+- `virtual` in the base enables runtime (dynamic) binding. `virtual void f() = 0;` is pure virtual and makes the class abstract.
+- **Overriding** = same signature in the derived class, chosen at runtime via virtual. **Overloading** = same name, different parameters, chosen at compile time.
+- **Multipath (diamond) inheritance** duplicates the base; a `virtual` base class fixes it.
+- Constructors run base → derived; destructors run derived → base.
+- Streams: `ifstream` reads, `ofstream` writes, `fstream` does both. Manipulators: `setw`, `setprecision`, `setfill`, `endl`.
+- STL: sequence containers (`vector`, `list`, `deque`), associative (`set`, `map`, `multiset`, `multimap`), adapters (`stack`, `queue`, `priority_queue`); iterators connect containers to algorithms.
+- An uncaught exception calls `std::terminate()` (which aborts by default). `catch (...)` catches everything; `throw;` rethrows.
+
+## Before you move on
+
+- I scored at least 9/10 on a Chapter 3 MCQ set, and logged every miss.

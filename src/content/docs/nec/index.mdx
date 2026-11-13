@@ -1,6 +1,6 @@
 ---
 title: NEC Licence
-description: Preparation for the Nepal Engineering Council licensing exam in computer engineering.
+description: Preparation for the Nepal Engineering Council licensing exam in computer engineering (ACtE).
 template: splash
 pagefind: false
 editUrl: false
@@ -11,10 +11,17 @@ import SectionLanding from '@components/SectionLanding.astro';
 
 <SectionLanding
   title="NEC Licence"
-  lede="Preparation for the Nepal Engineering Council licensing exam in computer engineering. Syllabus and study material are on the way."
+  lede="Computer Engineering (ACtE) registration exam: 100 one-mark MCQs, 10 chapters, pass at 50. The window opens 4 January 2027."
   actions={[
-    { label: 'See the roadmap', href: 'nec/roadmap/', primary: true },
+    { label: 'Tonight’s plan', href: 'nec/roadmap/', primary: true },
     { label: 'Syllabus', href: 'nec/syllabus/' },
     { label: 'All guides', href: 'guides/' },
+  ]}
+  cardsTitle="Start here"
+  cards={[
+    { label: 'Rules', title: 'Exam format and dates', text: 'What is confirmed, what is not, and what to check on the admit card.', href: 'nec/exam/' },
+    { label: 'Map', title: 'Syllabus and priorities', text: 'All 10 chapters and 60 sub-chapters, ranked for an electronics-weak, coding-strong candidate.', href: 'nec/syllabus/' },
+    { label: 'Schedule', title: 'Study plan to 1 Jan', text: 'Night-by-night plan from 16 Nov, with mocks and admin deadlines.', href: 'nec/roadmap/' },
+    { label: 'Notes', title: 'Chapter 1: Electrical & electronics', text: 'Your weakest chapter, so it has the most detailed notes.', href: 'nec/chapters/01-electrical-electronics/' },
   ]}
 />

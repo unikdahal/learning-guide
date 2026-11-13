@@ -38,10 +38,12 @@ const necSidebar = [
     label: 'NEC Licence',
     items: [
       { label: 'Overview', link: '/nec/' },
-      { label: 'Roadmap', link: '/nec/roadmap/' },
-      { label: 'Syllabus', link: '/nec/syllabus/' },
+      { label: 'Exam format and dates', link: '/nec/exam/' },
+      { label: 'Syllabus and priorities', link: '/nec/syllabus/' },
+      { label: 'Study plan to 1 Jan', link: '/nec/roadmap/' },
     ],
   },
+  { label: 'Chapters', items: [{ autogenerate: { directory: 'nec/chapters' } }] },
 ];
 
 const lokSewaSidebar = [

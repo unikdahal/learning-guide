@@ -1,0 +1,103 @@
+---
+title: "4. Computer organization & embedded systems"
+description: NEC ACtE Chapter 4 (ACtE04) — control unit, pipelining, cache, I/O, multiprocessors, embedded design, RTOS, VHDL.
+sidebar:
+  label: "4. Organization & embedded"
+  order: 4
+---
+**Code** ACtE04 · **Questions** about 10 · **Your position** partial; VHDL and RTOS are gaps · **Plan** Week 4, 16 h · **Target** 7/10
+
+**Model-paper questions from this chapter** (paraphrased): role of the control unit; purpose of a cache replacement policy; which is not a DMA transfer mode; what an instruction set is; definition of a real-time kernel; what a signal is in VHDL; CPU state during DMA; ideal pipeline CPI; effect of a larger cache; the direct DMA data path; which is not a VHDL modelling style.
+
+## 4.1 Control and central processing units
+
+**Syllabus:** control memory, address sequencing, computer configuration, microinstruction format, control unit design, CPU structure and function, ALU, instruction formats, addressing modes, data transfer and manipulation, RISC and CISC, pipelining, parallel processing.
+
+**Know cold**
+
+- The **control unit** generates the control signals that sequence every operation: fetch, decode, execute.
+- **Hardwired** control: fixed logic, fast, hard to change (RISC). **Microprogrammed:** control words stored in a **control memory**, sequenced by a control address register; slower but flexible (CISC). Horizontal microcode = wide, little decoding; vertical = encoded fields, narrow.
+- Instruction formats by address count: three-, two-, one- (accumulator) and zero-address (stack).
+- Addressing modes: immediate, direct, indirect, register, register indirect, displacement (indexed, base, relative), auto-increment/decrement.
+- **Instruction set** = the full set of machine instructions a processor understands (its ISA).
+- **RISC:** few simple fixed-length instructions, load/store, many registers, one cycle per instruction, hardwired. **CISC:** many complex variable-length instructions, memory operands, microcoded.
+- **Pipelining** with k stages and n instructions (stage time τ): time `(k + n − 1)τ`; speed-up `nk / (k + n − 1)`, which tends to k. **Ideal CPI = 1.**
+- Hazards: structural (resource conflict), data (RAW, WAR, WAW; fixed by forwarding or stalls), control (branches; fixed by prediction or delay slots).
+- Flynn's classes: SISD, SIMD (vector/array processors), MISD (rare), MIMD (multiprocessors).
+
+## 4.2 Computer arithmetic and memory system
+
+**Syllabus:** arithmetic and logic operations; memory hierarchy; internal and external memory; cache principles and design (size, mapping function, replacement algorithm, write policy, number of caches); memory writability and storage permanence; composing memory.
+
+**Know cold**
+
+- Booth's algorithm multiplies signed numbers; restoring and non-restoring division.
+- **IEEE 754:** single precision 1 sign + 8 exponent (bias 127) + 23 mantissa; double 1 + 11 (bias 1023) + 52.
+- **Locality** (temporal and spatial) is why caches work. Average access time ≈ `h · Tcache + (1 − h) · Tmain`.
+- **Mapping:** direct (block maps to one line, `line = block mod lines`; cheap but conflict misses), fully associative (any line; costly search), k-way set-associative (compromise). Address = tag | index (line or set) | word offset.
+- **Replacement policy** decides which block to evict on a miss when the cache (or set) is full: LRU, FIFO, LFU, random.
+- **Write-through** updates memory on every write; **write-back** updates on eviction using a dirty bit.
+- A larger cache raises the hit ratio but costs more, and can be slower to access.
+- Writability/permanence (embedded view): from mask ROM (written at fabrication, permanent) through OTP, EPROM, EEPROM, flash, NVRAM to SRAM/DRAM (fast writes, lose data without power).
+- **Composing memory:** wider words → place chips side by side; more words → add chips and a decoder on the high address bits.
+
+## 4.3 Input–output organization and multiprocessors
+
+**Syllabus:** peripheral devices, I/O modules and interfaces, modes of transfer, DMA, multiprocessor characteristics, interconnection structures, inter-processor communication and synchronisation.
+
+**Know cold**
+
+- **Modes of transfer:** programmed I/O (CPU polls), interrupt-driven I/O, and DMA.
+- **DMA:** the controller moves a block between device and memory over the system bus while the CPU is held off the bus (tri-stated / idle for bus use). Burst mode, cycle stealing, transparent mode.
+- Multiprocessors: tightly coupled (shared memory) vs loosely coupled (distributed memory, message passing).
+- Interconnection: time-shared common bus, multiport memory, crossbar switch, multistage switching networks (e.g. omega), hypercube.
+- Synchronisation: hardware test-and-set, semaphores; cache coherence via snooping or directories.
+
+## 4.4 Embedded systems: hardware–software design
+
+**Syllabus:** overview and classification; custom single-purpose processor design and optimisation; general-purpose processor architecture, operation and programmer's view; development environment; application-specific instruction-set processors (ASIPs).
+
+**Know cold**
+
+- Embedded system = a computer inside a product, dedicated to one function, tightly constrained (cost, size, power, performance) and often reactive and real-time.
+- **Design metrics:** NRE cost, unit cost, size, performance, power, flexibility, time-to-prototype, time-to-market, maintainability, correctness, safety.
+- **Processor technologies:** general-purpose (flexible, software), single-purpose (custom hardware, fastest, least flexible), and **ASIP** (instruction set tuned to a domain: microcontrollers, DSPs).
+- **IC technologies:** full-custom VLSI, semi-custom ASIC (gate array, standard cell), PLDs (PLA, PAL, FPGA).
+- **Custom single-purpose processor** = controller (FSM) + datapath; described as an FSMD. Optimise the program, the FSMD (merge states), the datapath (share units) and the FSM (state encoding and minimisation).
+- Development environment: cross-compiler, assembler, linker, debugger, simulator, emulator / in-circuit emulator, programmer.
+
+## 4.5 Real-time operating and control systems
+
+**Syllabus:** OS basics, tasks, processes and threads, multiprocessing and multitasking, task scheduling and synchronisation, device drivers, open- and closed-loop control.
+
+**Know cold**
+
+- **Real-time** = correctness depends on meeting deadlines. Hard RT: a miss is a failure (airbag). Soft RT: a miss degrades quality (video).
+- A **real-time kernel** gives deterministic, bounded-time scheduling and interrupt handling, usually preemptive and priority-based.
+- Task states: dormant, ready, running, blocked (waiting).
+- Scheduling: preemptive priority, round robin, **rate monotonic** (static; shorter period → higher priority; utilisation bound `n(2^(1/n) − 1)`, about 69% for large n), **EDF** (dynamic; schedulable up to 100% utilisation).
+- **Priority inversion:** a low-priority task holds a resource a high-priority task needs while a medium task runs. Fixes: priority inheritance, priority ceiling.
+- Synchronisation and communication: semaphores (binary, counting), mutexes, message queues, mailboxes, pipes.
+- **Open-loop control:** no feedback (a toaster timer). **Closed-loop:** output measured and fed back (thermostat, cruise control); PID is the classic controller.
+
+## 4.6 Hardware description language and IC technology
+
+**Syllabus:** VHDL overview, overflow and data representation, combinational and sequential design, pipelining using VHDL.
+
+**Know cold**
+
+- VHDL = VHSIC Hardware Description Language. A design = an **entity** (ports: `in`, `out`, `inout`, `buffer`) + one or more **architectures**.
+- **Modelling styles:** dataflow (concurrent signal assignments), behavioural (`process` blocks), structural (component instantiation). "Mixed" combines them.
+- **Signal vs variable:** a signal models a wire, is assigned with `<=` and updates after a delta delay (at the end of the process); a variable is local to a process, assigned with `:=`, and updates immediately.
+- Concurrent statements: `when … else`, `with … select`. Sequential statements (inside a process): `if`, `case`, loops.
+- Sequential logic: `process(clk)` with `if rising_edge(clk) then`.
+- `std_logic` (IEEE 1164) has nine values: U, X, 0, 1, Z, W, L, H, −.
+- Pipelining in VHDL = registers between combinational stages, all clocked together.
+
+## Before you move on
+
+- I can split a memory address into tag, index and offset for each mapping.
+- I can explain priority inversion and signal vs variable in one line each.
+- I scored at least 7/10 on a Chapter 4 MCQ set.
+
+**Books for gaps only:** Morris Mano, *Computer System Architecture*; William Stallings, *Computer Organization and Architecture*; Frank Vahid & Tony Givargis, *Embedded System Design*.
