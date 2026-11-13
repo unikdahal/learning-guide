@@ -1,0 +1,111 @@
+---
+title: "19. Reactance, impedance and phase"
+description: How resistors, inductors and capacitors behave on AC — reactance, leading and lagging current, impedance, phasors, power factor angle, and simple RC filters.
+sidebar:
+  label: "19. Reactance and impedance"
+  order: 19
+---
+import { Aside } from '@astrojs/starlight/components';
+import PhasorLab from '@components/visuals/electronics/PhasorLab.astro';
+
+**Goal:** compute XL, XC and |Z|, say whether current leads or lags and by how much, and explain why capacitors pass high frequencies and inductors block them.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 1.2–1.3** — "capacitive reactance is inversely proportional to…", "in a capacitor, current ___ voltage by 90°", "impedance of a series RL circuit is…". **Lok Sewa Computer Engineer 4.1.2 and 4.1.4** (AC circuits, filters). Filters return in unit 5 (communications).
+</Aside>
+
+## 1. Three components, three behaviours
+
+Play with the lab first — pick each load and drag the frequency:
+
+<PhasorLab />
+
+**Resistor.** Ohm's law works instant by instant. Current is **in phase** with voltage, and frequency doesn't matter.
+
+**Inductor.** It opposes changing current, and AC is always changing. Its opposition is the **inductive reactance**:
+
+`XL = 2πfL = ωL`  (ohms)
+
+- Grows with frequency: an inductor **blocks high frequencies**, and at DC (f = 0) XL = 0 (a short — matches lesson 15).
+- Current **lags** voltage by **90°**.
+
+**Capacitor.** It charges and discharges every cycle. The faster that happens, the more current flows. Its opposition is the **capacitive reactance**:
+
+`XC = 1/(2πfC) = 1/(ωC)`  (ohms)
+
+- Shrinks as frequency rises: a capacitor **passes high frequencies**; at DC XC is infinite (an open circuit — matches lesson 14).
+- Current **leads** voltage by **90°**.
+
+<Aside type="tip" title="ELI the ICE man">
+**ELI:** in an inductor (L), voltage E comes before current I — current lags. **ICE:** in a capacitor (C), current I comes before voltage E — current leads.
+</Aside>
+
+**Worked examples at 50 Hz.**
+- L = 0.1 H: XL = 2π × 50 × 0.1 = **31.4 Ω**. At 100 Hz it doubles to 62.8 Ω.
+- C = 100 µF: XC = 1/(2π × 50 × 100 × 10⁻⁶) = **31.8 Ω**. At 100 Hz it halves to 15.9 Ω.
+
+## 2. Impedance — combining R and X
+
+With a resistor and a reactance in series you **can't just add the ohms**: the voltage across R is in phase with the current, but the voltage across X is 90° out. They add like the two sides of a right-angled triangle:
+
+`|Z| = √(R² + X²)`   and   `φ = tan⁻¹(X/R)`
+
+**Impedance** Z (ohms) is the total opposition to AC; φ is the angle between voltage and current. Then **Ohm's law works with Z**: `I = V/Z`.
+
+**Worked example.** R = 30 Ω in series with XL = 40 Ω on 230 V, 50 Hz.
+- |Z| = √(900 + 1,600) = **50 Ω** (a 3-4-5 triangle).
+- I = 230/50 = **4.6 A**.
+- φ = tan⁻¹(40/30) = **53.1°**, current lagging.
+- Power factor cos φ = 30/50 = **0.6 lagging** (lesson 21).
+
+### Phasors and j (just enough)
+
+A **phasor** is an arrow whose length is the RMS value and whose angle is the phase — the lab's right-hand diagram. Adding AC quantities = adding arrows. Engineers write the 90° direction with **j** (j = √−1): `Z = R + jXL` for RL, `Z = R − jXC` for RC. "j" just means "rotate by 90°"; `|Z|` is the arrow's length.
+
+## 3. A first look at filters
+
+Put R and C in series and take the output across one of them:
+
+- **Output across C → low-pass filter.** At low f, XC is large, so C gets most of the voltage; at high f, XC is small and the output drops. Passes low frequencies.
+- **Output across R → high-pass filter.** The opposite.
+- **Cut-off frequency** where XC = R: `fc = 1/(2πRC)`. There, the output is 0.707 of the input (**−3 dB**, half power).
+
+**Example.** R = 1 kΩ, C = 0.1 µF → fc = 1/(2π × 10³ × 10⁻⁷) ≈ **1.6 kHz**.
+
+## Traps
+
+- XL ∝ f; XC ∝ **1/f**.
+- Impedance adds **as vectors**: 30 Ω and 40 Ω give 50 Ω, not 70 Ω.
+- Pure L or C: phase 90°. RL or RC: somewhere between 0° and 90°.
+
+## Check yourself
+
+1. Capacitive reactance is:
+   (a) directly proportional to frequency (b) inversely proportional to frequency (c) independent of frequency (d) proportional to frequency squared
+
+<details><summary>Answer</summary>(b) XC = 1/(2πfC).</details>
+
+2. In a pure capacitor, current:
+   (a) lags voltage by 90° (b) leads voltage by 90° (c) is in phase (d) leads by 180°
+
+<details><summary>Answer</summary>(b) leads by 90° (ICE).</details>
+
+3. The impedance of a series RL circuit is:
+   (a) R + XL (b) √(R² + XL²) (c) R − XL (d) R × XL
+
+<details><summary>Answer</summary>(b)</details>
+
+4. An inductor of 0.2 H at 50 Hz has reactance:
+   (a) 10 Ω (b) 31.4 Ω (c) 62.8 Ω (d) 100 Ω
+
+<details><summary>Answer</summary>(c) 2π × 50 × 0.2 ≈ 62.8 Ω.</details>
+
+5. R = 6 Ω and XC = 8 Ω in series. |Z| and current phase:
+   (a) 14 Ω, lagging (b) 10 Ω, leading (c) 10 Ω, lagging (d) 2 Ω, leading
+
+<details><summary>Answer</summary>(b) √(36 + 64) = 10 Ω; capacitive → current leads.</details>
+
+6. In a purely resistive AC circuit, voltage and current are:
+   (a) in phase (b) 90° apart (c) 180° apart (d) 45° apart
+
+<details><summary>Answer</summary>(a) in phase.</details>
