@@ -277,11 +277,11 @@ nav.sidebar a[data-status='planned'][aria-current='page'] {
 
 /* ---------- Landing page ---------- */
 
-/* The Home component draws its own title, so hide Starlight's. */
-.content-panel:has(> .sl-container > h1#_top):has(+ .content-panel .home) {
+/* The Home and SectionLanding components draw their own title, so hide Starlight's. */
+.content-panel:has(> .sl-container > h1#_top):has(+ .content-panel :is(.home, .landing)) {
   display: none;
 }
-.content-panel:has(.home) {
+.content-panel:has(:is(.home, .landing)) {
   border-top: 0;
 }
 

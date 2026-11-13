@@ -1,0 +1,14 @@
+[
+  {
+    "id": "lok-sewa",
+    "title": "Lok Sewa & NEC",
+    "blurb": "Preparation for the NEC licensing exam and the Lok Sewa Computer Engineer and Computer Officer exams.",
+    "prefix": "lok-sewa/"
+  },
+  {
+    "id": "query-execution",
+    "title": "Query Execution",
+    "blurb": "How query engines execute queries, from first principles to engine internals.",
+    "prefix": ""
+  }
+]

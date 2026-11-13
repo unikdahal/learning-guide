@@ -1,0 +1,178 @@
+---
+// Landing page body for a guide other than Query Execution, and for the guides hub.
+// Same type, colour and spacing as the Query Execution home (Home.astro), without its curriculum data.
+import { url } from '../lib/site';
+
+type Action = { label: string; href: string; primary?: boolean };
+type Card = { label: string; title: string; text: string; href: string; note?: string; color?: string };
+interface Props {
+  title: string;
+  lede: string;
+  actions?: Action[];
+  cardsTitle: string;
+  cardsNote?: string;
+  cards: Card[];
+}
+const { title, lede, actions = [], cardsTitle, cardsNote, cards } = Astro.props;
+const colors = ['var(--qe-pipe-probe)', 'var(--qe-pipe-build)', 'var(--qe-pipe-emit)', 'var(--qe-warn)'];
+---
+
+<div class="landing not-content">
+  <section class="hero">
+    <h1>{title}</h1>
+    <p class="lede">{lede}</p>
+    {actions.length > 0 && (
+      <div class="actions">
+        {actions.map((a) => <a class={a.primary ? 'primary' : 'secondary'} href={url(a.href)}>{a.label}</a>)}
+      </div>
+    )}
+  </section>
+
+  <section aria-labelledby="cards-title">
+    <h2 id="cards-title">{cardsTitle}</h2>
+    {cardsNote && <p class="note">{cardsNote}</p>}
+    <ol class="cards">
+      {cards.map((c, i) => (
+        <li style={`--card:${c.color ?? colors[i % colors.length]}`}>
+          <a href={url(c.href)}>
+            <span class="clabel">{c.label}</span>
+            <span class="ctitle">{c.title}</span>
+            <span class="ctext">{c.text}</span>
+            {c.note && <span class="cnote">{c.note}</span>}
+          </a>
+        </li>
+      ))}
+    </ol>
+  </section>
+</div>
+
+<style>
+  .landing {
+    display: grid;
+    gap: 3rem;
+    padding-block: 1rem 3rem;
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--sl-font);
+    font-size: clamp(2.5rem, 7vw, 4.75rem);
+    font-weight: 800;
+    font-variation-settings: 'opsz' 96;
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+    color: var(--sl-color-white);
+  }
+  .lede {
+    margin: 1.25rem 0 0;
+    font-family: var(--qe-font-prose);
+    font-size: 1.25rem;
+    line-height: 1.55;
+    color: var(--sl-color-gray-1);
+    max-width: 44ch;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+  }
+  .actions a {
+    font-family: var(--sl-font);
+    font-weight: 650;
+    font-size: 1rem;
+    padding: 0.7rem 1.25rem;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .primary {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .primary:hover {
+    background: var(--sl-color-accent-high);
+  }
+  .secondary {
+    border: 1px solid var(--sl-color-gray-4);
+    color: var(--sl-color-white);
+  }
+  .secondary:hover {
+    border-color: var(--sl-color-accent);
+  }
+  a:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 3px;
+  }
+  h2 {
+    margin: 0;
+    font-family: var(--sl-font);
+    font-size: 1.75rem;
+    letter-spacing: -0.02em;
+    color: var(--sl-color-white);
+  }
+  .note {
+    margin: 0.35rem 0 0;
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-3);
+  }
+  .cards {
+    list-style: none;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+  }
+  .cards a {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+    height: 100%;
+    padding: 1rem 1.1rem 1.15rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-top: 3px solid var(--card);
+    border-radius: 10px;
+    text-decoration: none;
+    font-family: var(--sl-font);
+  }
+  .cards a:hover {
+    border-color: var(--card);
+  }
+  .clabel {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-3);
+  }
+  .ctitle {
+    font-weight: 700;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    color: var(--sl-color-white);
+  }
+  .cards a:hover .ctitle {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .ctext {
+    font-family: var(--qe-font-prose);
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-2);
+  }
+  .cnote {
+    margin-top: 0.35rem;
+    font-size: 0.8125rem;
+    color: var(--sl-color-gray-3);
+  }
+  @media (max-width: 40rem) {
+    .landing {
+      gap: 2.25rem;
+      padding-block: 0.5rem 2rem;
+    }
+    .lede {
+      font-size: 1.125rem;
+    }
+  }
+</style>

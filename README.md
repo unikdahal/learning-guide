@@ -6,6 +6,21 @@ from beginner to expert, with Rust for all code.
 
 Live site: https://unikdahal.github.io/learning-guide/
 
+## Guides on this site
+
+The site hosts separate guides that share one theme. Each owns a URL prefix, its own sidebar and
+its own header title; `src/route-data.ts` keeps their sidebars and prev/next links apart.
+
+| Guide | URL | Content |
+| --- | --- | --- |
+| Query Execution | `/learning-guide/` (root, unchanged) | `src/content/docs/<module>/`, generated from `syllabus/` |
+| Lok Sewa & NEC | `/learning-guide/lok-sewa/` | `src/content/docs/lok-sewa/` (hand-written; not generated) |
+| Hub of all guides | `/learning-guide/guides/` | `src/content/docs/guides.mdx` |
+
+To add a guide: add it to `src/data/sections.json` (before the root entry), add its sidebar groups in
+`astro.config.mjs`, create `src/content/docs/<prefix>/index.mdx` with `SectionLanding`, and add a card
+to `guides.mdx`.
+
 ## Structure
 
 | Path | What it is |

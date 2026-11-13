@@ -10,7 +10,8 @@ const { parts } = loadSyllabus();
 const site = process.env.SITE ?? 'https://unikdahal.github.io';
 const base = process.env.BASE ?? '/learning-guide';
 
-const sidebar = [
+// Query Execution: the generated curriculum, at the site root.
+const queryExecutionSidebar = [
   {
     label: 'Start here',
     items: [
@@ -29,6 +30,23 @@ const sidebar = [
     })),
   })),
 ];
+
+// Lok Sewa & NEC: a separate guide under /lok-sewa/. src/route-data.ts shows each page only its
+// own guide's groups, so the two sidebars never mix.
+const lokSewaSidebar = [
+  {
+    label: 'Lok Sewa & NEC',
+    items: [
+      { label: 'Overview', link: '/lok-sewa/' },
+      { label: 'Roadmap', link: '/lok-sewa/roadmap/' },
+    ],
+  },
+  { label: 'NEC licensing exam', items: [{ autogenerate: { directory: 'lok-sewa/nec' } }] },
+  { label: 'Computer Engineer', items: [{ autogenerate: { directory: 'lok-sewa/computer-engineer' } }] },
+  { label: 'Computer Officer', items: [{ autogenerate: { directory: 'lok-sewa/computer-officer' } }] },
+];
+
+const sidebar = [...queryExecutionSidebar, ...lokSewaSidebar];
 
 export default defineConfig({
   site,
@@ -59,7 +77,11 @@ export default defineConfig({
         styleOverrides: { borderRadius: '6px', codeFontFamily: "'JetBrains Mono Variable', ui-monospace, monospace", codeFontSize: '0.875rem' },
       },
       sidebar,
-      components: { Footer: './src/components/overrides/Footer.astro' },
+      components: {
+        Footer: './src/components/overrides/Footer.astro',
+        SocialIcons: './src/components/overrides/SocialIcons.astro',
+      },
+      routeMiddleware: './src/route-data.ts',
     }),
   ],
 });

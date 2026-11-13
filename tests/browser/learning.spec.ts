@@ -46,7 +46,15 @@ test('static worked examples remain without JavaScript',async({browser})=>{
  const context=await browser.newContext({javaScriptEnabled:false});const page=await context.newPage();
  await page.goto('http://127.0.0.1:4322/learning-guide/relational-model-and-sql/null-and-three-valued-logic/');await expect(page.locator('.static-example')).toContainText('WHERE');await context.close();
 });
-for(const path of ['', 'roadmap/',...published.map(a=>a.path+'/')]) {
+test('each guide shows only its own sidebar and title',async({page})=>{
+ await page.goto('lok-sewa/nec/');await expect(page.locator('.site-title')).toContainText('Lok Sewa & NEC');
+ await expect(page.locator('nav[aria-label="Main"] a[href*="/orientation/"]')).toHaveCount(0);
+ await expect(page).toHaveTitle(/\| Lok Sewa & NEC$/);
+ await page.goto('orientation/');await expect(page.locator('.site-title')).toContainText('Query Execution');
+ await expect(page.locator('nav[aria-label="Main"] a[href*="/lok-sewa/"]')).toHaveCount(0);
+ await page.goto('guides/');await page.locator('main a[href$="/lok-sewa/"]').click();await expect(page).toHaveURL(/\/lok-sewa\/$/);
+});
+for(const path of ['', 'roadmap/', 'guides/', 'lok-sewa/', 'lok-sewa/nec/',...published.map(a=>a.path+'/')]) {
  test(`accessible main content in both themes: ${path || 'home'}`,async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(path || './');
   for(const theme of ['light','dark']) {
