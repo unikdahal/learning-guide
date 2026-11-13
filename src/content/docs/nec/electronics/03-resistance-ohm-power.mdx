@@ -1,0 +1,150 @@
+---
+title: "3. Resistance, Ohm's law, power and energy"
+description: Resistance and what it depends on, conductors and insulators, Ohm's law, electrical power and energy, the kilowatt-hour.
+sidebar:
+  label: "3. Resistance, Ohm's law, power"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** use `V = IR`, `P = VI` and `W = Pt` confidently, and know which materials conduct and why.
+
+## 1. Resistance
+
+As free electrons move through a material they keep bumping into atoms. That opposition to current is **resistance** (R), measured in **ohms** (Ω). Those collisions turn electrical energy into **heat** — which is why heaters, kettles and bulbs get hot.
+
+A **resistor** is a component made to have a chosen resistance. Two symbols exist: a zig-zag line (American style, common in Indian and Nepali textbooks) and a small rectangle (international IEC style, used on this site). They mean the same thing.
+
+### What resistance depends on
+
+`R = ρ L / A`
+
+- **L — length:** longer wire → more resistance (more collisions along the way).
+- **A — cross-sectional area:** thicker wire → less resistance (more room to flow).
+- **ρ (rho) — resistivity:** a property of the material, in ohm-metres (Ω·m). Copper is about 1.7 × 10⁻⁸ Ω·m.
+- **Temperature:** in **metals**, resistance **rises** as they heat up (atoms vibrate more). In **semiconductors**, carbon and insulators it usually **falls**.
+
+**Worked example.** A wire has 4 Ω resistance. It's stretched to double its length (its volume stays the same, so the area halves). New resistance?
+L doubles → R × 2; A halves → R × 2 again. New R = 4 × 4 = **16 Ω**. (A favourite MCQ: stretching n times multiplies R by n².)
+
+**Conductance** G = 1/R, measured in siemens (S): how easily current flows.
+
+### Conductors, insulators, semiconductors
+
+| Type | Free electrons | Examples | Use |
+| --- | --- | --- | --- |
+| Conductor | very many | silver (best), copper, gold, aluminium | wires, tracks |
+| Insulator | almost none | rubber, glass, mica, PVC, porcelain, dry wood | cable covering, supports |
+| Semiconductor | in between, controllable | silicon, germanium | diodes, transistors, chips |
+
+Copper is used for most wiring because it's almost as good as silver and far cheaper; aluminium is used for overhead power lines because it's light. An insulator's **dielectric strength** is the voltage it can withstand before it breaks down.
+
+## 2. Ohm's law
+
+For a metal resistor at a **constant temperature**, current is proportional to voltage:
+
+`V = I × R`   so   `I = V / R`   and   `R = V / I`
+
+Double the voltage → double the current. Double the resistance → half the current.
+
+A component that obeys Ohm's law has a straight-line V–I graph through the origin; it's called **ohmic** or **linear**. A diode or a bulb filament does **not** obey it — their V–I graphs curve.
+
+**Worked example.** A 12 V battery is connected across a 4 Ω resistor. Current?
+`I = 12 / 4 = 3 A`.
+
+**Worked example.** 20 mA flows through a 1 kΩ resistor. Voltage across it?
+Plain units: 0.02 A × 1,000 Ω = **20 V**. (Or, by the kΩ × mA shortcut, 1 × 20 = 20 V.)
+
+<Aside type="tip" title="Triangle trick">
+Write V on top, I and R below. Cover the one you want: V = I·R, I = V/R, R = V/I.
+</Aside>
+
+## 3. Power
+
+**Power** (P) is energy per second — how fast energy is converted. Unit: **watt** (W) = 1 joule per second.
+
+`P = V × I`
+
+Substitute Ohm's law to get two more forms:
+
+`P = I² R`   and   `P = V² / R`
+
+Use whichever matches what you know.
+
+**Worked example.** A 230 V kettle draws 8 A. Power? `P = 230 × 8 = 1,840 W` (1.84 kW).
+
+**Worked example.** A 100 W bulb runs on 230 V. Its resistance (when hot)?
+`R = V² / P = 230² / 100 = 52,900 / 100 = 529 Ω`.
+
+**Worked example.** If the voltage across a fixed resistor is doubled, its power becomes?
+`P = V²/R` → 2² = **4 times**.
+
+## 4. Energy
+
+`W = P × t`
+
+- In joules if P is in watts and t in seconds.
+- Electricity companies (NEA in Nepal) bill in **kilowatt-hours** (kWh), the "unit": 1 kW used for 1 hour.
+- 1 kWh = 1,000 W × 3,600 s = **3.6 × 10⁶ J** (3.6 MJ).
+
+**Worked example.** A 2 kW heater runs 3 hours a day for 30 days. Energy used?
+2 kW × 3 h × 30 = **180 kWh** (180 units).
+
+## Summary of formulas
+
+| What you want | Formulas |
+| --- | --- |
+| Current | `I = V/R`, `I = Q/t`, `I = P/V` |
+| Voltage | `V = IR`, `V = W/Q`, `V = P/I` |
+| Resistance | `R = V/I`, `R = ρL/A`, `R = V²/P` |
+| Power | `P = VI = I²R = V²/R = W/t` |
+| Energy | `W = Pt = VIt` |
+
+## Traps
+
+- **Watt is power, kWh is energy.** "Units of electricity" = kWh.
+- Ohm's law needs **constant temperature**. A bulb's resistance cold and hot differ a lot.
+- Stretching a wire: R scales with the **square** of the stretch factor.
+- Silver is the best conductor, not copper or gold.
+
+## Check yourself
+
+1. Which equation is Ohm's law?
+   (a) V = I²R (b) R = V/I (c) I = V × R (d) I = R/V
+
+<details><summary>Answer</summary>(b) R = V/I is Ohm's law rearranged.</details>
+
+2. The unit of power is:
+   (a) ampere (b) ohm (c) volt (d) watt
+
+<details><summary>Answer</summary>(d) watt, one joule per second.</details>
+
+3. A wire's length is doubled and its area halved. Its resistance becomes:
+   (a) the same (b) double (c) four times (d) half
+
+<details><summary>Answer</summary>(c) four times: ×2 for length and ×2 for half the area.</details>
+
+4. 1 kWh equals:
+   (a) 1,000 J (b) 3,600 J (c) 3.6 × 10⁶ J (d) 36 × 10⁶ J
+
+<details><summary>Answer</summary>(c) 1,000 W × 3,600 s = 3.6 × 10⁶ J.</details>
+
+5. A 60 W, 240 V lamp draws a current of:
+   (a) 4 A (b) 0.25 A (c) 0.5 A (d) 14,400 A
+
+<details><summary>Answer</summary>(b) I = P/V = 60/240 = 0.25 A.</details>
+
+6. When a metal conductor is heated, its resistance:
+   (a) increases (b) decreases (c) stays the same (d) becomes zero
+
+<details><summary>Answer</summary>(a) increases — metals have a positive temperature coefficient. Semiconductors go the other way.</details>
+
+7. Which of these is an insulator?
+   (a) aluminium (b) mica (c) silicon (d) copper
+
+<details><summary>Answer</summary>(b) mica. Silicon is a semiconductor.</details>
+
+8. The voltage across a resistor is halved. Its power becomes:
+   (a) half (b) one quarter (c) double (d) unchanged
+
+<details><summary>Answer</summary>(b) one quarter, since P = V²/R.</details>

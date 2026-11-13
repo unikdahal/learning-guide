@@ -43,6 +43,7 @@ const necSidebar = [
       { label: 'Study plan to 1 Jan', link: '/nec/roadmap/' },
     ],
   },
+  { label: 'Electronics from zero', items: [{ autogenerate: { directory: 'nec/electronics' } }] },
   { label: 'Chapters', items: [{ autogenerate: { directory: 'nec/chapters' } }] },
 ];
 

@@ -1,0 +1,99 @@
+---
+title: "1. Numbers, units and prefixes"
+description: The SI units and prefixes used in electronics — milli, micro, kilo, mega — and how to convert between them without mistakes.
+sidebar:
+  label: "1. Units and prefixes"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** read any value like 4.7 kΩ, 250 mA or 10 µF instantly, and convert it to plain units before calculating.
+
+## Why this comes first
+
+Electronics values span a huge range: a phone draws thousandths of an ampere, a power line carries thousands. Engineers write these with **prefixes** instead of long strings of zeros. Most beginner mistakes in numericals are not physics mistakes — they're prefix mistakes.
+
+## The quantities in Chapter 1
+
+| Quantity | Symbol | Unit | Unit symbol |
+| --- | --- | --- | --- |
+| Charge | Q | coulomb | C |
+| Current | I | ampere | A |
+| Voltage (potential difference) | V | volt | V |
+| Resistance | R | ohm | Ω |
+| Conductance | G | siemens (older name: mho) | S |
+| Power | P | watt | W |
+| Energy | W or E | joule | J |
+| Time | t | second | s |
+| Capacitance | C | farad | F |
+| Inductance | L | henry | H |
+| Frequency | f | hertz | Hz |
+
+You'll meet each of these properly in its own lesson. For now just notice: the **symbol** of the quantity (italic V for voltage) and the **unit** (V for volt) can look the same. Read from context.
+
+## Prefixes
+
+| Prefix | Symbol | Multiply by | Example |
+| --- | --- | --- | --- |
+| giga | G | 10⁹ (1,000,000,000) | 2.4 GHz Wi-Fi |
+| mega | M | 10⁶ (1,000,000) | 1 MΩ resistor |
+| kilo | k | 10³ (1,000) | 4.7 kΩ = 4,700 Ω |
+| — | — | 1 | — |
+| milli | m | 10⁻³ (0.001) | 250 mA = 0.25 A |
+| micro | µ (often written u) | 10⁻⁶ (0.000001) | 10 µF = 0.00001 F |
+| nano | n | 10⁻⁹ | 100 nF = 0.1 µF |
+| pico | p | 10⁻¹² | 22 pF |
+
+**Capital M is mega, small m is milli.** 1 MΩ is a billion times bigger than 1 mΩ.
+
+## How to convert
+
+Two rules:
+
+1. **Before calculating, convert everything to plain units** (A, V, Ω, s).
+2. **Moving to a smaller unit makes the number bigger**, and vice versa. 1 A = 1,000 mA; 1 mA = 0.001 A.
+
+**Worked example.** A 2.2 kΩ resistor carries 5 mA. Write both in plain units.
+
+- 2.2 kΩ = 2.2 × 1,000 = 2,200 Ω
+- 5 mA = 5 × 0.001 = 0.005 A
+
+**Worked example.** Express 0.000047 F with a prefix.
+
+- 0.000047 = 47 × 10⁻⁶, so 47 µF.
+
+<Aside type="tip" title="Shortcut">
+kΩ × mA = V directly: 2.2 kΩ × 5 mA = 11 V, because 10³ × 10⁻³ = 1. You'll use this constantly in transistor circuits.
+</Aside>
+
+## Traps
+
+- Reading "m" as mega.
+- Forgetting that 1 kWh is energy, not power (lesson 3).
+- Mixing minutes and seconds: SI time is in **seconds**, but electricity bills use **hours**.
+
+## Check yourself
+
+1. 4.7 kΩ in ohms is:
+   (a) 0.0047 Ω (b) 47 Ω (c) 4,700 Ω (d) 47,000 Ω
+
+<details><summary>Answer</summary>(c) 4,700 Ω — kilo means × 1,000.</details>
+
+2. 350 mA in amperes is:
+   (a) 0.35 A (b) 3.5 A (c) 35 A (d) 350,000 A
+
+<details><summary>Answer</summary>(a) 0.35 A — milli means ÷ 1,000.</details>
+
+3. Which is the largest? (a) 1 MΩ (b) 900 kΩ (c) 1,000 Ω (d) 1 mΩ
+
+<details><summary>Answer</summary>(a) 1 MΩ = 1,000,000 Ω; 900 kΩ = 900,000 Ω.</details>
+
+4. 0.1 µF equals:
+   (a) 1 nF (b) 10 nF (c) 100 nF (d) 100 pF
+
+<details><summary>Answer</summary>(c) 100 nF, since 1 µF = 1,000 nF.</details>
+
+5. The unit of conductance is:
+   (a) ohm (b) siemens (c) henry (d) farad
+
+<details><summary>Answer</summary>(b) siemens (also called mho, "ohm" spelled backwards).</details>
