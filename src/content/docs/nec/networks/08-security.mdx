@@ -1,0 +1,225 @@
+---
+title: "8. Network security"
+description: Security goals and attacks, classical and modern symmetric ciphers, RSA and Diffie–Hellman by hand, hashes and MACs, digital signatures, PKI and certificates, PGP, SSL/TLS, IPsec, VPN, wireless security, firewalls, IDS, and user account types.
+sidebar:
+  label: "8. Network security"
+  order: 8
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** classify attacks, run RSA and Diffie–Hellman with small numbers, explain how a digital signature and a certificate work, and place TLS, IPsec and firewalls correctly.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 5.6** (types of security and attacks, cryptography, RSA, digital signatures, PGP, SSL, IPsec, VPN, WEP, firewalls); the model paper asks which is not a firewall type and the account type that needs an administrator password. **Lok Sewa CE 15.9** (cryptography and network security) — "cryptography and PKI" (reported CE 2078) and "MITM on Wi-Fi" (reported CE 2079) are both answered below.
+</Aside>
+
+## 1. Goals and attacks
+
+**CIA triad:** **Confidentiality** (only authorised parties read it), **Integrity** (not altered undetected), **Availability** (usable when needed). Plus **authentication** (who you are), **non-repudiation** (you can't deny sending it), **access control**.
+
+**Passive attacks** (hard to detect — prevent with encryption): **eavesdropping / release of message contents**, **traffic analysis**.
+
+**Active attacks** (detect and recover):
+- **Masquerade / spoofing** — pretending to be someone else (IP, ARP, DNS, email spoofing).
+- **Replay** — capturing and resending valid messages (defeated by nonces and timestamps).
+- **Modification** of messages.
+- **Denial of service (DoS)**; **DDoS** from many machines (botnets); e.g. SYN flood, ping flood.
+- **Man-in-the-middle (MITM)** — the attacker relays and possibly alters traffic between two parties who think they talk directly.
+
+Others: **phishing** and social engineering, **malware** (virus — attaches to programs; worm — self-propagates over networks; Trojan — disguised as useful; ransomware; spyware), **SQL injection**, **XSS**, **password attacks** (brute force, dictionary).
+
+### MITM on Wi-Fi (reported CE 2079)
+
+How it happens:
+- **Evil twin / rogue access point** — an attacker's AP with the same SSID as a legitimate one; victims connect and all traffic passes through the attacker.
+- **ARP spoofing** on the LAN — forged ARP replies map the gateway's IP to the attacker's MAC.
+- **DNS spoofing** — forged answers send victims to fake sites.
+- **SSL stripping** — downgrading HTTPS links to HTTP.
+- **Deauthentication attack** — forged deauth frames knock clients off so they reconnect to the evil twin.
+
+Prevention: **WPA2/WPA3-Enterprise** with 802.1X, HTTPS everywhere with **HSTS** and certificate checking, **VPN** on public Wi-Fi, **802.11w** protected management frames, dynamic ARP inspection and DHCP snooping on switches, wireless IDS to detect rogue APs, user awareness (don't ignore certificate warnings).
+
+## 2. Cryptography basics
+
+Plaintext → (**encryption** with a key) → ciphertext → (**decryption**) → plaintext. Security must rest on the **key**, not on keeping the algorithm secret (Kerckhoffs's principle).
+
+**Classical ciphers:**
+- **Substitution** — replace each letter. **Caesar** shift 3: HELLO → **KHOOR**. Monoalphabetic ciphers fall to frequency analysis; **Vigenère** is polyalphabetic; the **one-time pad** is unbreakable if the key is truly random, as long as the message and never reused.
+- **Transposition** — rearrange the order (rail fence, columnar).
+
+### Symmetric (secret-key)
+
+One shared key encrypts and decrypts. Fast; the problem is **distributing the key** (n users need n(n − 1)/2 keys).
+
+| Cipher | Block | Key | Notes |
+| --- | --- | --- | --- |
+| **DES** | 64 bits | **56 bits** | 16 Feistel rounds; broken by brute force |
+| **3DES** | 64 bits | 112/168 bits | DES three times (encrypt-decrypt-encrypt) |
+| **AES** (Rijndael) | **128 bits** | 128/192/256 | 10/12/14 rounds; the current standard |
+| RC4 | stream | variable | used by WEP; broken |
+
+Block cipher modes: ECB (insecure — identical blocks give identical ciphertext), CBC, CTR, GCM (authenticated).
+
+### Asymmetric (public-key)
+
+Each user has a **public key** (shared) and a **private key** (secret). Encrypt with the receiver's public key → only the receiver's private key decrypts. Solves key distribution; much slower — so in practice it **exchanges a symmetric session key** (hybrid encryption).
+
+**RSA** — security from the difficulty of factoring n:
+1. Choose primes p, q; **n = pq**; **φ(n) = (p − 1)(q − 1)**.
+2. Choose **e** with 1 < e < φ and gcd(e, φ) = 1.
+3. Find **d** with **d·e ≡ 1 (mod φ)**.
+4. Public key (e, n); private key (d, n).
+5. Encrypt **C = M^e mod n**; decrypt **M = C^d mod n**.
+
+**Worked:** p = 3, q = 11 → n = 33, φ = 20. e = 3 (gcd(3, 20) = 1). d: 3d ≡ 1 mod 20 → **d = 7** (21 = 1 mod 20). Message M = 4:
+- C = 4³ mod 33 = 64 mod 33 = **31**.
+- M = 31⁷ mod 33. Note 31 ≡ −2 (mod 33): (−2)⁷ = −128; −128 mod 33 = −128 + 132 = **4** ✓.
+
+**Diffie–Hellman key exchange** — two parties agree a secret over an open channel (no encryption by itself):
+- Public: prime p = 23, generator g = 5. Alice picks a = 6, sends A = 5⁶ mod 23 = **8**. Bob picks b = 15, sends B = 5¹⁵ mod 23 = **19**.
+- Alice: K = 19⁶ mod 23 = **2**. Bob: K = 8¹⁵ mod 23 = **2**. Shared secret 2.
+- Vulnerable to **MITM** unless the exchanged values are authenticated (signatures, certificates).
+
+## 3. Hashes, MACs and digital signatures
+
+- **Cryptographic hash** — fixed-size digest; one-way and collision-resistant. **MD5** (128-bit, broken), **SHA-1** (160-bit, broken), **SHA-256** (current). Gives **integrity**.
+- **MAC / HMAC** — hash keyed with a shared secret: integrity **and** authentication (but not non-repudiation, since both share the key).
+- **Digital signature** — gives **authentication, integrity and non-repudiation**:
+  1. Sender hashes the message and **encrypts the hash with the sender's private key** → signature.
+  2. Sends message + signature.
+  3. Receiver **decrypts the signature with the sender's public key**, hashes the received message, compares. Match → genuine and unaltered.
+
+(Sign with your **private** key; others verify with your **public** key. Encrypt for someone with **their public** key.)
+
+## 4. PKI — public key infrastructure
+
+How do you know a public key really belongs to its owner? A trusted **Certificate Authority (CA)** signs a **digital certificate** (**X.509**) binding a name to a public key: subject, public key, issuer, validity dates, serial number, **CA's signature**.
+
+Components: **CA** (issues and signs), **RA** (registration authority — verifies identity before issue), certificate repository, **CRL** (certificate revocation list) / **OCSP** (online status check), end entities. Trust is a **chain**: your browser trusts root CAs, which sign intermediates, which sign server certificates. (Nepal: the Office of the Controller of Certification licenses CAs under the Electronic Transactions Act.)
+
+## 5. Security protocols by layer
+
+| Layer | Protocol | What it protects |
+| --- | --- | --- |
+| Application | **PGP**, S/MIME | email: signs (RSA/hash) and encrypts (symmetric session key encrypted with the receiver's public key); web of trust |
+| Between transport and application | **SSL/TLS** | a TCP connection (HTTPS, SMTPS, IMAPS) |
+| Network | **IPsec** | all IP traffic between hosts/gateways |
+| Data link | WEP / WPA2 / WPA3, 802.1X | the wireless link |
+
+**TLS handshake** (simplified): ClientHello (versions, cipher suites, random) → ServerHello + **certificate** → key exchange (ECDHE) → both derive the **session keys** → Finished. Then bulk data is encrypted symmetrically (AES-GCM). TLS 1.3 takes one round trip. SSL is the old name; SSL 2/3 are obsolete.
+
+**IPsec:** **AH** (authentication header — integrity and authentication, no encryption) and **ESP** (encapsulating security payload — encryption, plus optional integrity). **Transport mode** protects the payload between two hosts; **tunnel mode** wraps the whole original packet in a new one between gateways — used for site-to-site **VPNs**. Keys are negotiated by **IKE**; each direction has a **security association (SA)**.
+
+**VPN** — a private, encrypted tunnel across a public network: **site-to-site** (IPsec between office routers) or **remote access** (a user's laptop, often TLS/SSL VPN or IPsec). Provides confidentiality, integrity, authentication and access to internal resources.
+
+**Wireless security:** **WEP** (RC4, 24-bit IV reuse → crackable in minutes, **broken**) → **WPA** (TKIP, interim) → **WPA2** (AES-CCMP; Personal with a pre-shared key, Enterprise with 802.1X/RADIUS) → **WPA3** (SAE — resistant to offline dictionary attacks).
+
+## 6. Firewalls and intrusion detection
+
+A **firewall** enforces a security policy between networks, allowing or blocking traffic.
+
+| Type | Works at | Decides on |
+| --- | --- | --- |
+| **Packet filter** | network/transport | each packet's IP addresses, ports, protocol (ACL rules); fast, stateless |
+| **Stateful inspection** | network/transport | packets in the context of their connection (state table) |
+| **Application-level gateway (proxy)** | application | full content per application (HTTP, FTP); strongest, slowest |
+| **Circuit-level gateway** | session | validates TCP/UDP sessions (handshakes), then relays without inspecting content |
+| Next-generation firewall | all | adds deep packet inspection, IPS, application awareness |
+
+A **DMZ** (demilitarised zone) is a separate network for public servers between the outer and inner firewalls.
+
+**IDS** detects and alerts; **IPS** also blocks. **Signature-based** (known attack patterns — misses new attacks) vs **anomaly-based** (deviations from normal — more false positives). Host-based (HIDS) vs network-based (NIDS). **Honeypots** lure attackers.
+
+## 7. Account types (operating-system security)
+
+- **Administrator** — full control; can install software and change system settings.
+- **Standard user** — everyday use; system changes **require an administrator password** (Windows UAC prompts).
+- **Guest** — temporary, very limited access (disabled by default in modern Windows).
+
+Principle of **least privilege:** use a standard account day to day.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is cryptography? Differentiate symmetric and asymmetric cryptography. Explain public key infrastructure.
+
+<details>
+<summary>Model answer</summary>
+
+**Cryptography** is the science of protecting information by transforming it (encryption) into an unreadable form so that only authorised parties can recover it (decryption) using a key. It provides confidentiality, integrity, authentication and non-repudiation.
+
+**Symmetric vs asymmetric.** *(Draw both: one shared key vs a public/private key pair.)*
+
+| Basis | Symmetric (secret key) | Asymmetric (public key) |
+| --- | --- | --- |
+| Keys | One shared secret key | Public key and private key pair |
+| Speed | Fast | Slow (heavy mathematics) |
+| Key distribution | Difficult; secure channel needed; n(n − 1)/2 keys | Easy; public keys can be published; 2n keys |
+| Services | Confidentiality | Confidentiality, authentication, digital signatures, key exchange |
+| Key length for equal strength | Shorter (e.g. AES-128) | Longer (e.g. RSA-3072) |
+| Examples | DES, 3DES, AES, RC4 | RSA, Diffie–Hellman, ECC, DSA |
+
+In practice both are combined: asymmetric cryptography exchanges a symmetric session key, which then encrypts the data (TLS, PGP).
+
+**Public key infrastructure.** PKI is the set of roles, policies, hardware, software and procedures used to create, manage, distribute, use, store and revoke **digital certificates**, binding public keys to identities. *(Draw: user → RA → CA → certificate repository; relying party checks certificate and CRL.)*
+- **Certificate Authority (CA):** trusted third party that issues and digitally signs certificates.
+- **Registration Authority (RA):** verifies the identity of applicants for the CA.
+- **Digital certificate (X.509):** subject name, subject public key, issuer, validity period, serial number, CA signature.
+- **Certificate repository / directory:** publishes certificates.
+- **CRL / OCSP:** lists or reports revoked certificates.
+- **Certificate chain:** root CA → intermediate CA → end-entity certificate, verified up to a trusted root.
+
+**Applications:** HTTPS (TLS), secure email (S/MIME), code signing, VPNs, digital signatures in e-governance.
+
+</details>
+
+## Check yourself
+
+1. Which is **not** a type of firewall?
+   (a) packet filter (b) application gateway (c) circuit-level gateway (d) router gateway protocol
+
+<details><summary>Answer</summary>(d)</details>
+
+2. The account type that needs the administrator password for system changes:
+   (a) administrator (b) standard user (c) root (d) domain admin
+
+<details><summary>Answer</summary>(b)</details>
+
+3. In RSA with p = 5, q = 11, φ(n) is:
+   (a) 55 (b) 40 (c) 50 (d) 16
+
+<details><summary>Answer</summary>(b) 4 × 10.</details>
+
+4. A digital signature is created with the:
+   (a) receiver's public key (b) sender's private key (c) sender's public key (d) shared secret key
+
+<details><summary>Answer</summary>(b)</details>
+
+5. DES uses a key length of:
+   (a) 40 bits (b) 56 bits (c) 128 bits (d) 256 bits
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Traffic analysis is a:
+   (a) passive attack (b) active attack (c) DoS attack (d) replay attack
+
+<details><summary>Answer</summary>(a)</details>
+
+7. IPsec's protocol that provides encryption:
+   (a) AH (b) ESP (c) IKE (d) SA
+
+<details><summary>Answer</summary>(b)</details>
+
+8. SSL/TLS operates between:
+   (a) data link and network layers (b) network and transport layers (c) transport and application layers (d) physical and data link layers
+
+<details><summary>Answer</summary>(c)</details>
+
+9. The broken Wi-Fi security protocol based on RC4:
+   (a) WPA2 (b) WPA3 (c) WEP (d) 802.1X
+
+<details><summary>Answer</summary>(c)</details>
+
+10. PGP is used mainly to secure:
+    (a) web traffic (b) email (c) routing (d) DNS
+
+<details><summary>Answer</summary>(b)</details>

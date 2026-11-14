@@ -1,0 +1,199 @@
+---
+title: "1. Network basics, models and devices"
+description: What a network is, topologies and types, circuit, message and packet switching, datagram vs virtual circuit, protocol layering, OSI and TCP/IP, encapsulation, devices and domains, transmission media, and delay and throughput numericals.
+sidebar:
+  label: "1. Basics, models, devices"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import NetDiagram from '@components/visuals/networks/NetDiagram.astro';
+
+**Goal:** draw both reference models with each layer's job, pick the right device for a layer, compare switching methods, and compute network delays.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 5.1** (models, protocols and standards, OSI and TCP/IP, hubs, bridges, switches, routers, transmission media); the model paper asks a physical-layer protocol. **Lok Sewa CE unit 1** (protocol stack, switching) — "datagram vs virtual-circuit networks" is a reported CE 2079 question, answered in full below.
+</Aside>
+
+## 1. What a network is
+
+A **computer network** is a set of autonomous devices (nodes) connected by links so they can share data and resources. Every network has **protocols** — agreed rules for message format, order and actions — and **standards** (IEEE 802 for LANs, IETF RFCs for the Internet, ITU-T for telecoms, ISO for OSI).
+
+**By size:** **PAN** (Bluetooth, metres), **LAN** (a building — Ethernet, Wi-Fi), **MAN** (a city), **WAN** (countries — the Internet).
+
+**Topologies:**
+
+| Topology | Shape | Plus | Minus |
+| --- | --- | --- | --- |
+| Bus | one backbone cable | cheap | backbone failure kills all; collisions |
+| Ring | each node to two neighbours | orderly (token) | one break can stop it |
+| Star | all to a central hub/switch | easy to manage; one link fails alone | central device is a single point of failure |
+| Mesh | every node to every other | most reliable | n(n − 1)/2 links |
+| Tree / hybrid | stars joined hierarchically | scalable | depends on the root |
+
+A full mesh of 10 nodes needs 10 × 9 / 2 = **45** links.
+
+**Transmission modes:** simplex (one way — keyboard), half duplex (both ways, one at a time — walkie-talkie), full duplex (both ways at once — phone).
+
+## 2. Switching
+
+How data crosses intermediate nodes:
+
+- **Circuit switching** (telephone): a dedicated path is reserved for the whole call — set-up, transfer, tear-down. Guaranteed bandwidth, no queuing, but wasteful when idle.
+- **Message switching:** each whole message is stored and forwarded hop by hop. No set-up, but long delays and big buffers. Obsolete.
+- **Packet switching** (the Internet): messages are split into packets that share links on demand (statistical multiplexing). Efficient for bursty data; variable delay. Two forms:
+
+<Figure caption="Datagram networks route each packet independently; virtual-circuit networks set up a path first and every packet follows it.">
+  <NetDiagram name="dg-vc" label="Left, datagram: host A sends packets p1 and p2 through different routers R1 and R2 to R3 and host B. Right, virtual circuit: the same network, but one highlighted path A–R1–R3–B is set up and all packets follow it." />
+</Figure>
+
+| | **Datagram** (IP) | **Virtual circuit** (ATM, Frame Relay, MPLS, X.25) |
+| --- | --- | --- |
+| Set-up | none | path set up before data |
+| Addressing | full destination address in every packet | short **VC identifier** per packet |
+| Routing | each packet independently | decided once at set-up |
+| Order | may arrive out of order | arrive in order |
+| Router state | none per connection | a table entry per VC |
+| Router failure | packets reroute | all VCs through it are lost |
+| QoS | hard | easy (reserve resources at set-up) |
+
+## 3. Layering: OSI and TCP/IP
+
+Layering splits the job into independent pieces: each layer uses the service of the layer below and offers one to the layer above, talking to its **peer** layer on the other host through a **protocol**. (Same idea as a clean software interface.)
+
+<Figure caption="OSI's seven layers against TCP/IP's four, with each layer's unit of data (PDU) and example protocols.">
+  <NetDiagram name="osi-tcpip" label="Seven OSI layers on the left — application, presentation, session, transport, network, data link, physical — beside TCP/IP's four: application (covering OSI 5 to 7), transport, internet, and network access (covering OSI 1 and 2). PDUs: data, segment, packet, frame, bits." />
+</Figure>
+
+What each OSI layer does:
+1. **Physical** — bits as signals: voltages, cables, connectors, bit timing, data rate (RS-232, hubs, repeaters).
+2. **Data link** — frames between **adjacent** nodes: framing, MAC addressing, error detection, flow control, medium access (Ethernet, PPP, switches, bridges).
+3. **Network** — packets **source to destination** across networks: logical (IP) addressing, routing, fragmentation (IP, ICMP, routers).
+4. **Transport** — **process to process**: ports, segmentation, end-to-end reliability, flow and congestion control (TCP, UDP).
+5. **Session** — dialogue control, synchronisation checkpoints.
+6. **Presentation** — translation, encryption, compression (character codes, TLS's job in OSI terms).
+7. **Application** — services to the user (HTTP, SMTP, DNS, FTP).
+
+Mnemonic (top down): **A**ll **P**eople **S**eem **T**o **N**eed **D**ata **P**rocessing.
+
+| OSI | TCP/IP |
+| --- | --- |
+| 7 layers; model first, protocols later | 4 layers; protocols first, model describes them |
+| clear service/interface/protocol distinction | less formal |
+| separate session and presentation | merged into application |
+| network layer: connection-oriented and connectionless | internet layer: connectionless only (IP) |
+| reference model, rarely implemented | what the Internet runs |
+
+**Encapsulation:**
+
+<Figure caption="Going down the stack each layer wraps the PDU from above with its own header (the data link layer also adds a trailer).">
+  <NetDiagram name="encapsulation" label="Application data; the transport layer adds a TCP header to make a segment; the network layer adds an IP header to make a packet; the data link layer adds a MAC header and an FCS trailer to make a frame." />
+</Figure>
+
+**Addresses at each layer:** port (transport, 16-bit), IP (network, 32/128-bit), MAC (data link, 48-bit).
+
+## 4. Devices
+
+| Device | Layer | Does | Collision domains | Broadcast domains |
+| --- | --- | --- | --- | --- |
+| Repeater / **hub** | 1 | regenerates and repeats bits to every port | one for all ports | one |
+| **Bridge / switch** | 2 | forwards frames by **MAC address** (learns a MAC table) | **one per port** | one |
+| **Router** | 3 | forwards packets by **IP address** between networks | one per port | **one per port** |
+| **Gateway** | up to 7 | translates between different protocol stacks | — | — |
+
+A switch breaks up collision domains; a router breaks up broadcast domains. A layer-3 switch does both.
+
+## 5. Transmission media
+
+- **Guided:** **twisted pair** (UTP/STP; Cat5e/Cat6 Ethernet; twisting cancels interference), **coaxial** (cable TV), **optical fibre** (light; highest bandwidth, immune to electromagnetic interference, long distance; single-mode for long haul, multimode for short).
+- **Unguided:** radio (Wi-Fi, omnidirectional), microwave (line of sight, point to point), infrared (short range, no walls), satellite.
+
+## 6. Delay and throughput numericals
+
+- **Transmission delay** = L / R (packet length ÷ link rate) — pushing bits onto the wire.
+- **Propagation delay** = d / s (distance ÷ signal speed, ≈ 2 × 10⁸ m/s in cable).
+- **Queuing** and **processing** delays add at each router.
+- **Bandwidth–delay product** = R × propagation delay — bits "in flight" on the link.
+
+**Example.** A 1000-byte packet on a 10 Mbps link, 2000 km long:
+- Transmission = 8000 / 10⁷ = **0.8 ms**.
+- Propagation = 2 × 10⁶ / 2 × 10⁸ = **10 ms**.
+- Bandwidth–delay = 10⁷ × 0.01 = **100,000 bits** in flight.
+
+**Throughput** = the actual delivered rate; on a path it is limited by the **bottleneck** link.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Differentiate between datagram and virtual-circuit packet-switched networks with suitable diagrams.
+
+<details>
+<summary>Model answer</summary>
+
+**Packet switching** splits data into packets that share network links on demand. It is implemented in two ways.
+
+**Datagram network.** Each packet (datagram) is an independent unit carrying the full destination address. Every router consults its forwarding table and may send packets of the same message on different paths, so they can arrive out of order; the destination reorders them. There is no connection set-up and routers keep no per-connection state. The Internet (IP) is a datagram network. *(Draw packets 1 and 2 from A to B on different paths.)*
+
+**Virtual-circuit network.** A logical connection is set up before data transfer; each router on the path stores an entry mapping incoming VC number to outgoing link and VC number. Packets carry only a short VC identifier and follow the same path in order. The circuit is released after transfer. Examples: X.25, Frame Relay, ATM, MPLS. *(Draw set-up, data transfer and teardown phases with one fixed path.)*
+
+| Basis | Datagram | Virtual circuit |
+| --- | --- | --- |
+| Connection set-up | Not required | Required |
+| Addressing | Full address per packet | VC number per packet |
+| Path | Independent per packet | Fixed for the connection |
+| Order of delivery | Not guaranteed | Guaranteed |
+| State in routers | None | Per-VC table entry |
+| Effect of router failure | Packets rerouted | Circuits through it are lost |
+| Resource reservation / QoS | Difficult | Easy |
+| Overhead | Header overhead per packet | Set-up delay |
+| Example | IP | ATM, Frame Relay, MPLS |
+
+**Conclusion.** Datagram networks are simple and robust (suited to the Internet's diverse traffic); virtual circuits give predictable performance (suited to telephony-like QoS).
+
+</details>
+
+## Check yourself
+
+1. Which layer is responsible for process-to-process delivery?
+   (a) network (b) transport (c) data link (d) session
+
+<details><summary>Answer</summary>(b)</details>
+
+2. A switch operates at:
+   (a) physical layer (b) data link layer (c) network layer (d) transport layer
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Which is a physical-layer standard?
+   (a) RS-232 (b) PPP (c) IP (d) TCP
+
+<details><summary>Answer</summary>(a)</details>
+
+4. Number of links for a full mesh of 8 nodes:
+   (a) 16 (b) 28 (c) 56 (d) 64
+
+<details><summary>Answer</summary>(b) 8 × 7 / 2.</details>
+
+5. Encryption and compression belong to which OSI layer?
+   (a) session (b) presentation (c) application (d) transport
+
+<details><summary>Answer</summary>(b)</details>
+
+6. A router separates:
+   (a) collision domains only (b) broadcast domains (c) nothing (d) only VLANs
+
+<details><summary>Answer</summary>(b) and collision domains.</details>
+
+7. Transmission delay of a 1500-byte frame at 100 Mbps:
+   (a) 15 µs (b) 120 µs (c) 1.2 ms (d) 12 ms
+
+<details><summary>Answer</summary>(b) 12,000 / 10⁸ s.</details>
+
+8. Which medium is immune to electromagnetic interference?
+   (a) UTP (b) coaxial (c) optical fibre (d) STP
+
+<details><summary>Answer</summary>(c)</details>
+
+9. In a virtual-circuit network, packets:
+   (a) carry full addresses (b) follow the same path in order (c) need no set-up (d) are routed independently
+
+<details><summary>Answer</summary>(b)</details>

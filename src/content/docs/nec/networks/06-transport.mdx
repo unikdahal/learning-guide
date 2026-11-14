@@ -1,0 +1,226 @@
+---
+title: "6. Transport layer: TCP and UDP"
+description: Process-to-process delivery, ports and sockets, multiplexing, UDP, the TCP header, three-way handshake and connection release, flow control, retransmission timers, congestion control (slow start, AIMD, fast retransmit and recovery), leaky and token buckets, and socket programming in C.
+sidebar:
+  label: "6. Transport: TCP, UDP"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import NetDiagram from '@components/visuals/networks/NetDiagram.astro';
+import CwndLab from '@components/visuals/networks/CwndLab.astro';
+
+**Goal:** draw the TCP handshake and release, trace the congestion window, solve a token-bucket numerical, and write TCP vs UDP as a full answer.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 5.4** (transport service and protocols, ports and sockets, connection establishment and release, flow control and buffering, multiplexing, congestion control); the model paper asks the connectionless unreliable protocol and the transport protocol with error control. **Lok Sewa CE unit 1** — "compare TCP and UDP" is a reported CE 2078 question and on your Week 5 Sunday writing list.
+</Aside>
+
+## 1. What the transport layer adds
+
+IP delivers **host to host**, unreliably. The transport layer delivers **process to process** and (with TCP) reliably.
+
+- **Port** — 16-bit number naming a process on a host. **Well-known** 0–1023 (HTTP 80, HTTPS 443, SSH 22, DNS 53), **registered** 1024–49151, **dynamic/ephemeral** 49152–65535 (client side).
+- **Socket** — an endpoint = IP address + port. A TCP connection is identified by the **4-tuple** (source IP, source port, destination IP, destination port); a UDP socket by (destination IP, destination port).
+- **Multiplexing** (sender gathers data from many sockets into segments) and **demultiplexing** (receiver delivers each segment to the right socket using the port numbers).
+
+## 2. UDP
+
+**Connectionless, unreliable, no flow or congestion control** — just ports and an optional checksum on top of IP.
+
+| Source port 16 | Destination port 16 |
+| --- | --- |
+| Length 16 | Checksum 16 |
+
+**8-byte header.** Why use it: no set-up delay, no connection state, small header, the application controls timing. Used by **DNS, DHCP, SNMP, TFTP, RIP, VoIP, video streaming, online games**, and QUIC (HTTP/3 runs over UDP and adds its own reliability).
+
+## 3. TCP
+
+**Connection-oriented, reliable, in-order byte stream, full duplex, with flow and congestion control.**
+
+**Header (20–60 bytes):** source port, destination port, **sequence number** (32; number of the first byte in this segment), **acknowledgement number** (32; next byte expected — cumulative), header length (4), flags **URG ACK PSH RST SYN FIN**, **receive window** (16; flow control), checksum, urgent pointer, options (MSS, window scale, SACK, timestamps).
+
+### Connection set-up and release
+
+<Figure caption="TCP opens with a three-way handshake and closes with four segments (each direction closes separately).">
+  <NetDiagram name="handshake" label="Sequence diagram between client and server. Set-up: client sends SYN with seq x; server replies SYN plus ACK with seq y and ack x plus 1; client sends ACK with ack y plus 1. Data flows. Release: client sends FIN, server ACKs, server sends FIN, client ACKs and waits in TIME-WAIT for twice the maximum segment lifetime." />
+</Figure>
+
+- **Three-way handshake** synchronises both initial sequence numbers (chosen randomly — protects against old duplicates and spoofing). The SYN and FIN each consume one sequence number.
+- **Release** is per direction: FIN → ACK, FIN → ACK (the middle two can combine into FIN+ACK — three segments). The side closing first waits in **TIME-WAIT** for 2 × MSL so a lost final ACK can be resent and old segments die out.
+- **SYN flooding** attack: many half-open connections exhaust the server — defended by **SYN cookies**.
+
+### Reliability
+
+Sequence numbers + cumulative ACKs + **retransmission timer**. The timeout adapts: EstimatedRTT = (1 − α)·EstimatedRTT + α·SampleRTT (α = 0.125); **RTO = EstimatedRTT + 4·DevRTT**. **Karn's algorithm:** ignore RTT samples of retransmitted segments and double the RTO after each timeout. **Fast retransmit:** three duplicate ACKs → resend immediately without waiting for the timer. Optional **SACK** acknowledges out-of-order blocks.
+
+Other timers: **persistence** (probe when the peer advertised window 0), **keepalive**, **TIME-WAIT**.
+
+### Flow control — don't overwhelm the receiver
+
+The receiver advertises **rwnd** (free buffer space) in every segment; the sender keeps unacknowledged data ≤ rwnd. Window 0 → stop and probe with the persistence timer. **Silly window syndrome** (tiny segments) is avoided by **Nagle's algorithm** at the sender and **Clark's solution** (don't advertise tiny windows) at the receiver.
+
+## 4. Congestion control — don't overwhelm the network
+
+The sender keeps a **congestion window (cwnd)**; it may have **min(cwnd, rwnd)** bytes unacknowledged. Loss is read as a congestion signal.
+
+<CwndLab />
+
+1. **Slow start:** cwnd starts at 1 MSS and **doubles every RTT** (+1 MSS per ACK) until it reaches **ssthresh**.
+2. **Congestion avoidance:** above ssthresh, **+1 MSS per RTT** (additive increase).
+3. **On timeout:** ssthresh = cwnd / 2, cwnd = 1, slow start again.
+4. **On three duplicate ACKs (Reno):** ssthresh = cwnd / 2, cwnd = ssthresh (+3), **fast retransmit + fast recovery**, continue linearly. (Tahoe treated this like a timeout.)
+
+This is **AIMD** — additive increase, multiplicative decrease — the saw-tooth that shares bandwidth fairly. (Linux today uses CUBIC; the exam wants Tahoe/Reno.)
+
+**Worked.** ssthresh = 16, loss by timeout in round 10. cwnd per round: 1, 2, 4, 8, 16 (slow start), 17, 18, 19, 20, 21 (avoidance) → timeout at 21: ssthresh = 10, cwnd = 1 → 1, 2, 4, 8, 10, 11, … Set the lab to these values and check.
+
+**Network-side congestion control:** choke packets, **RED** (random early detection drops early to warn senders), **ECN** (mark instead of drop).
+
+### Traffic shaping: leaky bucket and token bucket
+
+- **Leaky bucket:** packets enter a bucket that leaks at a **constant rate**; bursts are smoothed, overflow is dropped. Output is rigid.
+- **Token bucket:** tokens arrive at rate ρ into a bucket of capacity C; a packet needs tokens to leave. Idle time saves tokens, so **bursts up to C** are allowed, at up to the line rate M.
+- **Maximum burst duration S = C / (M − ρ).** Example: C = 250 KB, ρ = 2 MB/s, M = 25 MB/s → S = 250 / 23,000 s ≈ **10.9 ms** (using 1 MB = 1000 KB).
+
+## 5. TCP vs UDP at a glance
+
+| | TCP | UDP |
+| --- | --- | --- |
+| Connection | connection-oriented (handshake) | connectionless |
+| Reliability | ACKs, retransmission, in order | none — may lose, duplicate, reorder |
+| Flow / congestion control | yes / yes | no / no |
+| Header | 20–60 B | 8 B |
+| Data unit | byte stream | message (datagram) boundaries kept |
+| Speed / overhead | slower, more overhead | faster, lightweight |
+| Broadcast / multicast | no | yes |
+| Uses | HTTP, HTTPS, FTP, SMTP, SSH | DNS, DHCP, SNMP, VoIP, streaming, games |
+
+## 6. Socket programming (C, POSIX)
+
+A minimal TCP echo server and client — the Berkeley socket API the syllabus names:
+
+```c
+/* server.c */
+#include <arpa/inet.h>
+#include <string.h>
+#include <unistd.h>
+
+int main(void) {
+    int s = socket(AF_INET, SOCK_STREAM, 0);          /* TCP socket */
+    struct sockaddr_in a = {0};
+    a.sin_family = AF_INET;
+    a.sin_addr.s_addr = htonl(INADDR_ANY);
+    a.sin_port = htons(5000);
+    bind(s, (struct sockaddr *)&a, sizeof a);         /* claim port 5000 */
+    listen(s, 5);                                     /* passive open, backlog 5 */
+    for (;;) {
+        int c = accept(s, NULL, NULL);                /* completes the handshake */
+        char buf[1024];
+        ssize_t n = recv(c, buf, sizeof buf, 0);
+        if (n > 0) send(c, buf, n, 0);                /* echo back */
+        close(c);
+    }
+}
+```
+
+```c
+/* client.c */
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <unistd.h>
+
+int main(void) {
+    int s = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in a = {0};
+    a.sin_family = AF_INET;
+    a.sin_port = htons(5000);
+    inet_pton(AF_INET, "127.0.0.1", &a.sin_addr);
+    connect(s, (struct sockaddr *)&a, sizeof a);      /* active open: sends SYN */
+    send(s, "hello", 5, 0);
+    char buf[1024];
+    ssize_t n = recv(s, buf, sizeof buf - 1, 0);
+    if (n > 0) { buf[n] = '\0'; printf("%s\n", buf); }
+    close(s);                                         /* sends FIN */
+    return 0;
+}
+```
+
+Server sequence: **socket → bind → listen → accept → recv/send → close**. Client: **socket → connect → send/recv → close**. For UDP use `SOCK_DGRAM` with **sendto/recvfrom** — no listen, accept or connect needed. (Error checks omitted for brevity; real code checks every return value.)
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Compare TCP and UDP. Which would you choose for (a) file transfer and (b) live video, and why?
+
+<details>
+<summary>Model answer</summary>
+
+**TCP** (Transmission Control Protocol) and **UDP** (User Datagram Protocol) are the two transport-layer protocols of the TCP/IP suite, providing process-to-process delivery using port numbers.
+
+| Basis | TCP | UDP |
+| --- | --- | --- |
+| Connection | Connection-oriented (three-way handshake) | Connectionless |
+| Reliability | Reliable — sequence numbers, ACKs, retransmission | Unreliable — no ACKs or retransmission |
+| Ordering | In-order delivery | No ordering |
+| Flow control | Yes (receive window) | No |
+| Congestion control | Yes (slow start, AIMD) | No |
+| Header size | 20–60 bytes | 8 bytes |
+| Speed | Slower (overhead) | Faster |
+| Transmission | Byte stream | Independent datagrams |
+| Broadcast/multicast | Not supported | Supported |
+| Applications | HTTP, FTP, SMTP, SSH, Telnet | DNS, DHCP, SNMP, TFTP, VoIP, streaming |
+
+*(Optionally draw both headers.)*
+
+**(a) File transfer → TCP:** every byte must arrive correctly and in order; delay is acceptable.
+
+**(b) Live video → UDP:** timeliness matters more than completeness; a retransmitted frame would arrive too late, and the application can conceal a lost packet.
+
+</details>
+
+## Check yourself
+
+1. The connectionless and unreliable transport protocol is:
+   (a) TCP (b) UDP (c) IP (d) SCTP
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The UDP header is:
+   (a) 8 bytes (b) 16 bytes (c) 20 bytes (d) 40 bytes
+
+<details><summary>Answer</summary>(a)</details>
+
+3. The second segment of the TCP handshake has which flags set?
+   (a) SYN (b) ACK (c) SYN and ACK (d) FIN and ACK
+
+<details><summary>Answer</summary>(c)</details>
+
+4. In slow start, cwnd grows:
+   (a) linearly (b) exponentially (c) not at all (d) by half each RTT
+
+<details><summary>Answer</summary>(b)</details>
+
+5. After a timeout with cwnd = 20, Tahoe sets:
+   (a) ssthresh 20, cwnd 10 (b) ssthresh 10, cwnd 1 (c) ssthresh 10, cwnd 10 (d) ssthresh 1, cwnd 1
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Which allows bursts?
+   (a) leaky bucket (b) token bucket (c) both (d) neither
+
+<details><summary>Answer</summary>(b)</details>
+
+7. TCP flow control uses:
+   (a) the congestion window (b) the receiver's advertised window (c) TTL (d) ICMP
+
+<details><summary>Answer</summary>(b)</details>
+
+8. Well-known ports range from:
+   (a) 0–255 (b) 0–1023 (c) 1024–49151 (d) 49152–65535
+
+<details><summary>Answer</summary>(b)</details>
+
+9. A server calls which function to wait for incoming TCP connections?
+   (a) connect (b) listen (c) sendto (d) bind only
+
+<details><summary>Answer</summary>(b) then accept.</details>

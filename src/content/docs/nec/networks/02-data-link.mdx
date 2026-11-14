@@ -1,0 +1,178 @@
+---
+title: "2. Data link layer: framing, errors and flow control"
+description: Data link services, framing and bit/byte stuffing, error detection (parity, checksum, CRC with a full division), Hamming code correction, stop-and-wait, Go-Back-N and Selective Repeat with efficiency numericals, and HDLC.
+sidebar:
+  label: "2. Data link: errors, flow"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** compute a CRC and a Hamming code by hand, find the efficiency of stop-and-wait and sliding window, and state the window-size limits.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 5.2** (services, error detection and correction, flow control, data link protocols). **Lok Sewa CE unit 1** (link layer, error detection and correction). CRC and Hamming are standard numericals; the window-size rules are near-certain MCQs.
+</Aside>
+
+## 1. What the data link layer does
+
+Moves **frames** reliably between two **directly connected** nodes:
+- **Framing** — mark where frames start and end.
+- **Physical (MAC) addressing.**
+- **Error control** — detect (and sometimes correct) bit errors; retransmit.
+- **Flow control** — don't overrun a slow receiver.
+- **Access control** — who talks on a shared medium (lesson 3).
+
+IEEE splits it into **LLC** (logical link control — flow and error control, upper) and **MAC** (medium access control, lower).
+
+### Framing
+
+- **Character (byte) count** — a header gives the length (fragile: one error desynchronises).
+- **Flag bytes with byte stuffing** — a special flag byte marks the boundaries; if the flag (or escape) appears in the data, an **escape byte** is inserted before it (PPP).
+- **Flag bits with bit stuffing** — flag **01111110**; the sender inserts a **0 after every five consecutive 1s** in the data, the receiver removes it (HDLC). Data 0111111011 → stuffed **01111101011**.
+
+## 2. Error detection
+
+Single-bit error: one bit flipped. **Burst error:** two or more bits flipped in a run (the common case).
+
+**Parity.** Add one bit so the number of 1s is even (even parity). Detects all **odd** numbers of bit errors, misses even ones. **2-D parity** (row and column) detects all 1-, 2- and 3-bit errors and can correct single-bit errors.
+
+**Checksum** (Internet: 16-bit one's complement). Add the words with **end-around carry**, then complement. The receiver adds everything including the checksum; the result must be all 1s (complement = 0).
+
+Example with 8-bit words 10110011 and 01101010:
+- Sum = 1 0001 1101 → wrap the carry: 0001 1101 + 1 = 0001 1110.
+- Checksum = complement = **1110 0001**.
+
+**CRC (cyclic redundancy check)** — the strongest of the three, used by Ethernet and Wi-Fi. Treat bits as a polynomial; divide by an agreed **generator** G of degree r using **modulo-2 (XOR) division**:
+1. Append **r zeros** to the data.
+2. Divide by G (XOR, no carries).
+3. The **r-bit remainder** is the CRC; send data + CRC.
+4. The receiver divides the whole frame by G; **remainder 0** = no error detected.
+
+### Worked: data 1101011011, G = x⁴ + x + 1 = 10011 (r = 4)
+
+```text
+Data + 0000:  11010110110000
+              10011              XOR → 01001110110000
+               10011             XOR → 00000010110000
+                    10011        XOR → 00000000101000
+                      10011      XOR → 00000000001110
+Remainder (last 4 bits): 1110
+Transmitted frame: 1101011011 1110
+```
+
+(Skip a step whenever the leading bit is 0 — the quotient bit is 0.)
+
+A degree-r CRC detects all single-bit errors, all burst errors of length ≤ r, and (if G has a factor x + 1) all odd numbers of errors. CRC-32 is used in Ethernet.
+
+## 3. Error correction: Hamming code
+
+For m data bits, the number of check bits r must satisfy **2^r ≥ m + r + 1** (every error position, plus "no error", needs a distinct pattern). m = 4 → r = 3 (8 ≥ 8): the (7, 4) code. m = 7 → r = 4.
+
+Check bits sit at positions that are **powers of 2** (1, 2, 4, 8 …). Each check bit covers the positions whose binary index contains its bit:
+- P1 covers 1, 3, 5, 7. P2 covers 2, 3, 6, 7. P4 covers 4, 5, 6, 7.
+
+### Worked: send data 1011 (even parity)
+
+Positions 1–7 = P1 P2 D3 P4 D5 D6 D7, with D3 D5 D6 D7 = 1 0 1 1.
+- P1 = D3 ⊕ D5 ⊕ D7 = 1 ⊕ 0 ⊕ 1 = **0**
+- P2 = D3 ⊕ D6 ⊕ D7 = 1 ⊕ 1 ⊕ 1 = **1**
+- P4 = D5 ⊕ D6 ⊕ D7 = 0 ⊕ 1 ⊕ 1 = **0**
+
+Codeword (positions 1→7): **0 1 1 0 0 1 1**.
+
+**Receiver gets 0110001** (bit 6 flipped). Recompute the checks over the received bits:
+- C1 = bits 1, 3, 5, 7 = 0, 1, 0, 1 → 0
+- C2 = bits 2, 3, 6, 7 = 1, 1, 0, 1 → 1
+- C4 = bits 4, 5, 6, 7 = 0, 0, 0, 1 → 1
+
+Syndrome C4 C2 C1 = **110 = 6** → flip bit 6 → corrected. Syndrome 000 means no error.
+
+**Hamming distance** (bits that differ between two codewords): to **detect** d errors you need minimum distance d + 1; to **correct** d errors, 2d + 1. The (7, 4) Hamming code has distance 3: corrects 1, detects 2.
+
+## 4. Flow and error control protocols
+
+**ARQ** (automatic repeat request) — retransmit on a missing or negative acknowledgement, using sequence numbers and timers.
+
+Let **Tt** = frame transmission time, **Tp** = propagation delay, **a = Tp / Tt**.
+
+**Stop-and-wait ARQ:** send one frame, wait for its ACK. Sequence numbers 0/1 are enough.
+- Efficiency **η = 1 / (1 + 2a)** (no errors).
+- Example: 1000-bit frames at 1 Mbps → Tt = 1 ms; Tp = 20 ms → a = 20 → η = 1/41 ≈ **2.4%**. Terrible on long links.
+
+**Sliding window:** send up to W frames before needing an ACK. **η = W / (1 + 2a)** (capped at 1). In the example, W ≥ 41 keeps the link busy.
+
+| | **Go-Back-N** | **Selective Repeat** |
+| --- | --- | --- |
+| Receiver window | 1 (accepts only in order) | same as sender |
+| On a lost frame | resend it **and all after it** | resend **only** the lost frame |
+| Max sender window (m-bit sequence numbers) | **2^m − 1** | **2^(m−1)** |
+| Receiver complexity | simple | buffering, reordering |
+| Bandwidth | wastes it on errors | efficient |
+
+With 3-bit sequence numbers: GBN window ≤ **7**, SR window ≤ **4**. **Piggybacking:** put the ACK in a data frame going the other way.
+
+## 5. Data link protocols
+
+- **HDLC** (high-level data link control): bit-oriented, flag 01111110, frame = flag | address | control | information | FCS | flag. Frame types: **I-frames** (data), **S-frames** (supervisory: RR, RNR, REJ, SREJ), **U-frames** (unnumbered: link management). Modes NRM, ABM, ARM.
+- **PPP** (point-to-point protocol): byte-oriented HDLC-like framing for point-to-point links (dial-up, DSL/PPPoE); **LCP** sets up the link, **PAP/CHAP** authenticate, **NCPs** (e.g. IPCP) configure the network layer. PPP is a **data link layer** protocol.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Explain CRC with an example. Find the CRC for data 1101011011 with generator 10011.
+
+<details>
+<summary>Model answer</summary>
+
+**CRC** is an error-detection technique based on binary (modulo-2) polynomial division. The sender and receiver agree on a generator polynomial G(x) of degree r. The sender appends r zeros to the data, divides by G using XOR, and appends the r-bit remainder (the CRC) to the data. The receiver divides the received frame by G; a zero remainder means no detectable error, otherwise the frame is discarded.
+
+**Example.** G = 10011 (x⁴ + x + 1), r = 4. Dividend = 1101011011 0000.
+
+*(Show the XOR long division as in the lesson.)*
+
+Remainder = **1110**. Transmitted frame = **11010110111110**. At the receiver, dividing 11010110111110 by 10011 gives remainder 0000.
+
+**Properties.** Detects all single-bit errors, all bursts of length ≤ r, and most longer bursts; used in Ethernet (CRC-32), HDLC and Wi-Fi.
+
+</details>
+
+## Check yourself
+
+1. Number of check bits for 7 data bits in Hamming code:
+   (a) 3 (b) 4 (c) 5 (d) 7
+
+<details><summary>Answer</summary>(b) 2⁴ = 16 ≥ 7 + 4 + 1.</details>
+
+2. Simple parity can detect:
+   (a) all errors (b) all odd-numbered bit errors (c) all burst errors (d) all even-numbered errors
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Go-Back-N with 3-bit sequence numbers allows a maximum window of:
+   (a) 3 (b) 4 (c) 7 (d) 8
+
+<details><summary>Answer</summary>(c)</details>
+
+4. Selective Repeat with 4-bit sequence numbers allows a maximum window of:
+   (a) 4 (b) 8 (c) 15 (d) 16
+
+<details><summary>Answer</summary>(b) 2³.</details>
+
+5. Stop-and-wait efficiency with a = 2:
+   (a) 50% (b) 33% (c) 20% (d) 25%
+
+<details><summary>Answer</summary>(c) 1/(1 + 4).</details>
+
+6. After bit stuffing, the data 11111111 becomes:
+   (a) 111110111 (b) 111111011 (c) 11111111 (d) 1111101111
+
+<details><summary>Answer</summary>(a) a 0 after the first five 1s.</details>
+
+7. To correct 2-bit errors, the minimum Hamming distance must be:
+   (a) 2 (b) 3 (c) 4 (d) 5
+
+<details><summary>Answer</summary>(d) 2d + 1.</details>
+
+8. PPP belongs to which layer?
+   (a) physical (b) data link (c) network (d) transport
+
+<details><summary>Answer</summary>(b)</details>

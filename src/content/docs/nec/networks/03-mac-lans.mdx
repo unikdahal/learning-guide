@@ -1,0 +1,158 @@
+---
+title: "3. Multiple access and LANs"
+description: Random access (ALOHA, CSMA, CSMA/CD, CSMA/CA), controlled access and channelisation, Ethernet frames and MAC addresses, switches and learning, ARP and RARP, token bus and ring, IEEE 802.11 Wi-Fi, VLANs and WAN protocols.
+sidebar:
+  label: "3. Multiple access, LANs"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** compute ALOHA throughput and the CSMA/CD minimum frame size, read an Ethernet frame, and explain ARP and why Wi-Fi uses CSMA/CA.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 5.2** (multiple access, LAN addressing and ARP, Ethernet 802.3, token bus 802.4, token ring 802.5, CSMA/CD, wireless LANs, PPP, WAN protocols); the model paper asks the Windows command for the ARP cache. **Lok Sewa CE unit 1** (ARP, Ethernet, CSMA/CD, WLAN, PPP) and the Computer Officer VLAN topic.
+</Aside>
+
+## 1. The multiple-access problem
+
+On a **shared** medium (old coaxial Ethernet, a hub, the radio channel), two stations sending at once **collide**. The MAC sublayer decides who sends. Three families:
+
+### Random access
+
+**Pure ALOHA:** send whenever ready; if no ACK, wait a random time and retry. Vulnerable period = 2 frame times.
+- Throughput **S = G·e^(−2G)**, maximum **18.4%** at G = 0.5 (G = frames offered per frame time).
+
+**Slotted ALOHA:** send only at slot boundaries → vulnerable period halves.
+- **S = G·e^(−G)**, maximum **36.8%** at G = 1.
+
+**CSMA** (carrier sense multiple access): **listen before talking**. Persistence variants: 1-persistent (send as soon as idle — Ethernet), non-persistent (if busy, wait a random time), p-persistent (if idle, send with probability p — slotted channels). Collisions still happen because of propagation delay.
+
+**CSMA/CD** (collision detection) — classic wired Ethernet:
+1. Sense; if idle, transmit (while listening).
+2. If a collision is detected, stop and send a **jam signal**.
+3. **Binary exponential backoff:** after the n-th collision wait K slot times, K random in 0 … 2^min(n, 10) − 1; give up after 16 attempts.
+
+For a collision to be detected, a station must **still be transmitting** when the collision's news returns: **Tt ≥ 2 Tp**, so **minimum frame size L_min = 2 × Tp × R**.
+- Classic 10 Mbps Ethernet: slot time 51.2 µs → **512 bits = 64 bytes**.
+- Example: 1 Gbps, 1 km cable, signal 2 × 10⁸ m/s → Tp = 5 µs → L_min = 2 × 5 × 10⁻⁶ × 10⁹ = **10,000 bits (1250 bytes)**.
+- Modern switched full-duplex Ethernet has no collisions, so CSMA/CD is no longer used — but it's still examined.
+
+**CSMA/CA** (collision avoidance) — **Wi-Fi (802.11)**. A radio can't listen while it transmits, and there is the **hidden terminal** problem (A and C both reach B but can't hear each other). So it avoids collisions instead: wait **IFS** (DIFS), random **backoff**, then send; the receiver returns an **ACK** after SIFS; optional **RTS/CTS** reserves the channel; a **NAV** timer tells others how long to stay quiet.
+
+### Controlled access
+
+- **Reservation** — stations reserve slots in advance.
+- **Polling** — a primary asks each secondary in turn.
+- **Token passing** — only the holder of a circulating **token** may send: **token ring (IEEE 802.5)** on a physical ring; **token bus (IEEE 802.4)** on a bus with a logical ring. No collisions; predictable delay.
+
+### Channelisation
+
+Split the channel: **FDMA** (frequency bands), **TDMA** (time slots), **CDMA** (everyone at once with orthogonal codes — 3G).
+
+## 2. Ethernet (IEEE 802.3)
+
+| Preamble | SFD | Destination MAC | Source MAC | Type/length | Data | CRC |
+| --- | --- | --- | --- | --- | --- | --- |
+| 7 B | 1 B | 6 B | 6 B | 2 B | **46–1500 B** | 4 B |
+
+Frame (destination to CRC) **64–1518 bytes**; short data is **padded** to 46 bytes. MTU = 1500.
+
+**MAC address:** 48 bits, written 00:1A:2B:3C:4D:5E; first 24 bits = **OUI** (manufacturer), last 24 = device serial. All 1s (FF:FF:FF:FF:FF:FF) = broadcast.
+
+Standards: 10BASE-T, 100BASE-TX (Fast Ethernet), 1000BASE-T (Gigabit), 10GBASE (fibre/copper). "BASE" = baseband; T = twisted pair.
+
+**Switch learning:** on each frame, record source MAC → incoming port. To forward: if the destination is in the table, send out that port only (**filtering**); if not, or broadcast, **flood** to all other ports. Entries age out. Loops are prevented by the **Spanning Tree Protocol (STP)**.
+
+## 3. ARP and RARP
+
+To deliver an IP packet on a LAN, the sender needs the next hop's **MAC** address.
+- **ARP** (address resolution protocol): **IP → MAC**. The host broadcasts "who has 192.168.1.1?"; the owner replies (unicast) with its MAC; the answer is cached. View the cache: **`arp -a`** (Windows and Linux).
+- **RARP**: **MAC → IP** (diskless machines at boot) — replaced by BOOTP and **DHCP**.
+- **Gratuitous ARP**: announce your own IP–MAC (detect duplicates). **Proxy ARP**: a router answers on behalf of hosts. **ARP spoofing**: forged replies redirect traffic — the basis of LAN man-in-the-middle attacks (lesson 8).
+
+## 4. Wireless LAN (IEEE 802.11)
+
+- **Infrastructure mode** (stations through an **access point**; a BSS; several BSSs joined = ESS) vs **ad hoc** (stations directly).
+- MAC: **CSMA/CA** (above), with **DCF** (distributed) and optional **PCF** (polling).
+- Frame has **four address fields** (to handle the AP and distribution system).
+- Standards: 802.11b/g (2.4 GHz), a (5 GHz), n (Wi-Fi 4), ac (Wi-Fi 5), ax (Wi-Fi 6). Security: WEP (broken) → WPA2 → WPA3 (lesson 8).
+- **Bluetooth (802.15)** is a PAN: a piconet = 1 master + up to 7 active slaves.
+
+## 5. VLANs and WAN protocols
+
+**VLAN:** logically split one physical switch into several broadcast domains (by port or tag) — departments separated without new cabling; better security and less broadcast traffic. **802.1Q** tagging adds a 4-byte tag carrying the VLAN ID (12 bits → up to 4094 VLANs) on **trunk** links between switches. Traffic between VLANs needs a router (or layer-3 switch).
+
+**WAN protocols:** PPP and HDLC (point-to-point leased lines), **X.25** (old, reliable packet switching), **Frame Relay** (virtual circuits, DLCI), **ATM** (53-byte cells: 5 header + 48 payload, virtual circuits), **ISDN**, DSL, **MPLS** (label switching in carrier networks).
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Explain CSMA/CD. Why can't it be used in wireless LANs?
+
+<details>
+<summary>Model answer</summary>
+
+**CSMA/CD** (carrier sense multiple access with collision detection) is the medium-access method of classic IEEE 802.3 Ethernet.
+
+**Working.** *(Draw the flowchart.)*
+1. A station with a frame senses the medium (carrier sense).
+2. If busy, it waits until idle (1-persistent); if idle, it starts transmitting while monitoring the medium.
+3. If it detects a collision (signal energy differs from what it sent), it aborts and transmits a jam signal so all stations notice.
+4. It waits a random backoff of K slot times, K chosen from 0 to 2ⁿ − 1 after the n-th collision (binary exponential backoff, n capped at 10), and retries; after 16 attempts it gives up.
+
+**Minimum frame size.** A station must still be transmitting when the collision signal returns, so Tt ≥ 2Tp: Lmin = 2 × Tp × bandwidth. For 10 Mbps Ethernet this gives 512 bits (64 bytes).
+
+**Why not in wireless.**
+1. A radio cannot transmit and receive on the same channel at once reliably — its own signal swamps the incoming one, so collisions cannot be detected.
+2. **Hidden terminal problem:** two stations out of each other's range both reach the access point; neither hears the other, so carrier sense fails.
+3. Signal fading makes collision energy unreliable to measure.
+
+Wireless LANs therefore use **CSMA/CA**: IFS waiting, random backoff, acknowledgements and optional RTS/CTS to avoid collisions rather than detect them.
+
+</details>
+
+## Check yourself
+
+1. Maximum throughput of slotted ALOHA:
+   (a) 18.4% (b) 36.8% (c) 50% (d) 100%
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Wi-Fi (802.11) uses:
+   (a) CSMA/CD (b) CSMA/CA (c) token passing (d) pure ALOHA
+
+<details><summary>Answer</summary>(b)</details>
+
+3. The Windows command to view the ARP cache:
+   (a) ipconfig (b) arp -a (c) netstat -r (d) tracert
+
+<details><summary>Answer</summary>(b)</details>
+
+4. ARP maps:
+   (a) MAC to IP (b) IP to MAC (c) name to IP (d) port to process
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Minimum Ethernet frame size is:
+   (a) 46 bytes (b) 64 bytes (c) 512 bytes (d) 1518 bytes
+
+<details><summary>Answer</summary>(b) of which 46 is the minimum data.</details>
+
+6. A MAC address is:
+   (a) 32 bits (b) 48 bits (c) 64 bits (d) 128 bits
+
+<details><summary>Answer</summary>(b)</details>
+
+7. IEEE 802.5 is:
+   (a) Ethernet (b) token bus (c) token ring (d) Wi-Fi
+
+<details><summary>Answer</summary>(c)</details>
+
+8. The 802.1Q VLAN ID field is:
+   (a) 8 bits (b) 12 bits (c) 16 bits (d) 32 bits
+
+<details><summary>Answer</summary>(b)</details>
+
+9. An ATM cell is:
+   (a) 48 bytes (b) 53 bytes (c) 64 bytes (d) variable
+
+<details><summary>Answer</summary>(b) 5 header + 48 payload.</details>

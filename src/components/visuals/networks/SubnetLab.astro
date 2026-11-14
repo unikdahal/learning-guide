@@ -1,0 +1,254 @@
+---
+// Subnet lab: type an IPv4 address and prefix; see the address and mask in binary with the
+// network/host split, the network, broadcast and usable range, and split the block into N subnets.
+---
+
+<qe-subnet class="qe-lab qe-subnet not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Subnet lab — address, mask, range</p>
+    <div class="ctl">
+      <label>IPv4 address
+        <input type="text" data-ip value="200.168.10.75" spellcheck="false" inputmode="decimal" />
+      </label>
+      <label><span>Prefix /<output data-po>24</output></span>
+        <input type="range" min="8" max="30" value="24" data-p aria-label="Prefix length" />
+      </label>
+      <label><span>Split into subnets: <output data-no>7</output></span>
+        <input type="range" min="1" max="64" value="7" data-n aria-label="Number of subnets needed" />
+      </label>
+    </div>
+    <div class="bin" data-bin aria-live="polite"></div>
+    <dl class="facts" data-facts></dl>
+    <p class="qe-lab-h sub" data-sh></p>
+    <div class="tbl-wrap"><table class="subs" data-subs></table></div>
+    <p class="qe-lab-note" data-note></p>
+  </section>
+</qe-subnet>
+
+<script>
+  class QeSubnet extends HTMLElement {
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const ipIn = $('[data-ip]') as HTMLInputElement;
+      const pIn = $('[data-p]') as HTMLInputElement;
+      const nIn = $('[data-n]') as HTMLInputElement;
+      const toStr = (v: number) => [24, 16, 8, 0].map((s) => (v >>> s) & 255).join('.');
+      const parse = (s: string) => {
+        const p = s.trim().split('.');
+        if (p.length !== 4) return null;
+        const o = p.map((x) => (/^\d{1,3}$/.test(x) ? +x : NaN));
+        if (o.some((x) => isNaN(x) || x > 255)) return null;
+        return ((o[0] << 24) | (o[1] << 16) | (o[2] << 8) | o[3]) >>> 0;
+      };
+      const mask = (p: number) => (p === 0 ? 0 : (0xffffffff << (32 - p)) >>> 0);
+      const cls = (a: number) => {
+        const f = a >>> 24;
+        if (f === 127) return 'loopback (127.x)';
+        if (f < 128) return 'class A';
+        if (f < 192) return 'class B';
+        if (f < 224) return 'class C';
+        if (f < 240) return 'class D (multicast)';
+        return 'class E (reserved)';
+      };
+      const priv = (a: number) => {
+        const f = a >>> 24, s = (a >>> 16) & 255;
+        return f === 10 || (f === 172 && s >= 16 && s <= 31) || (f === 192 && s === 168);
+      };
+      const binRow = (v: number, p: number, name: string) => {
+        let h = `<div class="row"><span class="lbl">${name}</span><span class="bits">`;
+        for (let i = 31; i >= 0; i--) {
+          const b = (v >>> i) & 1;
+          h += `<span class="${31 - i < p ? 'n' : 'h'}">${b}</span>`;
+          if (i % 8 === 0 && i) h += '<span class="dot">.</span>';
+        }
+        return h + '</span></div>';
+      };
+      const draw = () => {
+        const p = +pIn.value;
+        const n = +nIn.value;
+        ($('[data-po]') as HTMLOutputElement).value = String(p);
+        ($('[data-no]') as HTMLOutputElement).value = String(n);
+        const a = parse(ipIn.value);
+        ipIn.setAttribute('aria-invalid', String(a === null));
+        if (a === null) {
+          $('[data-bin]').innerHTML = '<p>Enter an address like 192.168.1.10</p>';
+          return;
+        }
+        const m = mask(p);
+        const net = (a & m) >>> 0;
+        const bc = (net | (~m >>> 0)) >>> 0;
+        const hosts = p >= 31 ? 0 : 2 ** (32 - p) - 2;
+        $('[data-bin]').innerHTML =
+          binRow(a, p, 'Address') + binRow(m, p, 'Mask') + binRow(net, p, 'Network') +
+          `<p class="key"><span class="n">network bits (${p})</span> <span class="h">host bits (${32 - p})</span></p>`;
+        $('[data-facts]').innerHTML = [
+          ['Mask', `${toStr(m)} (/${p})`],
+          ['Network', toStr(net)],
+          ['Broadcast', toStr(bc)],
+          ['Usable hosts', `${hosts > 0 ? toStr(net + 1) + ' – ' + toStr(bc - 1) : '—'}`],
+          ['Host count', `2^${32 - p} − 2 = ${hosts.toLocaleString()}`],
+          ['Class / type', `${cls(a)}${priv(a) ? ', private' : ''}`],
+        ]
+          .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`)
+          .join('');
+        // split
+        const borrow = Math.ceil(Math.log2(Math.max(1, n)));
+        const np = p + borrow;
+        const tb = $('[data-subs]');
+        if (np > 30) {
+          $('[data-sh]').textContent = `Split into ${n}: needs ${borrow} more bits → /${np}, too small to hold hosts.`;
+          tb.innerHTML = '';
+          $('[data-note]').textContent = '';
+          return;
+        }
+        const size = 2 ** (32 - np);
+        const count = 2 ** borrow;
+        $('[data-sh]').textContent = `Split /${p} into ${n}: borrow ⌈log₂ ${n}⌉ = ${borrow} bit(s) → ${count} subnets of /${np} (mask ${toStr(mask(np))}), block size ${size}, ${size - 2} hosts each`;
+        let h = '<thead><tr><th scope="col">#</th><th scope="col">Network</th><th scope="col">First host</th><th scope="col">Last host</th><th scope="col">Broadcast</th></tr></thead><tbody>';
+        const show = Math.min(count, 16);
+        for (let i = 0; i < show; i++) {
+          const s = net + i * size;
+          const mine = a >= s && a < s + size;
+          h += `<tr class="${mine ? 'mine' : ''}"><td>${i}</td><td>${toStr(s)}</td><td>${toStr(s + 1)}</td><td>${toStr(s + size - 2)}</td><td>${toStr(s + size - 1)}</td></tr>`;
+        }
+        if (count > show) h += `<tr><td colspan="5">… ${count - show} more</td></tr>`;
+        tb.innerHTML = h + '</tbody>';
+        $('[data-note]').textContent = `The highlighted row holds ${toStr(a)}. Subnets step by the block size (${size}) in the octet where the prefix ends. Older exam answers sometimes exclude the all-zeros and all-ones subnets (2ⁿ − 2 subnets); modern practice (and CIDR) uses all 2ⁿ — say which rule you use.`;
+      };
+      ipIn.addEventListener('input', draw);
+      pIn.addEventListener('input', draw);
+      nIn.addEventListener('input', draw);
+      draw();
+    }
+  }
+  customElements.define('qe-subnet', QeSubnet);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.8rem 1.5rem;
+    margin: 0.4rem 0 0.9rem;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.3rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+  }
+  .ctl input[type='range'] {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .ctl input[type='text'] {
+    font: inherit;
+    font-family: var(--sl-font-mono);
+    font-weight: 400;
+    padding: 0.35rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .ctl input[aria-invalid='true'] {
+    border-color: var(--qe-warn);
+  }
+  .bin {
+    overflow-x: auto;
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+  }
+  :global(.qe-subnet .row) {
+    display: flex;
+    gap: 0.6rem;
+    white-space: nowrap;
+    line-height: 1.7;
+  }
+  :global(.qe-subnet .lbl) {
+    width: 4.8rem;
+    flex: none;
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font);
+  }
+  :global(.qe-subnet .bits .n) {
+    color: var(--sl-color-white);
+    font-weight: 700;
+    background: color-mix(in srgb, var(--qe-pipe-build) 30%, transparent);
+  }
+  :global(.qe-subnet .bits .h) {
+    color: var(--sl-color-gray-1);
+    background: color-mix(in srgb, var(--qe-pipe-emit) 22%, transparent);
+  }
+  :global(.qe-subnet .key) {
+    display: flex;
+    gap: 0.6rem;
+    font-family: var(--sl-font);
+    font-size: 0.8rem;
+    margin: 0.3rem 0 0;
+  }
+  :global(.qe-subnet .key span) {
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    color: var(--sl-color-white);
+  }
+  :global(.qe-subnet .key .n) {
+    background: color-mix(in srgb, var(--qe-pipe-build) 30%, transparent);
+  }
+  :global(.qe-subnet .key .h) {
+    background: color-mix(in srgb, var(--qe-pipe-emit) 22%, transparent);
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.5rem 1rem;
+    margin: 0.9rem 0;
+  }
+  :global(.qe-subnet .facts div) {
+    margin: 0;
+  }
+  :global(.qe-subnet .facts dt) {
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-2);
+  }
+  :global(.qe-subnet .facts dd) {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    color: var(--sl-color-white);
+    font-size: 0.9rem;
+  }
+  .sub {
+    font-size: 0.9rem;
+    margin-top: 0.6rem;
+  }
+  .tbl-wrap {
+    overflow-x: auto;
+  }
+  .subs {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sl-font-mono);
+    font-size: 0.8rem;
+  }
+  :global(.qe-subnet .subs th),
+  :global(.qe-subnet .subs td) {
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    padding: 0.25rem 0.45rem;
+    text-align: left;
+    color: var(--sl-color-white);
+    white-space: nowrap;
+  }
+  :global(.qe-subnet .subs th) {
+    font-family: var(--sl-font);
+    color: var(--sl-color-gray-2);
+  }
+  :global(.qe-subnet tr.mine td) {
+    background: color-mix(in srgb, var(--qe-pipe-build) 22%, transparent);
+  }
+</style>

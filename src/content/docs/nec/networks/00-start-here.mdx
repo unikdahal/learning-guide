@@ -1,0 +1,40 @@
+---
+title: "Networks from zero: start here"
+description: A course on NEC Chapter 5 (networks and security) at Lok Sewa Computer Engineer unit 1 depth — models, data link, LANs, IP and subnetting, routing, TCP/UDP, application protocols and security, with labs and model answers.
+sidebar:
+  label: "0. Start here"
+  order: 0
+---
+import { Aside } from '@astrojs/starlight/components';
+
+This course teaches **NEC Chapter 5 (ACtE05, about 10 questions)** and, at the same time, **Lok Sewa Computer Engineer unit 1 (computer networks)** plus **15.9 cryptography and network security**. For Computer Officer it is the **networking 10%** of Paper II.
+
+<Aside type="note" title="Where you start from">
+You use HTTP, DNS, TLS and sockets every day at work, so the top layers will feel familiar. The marks are in the parts software engineers rarely touch: **subnetting, CRC and Hamming codes, sliding-window efficiency, CSMA/CD frame sizes, IP fragmentation, Dijkstra tables and RSA by hand** — and in writing protocol comparisons as structured answers. Those get the most space here.
+</Aside>
+
+## How to study each lesson (45–60 minutes)
+
+1. Read once.
+2. Do every worked numerical yourself on paper before reading the solution.
+3. Use the lab — predict, then check.
+4. Write the Lok Sewa answer timed (8 min per 5 marks), then compare with the model.
+5. MCQs; log every miss.
+
+## The path
+
+| # | Lesson | You'll be able to |
+| --- | --- | --- |
+| 1 | [Network basics, models and devices](/learning-guide/nec/networks/01-basics-models/) | OSI vs TCP/IP, switching, devices, delay numericals |
+| 2 | [Data link: errors and flow control](/learning-guide/nec/networks/02-data-link/) | CRC, checksum, Hamming, stop-and-wait and sliding-window efficiency |
+| 3 | [Multiple access and LANs](/learning-guide/nec/networks/03-mac-lans/) | ALOHA, CSMA/CD frame size, Ethernet, ARP, Wi-Fi, PPP, VLANs |
+| 4 | [IP addressing and subnetting](/learning-guide/nec/networks/04-ip-subnetting/) | classful, CIDR, subnetting, VLSM, NAT — fast |
+| 5 | [Network layer and routing](/learning-guide/nec/networks/05-network-layer-routing/) | IPv4/IPv6 headers, fragmentation, Dijkstra, RIP/OSPF/BGP |
+| 6 | [Transport layer: TCP and UDP](/learning-guide/nec/networks/06-transport/) | handshake, flow and congestion control, sockets |
+| 7 | [Application layer](/learning-guide/nec/networks/07-application/) | DNS, HTTP, DHCP, email, FTP, SNMP, tools |
+| 8 | [Network security](/learning-guide/nec/networks/08-security/) | attacks, RSA by hand, signatures, PKI, TLS, IPsec, firewalls |
+| 9 | [Review test](/learning-guide/nec/networks/09-review/) | 30 timed MCQs plus written practice |
+
+<Aside type="tip" title="Where it fits in your plan">
+Plan v2, Week 5: **Mon 14 Dec** lessons 1–5 (subnetting drill in Block B), **Tue 15 Dec** lessons 6–8, then lesson 9 as Tuesday's MCQs. Sunday 20 Dec's written answer "TCP vs UDP" is in lesson 6.
+</Aside>
