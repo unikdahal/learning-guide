@@ -1,0 +1,150 @@
+---
+title: "8. Review: 25 mixed questions"
+description: A timed mixed test across Computer organisation from zero — architecture, instruction sets, addressing modes, control unit, arithmetic, IEEE 754, pipelining, cache, I/O and multiprocessors.
+sidebar:
+  label: "8. Review test"
+  order: 8
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** check NEC 4.1–4.3 in one sitting. **25 minutes**, paper and pen, then open the answers.
+
+<Aside type="tip" title="How to use this">
+Below 18/25? Each answer names the lesson to revisit. Then do the written practice at the end, timed.
+</Aside>
+
+## Questions
+
+1. The number of registers and the instruction set are part of a computer's:
+   (a) organisation (b) architecture (c) implementation (d) technology
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+2. Separate instruction and data memories define the:
+   (a) von Neumann architecture (b) Harvard architecture (c) RISC architecture (d) stack architecture
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+3. MAR holds:
+   (a) the next instruction (b) the address sent to memory (c) the data read from memory (d) the opcode
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+4. `PUSH A; PUSH B; ADD; POP X` is written for a:
+   (a) three-address (b) two-address (c) one-address (d) zero-address machine
+
+<details><summary>Answer</summary>(d) Lesson 2.</details>
+
+5. Address field 300, XR = 50, PC = 101 after fetch. The indexed-mode EA is:
+   (a) 300 (b) 350 (c) 401 (d) 50
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+6. Relative mode with the same values gives EA:
+   (a) 300 (b) 350 (c) 401 (d) 199
+
+<details><summary>Answer</summary>(c) 101 + 300. Lesson 2.</details>
+
+7. Which is typical of CISC?
+   (a) fixed-length instructions (b) load/store only (c) variable-length instructions and many addressing modes (d) hardwired control
+
+<details><summary>Answer</summary>(c) Lesson 2.</details>
+
+8. The microprogram is stored in:
+   (a) main memory (b) control memory (c) cache (d) registers
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+9. Compared with microprogrammed control, hardwired control is:
+   (a) slower and flexible (b) faster and hard to modify (c) slower and hard to modify (d) faster and easy to modify
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+10. Vertical microinstructions:
+    (a) have one bit per control signal (b) encode control signals into fields (c) are wider than horizontal (d) need no decoding
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+11. In Booth's algorithm, Q₀Q₋₁ = 10 means:
+    (a) A ← A + M (b) A ← A − M (c) shift only (d) stop
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+12. −1.0 in IEEE 754 single precision is:
+    (a) 3F80 0000H (b) BF80 0000H (c) 8000 0001H (d) C000 0000H
+
+<details><summary>Answer</summary>(b) sign 1, exponent 127. Lesson 4.</details>
+
+13. 0 10000001 01000…0 (single precision) represents:
+    (a) 2.5 (b) 5.0 (c) 10.0 (d) 1.25
+
+<details><summary>Answer</summary>(b) 1.01₂ × 2² = 101₂. Lesson 4.</details>
+
+14. The exponent bias for double precision is:
+    (a) 127 (b) 255 (c) 1023 (d) 2047
+
+<details><summary>Answer</summary>(c) Lesson 4.</details>
+
+15. A 6-stage pipeline executes 20 instructions in (no stalls):
+    (a) 120 cycles (b) 26 cycles (c) 25 cycles (d) 20 cycles
+
+<details><summary>Answer</summary>(c) 6 + 20 − 1. Lesson 5.</details>
+
+16. Stage delays 40, 30, 50, 40 ns with a 10 ns latch. The pipeline clock period is:
+    (a) 40 ns (b) 50 ns (c) 60 ns (d) 170 ns
+
+<details><summary>Answer</summary>(c) 50 + 10. Lesson 5.</details>
+
+17. A RAW dependency is a:
+    (a) structural hazard (b) data hazard (c) control hazard (d) cache miss
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+18. Multicore processors running different threads are:
+    (a) SISD (b) SIMD (c) MISD (d) MIMD
+
+<details><summary>Answer</summary>(d) Lesson 5.</details>
+
+19. h = 0.8, Tc = 20 ns, Tm = 120 ns, memory accessed only after a miss. Tavg =
+    (a) 40 ns (b) 44 ns (c) 120 ns (d) 36 ns
+
+<details><summary>Answer</summary>(b) 20 + 0.2 × 120. Lesson 6.</details>
+
+20. 32-bit addresses, direct-mapped 32 KB cache, 32-byte blocks. Tag bits =
+    (a) 15 (b) 17 (c) 10 (d) 22
+
+<details><summary>Answer</summary>(b) lines 1024 → index 10, offset 5, tag 17. Lesson 6.</details>
+
+21. The same cache made 4-way set-associative has tag bits:
+    (a) 17 (b) 19 (c) 15 (d) 27
+
+<details><summary>Answer</summary>(b) sets 256 → set 8 bits. Lesson 6.</details>
+
+22. The write policy that uses a dirty bit:
+    (a) write-through (b) write-back (c) write-around (d) no-write-allocate
+
+<details><summary>Answer</summary>(b) Lesson 6.</details>
+
+23. The DMA data path is:
+    (a) device → CPU → memory (b) device ↔ memory directly (c) device → cache → CPU (d) through the IOP only
+
+<details><summary>Answer</summary>(b) Lesson 7.</details>
+
+24. The interconnection with a switch at every processor–memory crosspoint:
+    (a) common bus (b) multiport memory (c) crossbar (d) hypercube
+
+<details><summary>Answer</summary>(c) Lesson 7.</details>
+
+25. Snooping is used for:
+    (a) bus arbitration (b) cache coherence (c) DMA (d) interrupt priority
+
+<details><summary>Answer</summary>(b) Lesson 7.</details>
+
+## Lok Sewa written practice (no notes, timed)
+
+1. **(10 marks · 16 min)** Differentiate computer architecture and organisation; compare von Neumann and Harvard. → [Lesson 1](/learning-guide/nec/organization/01-architecture-basics/)
+2. **(10 marks · 16 min)** Explain microprogrammed control with a block diagram and compare with hardwired control. → [Lesson 3](/learning-guide/nec/organization/03-control-unit/)
+3. **(10 marks · 16 min)** Explain cache mapping techniques; derive the address format for a given cache. → [Lesson 6](/learning-guide/nec/organization/06-memory-cache/)
+4. **(5 marks · 8 min)** How do designers balance processor and memory performance? → [Lesson 6, section 6](/learning-guide/nec/organization/06-memory-cache/#6-balancing-processor-and-memory-performance)
+
+Short notes (5 marks each): pipeline hazards · Booth's algorithm · IEEE 754 · daisy chaining · cache coherence.

@@ -1,0 +1,179 @@
+---
+title: "6. Memory hierarchy and cache"
+description: The memory hierarchy and locality, average access time, cache mapping (direct, fully associative, set-associative) with address-split numericals, replacement algorithms, write policies, interleaving, virtual memory and TLB, and composing memory from chips.
+sidebar:
+  label: "6. Memory and cache"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+import CacheLab from '@components/visuals/org/CacheLab.astro';
+
+**Goal:** split any address into tag, index and offset for each mapping; compute average access time; explain replacement and write policies.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 4.2** (memory hierarchy, cache principles and design — size, mapping function, replacement algorithm, write policy, number of caches — writability, composing memory). The model paper asks the purpose of a replacement policy and the effect of a larger cache. **Lok Sewa CE unit 2** (memory systems) and "balancing processor and memory performance" (reported CE 2079). Cache mapping is **the** organisation numerical.
+</Aside>
+
+## 1. The memory hierarchy
+
+No memory is fast, big and cheap at once, so computers stack them:
+
+| Level | Typical size | Typical access | Managed by |
+| --- | --- | --- | --- |
+| Registers | < 1 KB | < 1 ns | compiler |
+| L1 / L2 / L3 cache (SRAM) | KB → tens of MB | 1–20 ns | hardware |
+| Main memory (DRAM) | GB | 50–100 ns | OS |
+| SSD / disk | TB | µs → ms | OS |
+| Tape / archive | PB | seconds | operator |
+
+Down the hierarchy: bigger, slower, cheaper per bit, accessed less often. It works because programs show **locality of reference**:
+- **Temporal locality** — something used now will be used again soon (loop variables, the loop's code).
+- **Spatial locality** — neighbours of something used now will be used soon (array elements, sequential code). This is why caches move **blocks** (lines), not single words.
+
+Your columnar data work is the same idea one level up: scanning contiguous column chunks is spatial locality.
+
+## 2. Hit ratio and average access time
+
+**Hit ratio** h = hits / total accesses. Miss ratio = 1 − h.
+
+**Average memory access time** with cache time Tc and main-memory time Tm:
+- If memory is accessed **only after** a miss (hierarchical): **Tavg = Tc + (1 − h) · Tm**
+- If both are accessed **simultaneously** (miss uses memory's time): **Tavg = h · Tc + (1 − h) · Tm**
+
+Example: h = 0.9, Tc = 10 ns, Tm = 100 ns → hierarchical 10 + 0.1 × 100 = **20 ns**; simultaneous 0.9 × 10 + 0.1 × 100 = **19 ns**. Read which model the question states; if unstated, say which you assume.
+
+**Effect of a larger cache:** higher hit ratio (fewer capacity misses), but more cost, more area and power, and possibly a slower access time. Diminishing returns past the working-set size.
+
+## 3. Mapping functions
+
+The cache has fewer lines than memory has blocks, so a **mapping function** decides where a block can go. An address splits into fields:
+
+- **Offset (word) bits** = log₂(block size) — which byte within the block.
+- **Index (line or set) bits** = log₂(number of lines or sets).
+- **Tag bits** = the rest — identifies which block is actually in the line.
+
+<CacheLab />
+
+Try the lab with the default addresses: direct mapping gets 1 hit, 2-way gets 2, fully associative gets 4 — the same addresses, different conflict misses.
+
+| Mapping | Where a block can go | Address | Pros / cons |
+| --- | --- | --- | --- |
+| **Direct** | exactly one line: line = block mod (lines) | tag · line · offset | simple, fast, cheap; **conflict misses** when blocks share a line |
+| **Fully associative** | any line | tag · offset | best hit ratio; must compare **every** tag at once (costly) |
+| **k-way set-associative** | any of k lines in set = block mod (sets) | tag · set · offset | compromise; 2-, 4-, 8-way are common |
+
+### Worked: 32-bit byte addresses, 64 KB cache, 16-byte blocks
+
+- Lines = 64 KB / 16 B = 4096 = 2¹². Offset = log₂16 = **4 bits**.
+- **Direct:** index 12 bits, tag 32 − 12 − 4 = **16 bits**.
+- **4-way set-associative:** sets = 4096 / 4 = 1024 = 2¹⁰ → set **10 bits**, tag **18 bits**.
+- **Fully associative:** no index; tag 32 − 4 = **28 bits**.
+
+More associativity → fewer index bits → longer tags (more comparison hardware).
+
+**Classic Mano variant (word-addressed):** main memory 32K × 12, cache 512 words, 1 word per block → 15-bit address; direct: index 9, tag 6.
+
+## 4. Replacement algorithms
+
+When a miss occurs and the line (direct) or set (associative) is full, the **replacement policy** decides which block to evict — to keep blocks likely to be reused. (Direct mapping has no choice to make.)
+
+- **LRU** (least recently used) — evict the block unused for longest; best in practice, needs usage tracking.
+- **FIFO** — evict the oldest-loaded block; simple, ignores reuse.
+- **LFU** (least frequently used) — evict the one with fewest references.
+- **Random** — surprisingly close to LRU, no bookkeeping.
+- **Optimal** (Belady) — evict the block used furthest in the future; not implementable, used as a benchmark.
+
+## 5. Write policies
+
+- **Write-through:** every write updates cache **and** main memory. Memory always consistent; lots of memory traffic (use a write buffer).
+- **Write-back:** write only the cache; mark the line **dirty**; write it to memory **when evicted**. Less traffic; memory temporarily stale (a coherence concern with DMA and multiprocessors).
+- On a write **miss**: **write-allocate** (load the block, then write — pairs with write-back) or **no-write-allocate** (write straight to memory — pairs with write-through).
+
+**Number of caches:** single vs multi-level (L1, L2, L3); **unified** vs **split** (separate instruction and data L1 — removes the structural hazard of lesson 5).
+
+## 6. Balancing processor and memory performance
+
+The processor is far faster than DRAM, so designers close the gap with: **caches** (multi-level), **wider data paths** (fetch more bits per access), **memory interleaving** (split memory into modules with consecutive addresses in different modules, so several accesses overlap — low-order interleaving), **faster buses and DRAM** (DDR, burst transfers), and **prefetching**.
+
+## 7. Virtual memory (in brief)
+
+Lets programs use an address space bigger than physical RAM: the OS keeps pages on disk and loads them on demand.
+- **Paging:** virtual address = page number + offset; a **page table** maps pages to frames. A missing page causes a **page fault**.
+- **TLB (translation lookaside buffer):** a small associative cache of recent page-table entries, so translation usually costs no extra memory access.
+- **Segmentation:** variable-size logical segments (code, data, stack).
+- Page replacement uses the same ideas as cache replacement (LRU, FIFO, optimal) — the DSA/OS chapter repeats this.
+
+## 8. Memory types and composing memory
+
+(Types — SRAM, DRAM, ROM family, flash — are in [digital lesson 10](/learning-guide/nec/digital/10-logic-families-memory-adc/).) **Writability and storage permanence** run from mask ROM (written once at fabrication, permanent) through OTP, EPROM, EEPROM, flash and NVRAM to SRAM/DRAM (written freely, lost without power).
+
+**Composing memory from chips:**
+- **Wider words:** put chips **side by side**, sharing address lines. Two 1K × 4 → 1K × 8.
+- **More words:** add chips and **decode the extra high address bits** to their chip selects. Two 1K × 8 + a 1:2 decoder on A10 → 2K × 8.
+- Chips needed = (total size) / (chip size): 4K × 16 from 1K × 4 chips → (4K × 16)/(1K × 4) = **16 chips** (4 rows of 4).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is cache memory? Explain the three cache mapping techniques. A system has 16-bit byte addresses, a 1 KB cache and 8-byte blocks — give the address format for each mapping, with 2-way set-associative as the third.
+
+<details>
+<summary>Model answer</summary>
+
+**Cache memory** is a small, fast SRAM memory between the CPU and main memory that holds copies of recently and frequently used blocks. Because of temporal and spatial locality, most accesses hit in the cache, so the average access time approaches the cache's. *(Draw CPU ↔ cache ↔ main memory, with words moving between CPU and cache and blocks between cache and memory.)*
+
+**Mapping techniques.**
+1. **Direct mapping:** each memory block maps to exactly one cache line, line = block number mod number of lines. Simple and fast, but blocks that map to the same line repeatedly evict each other (conflict misses).
+2. **Fully associative mapping:** a block may be placed in any line; the tag of every line is compared in parallel. Most flexible, highest hit ratio, but expensive comparison hardware.
+3. **Set-associative mapping:** lines are grouped into sets of k; a block maps to one set (block mod number of sets) and may go in any line in that set. Combines the advantages of both.
+
+**Address formats.** Offset = log₂8 = 3 bits. Lines = 1024 / 8 = 128 = 2⁷.
+
+| Mapping | Tag | Index | Offset |
+| --- | --- | --- | --- |
+| Direct | 16 − 7 − 3 = **6** | line **7** | **3** |
+| Fully associative | 16 − 3 = **13** | — | **3** |
+| 2-way set-associative (64 sets) | 16 − 6 − 3 = **7** | set **6** | **3** |
+
+</details>
+
+## Check yourself
+
+1. The principle that makes caches effective is:
+   (a) virtual memory (b) locality of reference (c) interleaving (d) pipelining
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The purpose of a replacement policy is to:
+   (a) decide which block to evict when the cache (or set) is full (b) decide where to put a new block in direct mapping (c) update main memory (d) translate addresses
+
+<details><summary>Answer</summary>(a)</details>
+
+3. With h = 0.95, Tc = 5 ns, Tm = 100 ns (memory accessed after a miss), Tavg =
+   (a) 9.75 ns (b) 10 ns (c) 5 ns (d) 14.75 ns
+
+<details><summary>Answer</summary>(b) 5 + 0.05 × 100.</details>
+
+4. In write-back caches, a modified line is written to memory:
+   (a) on every write (b) on eviction (c) never (d) on every read
+
+<details><summary>Answer</summary>(b) using the dirty bit.</details>
+
+5. A direct-mapped cache with 256 lines and 4-byte blocks, 16-bit addresses: tag bits =
+   (a) 4 (b) 6 (c) 8 (d) 10
+
+<details><summary>Answer</summary>(b) 16 − 8 − 2.</details>
+
+6. Which mapping has no index field?
+   (a) direct (b) set-associative (c) fully associative (d) all have one
+
+<details><summary>Answer</summary>(c)</details>
+
+7. How many 512 × 4 chips make a 2K × 8 memory?
+   (a) 4 (b) 8 (c) 16 (d) 2
+
+<details><summary>Answer</summary>(b) (2048 × 8)/(512 × 4).</details>
+
+8. A larger cache generally:
+   (a) lowers the hit ratio (b) raises the hit ratio but costs more and may be slower (c) has no effect (d) removes all misses
+
+<details><summary>Answer</summary>(b)</details>

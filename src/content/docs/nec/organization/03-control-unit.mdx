@@ -1,0 +1,146 @@
+---
+title: "3. The control unit: hardwired and microprogrammed"
+description: What the control unit does, hardwired control design, microprogrammed control — control memory, control address register, microinstruction format, address sequencing and mapping — and horizontal vs vertical microcode.
+sidebar:
+  label: "3. Control unit"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DigitalDiagram from '@components/visuals/digital/DigitalDiagram.astro';
+
+**Goal:** explain both ways of building a control unit, draw the microprogrammed control organisation, and describe how the next microinstruction address is chosen.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 4.1** (control memory, address sequencing, microinstruction format, control unit design); the model paper asks the role of the control unit. **Lok Sewa CE unit 2** (control unit design). "Compare hardwired and microprogrammed control" is a favourite 5-marker.
+</Aside>
+
+## 1. What the control unit does
+
+The **control unit (CU)** generates the **control signals** that tell every other part — registers, ALU, memory, buses — what to do in each clock cycle, so that instructions are fetched, decoded and executed in the right sequence. It doesn't process data itself; it **directs** the processing.
+
+Inputs: the **opcode** (from IR), **status flags**, the **clock**, and external signals (interrupts, bus requests). Outputs: control signals inside the CPU (load this register, select this ALU function) and on the control bus (memory read/write, I/O read/write).
+
+## 2. Hardwired control
+
+The control signals come from a **fixed logic circuit**: a sequence counter produces timing signals T0, T1, T2 …; a decoder turns the opcode into D0–D7; AND/OR gates combine them. For example, in Mano's basic computer, `D1·T4: DR ← M[AR]` and `D1·T5: AC ← AC + DR` implement ADD.
+
+- **Fast** — signals are produced by gates, not by reading memory.
+- **Hard to change** — new instructions mean redesigning logic; complex for big instruction sets.
+- Used in **RISC** processors.
+
+## 3. Microprogrammed control
+
+Each instruction is carried out by a small program of **microinstructions** stored in a **control memory** (ROM). Each microinstruction is a **control word** whose bits *are* the control signals for one step.
+
+<Figure caption="Microprogrammed control: the sequencer chooses the next address in control memory; the word read out drives the control signals.">
+  <DigitalDiagram name="micro-cu" label="The opcode enters the address sequencer through a mapping input; status bits also enter it. The sequencer loads the control address register, which addresses the control memory. The word read out goes to the control data register; it issues control signals and feeds a next-address field back to the sequencer." />
+</Figure>
+
+- **Control memory** — a ROM holding the **microprogram** (all the microroutines). Not visible to the programmer.
+- **Control address register (CAR)** — address of the next microinstruction.
+- **Control data register (CDR) / pipeline register** — holds the microinstruction being executed (optional).
+- **Next-address generator (sequencer)** — decides the next CAR value.
+
+**Terms:** micro-operation (one elementary register transfer) → microinstruction (one control word: the micro-ops for one step + next-address info) → microroutine (all microinstructions for one machine instruction) → microprogram (all of them).
+
+### Microinstruction format (Mano)
+
+Control memory 128 × 20 bits; each microinstruction:
+
+| F1 | F2 | F3 | CD | BR | AD |
+| --- | --- | --- | --- | --- | --- |
+| 3 bits | 3 bits | 3 bits | 2 bits | 2 bits | 7 bits |
+| micro-operation fields (up to 3 micro-ops per step) | | | condition to test (always, sign, zero, indirect) | branch type | next address |
+
+### Address sequencing — how the next CAR value is chosen
+
+1. **Increment** — CAR ← CAR + 1 (the next step of the routine).
+2. **Conditional branch** — if the selected status bit is 1, CAR ← AD, else increment.
+3. **Unconditional branch** — CAR ← AD.
+4. **Mapping** — at the end of fetch, the opcode is mapped to the start of its routine. Mano's mapping: a 4-bit opcode `xxxx` becomes the 7-bit address `0 xxxx 00` — each routine gets 4 words.
+5. **Subroutine call and return** — a subroutine register (SBR) saves the return address, so routines can share common steps (e.g. indirect-address fetch).
+
+Then the cycle repeats: fetch routine → map opcode → execute routine → branch back to fetch.
+
+### Horizontal vs vertical microprogramming
+
+| Horizontal | Vertical |
+| --- | --- |
+| One bit per control signal | Signals **encoded** into fields, decoded outside |
+| Long (wide) words | Short words |
+| High parallelism, fast | Less parallelism, extra decoding delay |
+| More control-memory bits | Less control memory |
+
+## 4. Hardwired vs microprogrammed
+
+| | Hardwired | Microprogrammed |
+| --- | --- | --- |
+| Signals from | fixed logic gates | microinstructions in control memory |
+| Speed | **faster** | slower (memory read per step) |
+| Modification | difficult — redesign | easy — rewrite the ROM |
+| Complex instruction sets | hard to design | easy |
+| Cost of design | high for large ISAs | lower |
+| Typical use | RISC | CISC |
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is a control unit? Explain microprogrammed control organisation with a block diagram, and compare it with hardwired control.
+
+<details>
+<summary>Model answer</summary>
+
+**Control unit.** The part of the CPU that generates timing and control signals to fetch, decode and execute instructions in sequence, coordinating the ALU, registers, memory and I/O. Its inputs are the opcode, status flags, clock and external control signals.
+
+**Microprogrammed control.** Control signals for each step are stored as binary **control words (microinstructions)** in a **control memory**. A sequence of microinstructions (a microroutine) carries out each machine instruction. *(Draw: external input/opcode → next-address generator → CAR → control memory → control word → control signals, with next-address field and status bits fed back.)*
+
+- **Control memory (ROM):** stores the microprogram.
+- **Control address register:** holds the address of the next microinstruction.
+- **Control data register:** holds the current microinstruction.
+- **Next-address generator (sequencer):** forms the next address by increment, conditional/unconditional branch on status bits, mapping from the opcode, or subroutine call/return.
+
+**Microinstruction format (example):** F1, F2, F3 micro-operation fields; CD condition select; BR branch type; AD next address.
+
+**Comparison.**
+
+| Hardwired | Microprogrammed |
+| --- | --- |
+| Logic gates and flip-flops generate signals | Control words read from control memory |
+| Faster | Slower |
+| Difficult to modify | Easy to modify or extend |
+| Complex for large instruction sets | Suits complex instruction sets |
+| Used in RISC | Used in CISC |
+
+</details>
+
+## Check yourself
+
+1. The main role of the control unit is to:
+   (a) perform arithmetic (b) store data (c) generate control signals that sequence operations (d) decode addresses for memory chips
+
+<details><summary>Answer</summary>(c)</details>
+
+2. In microprogrammed control, microinstructions are stored in:
+   (a) main memory (b) cache (c) control memory (d) registers
+
+<details><summary>Answer</summary>(c)</details>
+
+3. Which control unit is faster?
+   (a) hardwired (b) microprogrammed (c) both equal (d) depends on the program
+
+<details><summary>Answer</summary>(a)</details>
+
+4. Horizontal microinstructions are:
+   (a) short and encoded (b) wide, one bit per control signal (c) stored in cache (d) used only in RISC
+
+<details><summary>Answer</summary>(b)</details>
+
+5. The register holding the address of the next microinstruction:
+   (a) PC (b) MAR (c) CAR (d) IR
+
+<details><summary>Answer</summary>(c)</details>
+
+6. The opcode is converted to the start address of its microroutine by:
+   (a) mapping (b) incrementing (c) indexing (d) interrupting
+
+<details><summary>Answer</summary>(a)</details>

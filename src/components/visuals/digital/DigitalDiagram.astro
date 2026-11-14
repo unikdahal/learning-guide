@@ -2,7 +2,7 @@
 // Static diagrams for the "Digital from zero" lessons: gate-level circuits, a K-map with groups,
 // a multiplexer, an SR latch, and block diagrams of the 8085 and 8086.
 interface Props {
-  name: 'full-adder' | 'kmap' | 'mux' | 'sr-latch' | 'p8085' | 'p8086';
+  name: 'full-adder' | 'kmap' | 'mux' | 'sr-latch' | 'p8085' | 'p8086' | 'vn-harvard' | 'micro-cu';
   label: string;
 }
 const { name, label } = Astro.props;
@@ -106,6 +106,28 @@ if (name === 'full-adder') {
     box(300, 150, 110, 46, 'ALU (16-bit)') + box(425, 150, 110, 46, 'Flags|(9 used)') +
     box(300, 206, 235, 40, 'EU control: decodes from the queue') +
     w('M260 173 H300') + t(280, 286, 'BIU fetches while EU executes — an early form of pipelining', 'c');
+} else if (name === 'vn-harvard') {
+  vb = '0 0 560 250';
+  body =
+    t(135, 22, 'von Neumann', 'cb') + t(425, 22, 'Harvard', 'cb') +
+    box(55, 40, 160, 50, 'CPU|(ALU + CU + registers)') +
+    w('M135 90 V140') + `<rect class="bus" x="30" y="140" width="210" height="14" rx="4"/>` + t(135, 151, 'one shared bus', 'c') +
+    w('M135 154 V180') + box(55, 180, 160, 50, 'Memory|instructions + data') +
+    box(345, 40, 160, 50, 'CPU|(ALU + CU + registers)') +
+    w('M385 90 V180 M465 90 V180') +
+    t(370, 140, 'instr', 'c') + t(483, 140, 'data', 'c') +
+    box(310, 180, 115, 50, 'Instruction|memory') + box(435, 180, 115, 50, 'Data|memory') +
+    `<line class="w" x1="280" y1="10" x2="280" y2="240" stroke-dasharray="4 4"/>`;
+} else if (name === 'micro-cu') {
+  vb = '0 0 560 250';
+  body =
+    box(15, 95, 100, 50, 'Instruction|opcode') + box(165, 30, 120, 44, 'Address|sequencer') +
+    box(165, 110, 120, 44, 'CAR|(control addr reg)') + box(320, 100, 130, 64, 'Control|memory (ROM)|microprogram') +
+    box(320, 196, 130, 40, 'Control word|(CDR)') +
+    w('M115 120 H130 V62 H165 M225 74 V110 M285 132 H320 M385 164 V196') +
+    w('M450 216 H530') + t(492, 208, 'control', 'c') + t(492, 238, 'signals', 'c') +
+    w('M320 216 H148 V42 H165') + t(234, 234, 'next address + condition', 'c') +
+    w('M225 6 V30') + t(233, 18, 'status bits (flags)', 'm') + t(112, 58, 'map', 'c');
 }
 ---
 

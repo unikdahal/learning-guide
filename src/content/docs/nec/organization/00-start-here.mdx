@@ -1,0 +1,41 @@
+---
+title: "Computer organisation from zero: start here"
+description: A short course on NEC Chapter 4.1–4.3 — CPU, control unit, instruction sets, computer arithmetic, pipelining, cache and memory, I/O and multiprocessors — at Lok Sewa Computer Engineer depth.
+sidebar:
+  label: "0. Start here"
+  order: 0
+---
+import { Aside } from '@astrojs/starlight/components';
+
+This course teaches **NEC Chapter 4.1–4.3 (ACtE04: control and central processing units; computer arithmetic and the memory system; I/O organisation and multiprocessors)**. The same material is most of **Lok Sewa Computer Engineer unit 2 (architecture, organisation and microprocessors)** in Section A of both papers — so every hour here counts twice.
+
+It assumes you have finished [Digital from zero](/learning-guide/nec/digital/00-start-here/) (or at least lessons 8–14): flip-flops, registers, the 8085 and DMA are used without re-explaining them.
+
+<Aside type="note" title="Why this is your fast chapter">
+You already think in caches, pipelines and instruction sets as a software engineer — the data platform you work on lives or dies by locality. What's new is the **exam vocabulary and numericals**: address splitting, AMAT, pipeline speed-up, Booth's algorithm, IEEE 754 encoding, and the textbook control-unit designs (the books are Morris Mano and William Stallings).
+</Aside>
+
+## How to study each lesson (40–50 minutes)
+
+1. Read once, quickly.
+2. Work every numbered example on paper before looking at the answer.
+3. Play with the lab where there is one — predict the result first.
+4. Write the Lok Sewa answer against the clock, then compare.
+5. Do the MCQs; note every miss.
+
+## The path
+
+| # | Lesson | You'll be able to |
+| --- | --- | --- |
+| 1 | [Architecture basics and the instruction cycle](/learning-guide/nec/organization/01-architecture-basics/) | von Neumann vs Harvard, buses, register transfer, fetch–decode–execute |
+| 2 | [Instruction sets, formats and addressing modes](/learning-guide/nec/organization/02-instruction-sets/) | 0- to 3-address code, effective-address numericals, RISC vs CISC |
+| 3 | [The control unit](/learning-guide/nec/organization/03-control-unit/) | hardwired vs microprogrammed, microinstruction format, sequencing |
+| 4 | [Computer arithmetic](/learning-guide/nec/organization/04-computer-arithmetic/) | Booth's multiplication, restoring division, IEEE 754 |
+| 5 | [Pipelining and parallel processing](/learning-guide/nec/organization/05-pipelining/) | speed-up numericals, hazards, Flynn's classes |
+| 6 | [Memory hierarchy and cache](/learning-guide/nec/organization/06-memory-cache/) | tag/index/offset, AMAT, replacement, write policies, virtual memory |
+| 7 | [I/O organisation and multiprocessors](/learning-guide/nec/organization/07-io-multiprocessors/) | I/O modules, bus arbitration, interconnects, cache coherence |
+| 8 | [Review test](/learning-guide/nec/organization/08-review/) | 25 timed MCQs plus written practice |
+
+<Aside type="tip" title="Where it fits in your plan">
+Plan v2, Week 4: **Sat 12 Dec** lessons 1–6, **Sun 13 Dec** lessons 7–8 and the "architecture vs organisation" written answer. Embedded systems, RTOS and VHDL (NEC 4.4–4.6) are NEC-only and sit in Phase B.
+</Aside>

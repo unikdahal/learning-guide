@@ -1,0 +1,140 @@
+---
+title: "7. I/O organisation and multiprocessors"
+description: Peripheral devices and I/O modules, isolated vs memory-mapped I/O, modes of transfer, priority interrupts and daisy chaining, I/O processors, bus arbitration, multiprocessor types, interconnection structures, inter-processor communication, synchronisation and cache coherence.
+sidebar:
+  label: "7. I/O and multiprocessors"
+  order: 7
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** describe what an I/O module does, compare the transfer modes, and explain how processors share a bus, memory and data safely.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 4.3** (peripheral devices, I/O modules and interfaces, modes of transfer, DMA, multiprocessor characteristics, interconnection structures, inter-processor communication and synchronisation); the model paper asks which is not a DMA mode, CPU state during DMA, and the DMA data path. **Lok Sewa CE unit 2** (I/O, interrupts, DMA) and **15.2 parallel computing**. DMA itself is in [digital lesson 13](/learning-guide/nec/digital/13-interfacing/) — revise it alongside this.
+</Aside>
+
+## 1. Peripherals and I/O modules
+
+**Peripherals** (keyboard, display, disk, network card) differ from the CPU in speed (much slower), data format and word length, and operate asynchronously — so they never connect to the system bus directly. An **I/O module (interface)** sits between them:
+
+- **Control and timing** — coordinates traffic between internal resources and devices.
+- **CPU communication** — command decoding, data, status reporting, address recognition.
+- **Device communication** — commands, status, data.
+- **Data buffering** — absorbs the speed difference.
+- **Error detection** — parity, device faults.
+
+An interface typically has **data registers, a status register, a control register** and address decode logic.
+
+**Isolated (I/O-mapped) vs memory-mapped I/O** — see [digital lesson 13](/learning-guide/nec/digital/13-interfacing/): separate I/O address space with IN/OUT vs devices in the memory space using ordinary loads and stores.
+
+## 2. Modes of transfer
+
+| Mode | How | CPU involvement |
+| --- | --- | --- |
+| **Programmed I/O** | CPU polls the status register in a loop, then moves each word | CPU busy-waits — wasteful |
+| **Interrupt-initiated I/O** | device interrupts when ready; CPU runs an ISR to move the word | CPU free between words; per-word overhead |
+| **DMA** | DMA controller moves a whole block directly between device and memory | CPU only sets it up and handles the completion interrupt |
+
+During DMA the CPU is **held off the bus** (its bus lines tri-stated); it can still execute from internal registers/cache. The data path is **device ↔ memory directly** over the system bus. DMA modes: **burst** (block), **cycle stealing**, **transparent**. ("Interrupt mode" or "polling mode" is *not* a DMA mode.)
+
+**I/O processor (IOP / channel):** a dedicated processor that executes its own I/O programs (channel commands) and handles many devices, freeing the CPU further — used in mainframes.
+
+## 3. Priority interrupts
+
+When several devices interrupt at once, priority decides who is served first.
+- **Polling (software):** the ISR checks devices in priority order. Flexible, slow.
+- **Daisy chaining (hardware, serial):** devices are wired in series on the **interrupt acknowledge** line. The acknowledge passes down the chain; the first requesting device blocks it and puts its **vector address** on the bus. Priority = position in the chain. Simple; low-priority devices can starve.
+- **Parallel priority:** an interrupt register, a mask register and a **priority encoder** produce the vector of the highest-priority unmasked request — what the [8259 PIC](/learning-guide/nec/digital/14-interrupts/) does.
+
+## 4. Bus arbitration
+
+When several masters (CPUs, DMA controllers) want the bus, an **arbiter** grants it to one.
+- **Serial (daisy-chain) arbitration** — bus-grant passes along a chain; simple, fixed priority.
+- **Parallel arbitration** — each master has its own request/grant lines to a central priority encoder/decoder; faster.
+- **Dynamic algorithms** — time slice, polling, **LRU**, FIFO, rotating daisy chain — for fairness.
+
+## 5. Multiprocessors
+
+A **multiprocessor** is a system of two or more CPUs sharing memory and I/O under one operating system (MIMD). Benefits: reliability (one CPU fails, others continue), throughput, and parallel execution of a job's parts.
+
+- **Tightly coupled (shared memory):** all processors share a common main memory; communication through shared variables. (Each CPU usually has its own cache.)
+- **Loosely coupled (distributed memory):** each processor has its own local memory; communication by **message passing** over a network. Scales further — clusters and the Spark/Kyuubi-style systems you build at work are this model.
+
+### Interconnection structures
+
+| Structure | Idea | Trade-off |
+| --- | --- | --- |
+| **Time-shared common bus** | all processors and memory on one bus | cheap; one transfer at a time — bottleneck |
+| **Multiport memory** | each memory module has a port per CPU; module resolves conflicts | high transfer rate; costly memory control |
+| **Crossbar switch** | a switch at every CPU–memory crosspoint | all non-conflicting pairs at once; hardware grows as n × m |
+| **Multistage switching network** | stages of 2 × 2 switches (e.g. **omega network**) | fewer switches than a crossbar; some blocking |
+| **Hypercube** | 2ⁿ nodes, each linked to n neighbours (differ in one address bit) | loosely coupled; at most n hops between nodes |
+
+### Inter-processor communication and synchronisation
+
+- **Communication:** shared memory areas (mailboxes) in tightly coupled systems; messages in loosely coupled ones; inter-processor interrupts to signal.
+- **Synchronisation:** protect shared data with **mutual exclusion**. Hardware gives an atomic **test-and-set** (read-modify-write) instruction; on top of it, **semaphores**: a binary semaphore guards a **critical section** so only one processor enters at a time.
+
+### Cache coherence
+
+With private caches, two processors may hold different values for the same address (one wrote, the other's copy is stale).
+- **Snooping protocols** (bus-based): every cache watches the bus; on a write, other copies are **invalidated** (write-invalidate, e.g. **MESI**) or **updated** (write-update).
+- **Directory-based protocols** (scalable): a directory records which caches hold each block and sends targeted invalidations.
+- Software approaches: mark shared writable data **non-cacheable**.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Differentiate between programmed I/O, interrupt-initiated I/O and DMA.
+
+<details>
+<summary>Model answer</summary>
+
+| | Programmed I/O | Interrupt-initiated I/O | DMA |
+| --- | --- | --- | --- |
+| Control | CPU program checks device status continuously | device interrupts CPU when ready | DMA controller controls the transfer |
+| CPU during transfer | busy-waiting (polling) | executes other work; runs an ISR per transfer | released from the bus; free for internal work |
+| Data path | device → CPU → memory | device → CPU → memory | device ↔ memory directly |
+| Overhead | very high | moderate (context save per word) | lowest (setup + one completion interrupt) |
+| Speed | slowest | medium | fastest |
+| Suitable for | simple, slow devices | keyboards, low-rate devices | disks, network, bulk block transfers |
+
+*(Add a small diagram of each.)*
+
+</details>
+
+## Check yourself
+
+1. During a DMA transfer, the CPU's bus lines are:
+   (a) driving data (b) in the high-impedance (tri-state) condition (c) generating addresses (d) reset
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Which is **not** a DMA transfer mode?
+   (a) burst (b) cycle stealing (c) transparent (d) polling
+
+<details><summary>Answer</summary>(d)</details>
+
+3. In daisy-chain priority, priority is determined by:
+   (a) the vector address (b) the device's position in the chain (c) a mask register (d) software
+
+<details><summary>Answer</summary>(b)</details>
+
+4. A crossbar switch for 8 processors and 8 memory modules needs how many crosspoints?
+   (a) 8 (b) 16 (c) 64 (d) 256
+
+<details><summary>Answer</summary>(c)</details>
+
+5. Loosely coupled multiprocessors communicate mainly by:
+   (a) shared memory (b) message passing (c) a common cache (d) DMA
+
+<details><summary>Answer</summary>(b)</details>
+
+6. MESI is a:
+   (a) bus arbitration scheme (b) cache coherence protocol (c) DMA mode (d) interconnection network
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Each node of a 4-dimensional hypercube connects to:
+   (a) 2 nodes (b) 4 nodes (c) 8 nodes (d) 16 nodes
+
+<details><summary>Answer</summary>(b)</details>
