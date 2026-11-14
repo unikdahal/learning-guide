@@ -1,0 +1,18 @@
+---
+title: "Mock 2 — NEC format, 100 questions"
+description: An original 100-question NEC-format mock (10 per chapter, all 60 sub-chapters) for the Sat 12 Dec checkpoint, with automatic marking, per-chapter scores and an explanation for every answer.
+sidebar:
+  label: "Mock 2 (Sat 12 Dec)"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+import MockExam from '@components/visuals/MockExam.astro';
+import questions from '@data/mocks/mock-2.json';
+
+**Plan slot: Sat 12 Dec, 21:30** — the mid-point checkpoint. By then you will have finished Chapters 1, 2 and 4 (4.1–4.3) at Lok Sewa depth; Chapters 3, 5, 7 and 8 are your strong areas; Chapters 6, 9, 10 and sub-chapters 4.4–4.6 and 8.4–8.6 are studied only in Phase B — answer them from what you know, they show where Phase B must start.
+
+<Aside type="caution" title="Checkpoint rule (guardrail 3)">
+**Below 50:** move Chapter 10 forward to Sat 19 Dec and drop the Sunday writing in Week 5, as the [plan](/learning-guide/nec/roadmap/) says. Whatever the score, log every miss.
+</Aside>
+
+<MockExam id="mock-2" questions={questions} minutes={120} target={50} />
