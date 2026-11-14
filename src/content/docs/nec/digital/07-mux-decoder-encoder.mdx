@@ -1,0 +1,126 @@
+---
+title: "7. Multiplexers, demultiplexers, decoders and encoders"
+description: MSI building blocks — MUX as data selector and universal function generator, DEMUX, decoders, encoders and priority encoders, 7-segment decoders, and cascading.
+sidebar:
+  label: "7. MUX, DEMUX, decoder, encoder"
+  order: 7
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DigitalDiagram from '@components/visuals/digital/DigitalDiagram.astro';
+
+**Goal:** explain each block, implement any function with a MUX or a decoder, and build larger blocks from smaller ones.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.2** (multiplexers, demultiplexers, decoders, encoders). **Lok Sewa CE 3.6** (MSI logic circuits). "Implement F = Σm(…) using an 8:1 (or 4:1) multiplexer" is a classic numerical.
+</Aside>
+
+## 1. Multiplexer (MUX) — data selector
+
+2ⁿ data inputs, **n select lines**, one output: the select lines choose which input appears at the output. Think of a rotary switch — or `switch(sel)` in code.
+
+<Figure caption="A 4:1 multiplexer: S1 S0 choose which of I0–I3 reaches Y.">
+  <DigitalDiagram name="mux" label="A trapezoid labelled 4 to 1 MUX with inputs I0 to I3 on the left, select lines S1 and S0 at the bottom, and output Y on the right." />
+</Figure>
+
+`Y = S₁'S₀'I₀ + S₁'S₀I₁ + S₁S₀'I₂ + S₁S₀I₃`
+
+Uses: putting several sources onto one bus line; parallel-to-serial conversion; **function generation**.
+
+### Implementing a function with a MUX
+
+A 2ⁿ:1 MUX can implement **any** function of n + 1 variables: use n variables as selects and feed each data input with 0, 1, the last variable or its complement.
+
+**Example.** F(A, B, C) = Σm(1, 2, 6, 7) with a 4:1 MUX, selects A, B:
+
+| A B | Minterms | F as a function of C | Input |
+| --- | --- | --- | --- |
+| 0 0 | m0, m1 | 0 when C = 0, 1 when C = 1 | I₀ = **C** |
+| 0 1 | m2, m3 | 1, 0 | I₁ = **C'** |
+| 1 0 | m4, m5 | 0, 0 | I₂ = **0** |
+| 1 1 | m6, m7 | 1, 1 | I₃ = **1** |
+
+With an 8:1 MUX you'd use A, B, C as selects and wire each input to the truth table's 0 or 1 directly.
+
+## 2. Demultiplexer (DEMUX) — data distributor
+
+One input, n select lines, 2ⁿ outputs: routes the input to the selected output. The reverse of a MUX.
+
+## 3. Decoder
+
+n inputs → 2ⁿ outputs; **exactly one** output is active for each input code. A 3:8 decoder (74LS138) turns a 3-bit address into one of eight chip-select lines — exactly how memory and I/O chips are selected (lesson 13). Most have an **enable** input; a decoder with enable is a demultiplexer.
+
+**Function generation:** each decoder output is one minterm, so `F = OR of the outputs for F's minterms`. F = Σm(1, 2, 6, 7) → OR outputs 1, 2, 6, 7.
+
+**Cascading:** two 3:8 decoders and the 4th address bit on their enables make a 4:16 decoder.
+
+**BCD-to-7-segment decoder** (7447/7448): drives the a–g segments of a display.
+
+## 4. Encoder
+
+The reverse: 2ⁿ inputs → n-bit code of the active input. Built from OR gates. An 8:3 encoder outputs 101 when input 5 is active. Problem: if two inputs are active together, the output is garbage.
+
+**Priority encoder** (74148): if several inputs are active, outputs the code of the **highest-priority** one, plus a "valid" output. Used for keyboards and interrupt controllers.
+
+## 5. Summary
+
+| Block | Inputs → outputs | Role |
+| --- | --- | --- |
+| MUX | 2ⁿ data + n select → 1 | selects one input |
+| DEMUX | 1 data + n select → 2ⁿ | routes to one output |
+| Decoder | n → 2ⁿ | activates one line per code |
+| Encoder | 2ⁿ → n | produces the code of the active line |
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** What is a multiplexer? Implement F(A, B, C) = Σm(0, 2, 3, 5) using a 4:1 multiplexer.
+
+<details>
+<summary>Model answer</summary>
+
+**Multiplexer.** A combinational circuit that selects one of 2ⁿ data inputs and connects it to a single output under control of n select lines. 4:1 MUX: Y = S₁'S₀'I₀ + S₁'S₀I₁ + S₁S₀'I₂ + S₁S₀I₃. *(Draw the block.)*
+
+**Implementation with A, B as selects.**
+
+| A B | Minterms (C = 0, 1) | F | Input |
+| --- | --- | --- | --- |
+| 0 0 | m0 = 1, m1 = 0 | C' | I₀ = C' |
+| 0 1 | m2 = 1, m3 = 1 | 1 | I₁ = 1 |
+| 1 0 | m4 = 0, m5 = 1 | C | I₂ = C |
+| 1 1 | m6 = 0, m7 = 0 | 0 | I₃ = 0 |
+
+*(Draw: A → S₁, B → S₀, C' → I₀, logic 1 → I₁, C → I₂, logic 0 → I₃.)*
+
+</details>
+
+## Check yourself
+
+1. An 8:1 multiplexer has how many select lines?
+   (a) 2 (b) 3 (c) 8 (d) 1
+
+<details><summary>Answer</summary>(b) 2³ = 8.</details>
+
+2. A decoder with n inputs has:
+   (a) n outputs (b) 2n outputs (c) 2ⁿ outputs (d) n² outputs
+
+<details><summary>Answer</summary>(c)</details>
+
+3. A demultiplexer is also called a:
+   (a) data selector (b) data distributor (c) encoder (d) comparator
+
+<details><summary>Answer</summary>(b)</details>
+
+4. When two inputs of a priority encoder are active, the output is the code of:
+   (a) the lower input (b) the higher-priority input (c) both ORed (d) zero
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Encoders are built mainly from:
+   (a) AND gates (b) OR gates (c) flip-flops (d) XOR gates
+
+<details><summary>Answer</summary>(b)</details>
+
+6. A 4:16 decoder can be built from:
+   (a) two 2:4 decoders (b) two 3:8 decoders (c) four 1:2 decoders (d) one 3:8 decoder
+
+<details><summary>Answer</summary>(b) with the fourth bit driving their enables.</details>

@@ -44,6 +44,7 @@ const necSidebar = [
     ],
   },
   { label: 'Electronics from zero', items: [{ autogenerate: { directory: 'nec/electronics' } }] },
+  { label: 'Digital from zero', items: [{ autogenerate: { directory: 'nec/digital' } }] },
   { label: 'Chapters', items: [{ autogenerate: { directory: 'nec/chapters' } }] },
 ];
 

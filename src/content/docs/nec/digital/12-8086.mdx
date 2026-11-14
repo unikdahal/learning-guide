@@ -1,0 +1,152 @@
+---
+title: "12. The 8086 microprocessor"
+description: 8086 architecture — BIU and EU, the instruction queue and pipelining, segmented memory and physical address calculation, registers and flags, addressing modes, minimum and maximum modes, and 8085 vs 8086.
+sidebar:
+  label: "12. 8086 microprocessor"
+  order: 12
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DigitalDiagram from '@components/visuals/digital/DigitalDiagram.astro';
+
+**Goal:** explain the BIU/EU split and why it's faster, compute physical addresses from segment:offset, and list the 8086's registers, flags and addressing modes.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.4** (8086 architecture). **Lok Sewa CE unit 2** (2.8 808X programming and interfacing); "explain the internal architecture of the 8086" and "what is memory segmentation? compute the physical address" are standard questions. The x86 you run code on today descends directly from this chip.
+</Aside>
+
+## 1. 8086 at a glance
+
+- **16-bit** microprocessor (Intel, 1978), 40-pin, +5 V, 5–10 MHz.
+- **16-bit data bus, 20-bit address bus → 1 MB** (2²⁰) of memory.
+- AD0–AD15 multiplexed (ALE again); A16–A19 multiplexed with status lines.
+- 64K I/O ports.
+- **Pipelined**: fetches the next instructions while executing the current one.
+
+## 2. BIU and EU
+
+<Figure caption="The 8086 splits into two units that work in parallel: the bus interface unit fetches, the execution unit executes.">
+  <DigitalDiagram name="p8086" label="8086 architecture. Left: the bus interface unit with segment registers CS, DS, SS, ES, the instruction pointer, an address adder (sigma) and a 6-byte instruction queue, connected to the external bus. Right: the execution unit with general registers AX, BX, CX, DX, pointer and index registers SP, BP, SI, DI, the ALU, flags and control unit. The queue feeds the execution unit." />
+</Figure>
+
+**Bus Interface Unit (BIU)** — handles all bus traffic:
+- Segment registers **CS, DS, SS, ES**; instruction pointer **IP**.
+- The **address adder** builds the 20-bit physical address.
+- A **6-byte instruction queue**: while the EU executes, the BIU **prefetches** the next bytes. This overlap is the **pipelining** that makes the 8086 faster than the 8085. (A jump flushes the queue.)
+
+**Execution Unit (EU)** — decodes and executes:
+- General registers AX, BX, CX, DX (each splits into 8-bit halves AH/AL etc.).
+- Pointer and index registers SP, BP, SI, DI.
+- ALU, flag register, control unit.
+
+## 3. Memory segmentation
+
+The registers are 16-bit but addresses are 20-bit. Solution: memory is viewed as **segments** of up to 64 KB, each starting at a multiple of 16.
+
+**Physical address = segment × 10H + offset**  (shift the segment left by one hex digit, then add)
+
+- CS = 2000H, IP = 0100H → 20000H + 0100H = **20100H**.
+- DS = 1234H, offset 0022H → 12340H + 0022H = **12362H**.
+
+Default pairs: **CS:IP** (code), **SS:SP or SS:BP** (stack), **DS:SI, DS:BX** (data), **ES:DI** (string destination).
+
+Why segment? 16-bit registers can reach 1 MB; code and data can be relocated just by changing a segment register; programs, data and stack are kept separate.
+
+## 4. Registers and flags
+
+| Group | Registers | Notes |
+| --- | --- | --- |
+| General | **AX** (accumulator), **BX** (base), **CX** (count — loops, shifts), **DX** (data — MUL/DIV high word, I/O port) | each = high + low byte |
+| Pointer / index | SP, BP, SI, DI | stack pointer, base pointer, source index, destination index |
+| Segment | CS, DS, SS, ES | |
+| | IP | offset of next instruction |
+
+**Flags (9):** six **status** flags — CF, PF, AF, ZF, SF, **OF** (overflow, new compared with the 8085) — and three **control** flags — **TF** (trap: single-step debugging), **IF** (interrupt enable), **DF** (direction for string instructions).
+
+## 5. Addressing modes
+
+| Mode | Example |
+| --- | --- |
+| Immediate | `MOV AX, 1234H` |
+| Register | `MOV AX, BX` |
+| Direct | `MOV AX, [5000H]` |
+| Register indirect | `MOV AX, [BX]` |
+| Based | `MOV AX, [BP + 4]` |
+| Indexed | `MOV AX, [SI + 10H]` |
+| Based indexed | `MOV AX, [BX + SI]` |
+| Based indexed with displacement | `MOV AX, [BX + SI + 8]` |
+| String, I/O, relative (jumps) | `MOVSB`, `IN AL, 80H`, `JNZ L1` |
+
+## 6. Minimum and maximum mode
+
+The **MN/MX'** pin selects:
+- **Minimum mode** (MN/MX' = 1): a single-processor system; the 8086 generates its own control signals.
+- **Maximum mode** (MN/MX' = 0): multiprocessor systems (e.g. with the 8087 maths co-processor); an **8288 bus controller** generates the control signals.
+
+## 7. 8085 vs 8086
+
+| | 8085 | 8086 |
+| --- | --- | --- |
+| Data bus | 8-bit | 16-bit |
+| Address bus | 16-bit → 64 KB | 20-bit → 1 MB |
+| Pipelining | none | 6-byte prefetch queue |
+| Memory | linear | segmented |
+| Flags | 5 | 9 |
+| Multiply/divide | no | yes (MUL, DIV) |
+| Clock | 3 MHz | 5–10 MHz |
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the internal architecture of the 8086 with a block diagram. What is memory segmentation? Calculate the physical address for CS = 3000H, IP = 1A20H.
+
+<details>
+<summary>Model answer</summary>
+
+**8086.** A 16-bit microprocessor with a 16-bit data bus and 20-bit address bus (1 MB). Internally it is divided into two independent units that work in parallel. *(Draw the BIU/EU diagram.)*
+
+**Bus Interface Unit.** Performs all external bus operations: fetches instructions, reads/writes operands. Contains the four segment registers (CS, DS, SS, ES), the instruction pointer, an adder that forms the 20-bit physical address, and a **6-byte instruction queue**. While the EU executes one instruction, the BIU prefetches the next bytes into the queue — **pipelining**, which increases speed. The queue is flushed on a branch.
+
+**Execution Unit.** Takes instructions from the queue, decodes and executes them. Contains the general-purpose registers AX, BX, CX, DX; pointer and index registers SP, BP, SI, DI; the 16-bit ALU; the flag register (CF, PF, AF, ZF, SF, OF, TF, IF, DF); and the control unit.
+
+**Memory segmentation.** The 1 MB memory is divided into logical segments of up to 64 KB, each beginning at a paragraph boundary (a multiple of 16). Four segments are active at once: code, data, stack and extra. A memory location is specified as segment:offset. Advantages: 20-bit addressing with 16-bit registers, relocatable programs, separation of code, data and stack.
+
+**Physical address** = segment × 10H + offset = 30000H + 1A20H = **31A20H**.
+
+</details>
+
+## Check yourself
+
+1. The 8086 can address:
+   (a) 64 KB (b) 640 KB (c) 1 MB (d) 4 GB
+
+<details><summary>Answer</summary>(c)</details>
+
+2. The 8086 instruction queue is:
+   (a) 4 bytes (b) 6 bytes (c) 8 bytes (d) 16 bytes
+
+<details><summary>Answer</summary>(b) The 8088's is 4.</details>
+
+3. Physical address for DS = 2000H, offset = 0500H:
+   (a) 2500H (b) 20500H (c) 25000H (d) 02500H
+
+<details><summary>Answer</summary>(b)</details>
+
+4. The register used as a loop counter in the 8086 is:
+   (a) AX (b) BX (c) CX (d) DX
+
+<details><summary>Answer</summary>(c)</details>
+
+5. Which flag exists in the 8086 but not the 8085?
+   (a) zero (b) carry (c) overflow (d) parity
+
+<details><summary>Answer</summary>(c) TF, IF, DF too.</details>
+
+6. Prefetching instructions in the 8086 is done by the:
+   (a) EU (b) BIU (c) ALU (d) control unit
+
+<details><summary>Answer</summary>(b)</details>
+
+7. The 8086 runs in maximum mode when MN/MX' is:
+   (a) 1 (b) 0 (c) floating (d) clocked
+
+<details><summary>Answer</summary>(b)</details>

@@ -1,0 +1,149 @@
+---
+title: "9. Registers and counters"
+description: Shift registers (SISO, SIPO, PISO, PIPO) and their uses, ring and Johnson counters, asynchronous ripple counters, synchronous counters, and a full mod-6 synchronous counter design with JK flip-flops.
+sidebar:
+  label: "9. Registers and counters"
+  order: 9
+---
+import { Aside } from '@astrojs/starlight/components';
+import CounterLab from '@components/visuals/digital/CounterLab.astro';
+
+**Goal:** name the four shift-register types and their uses, compare ripple and synchronous counters, and design a synchronous mod-N counter step by step.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.3** (types of registers, applications of shift registers, asynchronous and synchronous counters). **Lok Sewa CE 3.7** (counters and registers) — "design a mod-N synchronous counter" is a top written question; the full worked design is below.
+</Aside>
+
+## 1. Registers
+
+A **register** is a group of flip-flops (usually D) holding a multi-bit word — the CPU's registers, pipeline registers, I/O ports.
+
+A **shift register** moves its bits one place per clock:
+
+| Type | In → out | Use |
+| --- | --- | --- |
+| **SISO** — serial in, serial out | one bit in, one bit out | time delay |
+| **SIPO** — serial in, parallel out | bits arrive one by one, read all at once | **serial → parallel** (UART receive) |
+| **PISO** — parallel in, serial out | load all at once, shift out | **parallel → serial** (UART transmit) |
+| **PIPO** — parallel in, parallel out | load and read all at once | storage, buffering |
+
+A **universal shift register** (74194) does shift left, shift right, parallel load and hold. Shifting left multiplies by 2; shifting right divides by 2.
+
+## 2. Counters
+
+Try the lab — clock it, change the modulus, try ring and Johnson:
+
+<CounterLab />
+
+A counter goes through a fixed sequence of states, one per clock. **Modulus (mod-N)** = number of distinct states. n flip-flops give up to 2ⁿ states; a mod-N counter needs at least `⌈log₂ N⌉` flip-flops (mod-6 → 3, mod-10 → 4).
+
+Each output toggles at half the rate of the one before, so counters are also **frequency dividers**: Q₀ = f/2, Q₁ = f/4, Q₂ = f/8.
+
+### Asynchronous (ripple) counters
+
+Only the first flip-flop gets the clock; each next flip-flop is clocked by the previous one's output. JK/T flip-flops are set to toggle.
+
+- Simple, few gates.
+- **Slow:** each stage adds a propagation delay, so the final output settles after n delays; max frequency ≈ 1/(n · t_pd).
+- During the ripple the outputs pass through wrong intermediate states — **glitches** that can upset decoding logic.
+- Mod-N (non-power-of-2): detect state N and clear all flip-flops (e.g. the 7490 decade counter, mod-10).
+- Down counters: clock from Q' instead of Q.
+
+### Synchronous counters
+
+**All flip-flops share the clock** and change together. Extra gates decide which flip-flops toggle (for a binary up counter, flip-flop i toggles when all lower bits are 1: T₀ = 1, T₁ = Q₀, T₂ = Q₁Q₀, …).
+
+- **Fast** — delay doesn't grow with length; no ripple glitches.
+- More gates. Used in every real high-speed design.
+
+### Shift-register counters
+
+- **Ring counter:** the last output feeds the first input; one 1 circulates. **n states** with n flip-flops; no decoding needed.
+- **Johnson (twisted-ring) counter:** the **inverted** last output feeds back. **2n states** with n flip-flops.
+
+## 3. Designing a synchronous mod-6 counter (JK)
+
+**Sequence:** 000 → 001 → 010 → 011 → 100 → 101 → 000 (states 110, 111 unused → don't cares). Three flip-flops Q₂Q₁Q₀.
+
+**Step 1 — state table with JK excitations** (from lesson 8: 0→0: 0X, 0→1: 1X, 1→0: X1, 1→1: X0).
+
+| Present Q₂Q₁Q₀ | Next | J₂K₂ | J₁K₁ | J₀K₀ |
+| --- | --- | --- | --- | --- |
+| 000 | 001 | 0X | 0X | 1X |
+| 001 | 010 | 0X | 1X | X1 |
+| 010 | 011 | 0X | X0 | 1X |
+| 011 | 100 | 1X | X1 | X1 |
+| 100 | 101 | X0 | 0X | 1X |
+| 101 | 000 | X1 | 0X | X1 |
+| 110, 111 | — | XX | XX | XX |
+
+**Step 2 — K-map each input** (using the don't-cares):
+- J₀ = 1, K₀ = 1 (Q₀ toggles every clock).
+- J₁ = Q₂'Q₀ (1 only at 001; 101 must give 0), K₁ = Q₀.
+- J₂ = Q₁Q₀, K₂ = Q₀.
+
+**Step 3 — draw** three JK flip-flops on one clock with those input gates.
+
+**Step 4 — check lock-out:** from unused 110: J₂K₂ = 0,0 (hold 1); J₁K₁ = 0,0 (hold 1); J₀K₀ = 1,1 → 111. From 111: J₂K₂ = 1,1 → 0; J₁ = 0, K₁ = 1 → 0; Q₀ toggles → 0 → **000**. The counter recovers by itself (it's self-starting).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Differentiate between asynchronous and synchronous counters. Design a synchronous mod-6 counter using JK flip-flops.
+
+<details>
+<summary>Model answer</summary>
+
+**Comparison.**
+
+| Asynchronous (ripple) | Synchronous |
+| --- | --- |
+| Only the first FF is clocked externally; others by the previous output | All FFs share a common clock |
+| Delays add up → slower | Delay independent of length → faster |
+| Glitches from intermediate states | No ripple glitches |
+| Fewer gates, simple | Extra combinational logic |
+
+**Design.** Mod-6 needs 3 flip-flops (2³ = 8 ≥ 6). Sequence 000 → 001 → 010 → 011 → 100 → 101 → 000; 110 and 111 unused (don't cares).
+
+*(Write the state table above with JK excitations from Q→Q⁺: 0→0 = 0X, 0→1 = 1X, 1→0 = X1, 1→1 = X0.)*
+
+*(Draw three 3-variable K-maps for J₁, J₂ and note K-maps.)*
+
+**Equations.** J₀ = K₀ = 1; J₁ = Q₂'Q₀, K₁ = Q₀; J₂ = Q₁Q₀, K₂ = Q₀.
+
+**Circuit.** Three JK FFs on a common clock; FF0 with J = K = 1; FF1's J from an AND of Q₂' and Q₀, K from Q₀; FF2's J from an AND of Q₁ and Q₀, K from Q₀. *(Draw.)*
+
+**Self-starting check.** 110 → 111 → 000, so unused states return to the main sequence.
+
+</details>
+
+## Check yourself
+
+1. Serial-to-parallel conversion uses a:
+   (a) SISO (b) SIPO (c) PISO (d) PIPO
+
+<details><summary>Answer</summary>(b)</details>
+
+2. A mod-10 counter needs at least:
+   (a) 3 flip-flops (b) 4 (c) 5 (d) 10
+
+<details><summary>Answer</summary>(b) 2⁴ = 16 ≥ 10.</details>
+
+3. A Johnson counter with 4 flip-flops has:
+   (a) 4 states (b) 8 states (c) 16 states (d) 2 states
+
+<details><summary>Answer</summary>(b) 2n.</details>
+
+4. The main disadvantage of a ripple counter is:
+   (a) complexity (b) accumulated propagation delay (c) needs more flip-flops (d) can't count down
+
+<details><summary>Answer</summary>(b)</details>
+
+5. A 4-bit binary counter clocked at 16 kHz has Q₃ at:
+   (a) 1 kHz (b) 2 kHz (c) 4 kHz (d) 8 kHz
+
+<details><summary>Answer</summary>(a) 16/2⁴.</details>
+
+6. In a ring counter with n flip-flops, the number of states is:
+   (a) n (b) 2n (c) 2ⁿ (d) n²
+
+<details><summary>Answer</summary>(a)</details>

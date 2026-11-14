@@ -1,0 +1,157 @@
+---
+// Binary lab: toggle 8 bits and read the same pattern as unsigned, signed (two's complement), hex, octal and BCD validity.
+---
+
+<qe-binary class="qe-lab qe-bin not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Binary lab — tap bits to flip them</p>
+    <div class="bits" role="group" aria-label="Eight bits, most significant first"></div>
+    <div class="weights" aria-hidden="true"></div>
+    <div class="acts prose">
+      <button type="button" data-act="inv">Invert all (1's complement)</button>
+      <button type="button" data-act="neg">Negate (2's complement)</button>
+      <button type="button" data-act="clr">Clear</button>
+    </div>
+    <dl class="out">
+      <div><dt>Unsigned</dt><dd data-u></dd></div>
+      <div><dt>Signed (2's complement)</dt><dd data-s></dd></div>
+      <div><dt>Hex</dt><dd data-h></dd></div>
+      <div><dt>Octal</dt><dd data-o></dd></div>
+      <div><dt>As packed BCD</dt><dd data-b></dd></div>
+    </dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-binary>
+
+<script>
+  class QeBinary extends HTMLElement {
+    v = 0b00101101;
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const bits = $('.bits');
+      const weights = $('.weights');
+      const btns: HTMLButtonElement[] = [];
+      for (let k = 7; k >= 0; k--) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'bit';
+        b.setAttribute('aria-label', `Bit ${k} (weight ${2 ** k})`);
+        b.addEventListener('click', () => {
+          this.v ^= 1 << k;
+          update();
+        });
+        bits.appendChild(b);
+        btns.push(b);
+        const w = document.createElement('span');
+        w.textContent = k === 7 ? '128 / −128' : String(2 ** k);
+        weights.appendChild(w);
+      }
+      const update = () => {
+        const v = this.v & 0xff;
+        btns.forEach((b, i) => {
+          const on = (v >> (7 - i)) & 1;
+          b.textContent = String(on);
+          b.setAttribute('aria-pressed', String(!!on));
+        });
+        const s = v >= 128 ? v - 256 : v;
+        const hi = v >> 4, lo = v & 15;
+        $('[data-u]').textContent = String(v);
+        $('[data-s]').textContent = String(s);
+        $('[data-h]').textContent = `${v.toString(16).toUpperCase().padStart(2, '0')}H`;
+        $('[data-o]').textContent = `${v.toString(8)}₈`;
+        $('[data-b]').textContent = hi < 10 && lo < 10 ? `${hi}${lo}` : 'invalid (a nibble > 9)';
+        const terms = [];
+        for (let k = 7; k >= 0; k--) if ((v >> k) & 1) terms.push(2 ** k);
+        let note = v ? `Unsigned: ${terms.join(' + ')} = ${v}. ` : 'All zeros: 0 in every system. ';
+        note += v >= 128
+          ? `The leftmost bit is 1, so as a signed number it's negative: ${v} − 256 = ${s}. Press "Negate" to see +${-s}.`
+          : 'The leftmost bit is 0, so the signed and unsigned readings agree.';
+        note += ` Hex groups the bits in fours: ${(v >> 4).toString(2).padStart(4, '0')} ${(v & 15).toString(2).padStart(4, '0')} → ${v.toString(16).toUpperCase().padStart(2, '0')}.`;
+        $('[data-note]').textContent = note;
+      };
+      this.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((b) =>
+        b.addEventListener('click', () => {
+          const a = b.dataset.act;
+          if (a === 'inv') this.v = ~this.v & 0xff;
+          else if (a === 'neg') this.v = (-this.v) & 0xff;
+          else this.v = 0;
+          update();
+        }),
+      );
+      update();
+    }
+  }
+  customElements.define('qe-binary', QeBinary);
+</script>
+
+<style>
+  .bits,
+  .weights {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+  :global(.qe-bin .bit) {
+    font-family: var(--sl-font-mono);
+    font-size: 1.4rem;
+    font-weight: 700;
+    padding: 0.55rem 0;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    cursor: pointer;
+  }
+  :global(.qe-bin .bit[aria-pressed='true']) {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  :global(.qe-bin .bit:focus-visible) {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .weights {
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    text-align: center;
+    color: var(--sl-color-gray-3);
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.9rem 0 0;
+  }
+  .acts button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: transparent;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .acts button:hover {
+    border-color: var(--sl-color-accent);
+  }
+  .out {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 0.6rem 1.2rem;
+    margin: 0.9rem 0 0;
+  }
+  .out dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .out dd {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

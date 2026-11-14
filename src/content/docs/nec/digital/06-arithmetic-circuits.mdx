@@ -1,0 +1,137 @@
+---
+title: "6. Adders, subtractors and comparators"
+description: Combinational design method, half and full adders, full subtractor, ripple-carry vs carry-lookahead adders, the adder-subtractor, BCD adder, magnitude comparator, parity generator and code converters.
+sidebar:
+  label: "6. Arithmetic circuits"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DigitalDiagram from '@components/visuals/digital/DigitalDiagram.astro';
+
+**Goal:** design a combinational circuit from a word description, draw a full adder from gates, and explain why carry-lookahead is faster than ripple carry.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.2** (combinational and arithmetic circuits: binary addition, subtraction, signed operations). The model paper asks the basic building block of combinational circuits (logic gates). **Lok Sewa CE 3.3 and 3.5**; "design a full adder" and "explain a 4-bit parallel adder/subtractor" are standard written questions.
+</Aside>
+
+## 1. Combinational circuits and the design method
+
+A **combinational** circuit's outputs depend **only on its present inputs** — no memory, no clock. Its building blocks are **logic gates**.
+
+Design method:
+1. Name the inputs and outputs.
+2. Write the **truth table**.
+3. Minimise each output (K-map).
+4. Draw the gates.
+
+## 2. Half adder
+
+Adds two bits A and B.
+
+| A | B | Sum | Carry |
+| --- | --- | --- | --- |
+| 0 | 0 | 0 | 0 |
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 1 |
+
+`S = A ⊕ B`, `C = A·B` — one XOR and one AND. It can't accept a carry from a previous stage, hence "half".
+
+## 3. Full adder
+
+Adds A, B and an incoming carry Cin. Truth table (8 rows) → K-maps give:
+
+`S = A ⊕ B ⊕ Cin`   `Cout = AB + Cin(A ⊕ B)` (= AB + BCin + ACin)
+
+<Figure caption="A full adder from gates: two XORs for the sum; two ANDs and an OR for the carry. It's two half adders plus an OR gate.">
+  <DigitalDiagram name="full-adder" label="Full adder: A and B enter an XOR gate; its output and Cin enter a second XOR giving S. A AND B, and (A XOR B) AND Cin, are ORed to give Cout." />
+</Figure>
+
+## 4. Full subtractor
+
+Computes A − B − Bin: `D = A ⊕ B ⊕ Bin`, `Bout = A'B + A'Bin + B·Bin`. (Half subtractor: D = A ⊕ B, Bout = A'B.)
+
+## 5. Multi-bit adders
+
+**Ripple-carry adder:** chain n full adders, each Cout feeding the next Cin. Simple, but the carry must **ripple** through every stage — delay grows with n (a 64-bit add would wait for 64 carry hops).
+
+**Carry-lookahead adder (CLA):** compute every carry directly from the inputs.
+- Generate `Gᵢ = AᵢBᵢ` (this stage makes a carry by itself).
+- Propagate `Pᵢ = Aᵢ ⊕ Bᵢ` (this stage passes an incoming carry on).
+- `Cᵢ₊₁ = Gᵢ + PᵢCᵢ`, expanded so each carry is a two-level function of the inputs: `C₂ = G₁ + P₁G₀ + P₁P₀C₀`, and so on.
+- Delay is nearly **constant** regardless of width, at the cost of more gates. Real CPUs use lookahead (or similar) adders.
+
+**Adder-subtractor:** a mode bit M feeds one input of an XOR on each B line and also the first Cin. M = 0 → B passes unchanged, Cin = 0 → A + B. M = 1 → B is inverted and Cin = 1 → A + B' + 1 = **A − B** (two's complement). Overflow = carry into MSB XOR carry out.
+
+**BCD adder:** a 4-bit binary adder, then a correction stage that adds 0110 when the sum exceeds 9 or there's a carry (detect with `K + S₃S₂ + S₃S₁`).
+
+## 6. Other combinational circuits
+
+- **Magnitude comparator:** outputs A > B, A = B, A < B. One bit: equal = (A ⊕ B)' (XNOR); A > B = AB'; A < B = A'B. Multi-bit: compare from the MSB down (74LS85 is 4-bit).
+- **Parity generator/checker:** an XOR tree; the output is 1 when the number of 1s is odd.
+- **Code converters:** binary → Gray (Gᵢ = Bᵢ₊₁ ⊕ Bᵢ), BCD → excess-3, BCD → 7-segment.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Design a full adder: give its truth table, derive simplified expressions using K-maps, and draw the circuit. Show how it is built from two half adders.
+
+<details>
+<summary>Model answer</summary>
+
+**Definition.** A full adder is a combinational circuit that adds three bits — A, B and carry-in Cin — producing Sum and Carry-out.
+
+**Truth table.**
+
+| A | B | Cin | S | Cout |
+| --- | --- | --- | --- | --- |
+| 0 | 0 | 0 | 0 | 0 |
+| 0 | 0 | 1 | 1 | 0 |
+| 0 | 1 | 0 | 1 | 0 |
+| 0 | 1 | 1 | 0 | 1 |
+| 1 | 0 | 0 | 1 | 0 |
+| 1 | 0 | 1 | 0 | 1 |
+| 1 | 1 | 0 | 0 | 1 |
+| 1 | 1 | 1 | 1 | 1 |
+
+**K-maps.** S = Σm(1, 2, 4, 7) forms a checkerboard — no adjacent 1s — so S = A'B'C + A'BC' + AB'C' + ABC = **A ⊕ B ⊕ Cin**. Cout = Σm(3, 5, 6, 7) groups into three pairs: **Cout = AB + BCin + ACin**. *(Draw both maps.)*
+
+**Circuit.** Two XOR gates for S; three AND gates and a 3-input OR for Cout — or, using Cout = AB + Cin(A ⊕ B), two ANDs and one OR. *(Draw.)*
+
+**From half adders.** HA1 adds A and B → S₁ = A ⊕ B, C₁ = AB. HA2 adds S₁ and Cin → S = S₁ ⊕ Cin, C₂ = S₁·Cin. Cout = C₁ + C₂. *(Draw two HA blocks and an OR.)*
+
+**Use.** Cascading n full adders gives an n-bit parallel (ripple-carry) adder.
+
+</details>
+
+## Check yourself
+
+1. The basic building block of combinational circuits is the:
+   (a) flip-flop (b) logic gate (c) register (d) counter
+
+<details><summary>Answer</summary>(b)</details>
+
+2. A half adder's sum and carry are:
+   (a) A + B, AB (b) A ⊕ B, AB (c) AB, A ⊕ B (d) A ⊕ B, A + B
+
+<details><summary>Answer</summary>(b)</details>
+
+3. A full adder can be made from:
+   (a) two half adders and an OR gate (b) two half adders and an AND gate (c) one half adder (d) three XOR gates
+
+<details><summary>Answer</summary>(a)</details>
+
+4. The main advantage of a carry-lookahead adder over ripple-carry is:
+   (a) fewer gates (b) higher speed (c) lower power (d) simpler design
+
+<details><summary>Answer</summary>(b)</details>
+
+5. In an adder-subtractor, subtraction is selected by feeding M = 1 to:
+   (a) XOR gates on the B inputs and the first carry-in (b) the sum outputs (c) the A inputs (d) the last carry-out
+
+<details><summary>Answer</summary>(a)</details>
+
+6. The equality output of a 1-bit comparator is:
+   (a) AND (b) OR (c) XOR (d) XNOR
+
+<details><summary>Answer</summary>(d)</details>

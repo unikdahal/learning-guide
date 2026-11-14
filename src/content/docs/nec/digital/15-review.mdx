@@ -1,0 +1,151 @@
+---
+title: "15. Review: 25 mixed questions"
+description: A timed mixed test across the whole Digital from zero course — number systems, Boolean algebra, K-maps, combinational and sequential circuits, logic families, memory, 8085, 8086, interfacing and interrupts.
+sidebar:
+  label: "15. Review test"
+  order: 15
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** check the whole course in one sitting. Take **25 minutes** (the NEC pace is about 1 minute per question), answer on paper, then open the answers.
+
+<Aside type="tip" title="How to use this">
+Score under 18/25? Each answer names the lesson to revisit. Then attempt the three Lok Sewa written questions at the end without notes, timing yourself.
+</Aside>
+
+## Questions
+
+1. (10110.101)₂ in decimal is:
+   (a) 22.625 (b) 22.5 (c) 21.625 (d) 26.625
+
+<details><summary>Answer</summary>(a) 16 + 4 + 2 + 0.5 + 0.125. Lesson 1.</details>
+
+2. The 8-bit two's complement of −45 is:
+   (a) 1010 1101 (b) 1101 0011 (c) 1101 0010 (d) 0010 1101
+
+<details><summary>Answer</summary>(b) 45 = 0010 1101 → invert 1101 0010 → +1. Lesson 2.</details>
+
+3. Adding two positive 8-bit signed numbers gives a negative result. This is:
+   (a) carry (b) overflow (c) underflow (d) correct
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+4. Which gates are universal?
+   (a) AND, OR (b) XOR, XNOR (c) NAND, NOR (d) NOT, AND
+
+<details><summary>Answer</summary>(c) Lesson 3.</details>
+
+5. A + AB simplifies to:
+   (a) AB (b) A (c) B (d) A + B
+
+<details><summary>Answer</summary>(b) absorption. Lesson 4.</details>
+
+6. (AB)' equals:
+   (a) A'B' (b) A' + B' (c) A + B (d) AB'
+
+<details><summary>Answer</summary>(b) De Morgan. Lesson 4.</details>
+
+7. In a 4-variable K-map, a group of 4 cells eliminates:
+   (a) 1 variable (b) 2 variables (c) 3 variables (d) 4 variables
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+8. The carry-out of a full adder is:
+   (a) A ⊕ B ⊕ C (b) AB + BC + AC (c) ABC (d) A + B + C
+
+<details><summary>Answer</summary>(b) Lesson 6.</details>
+
+9. Number of select lines for a 16:1 MUX:
+   (a) 2 (b) 3 (c) 4 (d) 16
+
+<details><summary>Answer</summary>(c) Lesson 7.</details>
+
+10. A circuit that converts 2ⁿ inputs into an n-bit code is a/an:
+    (a) decoder (b) encoder (c) multiplexer (d) demultiplexer
+
+<details><summary>Answer</summary>(b) Lesson 7.</details>
+
+11. The flip-flop used to remove the race-around condition is:
+    (a) SR (b) D latch (c) master–slave JK (d) T latch
+
+<details><summary>Answer</summary>(c) Lesson 8.</details>
+
+12. A T flip-flop with T = 1 acts as a:
+    (a) latch (b) divide-by-2 (c) adder (d) delay of 2 clocks
+
+<details><summary>Answer</summary>(b) it toggles once per clock. Lessons 8–9.</details>
+
+13. The number of flip-flops for a mod-12 counter:
+    (a) 3 (b) 4 (c) 6 (d) 12
+
+<details><summary>Answer</summary>(b) Lesson 9.</details>
+
+14. A 5-bit ring counter has:
+    (a) 5 states (b) 10 states (c) 32 states (d) 25 states
+
+<details><summary>Answer</summary>(a) Johnson would give 10. Lesson 9.</details>
+
+15. The logic family with the highest speed:
+    (a) CMOS (b) TTL (c) ECL (d) RTL
+
+<details><summary>Answer</summary>(c) Lesson 10.</details>
+
+16. Memory that is erased electrically, byte by byte:
+    (a) PROM (b) EPROM (c) EEPROM (d) mask ROM
+
+<details><summary>Answer</summary>(c) Lesson 10.</details>
+
+17. An 8-bit DAC with a 2.56 V reference has resolution:
+    (a) 1 mV (b) 10 mV (c) 0.1 V (d) 2.56 mV
+
+<details><summary>Answer</summary>(b) 2.56/256. Lesson 10.</details>
+
+18. The 8085's address bus width is:
+    (a) 8 (b) 16 (c) 20 (d) 32
+
+<details><summary>Answer</summary>(b) Lesson 11.</details>
+
+19. `MOV A, M` uses which addressing mode?
+    (a) direct (b) immediate (c) register indirect (d) implied
+
+<details><summary>Answer</summary>(c) M = byte at HL. Lesson 11.</details>
+
+20. After an 8085 ADD giving result 00H with a carry out, the flags are:
+    (a) Z = 1, CY = 1 (b) Z = 0, CY = 1 (c) Z = 1, CY = 0 (d) Z = 0, CY = 0
+
+<details><summary>Answer</summary>(a) e.g. 80H + 80H. Lesson 11.</details>
+
+21. CS = 4000H, IP = 0250H. The physical address is:
+    (a) 4250H (b) 40250H (c) 42500H (d) 04250H
+
+<details><summary>Answer</summary>(b) Lesson 12.</details>
+
+22. The 8086 unit that holds the instruction queue:
+    (a) EU (b) BIU (c) ALU (d) control unit
+
+<details><summary>Answer</summary>(b) Lesson 12.</details>
+
+23. 8255 control word for port A input, ports B and C output, all mode 0:
+    (a) 80H (b) 90H (c) 82H (d) 9BH
+
+<details><summary>Answer</summary>(b) Lesson 13.</details>
+
+24. The 8085 interrupt with vector 003CH is:
+    (a) TRAP (b) RST 5.5 (c) RST 6.5 (d) RST 7.5
+
+<details><summary>Answer</summary>(d) 7.5 × 8 = 60 = 3CH. Lesson 14.</details>
+
+25. In DMA, the CPU gives up the bus in response to:
+    (a) INTR (b) HOLD (c) READY (d) RESET
+
+<details><summary>Answer</summary>(b) and answers with HLDA. Lesson 13.</details>
+
+## Lok Sewa written practice (no notes, timed)
+
+Answer each in full; compare with the lesson's model answer.
+
+1. **(10 marks · 16 min)** Simplify F(A, B, C, D) = Σm(0, 1, 2, 5, 8, 9, 10) with a K-map and implement it using NAND gates only. → [Lesson 5](/learning-guide/nec/digital/05-karnaugh-maps/)
+2. **(10 marks · 16 min)** Design a synchronous mod-6 counter using JK flip-flops. → [Lesson 9](/learning-guide/nec/digital/09-registers-counters/)
+3. **(10 marks · 16 min)** Draw the 8085 block diagram and explain each unit; describe the flags. → [Lesson 11](/learning-guide/nec/digital/11-8085/)
+
+Short notes (5 marks each, 8 min): race-around condition · DMA · memory segmentation in the 8086 · priority encoder · TTL vs CMOS.

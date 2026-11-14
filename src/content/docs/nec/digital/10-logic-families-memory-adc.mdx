@@ -1,0 +1,114 @@
+---
+title: "10. Logic families, memory devices, ADC and DAC"
+description: TTL, CMOS and ECL compared — noise margin, fan-out, propagation delay, power — then semiconductor memory types and organisation, and digital-to-analog and analog-to-digital converters.
+sidebar:
+  label: "10. Logic families, memory, ADC/DAC"
+  order: 10
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** compare logic families on their key parameters, classify memories, size a memory chip, and compare DAC and ADC types.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.5** (memory classification) and the model paper's EEPROM question. **Lok Sewa CE 3.8 (IC logic families), 3.9 (interfacing with analog devices), 3.10 (memory devices)** — these three are on the Lok Sewa syllabus but barely in NEC, so this lesson covers them fully.
+</Aside>
+
+## 1. Logic-family parameters
+
+- **Noise margin:** how much noise a signal can pick up and still be read correctly. NM_H = V_OH(min) − V_IH(min); NM_L = V_IL(max) − V_OL(max).
+- **Fan-out:** how many inputs one output can drive. **Fan-in:** number of inputs a gate has.
+- **Propagation delay:** input change → output change (ns).
+- **Power dissipation** per gate.
+- **Speed–power product** = delay × power (picojoules) — lower is better.
+
+## 2. TTL, CMOS, ECL
+
+**TTL (transistor–transistor logic), 74xx:** bipolar transistors, 5 V. Standard levels: V_IL ≤ 0.8 V, V_IH ≥ 2.0 V, V_OL ≤ 0.4 V, V_OH ≥ 2.4 V → **noise margin 0.4 V**. Fan-out ≈ 10. Totem-pole output; open-collector variants allow wired-AND and pull-ups.
+
+**CMOS (4000, 74HC/HCT…):** complementary MOSFETs ([electronics lesson 30](/learning-guide/nec/electronics/30-fet-mosfet-cmos/)). Near-zero static power, wide supply range, high noise margin (≈ 30–45% of V_DD), very large fan-out. Power rises with frequency (CV²f). Dominant today.
+
+**ECL (emitter-coupled logic):** transistors never saturate, so it's the **fastest** bipolar family — but uses the most power and a negative supply. Used in very-high-speed niches.
+
+| | TTL | CMOS | ECL |
+| --- | --- | --- | --- |
+| Speed | medium | medium → very high (modern) | **highest** |
+| Static power | moderate | **lowest** | highest |
+| Noise margin | 0.4 V | **high** | low |
+| Fan-out | ~10 | **very high** | high |
+| Supply | 5 V | 1–15 V | −5.2 V |
+
+(RTL and DTL are historical predecessors.)
+
+## 3. Memory devices
+
+**Classification:**
+- **Volatile** (loses data without power): **SRAM** (flip-flop cells — fast, 6 transistors per bit, used for **cache**) and **DRAM** (one transistor + one capacitor per bit — dense and cheap, but leaks so must be **refreshed** every few ms; used for **main memory**).
+- **Non-volatile:** **mask ROM** (fixed at manufacture), **PROM** (programmed once by blowing fuses), **EPROM** (erased by **UV light** through a quartz window), **EEPROM** (erased **electrically**, byte by byte — charge is pushed onto or pulled off a **floating gate** through a very thin oxide), **Flash** (EEPROM erased in blocks — SSDs, USB drives, BIOS chips).
+
+**Organisation.** A chip described as **2ᵏ × m** has 2ᵏ locations of m bits: **k address lines, m data lines**.
+- 2K × 8 → 2,048 = 2¹¹ → **11 address lines**, 8 data lines.
+- 64K × 8 (the 8085's whole space) → 16 address lines.
+- Building bigger memory: chips side by side widen the word; more chips plus a decoder add locations (lesson 13).
+
+## 4. DAC — digital to analog
+
+Converts an n-bit number into a proportional voltage.
+
+- **Resolution** = V_ref / 2ⁿ (the step per LSB). 8-bit, 10 V reference → 10/256 ≈ **39 mV**.
+- **Binary-weighted resistor DAC:** resistors R, 2R, 4R, … into an op-amp summer. Simple, but needs a huge spread of precise values.
+- **R–2R ladder DAC:** only two resistor values — easy to make accurate. The most common type.
+
+## 5. ADC — analog to digital
+
+| Type | How | Speed | Use |
+| --- | --- | --- | --- |
+| **Flash (parallel)** | 2ⁿ − 1 comparators at once | **fastest** | video, oscilloscopes |
+| **Successive approximation (SAR)** | binary search, one bit per clock (n clocks) | medium | the common general-purpose type, microcontrollers |
+| **Dual-slope (integrating)** | integrates input, then de-integrates a reference | slow | digital multimeters (rejects noise, accurate) |
+| **Counter / ramp** | counts up until a DAC output passes the input | slow, variable | teaching |
+
+**Sampling theorem (Nyquist):** to reconstruct a signal, sample at least **twice** its highest frequency (f_s ≥ 2f_max) — CD audio samples at 44.1 kHz for 20 kHz audio. Also on the Lok Sewa communications unit.
+
+**Quantisation error:** ±½ LSB — the unavoidable rounding error.
+
+## Check yourself
+
+1. The fastest logic family is:
+   (a) TTL (b) CMOS (c) ECL (d) RTL
+
+<details><summary>Answer</summary>(c)</details>
+
+2. The logic family with the lowest static power is:
+   (a) TTL (b) CMOS (c) ECL (d) DTL
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Memory that must be refreshed periodically is:
+   (a) SRAM (b) DRAM (c) EPROM (d) flash
+
+<details><summary>Answer</summary>(b)</details>
+
+4. EPROM is erased by:
+   (a) electrical pulses (b) ultraviolet light (c) heat (d) magnetic field
+
+<details><summary>Answer</summary>(b) EEPROM is erased electrically.</details>
+
+5. A 4K × 8 memory chip needs:
+   (a) 8 address lines (b) 12 address lines (c) 16 address lines (d) 32 address lines
+
+<details><summary>Answer</summary>(b) 4K = 2¹².</details>
+
+6. The resolution of a 10-bit DAC with a 5 V reference is about:
+   (a) 5 mV (b) 4.9 mV (c) 19.5 mV (d) 0.5 V
+
+<details><summary>Answer</summary>(b) 5/1024.</details>
+
+7. The fastest ADC type is:
+   (a) dual-slope (b) successive approximation (c) flash (d) counter
+
+<details><summary>Answer</summary>(c)</details>
+
+8. TTL's noise margin is about:
+   (a) 0.4 V (b) 1.2 V (c) 2.4 V (d) 5 V
+
+<details><summary>Answer</summary>(a)</details>

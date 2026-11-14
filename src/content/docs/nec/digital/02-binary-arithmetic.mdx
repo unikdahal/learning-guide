@@ -1,0 +1,124 @@
+---
+title: "2. Signed numbers and binary arithmetic"
+description: Binary addition and subtraction, sign-magnitude, one's and two's complement, ranges, overflow detection, and BCD addition.
+sidebar:
+  label: "2. Signed numbers and arithmetic"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** add and subtract in binary, represent negatives three ways, compute ranges, detect overflow, and add in BCD.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.1–2.2** — the model paper asks the two's complement of a number and the range of an unsigned 8-bit number. **Lok Sewa CE 3.1 and 3.5** (arithmetic circuits), and CE 2.2 (data representation). You know two's complement from code; here's the theory behind it, written the way exams want it.
+</Aside>
+
+## 1. Binary addition and subtraction
+
+Addition rules: 0+0 = 0, 0+1 = 1, 1+1 = 10 (0 carry 1), 1+1+1 = 11 (1 carry 1).
+
+```
+  1011   (11)
++ 0110   ( 6)
+------
+ 10001   (17)
+```
+
+Subtraction by borrowing works, but hardware uses **complements** so the same adder can subtract.
+
+## 2. Three ways to write negative numbers (n bits)
+
+| Method | How −5 looks (8 bits) | Range (8 bits) | Zeros |
+| --- | --- | --- | --- |
+| **Sign-magnitude** — MSB is the sign, rest is magnitude | 1000 0101 | −127 to +127 | two (+0, −0) |
+| **One's complement** — invert every bit | 1111 1010 | −127 to +127 | two |
+| **Two's complement** — invert every bit, add 1 | 1111 1011 | **−128 to +127** | one |
+
+General n-bit ranges:
+- **Unsigned:** 0 to 2ⁿ − 1 (8 bits: **0–255**).
+- **Two's complement:** −2ⁿ⁻¹ to 2ⁿ⁻¹ − 1 (8 bits: **−128 to +127**; 16 bits: −32,768 to +32,767).
+
+**Shortcut for two's complement:** copy bits from the right up to and including the first 1, then invert the rest. 0110 1000 → **1001 1000**.
+
+Two's complement wins because addition and subtraction use one plain adder, there's a single zero, and the MSB still shows the sign. Every CPU uses it.
+
+## 3. Subtraction with complements
+
+**Two's complement method:** `A − B = A + (two's complement of B)`.
+- If there's a **carry out** of the MSB, discard it: the result is positive.
+- If there's **no carry**, the result is negative and already in two's-complement form.
+
+**Example (4 bits), 7 − 5:** 0111 + 1011 = **1** 0010 → discard carry → 0010 = **+2**.
+
+**Example, 5 − 7:** 0101 + 1001 = 1110, no carry → negative; two's complement of 1110 is 0010 → **−2**.
+
+**One's complement method:** add the one's complement of B; if there's a carry, add it back to the result (**end-around carry**); if not, the result is negative in one's complement form.
+
+## 4. Overflow
+
+The true result doesn't fit in n bits. In two's complement, overflow happens only when adding **two numbers of the same sign** gives a result of the **opposite sign**.
+
+- Hardware test: **carry into the MSB ≠ carry out of the MSB** (V = C₍n₋₁₎ ⊕ Cₙ).
+- 4-bit: 0110 + 0011 = 1001 → 6 + 3 should be 9, but 1001 reads as −7 → **overflow**.
+- Adding numbers of opposite signs can **never** overflow.
+
+Carry (for unsigned) and overflow (for signed) are different flags — the 8086 has both CF and OF.
+
+## 5. BCD addition
+
+Add the 4-bit groups in binary. If a group's sum is **more than 9** or produces a **carry**, add **6 (0110)** to correct it (6 skips the six invalid codes).
+
+**Example, 8 + 5:** 1000 + 0101 = 1101 (13, invalid) → + 0110 = **1 0011** → BCD 13 ✔.
+
+**Example, 9 + 9:** 1001 + 1001 = 1 0010 (carry) → + 0110 = **1 1000** → 18 ✔.
+
+The 8085's **DAA** (decimal adjust accumulator) instruction does exactly this correction (lesson 11).
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Why is two's complement preferred for representing signed numbers? Perform 9 − 14 using 8-bit two's complement.
+
+<details>
+<summary>Model answer</summary>
+
+**Representations.** Sign-magnitude and one's complement both have two zeros (+0 and −0) and need extra logic for addition (sign comparison or end-around carry). Two's complement has a **single zero**, a slightly larger range (−2ⁿ⁻¹ to 2ⁿ⁻¹ − 1), and lets **one binary adder** perform both addition and subtraction by adding the complement; the MSB still indicates the sign. Overflow is detected simply (carry into MSB ≠ carry out).
+
+**9 − 14 = 9 + (−14).**
+- +9 = 0000 1001.
+- +14 = 0000 1110 → invert: 1111 0001 → add 1: **1111 0010** (−14).
+- Sum: 0000 1001 + 1111 0010 = **1111 1011**, no carry out → result is negative.
+- Magnitude: two's complement of 1111 1011 = 0000 0101 = 5. Result = **−5** ✔.
+
+</details>
+
+## Check yourself
+
+1. The two's complement of 0101 1000 is:
+   (a) 1010 0111 (b) 1010 1000 (c) 1101 1000 (d) 0101 0111
+
+<details><summary>Answer</summary>(b) invert → 1010 0111, + 1 → 1010 1000.</details>
+
+2. The range of an unsigned 8-bit number is:
+   (a) −128 to 127 (b) 0 to 255 (c) 0 to 256 (d) −127 to 127
+
+<details><summary>Answer</summary>(b)</details>
+
+3. The range of an 8-bit two's complement number is:
+   (a) −127 to 127 (b) −128 to 127 (c) −128 to 128 (d) 0 to 255
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Overflow in two's complement addition is possible only when the operands:
+   (a) have opposite signs (b) have the same sign (c) are both zero (d) are unsigned
+
+<details><summary>Answer</summary>(b)</details>
+
+5. In BCD addition, a correction is needed when a group's sum exceeds 9 or produces a carry. The correction is to add:
+   (a) 3 (b) 6 (c) 9 (d) 10
+
+<details><summary>Answer</summary>(b) 0110.</details>
+
+6. Which representation has two zeros?
+   (a) two's complement only (b) sign-magnitude and one's complement (c) unsigned (d) BCD
+
+<details><summary>Answer</summary>(b)</details>

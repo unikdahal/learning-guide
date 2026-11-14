@@ -1,0 +1,124 @@
+---
+title: "5. Karnaugh maps"
+description: Minimising Boolean functions with K-maps — 2, 3 and 4 variables, grouping rules, wrap-around, don't-care conditions, POS from zeros, and when to use Quine–McCluskey.
+sidebar:
+  label: "5. Karnaugh maps"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DigitalDiagram from '@components/visuals/digital/DigitalDiagram.astro';
+
+**Goal:** minimise any function of up to four variables, with don't-cares, into SOP or POS, in a few minutes.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.1** ("truth table to Karnaugh map"). **Lok Sewa CE 3.3** — "Simplify using a K-map and draw the logic circuit" is one of the most common 5-mark digital questions.
+</Aside>
+
+## 1. The idea
+
+A K-map is a truth table **rearranged** so that neighbouring cells differ in exactly **one** variable. Neighbouring 1s can then be combined: the variable that changes between them drops out (`AB + AB' = A`).
+
+To make every neighbour differ by one bit, rows and columns are labelled in **Gray code**: **00, 01, 11, 10** — not 00, 01, 10, 11.
+
+## 2. Layouts
+
+- **2 variables:** 2 × 2.
+- **3 variables:** 2 × 4 (A on rows; BC on columns: 00 01 11 10).
+- **4 variables:** 4 × 4 (AB on rows; CD on columns).
+
+Cell for minterm m: for 4 variables, row = AB, column = CD. Note that row 11 comes **before** row 10, so m12–m15 are on the third row and m8–m11 on the fourth.
+
+## 3. Grouping rules
+
+1. Group only 1s (for SOP).
+2. Group sizes must be **powers of two**: 1, 2, 4, 8, 16.
+3. Groups must be **rectangles** (squares or lines) — no diagonals or L-shapes.
+4. Make every group **as large as possible** (bigger group → fewer literals).
+5. Use **as few groups as possible**; overlapping is allowed.
+6. The map **wraps around**: the left and right edges are neighbours, and so are the top and bottom. The four **corners** form a group of four.
+7. For each group, keep only the variables that **don't change** within it.
+
+A group of 2ⁿ cells eliminates n variables: in a 4-variable map, a pair leaves 3 literals, a quad 2, an octet 1.
+
+## 4. A full example
+
+**F(A, B, C, D) = Σm(0, 2, 5, 7, 8, 10, 13, 15)**
+
+<Figure caption="The two groups: the centre quad (solid) and the four corners (dashed) — corners are neighbours because the map wraps.">
+  <DigitalDiagram name="kmap" label="A four-variable Karnaugh map with rows AB and columns CD both in the order 00, 01, 11, 10. Ones sit in cells m0, m2, m5, m7, m8, m10, m13 and m15. A solid loop surrounds the central two-by-two block m5, m7, m13, m15; dashed loops mark the four corner cells m0, m2, m8, m10 as one group." />
+</Figure>
+
+- **Centre quad** m5, m7, m13, m15: B = 1 and D = 1 throughout; A and C change → **BD**.
+- **Corner quad** m0, m2, m8, m10: B = 0 and D = 0 throughout → **B'D'**.
+
+**F = BD + B'D'** — which is B XNOR D. Eight minterms collapse to two terms.
+
+## 5. Don't-care conditions
+
+Some input combinations never occur (e.g. BCD codes 10–15) or their output doesn't matter. Mark them **X** (or d). Include an X in a group **if it helps** make the group bigger; otherwise ignore it.
+
+**Example.** F = Σm(1, 3, 7, 11, 15) + d(0, 2, 5).
+- Column CD = 11 holds m3, m7, m15, m11 → quad **CD**.
+- m1 is left. Grouping it with m3 and don't-cares m5, m7 gives the quad **A'D**. (Using don't-cares m0, m2 instead gives **A'B'** — equally minimal.)
+- **F = CD + A'D** (or CD + A'B'). More than one minimal answer can be correct.
+
+## 6. POS from the zeros
+
+Group the **0s** instead, write each group as a sum term with variables **complemented** (a variable that's 1 in the group appears as `X'`; 0 appears as `X`), and AND the groups. Or: find the SOP of F' from the 0s, then apply De Morgan.
+
+## 7. Beyond four variables
+
+Five- and six-variable maps exist but are awkward. The **Quine–McCluskey (tabular) method** does the same job systematically and can be programmed — the basis of logic-synthesis tools.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Simplify F(A, B, C, D) = Σm(0, 1, 2, 5, 8, 9, 10) using a K-map and draw the logic circuit.
+
+<details>
+<summary>Model answer</summary>
+
+*(Draw the 4 × 4 map with rows AB = 00, 01, 11, 10 and columns CD = 00, 01, 11, 10; place 1s at m0, m1, m2, m5, m8, m9, m10.)*
+
+**Groups.**
+1. m0, m1, m8, m9 (rows 00 and 10, columns 00 and 01): B = 0, C = 0 → **B'C'**.
+2. m0, m2, m8, m10 (four corners): B = 0, D = 0 → **B'D'**.
+3. m5 remains; pair it with m1 (row 01 col 01 with row 00 col 01): A = 0, C = 0, D = 1 → **A'C'D**.
+
+**Result.** F = B'C' + B'D' + A'C'D.
+
+**Circuit.** Three AND gates (inputs from inverters as needed) feeding one 3-input OR gate *(draw)*; or the equivalent NAND–NAND network.
+
+</details>
+
+## Check yourself
+
+1. K-map rows and columns are ordered in:
+   (a) binary (b) Gray code (c) BCD (d) excess-3
+
+<details><summary>Answer</summary>(b)</details>
+
+2. In a 4-variable K-map, a group of 4 cells produces a term with:
+   (a) 4 literals (b) 3 literals (c) 2 literals (d) 1 literal
+
+<details><summary>Answer</summary>(c)</details>
+
+3. Which group size is NOT allowed?
+   (a) 2 (b) 4 (c) 6 (d) 8
+
+<details><summary>Answer</summary>(c) only powers of two.</details>
+
+4. Don't-care conditions are:
+   (a) always grouped as 1 (b) always treated as 0 (c) used as 1 or 0, whichever helps simplification (d) not allowed in K-maps
+
+<details><summary>Answer</summary>(c)</details>
+
+5. A 3-variable map with 1s in all cells where C = 1 simplifies to:
+   (a) C (b) C' (c) AB (d) 1
+
+<details><summary>Answer</summary>(a)</details>
+
+6. The method suited to computer minimisation of many variables is:
+   (a) K-map (b) Quine–McCluskey (c) De Morgan (d) truth table
+
+<details><summary>Answer</summary>(b)</details>
