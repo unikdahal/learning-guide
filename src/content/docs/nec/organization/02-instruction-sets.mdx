@@ -1,0 +1,131 @@
+---
+title: "2. Instruction sets, formats and addressing modes"
+description: What an instruction set is, three-, two-, one- and zero-address instruction formats with a worked program, every addressing mode with an effective-address numerical, data transfer and manipulation instructions, and RISC vs CISC.
+sidebar:
+  label: "2. Instruction sets"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** write the same expression in 0- to 3-address code, compute effective addresses for every addressing mode, and compare RISC and CISC.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 4.1** (instruction formats, addressing modes, data transfer and manipulation, RISC and CISC); the model paper asks what an instruction set is. **Lok Sewa CE unit 2** (instruction formats, addressing modes, RISC/CISC). The effective-address table below is the most-copied numerical in Mano's book — learn it cold.
+</Aside>
+
+## 1. Instruction set
+
+The **instruction set** is the complete collection of machine instructions a processor understands — its **ISA** (instruction set architecture), the contract between hardware and software. An instruction has an **opcode** (what to do) and **operand fields** (what to do it on): source and destination addresses, an immediate value, or the address of the next instruction.
+
+Instruction types:
+- **Data transfer:** load, store, move, exchange, push, pop, input, output.
+- **Data manipulation:** arithmetic (add, subtract, multiply, increment, negate), logical (AND, OR, XOR, complement, clear), shift (logical, arithmetic, rotate).
+- **Program control:** branch, jump, skip, call, return, compare, test.
+
+## 2. Instruction formats by number of addresses
+
+Evaluate **X = (A + B) × (C + D)**:
+
+| Format | Program | Notes |
+| --- | --- | --- |
+| **Three-address** | `ADD R1, A, B` · `ADD R2, C, D` · `MUL X, R1, R2` | shortest program; long instructions |
+| **Two-address** | `MOV R1, A` · `ADD R1, B` · `MOV R2, C` · `ADD R2, D` · `MUL R1, R2` · `MOV X, R1` | most common in commercial CPUs (x86) |
+| **One-address** (accumulator) | `LOAD A` · `ADD B` · `STORE T` · `LOAD C` · `ADD D` · `MUL T` · `STORE X` | AC is implied; needs a temporary T |
+| **Zero-address** (stack) | `PUSH A` · `PUSH B` · `ADD` · `PUSH C` · `PUSH D` · `ADD` · `MUL` · `POP X` | operands on the stack; uses **postfix** (AB+CD+×) |
+
+Fewer addresses → shorter instructions, but **more** of them. RISC machines use three-address register-only arithmetic plus separate `LOAD`/`STORE`.
+
+## 3. Addressing modes
+
+The **effective address (EA)** is where the operand actually is. Modes exist to support pointers, arrays, loops and relocatable code, and to shorten the address field.
+
+### The worked numerical (Mano)
+
+A two-word "load to AC" instruction sits at addresses 200–201; its address field (at 201) is **500**. PC = 200 (it will be 202 after fetch), R1 = 400, index register XR = 100. Memory: 399 → 450, 400 → 700, 500 → 800, 600 → 900, 702 → 325, 800 → 300.
+
+| Mode | How EA is formed | EA | AC gets |
+| --- | --- | --- | --- |
+| **Immediate** | operand is the field itself | 201 | **500** |
+| **Direct** | EA = address field | 500 | **800** |
+| **Indirect** | EA = M[address field] | M[500] = 800 | **300** |
+| **Register** | operand is in R1 | — | **400** |
+| **Register indirect** | EA = R1 | 400 | **700** |
+| **Autoincrement** | EA = R1, then R1 ← R1 + 1 | 400 | **700** (R1 becomes 401) |
+| **Autodecrement** | R1 ← R1 − 1, then EA = R1 | 399 | **450** |
+| **Relative** | EA = PC + field = 202 + 500 | 702 | **325** |
+| **Indexed** | EA = XR + field = 100 + 500 | 600 | **900** |
+
+Two traps: **relative** uses the PC **after** fetch (202, not 200), and **autodecrement** decrements **before** using the register.
+
+Also: **base register** mode (EA = base register + displacement — used for relocation; the [8086's segments](/learning-guide/nec/digital/12-8086/) are a form of it) and **implied** mode (the operand is implied by the opcode, e.g. `CMA` acts on the accumulator).
+
+What each mode is for:
+- Immediate — constants. Register — speed. Register indirect / autoincrement — pointers and walking arrays.
+- Indexed — `a[i]` with a fixed base address. Relative — position-independent branches. Indirect — pointers stored in memory.
+
+## 4. RISC vs CISC
+
+| | RISC (ARM, RISC-V, MIPS) | CISC (x86, VAX) |
+| --- | --- | --- |
+| Instructions | few, simple | many, complex (some do a lot) |
+| Format | **fixed length** | variable length |
+| Addressing modes | few | many |
+| Memory access | only **LOAD/STORE**; arithmetic on registers | memory operands allowed in arithmetic |
+| Cycles per instruction | ~1 (pipelined) | several |
+| Registers | many (32+) | fewer |
+| Control unit | **hardwired** | usually **microprogrammed** |
+| Code size | larger | smaller |
+| Compiler | does more work | hardware does more |
+
+Modern x86 chips decode CISC instructions into RISC-like micro-operations internally — the line is blurred, but the exam wants the table.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** What is an addressing mode? Explain any four with examples.
+
+<details>
+<summary>Model answer</summary>
+
+**Addressing mode** is the rule by which the CPU interprets the address field of an instruction to find the **effective address** of the operand. Modes give programming flexibility (pointers, arrays, loops, relocation) and reduce the number of bits in the address field.
+
+1. **Immediate:** the operand is in the instruction. `MVI A, 25H` → A = 25H. Fast; used for constants.
+2. **Direct:** the address field holds the operand's memory address. `LDA 2050H` → A = M[2050H]. One memory reference.
+3. **Register indirect:** a register holds the operand's address. `MOV A, M` (address in HL) → A = M[HL]. Used for pointers and arrays.
+4. **Indexed:** EA = index register + address field. EA = XR + 500; with XR = 100 → EA = 600. Used for array element `a[i]`.
+5. **Relative:** EA = PC + offset. Used for branches; position-independent code.
+
+*(Any four, each with a one-line diagram or example.)*
+
+</details>
+
+## Check yourself
+
+1. Zero-address instructions are used in:
+   (a) accumulator machines (b) stack machines (c) RISC (d) register machines
+
+<details><summary>Answer</summary>(b)</details>
+
+2. In the numerical above, indexed mode gives AC =
+   (a) 800 (b) 900 (c) 325 (d) 700
+
+<details><summary>Answer</summary>(b) EA = 600.</details>
+
+3. The addressing mode where the operand is part of the instruction:
+   (a) direct (b) immediate (c) indirect (d) register
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Which is **not** a RISC feature?
+   (a) fixed-length instructions (b) load/store architecture (c) many addressing modes (d) hardwired control
+
+<details><summary>Answer</summary>(c)</details>
+
+5. Indirect addressing needs how many memory references to reach the operand (after fetch)?
+   (a) 0 (b) 1 (c) 2 (d) 3
+
+<details><summary>Answer</summary>(c) one for the address, one for the operand.</details>
+
+6. Relative addressing is mainly used for:
+   (a) constants (b) branch instructions (c) arrays (d) I/O
+
+<details><summary>Answer</summary>(b)</details>

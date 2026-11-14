@@ -1,0 +1,153 @@
+---
+// TCP congestion-window lab: slow start, congestion avoidance, and what happens on a loss —
+// timeout (cwnd back to 1, Tahoe-style) or three duplicate ACKs (fast recovery, Reno-style).
+---
+
+<qe-cwnd class="qe-lab qe-cwnd not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">TCP congestion window, round by round</p>
+    <div class="ctl">
+      <label><span>Initial ssthresh: <output data-so>16</output> MSS</span>
+        <input type="range" min="4" max="32" value="16" data-s aria-label="Initial slow-start threshold in segments" />
+      </label>
+      <label><span>Loss in round: <output data-lo>10</output></span>
+        <input type="range" min="2" max="20" value="10" data-l aria-label="Round in which a loss is detected" />
+      </label>
+    </div>
+    <div class="qe-lab-chips prose" role="group" aria-label="How the loss is detected">
+      <button type="button" data-k="to" aria-pressed="true">Timeout</button>
+      <button type="button" data-k="dup" aria-pressed="false">3 duplicate ACKs</button>
+    </div>
+    <div class="chart"><svg data-svg role="img" aria-label="Line chart of the congestion window in segments against transmission round."></svg></div>
+    <p class="vals" data-vals></p>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-cwnd>
+
+<script>
+  class QeCwnd extends HTMLElement {
+    kind = 'to';
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const sIn = $('[data-s]') as HTMLInputElement;
+      const lIn = $('[data-l]') as HTMLInputElement;
+      const draw = () => {
+        let ss = +sIn.value;
+        const loss = +lIn.value;
+        ($('[data-so]') as HTMLOutputElement).value = sIn.value;
+        ($('[data-lo]') as HTMLOutputElement).value = lIn.value;
+        const R = 24;
+        const cw: number[] = [];
+        const phase: string[] = [];
+        let c = 1;
+        let newSs = 0;
+        for (let r = 1; r <= R; r++) {
+          cw.push(c);
+          phase.push(c < ss ? 'ss' : 'ca');
+          if (r === loss) {
+            newSs = Math.max(2, Math.floor(c / 2));
+            ss = newSs;
+            c = this.kind === 'to' ? 1 : ss;
+            continue;
+          }
+          c = c < ss ? Math.min(c * 2, ss) : c + 1;
+        }
+        const max = Math.max(...cw, +sIn.value) + 2;
+        const W = 620, H = 260, x0 = 40, y0 = 14, pw = W - x0 - 10, ph = H - y0 - 34;
+        const X = (r: number) => x0 + ((r - 1) / (R - 1)) * pw;
+        const Y = (v: number) => y0 + ph - (v / max) * ph;
+        let g = '';
+        for (let v = 0; v <= max; v += max > 30 ? 8 : 4) g += `<line class="grid" x1="${x0}" x2="${x0 + pw}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ax" x="${x0 - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
+        for (let r = 1; r <= R; r += r < 2 ? 1 : 2) g += `<text class="ax" x="${X(r)}" y="${H - 16}" text-anchor="middle">${r}</text>`;
+        g += `<text class="ax" x="${x0 + pw / 2}" y="${H - 2}" text-anchor="middle">transmission round (RTT)</text>`;
+        g += `<line class="th" x1="${X(1)}" x2="${X(loss)}" y1="${Y(+sIn.value)}" y2="${Y(+sIn.value)}"/><text class="ax" x="${X(1) + 4}" y="${Y(+sIn.value) - 4}">ssthresh ${sIn.value}</text>`;
+        if (loss < R) g += `<line class="th" x1="${X(loss)}" x2="${X(R)}" y1="${Y(newSs)}" y2="${Y(newSs)}"/><text class="ax" x="${X(Math.min(R - 4, loss + 1))}" y="${Y(newSs) - 4}">new ssthresh ${newSs}</text>`;
+        g += `<polyline class="ln" points="${cw.map((v, i) => `${X(i + 1)},${Y(v)}`).join(' ')}"/>`;
+        cw.forEach((v, i) => (g += `<circle class="pt ${i + 1 === loss ? 'loss' : phase[i]}" cx="${X(i + 1)}" cy="${Y(v)}" r="${i + 1 === loss ? 6 : 3.5}"/>`));
+        const svg = $('[data-svg]');
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.innerHTML = g;
+        $('[data-vals]').textContent = 'cwnd: ' + cw.join(', ');
+        $('[data-note]').textContent =
+          `Slow start doubles cwnd every RTT (exponential) until it reaches ssthresh; congestion avoidance then adds 1 MSS per RTT (additive increase). At round ${loss} a loss halves ssthresh to ${newSs} (multiplicative decrease). ` +
+          (this.kind === 'to'
+            ? 'A timeout signals heavy congestion, so cwnd restarts at 1 and slow start runs again (TCP Tahoe; Reno does the same on a timeout).'
+            : 'Three duplicate ACKs mean later segments are still arriving, so congestion is mild: fast retransmit resends the lost segment and fast recovery sets cwnd = ssthresh, continuing linearly (TCP Reno).');
+      };
+      sIn.addEventListener('input', draw);
+      lIn.addEventListener('input', draw);
+      this.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.kind = b.dataset.k!;
+          this.querySelectorAll('[data-k]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          draw();
+        }),
+      );
+      draw();
+    }
+  }
+  customElements.define('qe-cwnd', QeCwnd);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.8rem 1.5rem;
+    margin: 0.4rem 0 0.9rem;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 0.8rem;
+  }
+  :global(.qe-cwnd .grid) {
+    stroke: var(--sl-color-gray-5);
+  }
+  :global(.qe-cwnd .ax) {
+    fill: var(--sl-color-gray-2);
+    font-size: 11px;
+    font-family: var(--sl-font);
+  }
+  :global(.qe-cwnd .th) {
+    stroke: var(--qe-warn);
+    stroke-dasharray: 5 4;
+    stroke-width: 1.5;
+  }
+  :global(.qe-cwnd .ln) {
+    fill: none;
+    stroke: var(--sl-color-gray-2);
+    stroke-width: 2;
+  }
+  :global(.qe-cwnd .pt.ss) {
+    fill: var(--qe-pipe-build);
+  }
+  :global(.qe-cwnd .pt.ca) {
+    fill: var(--qe-pipe-emit);
+  }
+  :global(.qe-cwnd .pt.loss) {
+    fill: var(--qe-warn);
+  }
+  .vals {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-1);
+    margin-top: 0.4rem;
+  }
+</style>

@@ -1,0 +1,232 @@
+---
+// Static diagrams for the "Digital from zero" lessons: gate-level circuits, a K-map with groups,
+// a multiplexer, an SR latch, and block diagrams of the 8085 and 8086.
+interface Props {
+  name: 'full-adder' | 'kmap' | 'mux' | 'sr-latch' | 'p8085' | 'p8086' | 'vn-harvard' | 'micro-cu';
+  label: string;
+}
+const { name, label } = Astro.props;
+const id = `dg-${name}`;
+const t = (x: number, y: number, s: string, cls = '') => `<text x="${x}" y="${y}" class="${cls}">${s}</text>`;
+const w = (d: string) => `<path class="w" d="${d}"/>`;
+/** Gate bodies, 50 wide × 40 tall, inputs at (x, y ± 10), output tip returned in comments. */
+const AND = (x: number, y: number) => `<path class="g" d="M${x} ${y - 20} H${x + 25} A20 20 0 0 1 ${x + 25} ${y + 20} H${x} Z"/>`; // out x+45
+const OR = (x: number, y: number) => `<path class="g" d="M${x} ${y - 20} Q${x + 14} ${y} ${x} ${y + 20} Q${x + 32} ${y + 20} ${x + 50} ${y} Q${x + 32} ${y - 20} ${x} ${y - 20} Z"/>`; // out x+50
+const XOR = (x: number, y: number) => OR(x + 8, y) + `<path class="gx" d="M${x} ${y - 20} Q${x + 14} ${y} ${x} ${y + 20}"/>`; // out x+58
+const NOR = (x: number, y: number) => OR(x, y) + `<circle class="g" cx="${x + 56}" cy="${y}" r="6"/>`; // out x+62
+const box = (x: number, y: number, wd: number, h: number, label: string, cls = 'bx') =>
+  `<rect class="${cls}" x="${x}" y="${y}" width="${wd}" height="${h}" rx="6"/>` +
+  label.split('|').map((l, i, a) => t(x + wd / 2, y + h / 2 + 5 + (i - (a.length - 1) / 2) * 15, l, 'c')).join('');
+
+let vb = '0 0 400 240';
+let body = '';
+
+if (name === 'full-adder') {
+  vb = '0 0 520 250';
+  body =
+    // inputs
+    t(8, 54, 'A', 's') + t(8, 84, 'B', 's') + t(8, 184, 'Cin', 's') +
+    w('M30 50 H110 M30 80 H110') +
+    w('M70 50 V140 H250 M90 80 V160 H250') + // A,B to AND1
+    XOR(110, 65) + // A⊕B at out x=168
+    w('M168 65 H220 M220 65 V75 H250 M200 65 V210 H250') + // to XOR2 top input and AND2
+    w('M40 180 H230 M230 180 V95 H250 M230 180 V230 H250') + // Cin to XOR2 bottom and AND2
+    XOR(250, 85) + w('M308 85 H500') + t(470, 78, 'S', 's') +
+    AND(250, 150) + AND(250, 220) +
+    w('M295 150 H340 V175 H360 M295 220 H340 V195 H360') +
+    OR(360, 185) + w('M410 185 H500') + t(460, 178, 'Cout', 's') +
+    `<circle class="dot" cx="70" cy="50" r="3.5"/><circle class="dot" cx="90" cy="80" r="3.5"/><circle class="dot" cx="200" cy="65" r="3.5"/><circle class="dot" cx="230" cy="180" r="3.5"/>` +
+    t(180, 50, 'A⊕B', 'm') + t(110, 240, 'S = A ⊕ B ⊕ Cin', 'm') + t(300, 240, 'Cout = AB + Cin(A ⊕ B)', 'm');
+} else if (name === 'kmap') {
+  vb = '0 0 420 372';
+  const ones = new Set([0, 2, 5, 7, 8, 10, 13, 15]);
+  const gray = [0, 1, 3, 2];
+  const labels = ['00', '01', '11', '10'];
+  const X0 = 110, Y0 = 70, C = 64;
+  let cells = '';
+  for (let r = 0; r < 4; r++) {
+    cells += t(X0 - 34, Y0 + r * C + C / 2 + 6, labels[r], 'm');
+    cells += t(X0 + r * C + C / 2 - 9, Y0 - 12, labels[r], 'm');
+    for (let c = 0; c < 4; c++) {
+      const m = gray[r] * 4 + gray[c];
+      cells += `<rect class="cell" x="${X0 + c * C}" y="${Y0 + r * C}" width="${C}" height="${C}"/>`;
+      cells += t(X0 + c * C + 4, Y0 + r * C + 14, `m${m}`, 'tiny');
+      cells += t(X0 + c * C + C / 2 - 5, Y0 + r * C + C / 2 + 9, ones.has(m) ? '1' : '0', ones.has(m) ? 'one' : 'zero');
+    }
+  }
+  const grp = (x: number, y: number, ww: number, h: number, cls: string) => `<rect class="${cls}" x="${x}" y="${y}" width="${ww}" height="${h}" rx="14"/>`;
+  body =
+    cells +
+    t(40, 50, 'AB', 's') + t(64, 34, 'CD', 's') + w('M60 40 L104 66') +
+    grp(X0 + C + 6, Y0 + C + 6, 2 * C - 12, 2 * C - 12, 'g1') +
+    grp(X0 + 6, Y0 + 6, C - 12, C - 12, 'g2') + grp(X0 + 3 * C + 6, Y0 + 6, C - 12, C - 12, 'g2') +
+    grp(X0 + 6, Y0 + 3 * C + 6, C - 12, C - 12, 'g2') + grp(X0 + 3 * C + 6, Y0 + 3 * C + 6, C - 12, C - 12, 'g2') +
+    t(238, 358, "F = Σm(0,2,5,7,8,10,13,15) = B'D' (corners) + BD (centre)", 'c');
+} else if (name === 'mux') {
+  vb = '0 0 380 240';
+  body =
+    `<path class="g" d="M140 30 L240 70 L240 170 L140 210 Z"/>` +
+    [0, 1, 2, 3].map((i) => w(`M50 ${60 + i * 40} H140`) + t(16, 65 + i * 40, `I${i}`, 's')).join('') +
+    w('M240 120 H330') + t(338, 125, 'Y', 's') +
+    w('M170 222 V198 M210 222 V186') + t(160, 238, 'S1', 'm') + t(202, 238, 'S0', 'm') +
+    t(166, 126, '4 : 1', 's') + t(158, 146, 'MUX', 'm');
+} else if (name === 'sr-latch') {
+  vb = '0 0 440 230';
+  body =
+    t(10, 54, 'R', 's') + t(10, 184, 'S', 's') +
+    w('M30 50 H150 M30 180 H150') +
+    NOR(150, 60) + NOR(150, 170) +
+    w('M212 60 H330 M212 170 H330') + t(340, 65, 'Q', 's') + t(340, 175, "Q'", 's') +
+    w('M270 60 V100 L130 140 V160 H150') + w('M270 170 V130 L130 90 V70 H150') +
+    `<circle class="dot" cx="270" cy="60" r="3.5"/><circle class="dot" cx="270" cy="170" r="3.5"/>` +
+    t(60, 222, 'Cross-coupled NOR latch: each output feeds the other gate', 'm');
+} else if (name === 'p8085') {
+  vb = '0 0 560 322';
+  body =
+    `<rect class="bus" x="20" y="22" width="520" height="16" rx="4"/>` + t(200, 35, '8-bit internal data bus', 'cb') +
+    box(20, 60, 90, 40, 'Accumulator|(A)') + box(20, 110, 90, 34, 'Temp reg') + box(20, 154, 90, 34, 'Flags|S Z AC P CY') +
+    box(125, 60, 70, 128, 'ALU') +
+    box(210, 60, 100, 40, 'Instruction|register') + box(210, 110, 100, 46, 'Instruction|decoder') +
+    box(325, 60, 215, 128, 'B   C|D   E|H   L|SP (16-bit)|PC (16-bit)|Incr/decr address latch') +
+    box(20, 210, 290, 40, 'Timing and control unit|(ALE, RD, WR, IO/M, READY, HOLD…)') +
+    box(325, 210, 100, 40, 'Address|buffer A15–A8') + box(440, 210, 100, 40, 'Addr/data buffer|AD7–AD0') +
+    box(20, 266, 185, 40, 'Interrupt control|TRAP, RST 7.5/6.5/5.5, INTR', 'bx2') + box(215, 266, 95, 40, 'Serial I/O|SID, SOD', 'bx2') +
+    w('M65 38 V60 M160 38 V60 M260 38 V60 M432 38 V60 M375 188 V210 M490 188 V210') +
+    t(432, 274, '16-bit address bus (64 KB)', 'c') + t(432, 290, '8-bit data bus', 'c') + t(432, 306, 'AD0–AD7 split using ALE', 'c');
+} else if (name === 'p8086') {
+  vb = '0 0 560 300';
+  body =
+    `<rect class="unit" x="10" y="10" width="265" height="250" rx="10"/>` + t(142, 32, 'Bus Interface Unit (BIU)', 'cb') +
+    box(25, 45, 110, 90, 'CS|DS|SS|ES|IP') + box(150, 45, 110, 40, 'Address adder|Σ (seg×16 + offset)') +
+    box(150, 95, 110, 40, 'Bus control|logic') +
+    box(25, 150, 235, 46, '6-byte instruction queue|(prefetch: fetch overlaps execute)') +
+    t(142, 226, '20-bit address → 1 MB memory', 'c') + t(142, 244, '16-bit external data bus', 'c') +
+    `<rect class="unit" x="285" y="10" width="265" height="250" rx="10"/>` + t(417, 32, 'Execution Unit (EU)', 'cb') +
+    box(300, 45, 110, 90, 'AX (AH AL)|BX (BH BL)|CX (CH CL)|DX (DH DL)') + box(425, 45, 110, 90, 'SP|BP|SI|DI') +
+    box(300, 150, 110, 46, 'ALU (16-bit)') + box(425, 150, 110, 46, 'Flags|(9 used)') +
+    box(300, 206, 235, 40, 'EU control: decodes from the queue') +
+    w('M260 173 H300') + t(280, 286, 'BIU fetches while EU executes — an early form of pipelining', 'c');
+} else if (name === 'vn-harvard') {
+  vb = '0 0 560 250';
+  body =
+    t(135, 22, 'von Neumann', 'cb') + t(425, 22, 'Harvard', 'cb') +
+    box(55, 40, 160, 50, 'CPU|(ALU + CU + registers)') +
+    w('M135 90 V140') + `<rect class="bus" x="30" y="140" width="210" height="14" rx="4"/>` + t(135, 151, 'one shared bus', 'c') +
+    w('M135 154 V180') + box(55, 180, 160, 50, 'Memory|instructions + data') +
+    box(345, 40, 160, 50, 'CPU|(ALU + CU + registers)') +
+    w('M385 90 V180 M465 90 V180') +
+    t(370, 140, 'instr', 'c') + t(483, 140, 'data', 'c') +
+    box(310, 180, 115, 50, 'Instruction|memory') + box(435, 180, 115, 50, 'Data|memory') +
+    `<line class="w" x1="280" y1="10" x2="280" y2="240" stroke-dasharray="4 4"/>`;
+} else if (name === 'micro-cu') {
+  vb = '0 0 560 250';
+  body =
+    box(15, 95, 100, 50, 'Instruction|opcode') + box(165, 30, 120, 44, 'Address|sequencer') +
+    box(165, 110, 120, 44, 'CAR|(control addr reg)') + box(320, 100, 130, 64, 'Control|memory (ROM)|microprogram') +
+    box(320, 196, 130, 40, 'Control word|(CDR)') +
+    w('M115 120 H130 V62 H165 M225 74 V110 M285 132 H320 M385 164 V196') +
+    w('M450 216 H530') + t(492, 208, 'control', 'c') + t(492, 238, 'signals', 'c') +
+    w('M320 216 H148 V42 H165') + t(234, 234, 'next address + condition', 'c') +
+    w('M225 6 V30') + t(233, 18, 'status bits (flags)', 'm') + t(112, 58, 'map', 'c');
+}
+---
+
+<svg class="dg" viewBox={vb} role="img" aria-labelledby={`${id}-t`} xmlns="http://www.w3.org/2000/svg">
+  <title id={`${id}-t`}>{label}</title>
+  <g set:html={body} />
+</svg>
+
+<style>
+  .dg {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+    height: auto;
+    margin-inline: auto;
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font);
+  }
+  .dg :global(.w),
+  .dg :global(.gx) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+  }
+  .dg :global(.g) {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 2.2;
+  }
+  .dg :global(.dot) {
+    fill: currentColor;
+  }
+  .dg :global(text) {
+    fill: currentColor;
+    font-size: 13px;
+  }
+  .dg :global(text.s) {
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .dg :global(text.m) {
+    font-size: 12.5px;
+    fill: var(--sl-color-gray-2);
+  }
+  .dg :global(text.tiny) {
+    font-size: 10px;
+    fill: var(--sl-color-gray-3);
+  }
+  .dg :global(text.c),
+  .dg :global(text.cb) {
+    text-anchor: middle;
+    font-size: 12px;
+  }
+  .dg :global(text.cb) {
+    font-weight: 700;
+  }
+  .dg :global(.cell) {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+  }
+  .dg :global(text.one) {
+    font-size: 20px;
+    font-weight: 700;
+    fill: var(--sl-color-white);
+  }
+  .dg :global(text.zero) {
+    font-size: 20px;
+    fill: var(--sl-color-gray-4);
+  }
+  .dg :global(.g1) {
+    fill: none;
+    stroke: var(--qe-pipe-build);
+    stroke-width: 3;
+  }
+  .dg :global(.g2) {
+    fill: none;
+    stroke: var(--qe-pipe-emit);
+    stroke-width: 3;
+    stroke-dasharray: 6 4;
+  }
+  .dg :global(.bx),
+  .dg :global(.bx2) {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 1.5;
+  }
+  .dg :global(.bx2) {
+    stroke-dasharray: 5 3;
+  }
+  .dg :global(.bus) {
+    fill: var(--qe-pipe-build);
+    fill-opacity: 0.25;
+    stroke: var(--qe-pipe-build);
+  }
+  .dg :global(.unit) {
+    fill: none;
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+  }
+</style>

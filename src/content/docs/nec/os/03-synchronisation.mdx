@@ -1,0 +1,212 @@
+---
+title: "3. Synchronisation"
+description: Race conditions, the critical-section problem and its three requirements, Peterson's solution, hardware support (test-and-set), mutex locks, semaphores, monitors, message passing, and the producer–consumer, readers–writers and dining-philosophers problems in code.
+sidebar:
+  label: "3. Synchronisation"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** explain a race condition with an example, state the critical-section requirements, and solve the three classical problems with semaphores.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.5** (concurrency, critical regions, race conditions, mutual exclusion, semaphores and mutexes, message passing, monitors, classical synchronisation problems). The model paper asks which primitives enforce mutual exclusion and what happens without it. **Lok Sewa CE unit 10** (concurrency).
+</Aside>
+
+## 1. Race conditions
+
+When several processes or threads access shared data concurrently and the result depends on the **timing** of their execution, there is a **race condition**.
+
+`count++` compiles to three steps — load, add, store:
+
+```text
+T1: r1 = count   (5)
+T2: r2 = count   (5)
+T1: r1 = r1 + 1  (6)
+T2: r2 = r2 + 1  (6)
+T1: count = r1   (6)
+T2: count = r2   (6)   ← should be 7: one increment lost
+```
+
+The code that accesses shared data is the **critical section**. **Without mutual exclusion, race conditions corrupt shared data.**
+
+## 2. The critical-section problem
+
+Structure: **entry section → critical section → exit section → remainder section**. A solution must satisfy:
+1. **Mutual exclusion** — at most one process in its critical section at a time.
+2. **Progress** — if none is inside, the choice of who enters next can't be postponed indefinitely, and only processes wanting to enter take part.
+3. **Bounded waiting** — a bound on how many times others can enter before a waiting process gets its turn (no starvation).
+
+(Plus: no assumptions about speeds or the number of CPUs.)
+
+**Peterson's solution** (two processes, software only):
+
+```cpp
+bool flag[2] = {false, false};
+int turn;
+
+void enter(int i) {          // i is 0 or 1; j is the other
+    int j = 1 - i;
+    flag[i] = true;          // I want to enter
+    turn = j;                // but you go first if you want to
+    while (flag[j] && turn == j) { /* busy wait */ }
+}
+void leave(int i) { flag[i] = false; }
+```
+
+It satisfies all three requirements (on modern CPUs it also needs memory barriers — use atomics in real code).
+
+**Hardware support:** disabling interrupts (only on one CPU, dangerous); atomic **test-and-set** and **compare-and-swap** instructions:
+
+```cpp
+std::atomic_flag lock = ATOMIC_FLAG_INIT;
+void acquire() { while (lock.test_and_set(std::memory_order_acquire)) { } }   // spinlock
+void release() { lock.clear(std::memory_order_release); }
+```
+
+A **spinlock** busy-waits — fine for very short sections on multiprocessors; wasteful otherwise.
+
+## 3. Mutexes and semaphores
+
+**Mutex lock:** `acquire()` / `release()`; only the owner releases it.
+
+**Semaphore** (Dijkstra): an integer S accessed only through two atomic operations:
+- **wait(S)** (also **P**, down): `while (S <= 0) block; S--;`
+- **signal(S)** (also **V**, up): `S++;` wake a waiting process if any.
+
+Implemented with a queue of blocked processes instead of busy waiting.
+- **Binary semaphore** (0/1) — acts as a mutex.
+- **Counting semaphore** — counts available instances of a resource (e.g. 5 printers → initialise to 5).
+
+Misuse (a wait without a signal, wrong order) causes deadlock or starvation — the motivation for monitors.
+
+## 4. Classical problems
+
+### Producer–consumer (bounded buffer of n slots)
+
+```cpp
+semaphore mutex = 1, empty = n, full = 0;
+
+void producer() {
+    for (;;) {
+        Item x = produce();
+        wait(empty);         // a free slot
+        wait(mutex);
+        buffer.add(x);
+        signal(mutex);
+        signal(full);        // one more item
+    }
+}
+
+void consumer() {
+    for (;;) {
+        wait(full);          // an item available
+        wait(mutex);
+        Item x = buffer.remove();
+        signal(mutex);
+        signal(empty);       // one more free slot
+        consume(x);
+    }
+}
+```
+
+Swapping `wait(empty)` and `wait(mutex)` in the producer can **deadlock** (holding the mutex while waiting for a slot the consumer can't free).
+
+### Readers–writers
+
+Many readers may read at once; a writer needs exclusive access.
+
+```cpp
+semaphore rw_mutex = 1, mutex = 1;
+int read_count = 0;
+
+void writer() { wait(rw_mutex); /* write */ signal(rw_mutex); }
+
+void reader() {
+    wait(mutex);
+    if (++read_count == 1) wait(rw_mutex);   // first reader locks out writers
+    signal(mutex);
+    /* read */
+    wait(mutex);
+    if (--read_count == 0) signal(rw_mutex); // last reader lets writers in
+    signal(mutex);
+}
+```
+
+This is the "readers-preference" version — writers can starve; a writers-preference variant fixes that.
+
+### Dining philosophers
+
+Five philosophers, five chopsticks; each needs both neighbours' chopsticks to eat. If everyone picks up the left chopstick first → **deadlock**.
+
+Fixes: allow at most **four** to sit at once; pick up both chopsticks only if both are free (inside a critical section / monitor); **asymmetric** — odd-numbered pick left first, even-numbered right first; impose a global order on chopsticks.
+
+## 5. Monitors and message passing
+
+A **monitor** is a high-level construct: shared data + procedures, where **only one process can be active inside at a time** (mutual exclusion is automatic). **Condition variables** with `x.wait()` (suspend) and `x.signal()` (resume one waiter) handle waiting for conditions. Java `synchronized` methods with `wait`/`notify`, and C++ `std::mutex` with `std::condition_variable`, are monitor-style.
+
+**Message passing** synchronises through `send`/`receive` — a blocking receive is a natural synchronisation point; works across machines with no shared memory.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is a critical section? State the requirements of a solution. Explain semaphores and solve the bounded-buffer producer–consumer problem with them.
+
+<details>
+<summary>Model answer</summary>
+
+**Critical section.** The segment of code in which a process accesses shared resources (variables, files, tables). If two processes execute their critical sections concurrently, a race condition may corrupt the data. Structure: entry section, critical section, exit section, remainder section.
+
+**Requirements.**
+1. **Mutual exclusion:** only one process may be in its critical section at a time.
+2. **Progress:** if no process is in its critical section, the selection of the next process to enter cannot be postponed indefinitely, and only processes not in their remainder sections participate.
+3. **Bounded waiting:** there is a limit on the number of times other processes can enter after a process has requested entry.
+
+**Semaphore.** An integer variable S accessed only by two atomic operations:
+- wait(S) / P(S): decrement S; if S becomes negative (or is 0 in the busy-wait form), the process blocks.
+- signal(S) / V(S): increment S; if processes are blocked, wake one.
+Binary semaphores (0/1) give mutual exclusion; counting semaphores manage a resource with several instances.
+
+**Bounded buffer (n slots).** Semaphores: mutex = 1 (buffer access), empty = n (free slots), full = 0 (filled slots).
+
+*(Write the producer and consumer code as in the lesson.)*
+
+**Explanation.** The producer waits on empty so it never overfills the buffer; the consumer waits on full so it never removes from an empty buffer; mutex ensures only one process manipulates the buffer at a time. The order wait(empty) before wait(mutex) is essential — reversing it can cause deadlock.
+
+</details>
+
+## Check yourself
+
+1. Which enforce mutual exclusion?
+   (a) semaphores, mutexes and monitors (b) pipes only (c) caches (d) page tables
+
+<details><summary>Answer</summary>(a)</details>
+
+2. Without mutual exclusion, concurrent access to shared data leads to:
+   (a) deadlock only (b) race conditions and inconsistent data (c) faster execution always (d) page faults
+
+<details><summary>Answer</summary>(b)</details>
+
+3. The critical-section requirement that prevents starvation:
+   (a) mutual exclusion (b) progress (c) bounded waiting (d) atomicity
+
+<details><summary>Answer</summary>(c)</details>
+
+4. A counting semaphore initialised to 3 allows how many processes into the resource at once?
+   (a) 1 (b) 2 (c) 3 (d) unlimited
+
+<details><summary>Answer</summary>(c)</details>
+
+5. The semaphore operation that may block the caller:
+   (a) signal (b) wait (c) both (d) neither
+
+<details><summary>Answer</summary>(b)</details>
+
+6. In a monitor, mutual exclusion is:
+   (a) the programmer's job (b) provided automatically (c) impossible (d) provided by message passing
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Peterson's solution works for:
+   (a) two processes (b) any number of processes (c) only with semaphores (d) only on uniprocessors with interrupts disabled
+
+<details><summary>Answer</summary>(a)</details>

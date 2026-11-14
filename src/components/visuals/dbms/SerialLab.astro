@@ -1,0 +1,181 @@
+---
+// Serializability lab: type a schedule such as "R1(A) W2(A) R2(B) W1(B)"; the lab lists the
+// conflicting pairs, draws the precedence graph and reports a cycle or an equivalent serial order.
+---
+
+<qe-serial class="qe-lab qe-serial not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Conflict-serializability lab</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Example schedules">
+      <button type="button" data-ex="R1(A) W1(A) R2(A) W2(A) R1(B) W1(B) R2(B) W2(B)" aria-pressed="true">Serializable</button>
+      <button type="button" data-ex="R1(A) R2(B) W2(A) W1(B)" aria-pressed="false">Cycle</button>
+      <button type="button" data-ex="R1(X) R2(X) W1(X) R3(Y) W2(X) W3(Y) R1(Y)" aria-pressed="false">Three transactions</button>
+    </div>
+    <label class="sch">Schedule (operations like R1(A), W2(B), in time order)
+      <input type="text" data-s spellcheck="false" value="R1(A) W1(A) R2(A) W2(A) R1(B) W1(B) R2(B) W2(B)" />
+    </label>
+    <div class="out">
+      <svg data-g role="img" aria-label="Precedence graph: one node per transaction, an arrow from Ti to Tj for each conflict where Ti's operation comes first."></svg>
+      <div>
+        <p class="qe-lab-h sm">Conflicting pairs (same item, different transactions, at least one write)</p>
+        <ol class="conf" data-c></ol>
+      </div>
+    </div>
+    <p class="verdict" data-v aria-live="polite"></p>
+    <p class="qe-lab-note">Two operations conflict when they belong to different transactions, touch the same item, and at least one is a write (RW, WR or WW). Draw Ti → Tj for each conflict where Ti's operation comes first. No cycle ⇒ conflict serializable, and a topological order of the graph is an equivalent serial schedule. Two-phase locking only ever produces schedules like that.</p>
+  </section>
+</qe-serial>
+
+<script>
+  class QeSerial extends HTMLElement {
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const inp = $('[data-s]') as HTMLInputElement;
+      const draw = () => {
+        const ops = [...inp.value.toUpperCase().matchAll(/([RW])\s*(\d+)\s*\(\s*([A-Z]\w*)\s*\)/g)].map((m) => ({ op: m[1], t: +m[2], x: m[3] }));
+        const T = [...new Set(ops.map((o) => o.t))].sort((a, b) => a - b);
+        const edges = new Map<string, string>();
+        const conf: string[] = [];
+        for (let i = 0; i < ops.length; i++)
+          for (let j = i + 1; j < ops.length; j++) {
+            const a = ops[i], b = ops[j];
+            if (a.t !== b.t && a.x === b.x && (a.op === 'W' || b.op === 'W')) {
+              conf.push(`${a.op}${a.t}(${a.x}) before ${b.op}${b.t}(${b.x}) → T${a.t} → T${b.t}`);
+              const k = `${a.t}>${b.t}`;
+              if (!edges.has(k)) edges.set(k, `${a.op}${b.op} on ${a.x}`);
+            }
+          }
+        $('[data-c]').innerHTML = conf.length ? conf.map((c) => `<li>${c}</li>`).join('') : '<li>none</li>';
+        // topological sort / cycle check
+        const indeg = new Map(T.map((t) => [t, 0]));
+        const adj = new Map<number, number[]>(T.map((t) => [t, []]));
+        for (const k of edges.keys()) {
+          const [a, b] = k.split('>').map(Number);
+          adj.get(a)!.push(b);
+          indeg.set(b, indeg.get(b)! + 1);
+        }
+        const q = T.filter((t) => indeg.get(t) === 0);
+        const order: number[] = [];
+        while (q.length) {
+          q.sort((a, b) => a - b);
+          const u = q.shift()!;
+          order.push(u);
+          for (const v of adj.get(u)!) {
+            indeg.set(v, indeg.get(v)! - 1);
+            if (indeg.get(v) === 0) q.push(v);
+          }
+        }
+        const v = $('[data-v]');
+        if (!ops.length) v.textContent = 'Type a schedule such as R1(A) W2(A).';
+        else if (order.length === T.length)
+          v.innerHTML = `<span class="ok">No cycle — conflict serializable.</span> Equivalent serial order: ${order.map((t) => 'T' + t).join(' → ')}`;
+        else v.innerHTML = `<span class="bad">Cycle in the precedence graph — not conflict serializable.</span>`;
+        // graph
+        const W = 260, H = 200, cx = 130, cy = 100, R = T.length > 1 ? 70 : 0;
+        const P = new Map(T.map((t, i) => [t, [cx + R * Math.cos((2 * Math.PI * i) / T.length - Math.PI / 2), cy + R * Math.sin((2 * Math.PI * i) / T.length - Math.PI / 2)]]));
+        let g = `<defs><marker id="qe-ser-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah"/></marker></defs>`;
+        for (const [k, lab] of edges) {
+          const [a, b] = k.split('>').map(Number);
+          const [x1, y1] = P.get(a)!, [x2, y2] = P.get(b)!;
+          const two = edges.has(`${b}>${a}`);
+          const dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy) || 1;
+          const ox = two ? (-dy / d) * 8 : 0, oy = two ? (dx / d) * 8 : 0;
+          const sx = x1 + (dx / d) * 22 + ox, sy = y1 + (dy / d) * 22 + oy, ex = x2 - (dx / d) * 24 + ox, ey = y2 - (dy / d) * 24 + oy;
+          g += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" class="ed" marker-end="url(#qe-ser-ah)"><title>${lab}</title></line>`;
+        }
+        for (const [t, [x, y]] of P) g += `<circle cx="${x}" cy="${y}" r="20" class="nd"/><text x="${x}" y="${y + 5}" class="nl">T${t}</text>`;
+        const svg = $('[data-g]');
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.innerHTML = g;
+      };
+      inp.addEventListener('input', draw);
+      this.querySelectorAll<HTMLButtonElement>('[data-ex]').forEach((b) =>
+        b.addEventListener('click', () => {
+          inp.value = b.dataset.ex!;
+          this.querySelectorAll('[data-ex]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          draw();
+        }),
+      );
+      draw();
+    }
+  }
+  customElements.define('qe-serial', QeSerial);
+</script>
+
+<style>
+  .sch {
+    display: grid;
+    gap: 0.25rem;
+    margin: 0.9rem 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .sch input {
+    font: inherit;
+    font-family: var(--sl-font-mono);
+    font-weight: 400;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .out {
+    display: grid;
+    grid-template-columns: minmax(12rem, 16rem) 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+  @media (max-width: 40rem) {
+    .out {
+      grid-template-columns: 1fr;
+    }
+  }
+  .out svg {
+    width: 100%;
+    max-width: 16rem;
+    height: auto;
+  }
+  .sm {
+    font-size: 0.85rem;
+  }
+  .conf {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-1);
+  }
+  :global(.qe-serial .nd) {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--sl-color-gray-1);
+    stroke-width: 2;
+  }
+  :global(.qe-serial .nl) {
+    fill: var(--sl-color-white);
+    font-weight: 700;
+    font-size: 13px;
+    text-anchor: middle;
+  }
+  :global(.qe-serial .ed) {
+    stroke: var(--sl-color-gray-2);
+    stroke-width: 2;
+  }
+  :global(.qe-serial .ah) {
+    fill: var(--sl-color-gray-2);
+  }
+  :global(.qe-serial .el) {
+    fill: var(--sl-color-gray-2);
+    font-size: 10px;
+  }
+  .verdict {
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+  :global(.qe-serial .ok) {
+    color: var(--sl-color-text-accent);
+  }
+  :global(.qe-serial .bad) {
+    color: var(--sl-color-text);
+    text-decoration: underline wavy var(--qe-warn);
+  }
+</style>

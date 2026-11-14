@@ -1,0 +1,89 @@
+---
+title: "3. Logic gates and logic levels"
+description: All seven logic gates with symbols and truth tables, universal gates and how to build everything from NAND or NOR, positive and negative logic, and logic levels.
+sidebar:
+  label: "3. Logic gates"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+import GateLab from '@components/visuals/digital/GateLab.astro';
+
+**Goal:** write every gate's truth table and expression, build AND/OR/NOT/XOR from NAND or NOR alone, and explain logic levels.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.1** — the model paper asks how many NOR gates make an AND. **Lok Sewa CE 3.2** (logic elements).
+</Aside>
+
+## 1. From voltage to 0 and 1
+
+A digital circuit uses just two voltage ranges. In **positive logic**, HIGH = 1 and LOW = 0 (the usual convention); in **negative logic**, the opposite. For 5 V TTL, roughly 0–0.8 V reads as 0 and 2–5 V as 1; the gap between is forbidden ([lesson 10](/learning-guide/nec/digital/10-logic-families-memory-adc/) has exact levels). Because only two levels must be told apart, digital circuits shrug off noise that would corrupt an analog signal.
+
+## 2. The gates
+
+Try each one — toggle A and B:
+
+<GateLab />
+
+| Gate | Expression | Output is 1 when… |
+| --- | --- | --- |
+| AND | Y = A·B | all inputs are 1 |
+| OR | Y = A + B | any input is 1 |
+| NOT | Y = A' | input is 0 |
+| NAND | Y = (A·B)' | any input is 0 |
+| NOR | Y = (A + B)' | all inputs are 0 |
+| XOR | Y = A ⊕ B = A'B + AB' | inputs differ (odd number of 1s) |
+| XNOR | Y = (A ⊕ B)' = AB + A'B' | inputs are equal |
+
+A **buffer** (Y = A) is a NOT without the inversion — used to boost drive strength; a **tri-state buffer** adds an enable that can disconnect its output (high impedance, "Z") so many devices can share a bus.
+
+## 3. Universal gates
+
+**NAND alone** (or **NOR alone**) can build any circuit. That's why early chips and today's standard-cell libraries lean on them.
+
+| To build | NAND gates | How (NAND) | NOR gates |
+| --- | --- | --- | --- |
+| NOT | 1 | tie both inputs together | 1 |
+| AND | 2 | NAND then NOT | **3** |
+| OR | 3 | invert each input, then NAND (De Morgan) | 2 |
+| XOR | 4 | — | 5 |
+| XNOR | 5 | — | 4 |
+
+**Why AND from NOR needs 3:** De Morgan says `A·B = (A' + B')'`. Two NORs make A' and B'; a third NOR combines them. That answers the model-paper question.
+
+## 4. Gate facts examiners like
+
+- AND/OR/NAND/NOR/XOR can have more than two inputs; XOR with many inputs gives 1 for an **odd** number of 1s → a **parity generator**.
+- Any unused AND/NAND input should be tied HIGH; unused OR/NOR inputs tied LOW (floating CMOS inputs misbehave).
+- **Bubbled gates:** a NAND is equivalent to an OR with inverted inputs; a NOR is equivalent to an AND with inverted inputs (De Morgan, next lesson).
+
+## Check yourself
+
+1. The minimum number of NOR gates needed to make an AND gate is:
+   (a) 1 (b) 2 (c) 3 (d) 4
+
+<details><summary>Answer</summary>(c) 3.</details>
+
+2. Which are universal gates?
+   (a) AND and OR (b) NAND and NOR (c) XOR and XNOR (d) NOT and buffer
+
+<details><summary>Answer</summary>(b)</details>
+
+3. The output of an XOR gate is 1 when:
+   (a) both inputs are 1 (b) both inputs are 0 (c) the inputs are different (d) any input is 1
+
+<details><summary>Answer</summary>(c)</details>
+
+4. A NAND gate's output is 0 only when:
+   (a) all inputs are 0 (b) all inputs are 1 (c) any input is 1 (d) inputs differ
+
+<details><summary>Answer</summary>(b)</details>
+
+5. A three-input XOR gives 1 for inputs 1, 1, 1 because:
+   (a) all are 1 (b) the number of 1s is odd (c) XOR inverts (d) it never does
+
+<details><summary>Answer</summary>(b)</details>
+
+6. A gate whose output can be electrically disconnected from a bus is a:
+   (a) tri-state buffer (b) XNOR (c) open inverter (d) NOR
+
+<details><summary>Answer</summary>(a)</details>

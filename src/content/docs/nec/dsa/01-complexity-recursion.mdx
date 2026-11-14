@@ -1,0 +1,160 @@
+---
+title: "1. Complexity and recursion"
+description: Abstract data types, the formal definitions of Big O, Omega and Theta, counting loops, best/average/worst case, space complexity, recursion and its cost, recurrence relations and the master theorem, and Tower of Hanoi.
+sidebar:
+  label: "1. Complexity, recursion"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** state the asymptotic definitions precisely, find the complexity of any loop nest, and solve recurrences with the master theorem.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.1** (ADTs, asymptotic notations Big O, Big Omega, Big Theta). **Lok Sewa CE unit 7** (complexity analysis, recursion). "Define asymptotic notations with graphs" is a staple 5-marker.
+</Aside>
+
+## 1. Data structures and ADTs
+
+- A **data structure** is a way of organising data in memory so it can be used efficiently. **Linear** (array, stack, queue, linked list) vs **non-linear** (tree, graph); **static** (fixed size — array) vs **dynamic** (grows — linked list).
+- An **abstract data type (ADT)** is a mathematical model defined only by its **operations and their behaviour**, not by how they're implemented. *Stack ADT:* push, pop, top, isEmpty — implemented with an array or a linked list. (In C++ terms: the interface, not the class.)
+- An **algorithm** is a finite sequence of unambiguous steps that takes input and produces output. Properties: **input, output, definiteness, finiteness, effectiveness**.
+
+## 2. Asymptotic notations
+
+For input size n, with positive constants c, c₁, c₂ and n₀:
+
+| Notation | Definition | Meaning |
+| --- | --- | --- |
+| **f(n) = O(g(n))** | f(n) ≤ c·g(n) for all n ≥ n₀ | **upper bound** (grows no faster than g) |
+| **f(n) = Ω(g(n))** | f(n) ≥ c·g(n) for all n ≥ n₀ | **lower bound** |
+| **f(n) = Θ(g(n))** | c₁·g(n) ≤ f(n) ≤ c₂·g(n) for all n ≥ n₀ | **tight bound** (both) |
+| f(n) = o(g(n)) | f(n) < c·g(n) for **every** c > 0 | strictly smaller |
+
+**Proof example.** f(n) = 3n² + 5n + 2 is O(n²): for n ≥ 1, 3n² + 5n + 2 ≤ 3n² + 5n² + 2n² = 10n², so c = 10, n₀ = 1. It is also Ω(n²) (3n² + 5n + 2 ≥ 3n²), hence **Θ(n²)**.
+
+**Growth order** (memorise): 1 < log n < √n < n < n log n < n² < n³ < 2ⁿ < n! < nⁿ.
+
+**Best, average, worst case:** linear search finds the key at position 1 (best, O(1)), on average halfway (n/2 → O(n)), or not at all (worst, O(n)). Worst case is the usual guarantee. **Space complexity** counts extra memory — recursion uses O(depth) stack space.
+
+## 3. Counting loops
+
+```cpp
+for (int i = 0; i < n; i++)          // n
+  for (int j = 0; j < n; j++)        // × n          → O(n²)
+    sum++;
+
+for (int i = 1; i < n; i *= 2)       // log₂ n iterations → O(log n)
+  sum++;
+
+for (int i = 0; i < n; i++)          // Σ (i) = n(n − 1)/2 → O(n²)
+  for (int j = 0; j < i; j++)
+    sum++;
+
+for (int i = 1; i <= n; i++)         // n × log n → O(n log n)
+  for (int j = 1; j <= n; j *= 2)
+    sum++;
+```
+
+Rules: sequential blocks **add** (keep the largest); nested loops **multiply**; drop constants and lower-order terms.
+
+## 4. Recursion
+
+A function that calls itself, with a **base case** that stops it and a **recursive case** that moves towards it. Each call gets a stack frame (parameters, locals, return address). **Tail recursion** — the recursive call is the last action — can be turned into a loop.
+
+| Recursion | Iteration |
+| --- | --- |
+| uses the call stack; O(depth) extra space | constant extra space |
+| elegant for trees, divide and conquer | usually faster (no call overhead) |
+| risk of stack overflow | no such risk |
+
+**Tower of Hanoi:** move n discs from A to C using B, never placing a larger disc on a smaller one.
+
+```cpp
+void hanoi(int n, char from, char to, char via) {
+    if (n == 0) return;
+    hanoi(n - 1, from, via, to);
+    std::cout << "Move disc " << n << " from " << from << " to " << to << '\n';
+    hanoi(n - 1, via, to, from);
+}
+```
+
+T(n) = 2T(n − 1) + 1 → **2ⁿ − 1 moves** (n = 3 → 7 moves) → O(2ⁿ).
+
+**Fibonacci:** naive recursion T(n) = T(n − 1) + T(n − 2) + 1 is **exponential** (≈ 1.618ⁿ) because it recomputes subproblems; memoisation or a loop makes it O(n) — the motivation for dynamic programming (lesson 6).
+
+## 5. Recurrences and the master theorem
+
+For **T(n) = a·T(n/b) + f(n)** (a ≥ 1, b > 1), compare f(n) with **n^(log_b a)**:
+
+| Case | Condition | Result |
+| --- | --- | --- |
+| 1 | f(n) grows **slower**: f(n) = O(n^(log_b a − ε)) | T(n) = Θ(n^(log_b a)) |
+| 2 | **equal**: f(n) = Θ(n^(log_b a)) | T(n) = Θ(n^(log_b a) · log n) |
+| 3 | f(n) grows **faster** (plus a regularity condition) | T(n) = Θ(f(n)) |
+
+| Recurrence | n^(log_b a) | Case | T(n) | Algorithm |
+| --- | --- | --- | --- | --- |
+| T(n) = T(n/2) + 1 | n⁰ = 1 | 2 | **Θ(log n)** | binary search |
+| T(n) = 2T(n/2) + n | n | 2 | **Θ(n log n)** | merge sort |
+| T(n) = 2T(n/2) + 1 | n | 1 | **Θ(n)** | tree traversal |
+| T(n) = 8T(n/2) + n² | n³ | 1 | **Θ(n³)** | naive matrix multiply (divide and conquer) |
+| T(n) = 7T(n/2) + n² | n^2.81 | 1 | **Θ(n^2.81)** | Strassen |
+| T(n) = 2T(n/2) + n² | n | 3 | **Θ(n²)** | |
+
+Not covered by the master theorem: T(n) = T(n − 1) + n → Θ(n²) by substitution (quicksort's worst case); T(n) = 2T(n − 1) + 1 → Θ(2ⁿ).
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Define Big O, Big Omega and Big Theta notations with suitable graphs and examples.
+
+<details>
+<summary>Model answer</summary>
+
+Asymptotic notations describe how an algorithm's running time or space grows as the input size n tends to infinity, ignoring constants and machine details.
+
+**Big O (upper bound).** f(n) = O(g(n)) if there exist positive constants c and n₀ such that 0 ≤ f(n) ≤ c·g(n) for all n ≥ n₀. It gives the worst-case growth. *(Graph: f(n) below c·g(n) to the right of n₀.)* Example: 3n² + 5n + 2 = O(n²) with c = 10, n₀ = 1.
+
+**Big Omega (lower bound).** f(n) = Ω(g(n)) if there exist positive c and n₀ such that 0 ≤ c·g(n) ≤ f(n) for all n ≥ n₀. *(Graph: f(n) above c·g(n).)* Example: 3n² + 5n + 2 = Ω(n²) with c = 3.
+
+**Big Theta (tight bound).** f(n) = Θ(g(n)) if there exist positive c₁, c₂, n₀ such that c₁·g(n) ≤ f(n) ≤ c₂·g(n) for all n ≥ n₀. *(Graph: f(n) sandwiched between c₁·g(n) and c₂·g(n).)* Example: 3n² + 5n + 2 = Θ(n²) with c₁ = 3, c₂ = 10, n₀ = 1.
+
+**Use.** Merge sort is Θ(n log n) in all cases; quicksort is O(n²) worst case and Ω(n log n) best case; linear search is O(n) and Ω(1).
+
+</details>
+
+## Check yourself
+
+1. Which grows fastest?
+   (a) n³ (b) 2ⁿ (c) n log n (d) n!
+
+<details><summary>Answer</summary>(d)</details>
+
+2. `for (i = n; i > 1; i /= 2)` runs:
+   (a) O(n) (b) O(log n) (c) O(n²) (d) O(1)
+
+<details><summary>Answer</summary>(b)</details>
+
+3. T(n) = 2T(n/2) + n solves to:
+   (a) Θ(n) (b) Θ(n log n) (c) Θ(n²) (d) Θ(log n)
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Big Omega gives:
+   (a) an upper bound (b) a lower bound (c) a tight bound (d) the average case
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Minimum moves for Tower of Hanoi with 4 discs:
+   (a) 8 (b) 15 (c) 16 (d) 31
+
+<details><summary>Answer</summary>(b) 2⁴ − 1.</details>
+
+6. The data structure used to implement recursion is:
+   (a) queue (b) stack (c) heap (d) tree
+
+<details><summary>Answer</summary>(b)</details>
+
+7. An ADT specifies:
+   (a) the implementation (b) operations and behaviour, not implementation (c) memory layout (d) a programming language
+
+<details><summary>Answer</summary>(b)</details>

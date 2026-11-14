@@ -1,0 +1,177 @@
+---
+title: "4. IP addressing and subnetting"
+description: IPv4 address structure, classful addressing, special and private addresses, subnet masks, subnetting step by step (including the reported Lok Sewa question), VLSM, CIDR and supernetting, NAT, and a fast subnetting method.
+sidebar:
+  label: "4. IP addressing, subnetting"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+import SubnetLab from '@components/visuals/networks/SubnetLab.astro';
+
+**Goal:** subnet any block into n subnets, find a host's network, broadcast and range, design a VLSM plan, and do it all in under four minutes.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 5.3** (Internet and classful addressing, subnetting). **Lok Sewa CE unit 1** — "subnet 200.168.10.0/24 into 7 subnets and find a host's network, broadcast and range" is a reported CE 2078 question; it is worked in full below. Expect at least 1–2 NEC MCQs from this lesson.
+</Aside>
+
+## 1. IPv4 addresses
+
+32 bits, written as four decimal **octets**: 192.168.1.10 = 11000000.10101000.00000001.00001010. Each address has a **network part** and a **host part**; the **subnet mask** (1s over the network part) says where the split is.
+
+- **Network address** = address AND mask (host bits all 0) — names the network; not given to a host.
+- **Broadcast address** = host bits all 1 — reaches every host on the network.
+- **Usable hosts** = 2^h − 2 (h = host bits).
+- **CIDR notation** /n = n network bits: /24 = 255.255.255.0.
+
+## 2. Classful addressing (historical, still examined)
+
+| Class | First octet | Leading bits | Default mask | Networks | Hosts per network |
+| --- | --- | --- | --- | --- | --- |
+| A | 1–126 | 0 | /8 (255.0.0.0) | 126 | 16,777,214 |
+| B | 128–191 | 10 | /16 (255.255.0.0) | 16,384 | 65,534 |
+| C | 192–223 | 110 | /24 (255.255.255.0) | 2,097,152 | 254 |
+| D | 224–239 | 1110 | — | multicast | — |
+| E | 240–255 | 1111 | — | reserved | — |
+
+**Special addresses:** 127.0.0.0/8 loopback (127.0.0.1 = localhost); 0.0.0.0 "this host"; 255.255.255.255 limited broadcast; 169.254.0.0/16 link-local (APIPA — no DHCP reply).
+
+**Private ranges** (RFC 1918, not routed on the Internet): **10.0.0.0/8, 172.16.0.0/12 (172.16–172.31), 192.168.0.0/16**.
+
+Classful addressing wasted space (a class B for 300 hosts wastes 65,000), so **CIDR** (classless) replaced it: any prefix length.
+
+## 3. Subnetting
+
+Borrow host bits to make subnets.
+- Need n subnets → borrow **s = ⌈log₂ n⌉** bits.
+- New prefix = old prefix + s. Subnets = 2^s; hosts per subnet = 2^(h − s) − 2.
+- **Block size** (the step between subnets) = 256 − (mask value in the interesting octet) = 2^(remaining host bits in that octet).
+
+<SubnetLab />
+
+### Worked (reported CE 2078): 200.168.10.0/24 into 7 subnets; host 200.168.10.75
+
+1. 7 subnets → s = ⌈log₂ 7⌉ = **3** bits → **/27**, mask **255.255.255.224** (11100000 = 224).
+2. Block size = 256 − 224 = **32**; hosts per subnet = 2⁵ − 2 = **30**; 2³ = 8 subnets (one spare).
+3. Subnets:
+
+| # | Network | First host | Last host | Broadcast |
+| --- | --- | --- | --- | --- |
+| 0 | 200.168.10.0 | .1 | .30 | .31 |
+| 1 | 200.168.10.32 | .33 | .62 | .63 |
+| 2 | **200.168.10.64** | **.65** | **.94** | **.95** |
+| 3 | 200.168.10.96 | .97 | .126 | .127 |
+| 4 | 200.168.10.128 | .129 | .158 | .159 |
+| 5 | 200.168.10.160 | .161 | .190 | .191 |
+| 6 | 200.168.10.192 | .193 | .222 | .223 |
+| 7 | 200.168.10.224 | .225 | .254 | .255 |
+
+4. Host .75 lies in 64–95: network **200.168.10.64/27**, broadcast **200.168.10.95**, usable **.65–.94**.
+   Check by AND: 75 = 01001011; AND 11100000 = 01000000 = 64 ✓.
+
+(If an examiner follows the old rule that excludes the all-zeros and all-ones subnets, 2³ − 2 = 6 < 7, and you would borrow 4 bits instead. State your assumption in one line — CIDR uses all subnets.)
+
+### The four-minute method
+
+1. Write the interesting octet's mask bits: borrowing s bits gives masks 128, 192, 224, 240, 248, 252 for s = 1 … 6.
+2. Block size = 256 − mask.
+3. Network of a host = largest multiple of the block size ≤ the host's octet value.
+4. Broadcast = next network − 1. First/last host = network + 1 / broadcast − 1.
+
+**Class B example.** 172.16.0.0/16 into 50 subnets → s = 6 → /22 (mask 255.255.252.0); block **4 in the third octet**; hosts = 2¹⁰ − 2 = 1022. Host 172.16.45.10 → 45 lies in 44–47 → network 172.16.44.0, broadcast 172.16.47.255.
+
+## 4. VLSM — variable-length subnet masks
+
+Give each subnet only the size it needs. **Sort by size, largest first**, allocate in order.
+
+**Example.** 192.168.1.0/24 for LANs of 100, 50 and 25 hosts and a 2-host point-to-point link:
+
+| Need | Smallest fit | Subnet | Usable range | Broadcast |
+| --- | --- | --- | --- | --- |
+| 100 | /25 (126) | 192.168.1.0/25 | .1–.126 | .127 |
+| 50 | /26 (62) | 192.168.1.128/26 | .129–.190 | .191 |
+| 25 | /27 (30) | 192.168.1.192/27 | .193–.222 | .223 |
+| 2 | /30 (2) | 192.168.1.224/30 | .225–.226 | .227 |
+
+Left over: 192.168.1.228–.255 for growth. Fixed-length subnetting couldn't fit this into one /24.
+
+## 5. Supernetting and route aggregation
+
+Combine contiguous blocks into one shorter prefix — fewer routing-table entries. 200.1.0.0/24, 200.1.1.0/24, 200.1.2.0/24, 200.1.3.0/24 share the first 22 bits → **200.1.0.0/22**. (Blocks must be contiguous, a power of 2 in number, and the first must start on a boundary of the combined size.)
+
+## 6. NAT and DHCP (in brief)
+
+- **NAT** (network address translation): a router rewrites private source addresses to its public address. **PAT/NAPT** also rewrites ports, so a whole home network shares one public IP. Saves IPv4 addresses and hides internal structure; breaks end-to-end addressing.
+- **DHCP** hands out addresses automatically (lesson 7).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** An organisation has 200.168.10.0/24 and needs 7 subnets. Find the subnet mask, number of hosts per subnet, all subnet addresses, and the network address, broadcast address and valid host range of the subnet containing 200.168.10.75.
+
+<details>
+<summary>Model answer</summary>
+
+**Given:** class C block 200.168.10.0/24 → 8 host bits.
+
+**Bits to borrow:** 2^s ≥ 7 → s = 3 (8 subnets, using CIDR's rule that all subnets are usable).
+
+**New mask:** /24 + 3 = **/27** = 11111111.11111111.11111111.**111**00000 = **255.255.255.224**.
+
+**Hosts per subnet:** 2⁵ − 2 = **30**. Block size = 256 − 224 = 32.
+
+**Subnets:** 200.168.10.0, .32, .64, .96, .128, .160, .192, .224 (each /27). *(Draw the full table with first host, last host, broadcast.)*
+
+**Subnet of 200.168.10.75:** 75 AND 224: 01001011 AND 11100000 = 01000000 = 64.
+- Network address: **200.168.10.64**
+- Broadcast address: **200.168.10.95**
+- Valid hosts: **200.168.10.65 – 200.168.10.94** (30 hosts)
+
+*(If the all-zeros and all-ones subnets are excluded, borrow 4 bits: /28, mask 255.255.255.240, 14 hosts each; host .75 → network .64, broadcast .79, hosts .65–.78.)*
+
+</details>
+
+## Check yourself
+
+1. 172.20.5.9 is:
+   (a) class A public (b) class B private (c) class C private (d) class B public
+
+<details><summary>Answer</summary>(b) 172.16–172.31.</details>
+
+2. Usable hosts in a /26:
+   (a) 62 (b) 64 (c) 30 (d) 126
+
+<details><summary>Answer</summary>(a)</details>
+
+3. Mask for /28:
+   (a) 255.255.255.224 (b) 255.255.255.240 (c) 255.255.255.248 (d) 255.255.255.192
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Network address of 192.168.5.130/25:
+   (a) 192.168.5.0 (b) 192.168.5.128 (c) 192.168.5.130 (d) 192.168.5.127
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Broadcast address of 10.1.1.10/30:
+   (a) 10.1.1.11 (b) 10.1.1.12 (c) 10.1.1.15 (d) 10.1.1.255
+
+<details><summary>Answer</summary>(a) block 4: 8–11.</details>
+
+6. 127.0.0.1 is the:
+   (a) default gateway (b) loopback address (c) broadcast (d) private class A address
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Aggregating 192.168.0.0/24 to 192.168.7.0/24 gives:
+   (a) /21 (b) /22 (c) /23 (d) /20
+
+<details><summary>Answer</summary>(a) eight blocks = 3 bits.</details>
+
+8. A point-to-point link needs exactly 2 hosts. The best prefix is:
+   (a) /29 (b) /30 (c) /31 (d) /32
+
+<details><summary>Answer</summary>(b) for exam purposes (/31 is allowed on modern routers, RFC 3021).</details>
+
+9. Bits to borrow from a class C network for 12 subnets:
+   (a) 3 (b) 4 (c) 5 (d) 12
+
+<details><summary>Answer</summary>(b)</details>

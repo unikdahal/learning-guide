@@ -1,0 +1,146 @@
+---
+title: "5. Pipelining and parallel processing"
+description: Instruction pipelining from scratch — the space-time diagram, speed-up, efficiency and throughput numericals, unequal stage delays, structural, data and control hazards and their fixes, and Flynn's classification with vector and array processors.
+sidebar:
+  label: "5. Pipelining and parallelism"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+import PipelineLab from '@components/visuals/org/PipelineLab.astro';
+
+**Goal:** solve any pipeline timing numerical, name and fix the three hazards, and classify a machine with Flynn's taxonomy.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 4.1** (pipelining, parallel processing); the model paper asks the ideal CPI of a pipeline. **Lok Sewa CE unit 2** (pipelining), plus **15.2 parallel computing** in Section C. Speed-up numericals are quick, reliable marks.
+</Aside>
+
+## 1. The idea
+
+Laundry: wash 30 min, dry 30 min, fold 30 min. Four loads one after another take 6 hours. But while load 1 dries, load 2 can wash — overlapped, the four loads take 3 hours. Each load still takes 90 minutes (**latency** unchanged), but a load finishes every 30 minutes (**throughput** up).
+
+An instruction pipeline splits execution into **k stages** separated by latches (registers), all clocked together. The classic 5-stage RISC pipeline: **IF** (fetch) → **ID** (decode, read registers) → **EX** (ALU) → **MEM** (memory access) → **WB** (write back).
+
+<PipelineLab />
+
+## 2. The numbers
+
+With k stages, n instructions, and stage (clock) time τ:
+
+| Quantity | Formula |
+| --- | --- |
+| Non-pipelined time | n · k · τ (if each instruction takes kτ) |
+| Pipelined time | **(k + n − 1) · τ** — k cycles to fill, then one per cycle |
+| Speed-up S | **n·k / (k + n − 1)** → **k** as n → ∞ |
+| Efficiency | S / k = n / (k + n − 1) |
+| Throughput | n / ((k + n − 1) · τ) → 1/τ instructions per second |
+| Ideal CPI | **1** |
+
+**Example 1.** k = 4, n = 100, τ = 20 ns. Pipelined: (4 + 99) × 20 = **2060 ns**. Non-pipelined: 100 × 4 × 20 = 8000 ns. Speed-up = 8000/2060 ≈ **3.88** (close to 4).
+
+**Example 2 — unequal stages.** Stage delays 60, 50, 90, 80 ns; latch delay 10 ns; 1000 instructions.
+- Clock period = slowest stage + latch = 90 + 10 = **100 ns**.
+- Non-pipelined: each instruction 60 + 50 + 90 + 80 = 280 ns → 280,000 ns.
+- Pipelined: (4 + 999) × 100 = 100,300 ns.
+- Speed-up ≈ **2.79** — the slowest stage and the latches eat the ideal 4×. Balance the stages.
+
+## 3. Hazards — why real pipelines don't reach k
+
+A **hazard** stops the next instruction from entering its stage on time, forcing a **stall** (bubble).
+
+**Structural hazard** — two instructions need the same hardware in the same cycle (e.g. one memory port for both IF and MEM). Fix: duplicate resources — **separate instruction and data caches** (modified Harvard, lesson 1).
+
+**Data hazard** — an instruction needs a result that isn't ready yet.
+- **RAW** (read after write) — true dependency: `ADD R1, R2, R3` then `SUB R4, R1, R5`. The common one.
+- **WAR** (write after read) and **WAW** (write after write) — name dependencies; matter in out-of-order machines; fixed by **register renaming**.
+- Fixes: **forwarding/bypassing** (pass the ALU result straight to the next instruction's EX input), **stalling**, **compiler scheduling** (reorder independent instructions into the gap). A load followed immediately by a use still needs one stall (load-use hazard).
+
+**Control hazard** — a branch: until it resolves, we don't know which instruction to fetch. Fixes: **stall** until resolved, **branch prediction** (static: predict not-taken / backward-taken; dynamic: a branch history table with 2-bit counters), **delayed branch** (the instruction after the branch always executes — compiler fills the slot), **branch target buffer**.
+
+With stalls: **CPI = 1 + stall cycles per instruction**. If 20% of instructions are branches with a 2-cycle penalty: CPI = 1 + 0.2 × 2 = **1.4**.
+
+## 4. Parallel processing and Flynn's classification
+
+Classified by the number of **instruction streams** and **data streams**:
+
+| Class | Meaning | Example |
+| --- | --- | --- |
+| **SISD** | single instruction, single data | a classic uniprocessor (pipelining still possible) |
+| **SIMD** | one instruction on many data at once | **vector and array processors**, GPUs, SSE/AVX |
+| **MISD** | many instructions on one data stream | rare; fault-tolerant systems (e.g. flight control) |
+| **MIMD** | many processors, each with its own instructions and data | multiprocessors, multicore, clusters (lesson 7) |
+
+- **Vector processor:** one instruction operates on whole vectors (`V3 ← V1 + V2`) through a deeply pipelined functional unit; good for scientific loops.
+- **Array processor:** many identical processing elements run the same instruction in lockstep on different data (SIMD).
+- **Superscalar:** several pipelines issue more than one instruction per cycle (CPI < 1). **VLIW:** the compiler packs several operations into one long instruction.
+- **Amdahl's law:** if a fraction f of a program can be sped up by S, overall speed-up = 1 / ((1 − f) + f/S). With f = 0.9 and unlimited processors, the limit is 1/0.1 = **10** — the serial part dominates.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is pipelining? Draw a space-time diagram for a 4-stage pipeline executing 6 instructions and derive the speed-up. Explain pipeline hazards.
+
+<details>
+<summary>Model answer</summary>
+
+**Pipelining** is a technique of decomposing a sequential process into sub-operations (stages), each executed in a dedicated segment that operates concurrently with the others. Instructions overlap: while one is executed, the next is decoded and the one after is fetched. Stages are separated by latches and driven by a common clock.
+
+**Space-time diagram** (k = 4: FI, DA, FO, EX; n = 6):
+
+| Cycle → | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| FI | I1 | I2 | I3 | I4 | I5 | I6 | | | |
+| DA | | I1 | I2 | I3 | I4 | I5 | I6 | | |
+| FO | | | I1 | I2 | I3 | I4 | I5 | I6 | |
+| EX | | | | I1 | I2 | I3 | I4 | I5 | I6 |
+
+Total = k + n − 1 = 4 + 6 − 1 = **9 cycles** instead of n·k = 24.
+
+**Speed-up.** Non-pipelined time = n·k·τ (equal stage time τ); pipelined = (k + n − 1)τ. S = nk / (k + n − 1) = 24/9 ≈ 2.67. As n → ∞, S → k: the maximum speed-up equals the number of stages.
+
+**Hazards.**
+1. **Structural:** resource conflict (one memory for instructions and data). Remedy: separate caches, duplicated units.
+2. **Data:** an instruction depends on the result of a previous one still in the pipeline (RAW, WAR, WAW). Remedy: operand forwarding, stalls, compiler reordering.
+3. **Control:** branch instructions change the flow; following fetched instructions may be wrong. Remedy: branch prediction, delayed branch, prefetching the target, branch target buffer.
+
+</details>
+
+## Check yourself
+
+1. The ideal CPI of a pipelined processor is:
+   (a) 0 (b) 1 (c) k (d) n
+
+<details><summary>Answer</summary>(b)</details>
+
+2. A 5-stage pipeline executes 10 instructions in how many cycles (no stalls)?
+   (a) 50 (b) 15 (c) 14 (d) 10
+
+<details><summary>Answer</summary>(c) 5 + 10 − 1.</details>
+
+3. The maximum speed-up of a k-stage pipeline is:
+   (a) n (b) k (c) k + n − 1 (d) 1
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Operand forwarding is used to reduce:
+   (a) structural hazards (b) data hazards (c) control hazards (d) cache misses
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Branch prediction addresses:
+   (a) structural hazards (b) data hazards (c) control hazards (d) WAW hazards
+
+<details><summary>Answer</summary>(c)</details>
+
+6. Vector processors belong to:
+   (a) SISD (b) SIMD (c) MISD (d) MIMD
+
+<details><summary>Answer</summary>(b)</details>
+
+7. A pipeline's clock period is set by:
+   (a) the fastest stage (b) the average stage (c) the slowest stage plus latch delay (d) the number of stages
+
+<details><summary>Answer</summary>(c)</details>
+
+8. By Amdahl's law, if 80% of a program is parallelisable, the maximum speed-up is:
+   (a) 4 (b) 5 (c) 8 (d) unlimited
+
+<details><summary>Answer</summary>(b) 1/0.2.</details>

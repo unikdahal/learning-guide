@@ -1,0 +1,30 @@
+---
+title: "DSA for the exam: start here"
+description: NEC 7.1–7.2 and Lok Sewa CE unit 7 — data structures and algorithms written the way the exam marks them, with hand traces, C++ code, labs and model answers.
+sidebar:
+  label: "0. Start here"
+  order: 0
+---
+import { Aside } from '@astrojs/starlight/components';
+
+This course covers **NEC 7.1–7.2** and **Lok Sewa Computer Engineer unit 7 (data structures and algorithms)**; for Computer Officer it is the DSA 8% of Paper II.
+
+<Aside type="note" title="You already know this — the course is about exam form">
+You write and reason about these structures for a living. What the exam wants is different: **hand traces** (stack contents while converting infix to postfix, an AVL rotation, a probe sequence, a Prim table), **textbook definitions and complexities**, and **structured written answers**. So each lesson is short on "what is a stack" and long on traces you can reproduce on paper in eight minutes. Code is in C++.
+</Aside>
+
+## The path
+
+| # | Lesson | Exam skill |
+| --- | --- | --- |
+| 1 | [Complexity and recursion](/learning-guide/nec/dsa/01-complexity-recursion/) | Big O/Ω/Θ definitions, loop counting, recurrences and the master theorem |
+| 2 | [Stacks, queues and linked lists](/learning-guide/nec/dsa/02-linear-structures/) | infix → postfix/prefix traces, postfix evaluation, circular queue, list operations |
+| 3 | [Trees](/learning-guide/nec/dsa/03-trees/) | traversals, rebuilding a tree, BST delete, AVL rotations, heaps, B-trees, Huffman |
+| 4 | [Sorting, searching and hashing](/learning-guide/nec/dsa/04-sorting-searching-hashing/) | pass-by-pass sort traces, binary search, probing sequences |
+| 5 | [Graphs](/learning-guide/nec/dsa/05-graphs/) | representations, BFS/DFS, topological sort, Prim, Kruskal, Warshall |
+| 6 | [Algorithm design](/learning-guide/nec/dsa/06-algorithm-design/) | greedy vs divide and conquer vs DP, knapsack and LCS tables |
+| 7 | [Review test](/learning-guide/nec/dsa/07-review/) | 25 timed MCQs plus written practice |
+
+<Aside type="tip" title="Where it fits in your plan">
+Plan v2, **Wed 16 Dec** morning block: lessons 1–7 at speed (about 3 hours — skim what you know, do every trace). The DBMS course takes the evening block. Lesson 3's AVL rotations and lesson 6's DP tables are the Lok Sewa "extras".
+</Aside>

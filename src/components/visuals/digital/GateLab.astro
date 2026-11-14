@@ -1,0 +1,212 @@
+---
+// Logic gate lab: pick a gate, toggle inputs A and B, see the symbol light up and the live truth-table row.
+---
+
+<qe-gate class="qe-lab qe-gate not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Logic gate lab</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Gate">
+      <button type="button" data-g="AND" aria-pressed="true">AND</button>
+      <button type="button" data-g="OR" aria-pressed="false">OR</button>
+      <button type="button" data-g="NOT" aria-pressed="false">NOT</button>
+      <button type="button" data-g="NAND" aria-pressed="false">NAND</button>
+      <button type="button" data-g="NOR" aria-pressed="false">NOR</button>
+      <button type="button" data-g="XOR" aria-pressed="false">XOR</button>
+      <button type="button" data-g="XNOR" aria-pressed="false">XNOR</button>
+    </div>
+    <div class="row">
+      <div class="ins">
+        <button type="button" class="in" data-in="a" aria-pressed="false">A = 0</button>
+        <button type="button" class="in" data-in="b" aria-pressed="false">B = 0</button>
+      </div>
+      <svg viewBox="0 0 220 120" role="img" aria-label="The chosen gate's symbol with its inputs on the left and output on the right; lit wires carry 1." class="sym">
+        <line data-wa x1="0" y1="45" x2="60" y2="45" class="wire" />
+        <line data-wb x1="0" y1="75" x2="60" y2="75" class="wire" />
+        <path data-x class="body" fill="none" />
+        <path data-body class="body" />
+        <circle data-bub r="6" class="body" />
+        <line data-wy y1="60" x2="220" y2="60" class="wire" />
+      </svg>
+      <p class="y">Y = <output data-y>0</output></p>
+    </div>
+    <table class="tt">
+      <thead><tr><th scope="col">A</th><th scope="col" data-bh>B</th><th scope="col">Y</th></tr></thead>
+      <tbody data-tt></tbody>
+    </table>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-gate>
+
+<script>
+  const F: Record<string, (a: number, b: number) => number> = {
+    AND: (a, b) => a & b,
+    OR: (a, b) => a | b,
+    NOT: (a) => 1 - a,
+    NAND: (a, b) => 1 - (a & b),
+    NOR: (a, b) => 1 - (a | b),
+    XOR: (a, b) => a ^ b,
+    XNOR: (a, b) => 1 - (a ^ b),
+  };
+  const EXPR: Record<string, string> = {
+    AND: 'Y = A·B', OR: 'Y = A + B', NOT: "Y = A'", NAND: "Y = (A·B)'", NOR: "Y = (A + B)'", XOR: 'Y = A ⊕ B', XNOR: "Y = (A ⊕ B)'",
+  };
+  const MEANING: Record<string, string> = {
+    AND: 'Output is 1 only when ALL inputs are 1 — like two switches in series.',
+    OR: 'Output is 1 when ANY input is 1 — like two switches in parallel.',
+    NOT: 'The inverter: output is the opposite of the input.',
+    NAND: 'AND followed by NOT: 0 only when all inputs are 1. A universal gate — any circuit can be built from NANDs alone.',
+    NOR: 'OR followed by NOT: 1 only when all inputs are 0. Also universal.',
+    XOR: 'Exclusive OR: 1 when the inputs DIFFER. The heart of binary addition (sum bit) and parity checking.',
+    XNOR: 'Equivalence: 1 when the inputs are the SAME. Used in comparators.',
+  };
+  class QeGate extends HTMLElement {
+    g = 'AND';
+    a = 0;
+    b = 0;
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const shape = () => {
+        const g = this.g;
+        const body = $('[data-body]'), x = $('[data-x]'), bub = $('[data-bub]');
+        const isOr = g === 'OR' || g === 'NOR' || g === 'XOR' || g === 'XNOR';
+        const isNot = g === 'NOT';
+        const bubble = g === 'NOT' || g === 'NAND' || g === 'NOR' || g === 'XNOR';
+        if (isNot) body.setAttribute('d', 'M60 35 L60 85 L110 60 Z');
+        else if (isOr) body.setAttribute('d', 'M60 30 Q78 60 60 90 Q100 90 125 60 Q100 30 60 30 Z');
+        else body.setAttribute('d', 'M60 30 H95 A30 30 0 0 1 95 90 H60 Z');
+        x.setAttribute('d', g === 'XOR' || g === 'XNOR' ? 'M50 30 Q68 60 50 90' : '');
+        const outX = isNot ? 110 : isOr ? 125 : 125;
+        bub.style.display = bubble ? '' : 'none';
+        bub.setAttribute('cx', String(outX + 6));
+        bub.setAttribute('cy', '60');
+        $('[data-wy]').setAttribute('x1', String(bubble ? outX + 12 : outX));
+        ($('[data-wb]') as HTMLElement).style.display = isNot ? 'none' : '';
+        $('[data-wa]').setAttribute('y1', isNot ? '60' : '45');
+        $('[data-wa]').setAttribute('y2', isNot ? '60' : '45');
+        $('[data-wa]').setAttribute('x2', g === 'XOR' || g === 'XNOR' ? '62' : isOr ? '68' : '60');
+        $('[data-wb]').setAttribute('x2', g === 'XOR' || g === 'XNOR' ? '62' : isOr ? '68' : '60');
+      };
+      const update = () => {
+        const f = F[this.g];
+        const y = f(this.a, this.b);
+        const one = this.g === 'NOT';
+        $('[data-in="a"]').textContent = `A = ${this.a}`;
+        $('[data-in="b"]').textContent = `B = ${this.b}`;
+        $('[data-in="a"]').setAttribute('aria-pressed', String(!!this.a));
+        $('[data-in="b"]').setAttribute('aria-pressed', String(!!this.b));
+        ($('[data-in="b"]') as HTMLElement).style.visibility = one ? 'hidden' : '';
+        ($('[data-y]') as HTMLOutputElement).value = String(y);
+        $('[data-wa]').classList.toggle('on', !!this.a);
+        $('[data-wb]').classList.toggle('on', !!this.b);
+        $('[data-wy]').classList.toggle('on', !!y);
+        ($('[data-bh]') as HTMLElement).style.display = one ? 'none' : '';
+        const rows = one ? [[0, 0], [1, 0]] : [[0, 0], [0, 1], [1, 0], [1, 1]];
+        $('[data-tt]').innerHTML = rows
+          .map(([a, b]) => {
+            const cur = a === this.a && (one || b === this.b);
+            return `<tr class="${cur ? 'cur' : ''}"><td>${a}</td>${one ? '' : `<td>${b}</td>`}<td>${f(a, b)}</td></tr>`;
+          })
+          .join('');
+        $('[data-note]').textContent = `${EXPR[this.g]}. ${MEANING[this.g]}`;
+      };
+      this.querySelectorAll<HTMLButtonElement>('[data-g]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.g = b.dataset.g!;
+          this.querySelectorAll('[data-g]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          shape();
+          update();
+        }),
+      );
+      this.querySelectorAll<HTMLButtonElement>('[data-in]').forEach((b) =>
+        b.addEventListener('click', () => {
+          if (b.dataset.in === 'a') this.a ^= 1;
+          else this.b ^= 1;
+          update();
+        }),
+      );
+      shape();
+      update();
+    }
+  }
+  customElements.define('qe-gate', QeGate);
+</script>
+
+<style>
+  .row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.8rem;
+    align-items: center;
+    margin: 0.9rem 0;
+  }
+  .ins {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .in {
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    padding: 0.4rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .in[aria-pressed='true'] {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .sym {
+    width: 100%;
+    max-width: 260px;
+    height: auto;
+  }
+  .wire {
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 4;
+  }
+  .wire.on {
+    stroke: var(--qe-pipe-build);
+  }
+  .body {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--sl-color-gray-1);
+    stroke-width: 2.5;
+  }
+  .y {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--sl-color-white);
+  }
+  .tt {
+    width: auto;
+    margin: 0 auto;
+    border-collapse: collapse;
+    font-family: var(--sl-font-mono);
+  }
+  .tt th,
+  :global(.qe-gate .tt td) {
+    padding: 0.25rem 1.1rem;
+    text-align: center;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    color: var(--sl-color-gray-1);
+  }
+  :global(.qe-gate .tt tr.cur td) {
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-white);
+    font-weight: 700;
+  }
+  @media (max-width: 30rem) {
+    .row {
+      grid-template-columns: 1fr;
+      justify-items: center;
+    }
+    .ins {
+      grid-auto-flow: column;
+    }
+  }
+</style>

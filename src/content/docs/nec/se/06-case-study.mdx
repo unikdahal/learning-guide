@@ -1,0 +1,146 @@
+---
+title: "6. Worked case study (Section D, 20 marks)"
+description: A complete model answer to a Lok Sewa Section D case study — online revenue payment system — with problem analysis, feasibility, process model choice, requirements, context and level-0 DFD, use case and sequence diagrams, ER design normalised to tables, architecture, testing and deployment, plus a plan for answering any case study in 32 minutes.
+sidebar:
+  label: "6. Case study (20 marks)"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import SeDiagram from '@components/visuals/se/SeDiagram.astro';
+
+**Goal:** write a full 20-mark case-study answer in about 32 minutes, combining software engineering, DBMS and (where asked) OS and networking.
+
+<Aside type="note" title="Where this scores for you">
+**Lok Sewa CE Section D, 16.2 case study (20 marks):** "analysis and design of a software system from a scenario, using one paradigm; may combine software engineering, DBMS and OS". Reported scenarios: **online revenue payment** (feasibility, use case, sequence, ER — CE 2079) and **school graduation** (DFD and relationships — CE 2078). This lesson is the first; the method transfers to any scenario.
+</Aside>
+
+## 1. The plan for any case study (32 minutes)
+
+| Minutes | Do |
+| --- | --- |
+| 0–3 | Read twice; underline actors, data, rules, numbers; note exactly what's asked |
+| 3–6 | State assumptions and scope in 4–6 bullets |
+| 6–10 | Feasibility (if asked) and process model with justification |
+| 10–14 | Requirements: 6–8 functional, 4–5 non-functional |
+| 14–26 | **The diagrams asked for** — context + level-0 DFD, or use case + sequence, plus ER → tables |
+| 26–30 | Architecture/technology, security, testing, deployment — one short paragraph each |
+| 30–32 | Conclusion; check every part of the question is answered and labelled |
+
+Rules: **answer what is asked first** (diagrams carry most marks); label everything; use one paradigm consistently (structured: DFD + ER; object-oriented: use case + sequence + class); state assumptions instead of leaving gaps.
+
+## 2. The question
+
+> The Inland Revenue Department wants an **online revenue payment system**. Taxpayers register with their PAN, file annual tax returns, see the tax assessed, and pay online through partner banks or payment gateways; they download e-receipts. Revenue officers maintain tax rates, verify payments and view collection reports by tax office and fiscal year. **(a)** Discuss its feasibility. **(b)** Draw a use case diagram and describe one use case. **(c)** Draw a sequence diagram for online payment. **(d)** Design the database with an ER diagram and normalised tables. **(e)** Suggest an architecture and how you would test it. *(20)*
+
+## 3. Model answer
+
+### Assumptions and scope
+
+- Covers income-tax returns for individuals and firms identified by PAN; other taxes later.
+- Payment through bank gateways and e-banking; the bank sends a confirmation with a transaction ID.
+- Tax rates/slabs are maintained by officers each fiscal year.
+- Web application (responsive for mobile), bilingual Nepali/English.
+- Integrates with the existing PAN database (read-only).
+
+### (a) Feasibility
+
+- **Technical:** web, database and payment-gateway technologies are mature and available in Nepal (bank gateways and e-wallets offer APIs); existing PAN data can be integrated; the department needs hosting at the government data centre with backup. **Feasible.**
+- **Economic:** costs — development, hardware/hosting, gateway fees, training, maintenance. Benefits — fewer queues and counters, faster collection, lower cash handling and errors, better reporting, more compliance. Benefits exceed costs within a few years. **Feasible.**
+- **Operational:** taxpayers increasingly use mobile banking; officers gain better reports; resistance from staff and low digital literacy are risks, mitigated by training, help desks and keeping counter payment during transition. **Feasible with training.**
+- **Schedule:** a core release (register, file, pay, receipt) in about 6 months, reports in a second increment — before the next fiscal-year filing peak. **Feasible.**
+- **Legal:** must comply with the Income Tax Act, Electronic Transactions Act (digital receipts and signatures) and data-privacy requirements; agreements with banks needed. **Feasible.**
+
+**Process model:** **incremental** (or Agile with fixed increments) — core payment first, reports and analytics later; requirements will change with each Finance Act; early delivery before the filing season.
+
+### Requirements
+
+**Functional.** FR1 register taxpayer by PAN with OTP verification; FR2 log in securely; FR3 file a tax return; FR4 compute tax from the current rates; FR5 pay by gateway/e-banking; FR6 issue a digitally signed e-receipt; FR7 officers maintain rates and verify payments; FR8 reports by office, fiscal year and tax type.
+
+**Non-functional.** Security (HTTPS, hashed passwords, role-based access, audit trail); performance (payment confirmation within 3 s; 5,000 concurrent users at peak); availability 99.5% in the filing season; usability (bilingual, mobile-friendly); reliability (no lost payments — idempotent payment handling and daily reconciliation with banks).
+
+### (b) Use case diagram and description
+
+<Figure caption="Use case diagram for the online revenue payment system.">
+  <SeDiagram name="usecase" label="Use case diagram. Inside a boundary labelled Online revenue payment system are use cases Register, Log in, File tax return, Pay tax, Download receipt and Generate reports. The Taxpayer actor is associated with Register, Log in, File tax return, Pay tax and Download receipt. The Bank actor is associated with Pay tax; the Revenue officer with Generate reports. File tax return and Pay tax include Log in." />
+</Figure>
+
+**Use case: Pay tax.**
+- **Actors:** Taxpayer (primary), Bank/payment gateway (secondary).
+- **Precondition:** taxpayer logged in; an unpaid assessment exists.
+- **Main flow:** (1) taxpayer selects the assessment; (2) system shows the amount due; (3) taxpayer chooses a payment method and confirms; (4) system sends a payment request to the bank; (5) bank authorises and returns a transaction ID; (6) system records the payment, marks the assessment paid and generates an e-receipt; (7) taxpayer downloads the receipt.
+- **Alternative flows:** 5a payment declined → show the reason, allow retry; 5b gateway timeout → mark "pending", reconcile with the bank later, notify the taxpayer.
+- **Postcondition:** payment stored; assessment status "Paid"; receipt available.
+
+### (c) Sequence diagram — online payment
+
+<Figure caption="Sequence diagram for paying tax online.">
+  <SeDiagram name="sequence" label="Sequence diagram with lifelines Taxpayer, PaymentUI, PaymentController, BankGateway and PaymentDB. selectPay, getAmountDue, findAssessment, returns of assessment and amount due, confirm(card), pay, charge returning transactionId, save(payment), and the e-receipt returned to the Taxpayer." />
+</Figure>
+
+### (d) ER diagram and tables
+
+**Entities and relationships** *(draw with Chen notation)*: **Taxpayer** (PAN, name, type, address, phone, email) **files** 1:N **TaxReturn** (return_id, fiscal_year, income, deductions, filed_on); TaxReturn **produces** 1:1 **Assessment** (assessment_id, tax_amount, due_date, status); Assessment **settled by** 1:N **Payment** (payment_id, amount, paid_on, method, transaction_id, status) — a partial payment is possible; **Bank** (bank_code, name) **processes** 1:N Payment; **TaxOffice** (office_id, name, district) **administers** 1:N Taxpayer; **Officer** (officer_id, name, role) **works in** N:1 TaxOffice; **TaxRate** (fiscal_year, slab_from, slab_to, rate) — used by assessments.
+
+**Tables (3NF):**
+
+```sql
+TaxOffice(office_id PK, name, district)
+Taxpayer(pan PK, name, type, address, phone, email, office_id FK → TaxOffice)
+TaxReturn(return_id PK, pan FK → Taxpayer, fiscal_year, income, deductions, filed_on,
+          UNIQUE (pan, fiscal_year))
+Assessment(assessment_id PK, return_id FK UNIQUE → TaxReturn, tax_amount, due_date, status)
+Bank(bank_code PK, name)
+Payment(payment_id PK, assessment_id FK → Assessment, bank_code FK → Bank,
+        amount, paid_on, method, transaction_id UNIQUE, status)
+Officer(officer_id PK, name, role, office_id FK → TaxOffice)
+TaxRate(fiscal_year, slab_from, slab_to, rate, PRIMARY KEY (fiscal_year, slab_from))
+```
+
+**Normalisation check:** all attributes atomic (1NF); every table has a single-attribute key or its non-key attributes depend on the whole composite key (TaxRate) — 2NF; no transitive dependencies — e.g. office name and district are kept in TaxOffice, not repeated in Taxpayer (3NF). The `UNIQUE (pan, fiscal_year)` rule enforces one return per year.
+
+### (e) Architecture, security and testing
+
+- **Architecture:** **three-tier** — presentation (web/mobile client), application tier (REST services: registration, filing, assessment, payment, reporting) and data tier (relational DB with replication); payment integration through the gateway's API using callbacks; MVC within the application.
+- **Security:** HTTPS/TLS; OTP-based registration; passwords hashed with salt; role-based access (taxpayer, officer, admin); input validation and parameterised queries (SQL injection); audit logs of every payment and rate change; digitally signed receipts; regular backups and disaster-recovery site.
+- **Testing:** unit tests for tax computation (equivalence partitions per slab, **boundary values at each slab edge**); integration tests with the bank's sandbox (success, decline, timeout, duplicate callback); system tests for load at filing-season peaks (stress test 5,000 users); **UAT** with officers and selected taxpayers (alpha in the department, beta with real users); regression tests on every release.
+- **Deployment and maintenance:** pilot in one tax office, then nationwide; training; help desk; yearly **adaptive maintenance** for new Finance Act rates (held in the TaxRate table, not in code — design for change).
+
+**Conclusion.** The system is feasible, delivered incrementally, with a normalised database, a secure three-tier architecture and thorough testing — reducing queues and errors and improving revenue collection and reporting.
+
+## 4. The second reported scenario — school graduation (outline)
+
+For "a school graduation system — draw the DFD and relationships", reuse the same method:
+- **External entities:** Student, Teacher, Exam section, Principal/Board.
+- **Processes:** 1.0 Register student, 2.0 Record marks, 3.0 Compute results/grades, 4.0 Check graduation eligibility (credits, attendance, fees cleared), 5.0 Issue certificate and transcript, 6.0 Generate reports.
+- **Data stores:** D1 Students, D2 Courses, D3 Marks, D4 Fees, D5 Certificates.
+- **Relationships (ER):** Student enrolls in Course (M:N, with marks and grade as attributes → Enrolment table); Teacher teaches Course (1:N); Student pays Fee (1:N); Student receives Certificate (1:1).
+
+Draw the context diagram first, then the level-0 DFD, then the ER — and check balancing.
+
+## Check yourself
+
+1. In a 20-mark case study, the first thing to write after reading is:
+   (a) the conclusion (b) assumptions and scope (c) code (d) test cases
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Which feasibility covers compliance with the Electronic Transactions Act?
+   (a) technical (b) legal (c) economic (d) schedule
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Keeping tax slabs in a TaxRate table instead of code is an example of:
+   (a) design for change (b) content coupling (c) black-box testing (d) the waterfall model
+
+<details><summary>Answer</summary>(a)</details>
+
+4. Testing the tax computation at each slab edge uses:
+   (a) path coverage (b) boundary-value analysis (c) smoke testing (d) a walkthrough
+
+<details><summary>Answer</summary>(b)</details>
+
+5. An M:N relationship between Student and Course with a grade attribute becomes:
+   (a) a foreign key in Student (b) an Enrolment table with both keys and grade (c) a multivalued attribute (d) nothing
+
+<details><summary>Answer</summary>(b)</details>

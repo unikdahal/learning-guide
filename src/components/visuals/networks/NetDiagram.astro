@@ -1,0 +1,171 @@
+---
+// Static diagrams for "Networks from zero": OSI vs TCP/IP layers, encapsulation,
+// the TCP handshake and teardown, and datagram vs virtual-circuit switching.
+interface Props {
+  name: 'osi-tcpip' | 'encapsulation' | 'handshake' | 'dg-vc';
+  label: string;
+}
+const { name, label } = Astro.props;
+const id = `nd-${name}`;
+const t = (x: number, y: number, s: string, cls = 'c') => `<text x="${x}" y="${y}" class="${cls}">${s}</text>`;
+const w = (d: string, cls = 'w') => `<path class="${cls}" d="${d}"/>`;
+const box = (x: number, y: number, wd: number, h: number, label: string, cls = 'bx') =>
+  `<rect class="${cls}" x="${x}" y="${y}" width="${wd}" height="${h}" rx="5"/>` +
+  label.split('|').map((l, i, a) => t(x + wd / 2, y + h / 2 + 4.5 + (i - (a.length - 1) / 2) * 14, l)).join('');
+const arrow = (x1: number, y1: number, x2: number, y2: number) => {
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  const h = 9;
+  const p1 = `${x2 - h * Math.cos(a - 0.4)} ${y2 - h * Math.sin(a - 0.4)}`;
+  const p2 = `${x2 - h * Math.cos(a + 0.4)} ${y2 - h * Math.sin(a + 0.4)}`;
+  return `<line class="w" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/><path class="ah" d="M${x2} ${y2} L${p1} L${p2} Z"/>`;
+};
+
+let vb = '0 0 560 300';
+let body = '';
+
+if (name === 'osi-tcpip') {
+  vb = '0 0 560 330';
+  const osi = ['7 Application', '6 Presentation', '5 Session', '4 Transport', '3 Network', '2 Data link', '1 Physical'];
+  const pdu = ['data', 'data', 'data', 'segment', 'packet', 'frame', 'bits'];
+  const ex = ['HTTP, DNS, SMTP', 'TLS, JPEG, ASCII', 'RPC, NetBIOS', 'TCP, UDP', 'IP, ICMP, OSPF', 'Ethernet, PPP, ARP', 'cable, RS-232'];
+  body = t(95, 18, 'OSI (7)', 'cb') + t(260, 18, 'TCP/IP (4)', 'cb') + t(360, 18, 'PDU', 'cb') + t(470, 18, 'Examples', 'cb');
+  osi.forEach((l, i) => {
+    const y = 28 + i * 42;
+    body += box(20, y, 150, 36, l, i < 3 ? 'bx hi' : i === 3 ? 'bx tr' : i === 4 ? 'bx nw' : 'bx lk');
+    body += t(360, y + 23, pdu[i], 'm') + t(470, y + 23, ex[i], 'm');
+  });
+  body +=
+    box(195, 28, 130, 120, 'Application', 'bx hi') +
+    box(195, 154, 130, 36, 'Transport', 'bx tr') +
+    box(195, 196, 130, 36, 'Internet', 'bx nw') +
+    box(195, 238, 130, 78, 'Network access|(link)', 'bx lk');
+} else if (name === 'encapsulation') {
+  vb = '-24 0 584 210';
+  const rows: [number, number, string][] = [];
+  body =
+    t(62, 34, 'Application', 'r') + `<rect class="bx hi" x="250" y="18" width="200" height="26" rx="3"/>` + t(350, 36, 'data') +
+    t(62, 78, 'Transport', 'r') + `<rect class="bx tr" x="190" y="62" width="60" height="26" rx="3"/>` + t(220, 80, 'TCP hdr') + `<rect class="bx hi" x="250" y="62" width="200" height="26" rx="3"/>` + t(350, 80, 'data') + t(510, 80, '= segment', 'm2') +
+    t(62, 122, 'Network', 'r') + `<rect class="bx nw" x="130" y="106" width="60" height="26" rx="3"/>` + t(160, 124, 'IP hdr') + `<rect class="bx tr" x="190" y="106" width="260" height="26" rx="3"/>` + t(320, 124, 'segment') + t(510, 124, '= packet', 'm2') +
+    t(62, 166, 'Data link', 'r') + `<rect class="bx lk" x="70" y="150" width="60" height="26" rx="3"/>` + t(100, 168, 'MAC hdr') + `<rect class="bx nw" x="130" y="150" width="320" height="26" rx="3"/>` + t(290, 168, 'packet') + `<rect class="bx lk" x="450" y="150" width="40" height="26" rx="3"/>` + t(470, 168, 'FCS') + t(525, 168, '= frame', 'm2') +
+    t(280, 200, 'Each layer adds its header going down; the receiver strips them going up.', 'm');
+  void rows;
+} else if (name === 'handshake') {
+  vb = '0 0 560 400';
+  const L = 120, R = 440;
+  body =
+    box(L - 50, 10, 100, 30, 'Client', 'bx tr') + box(R - 50, 10, 100, 30, 'Server', 'bx nw') +
+    w(`M${L} 40 V390 M${R} 40 V390`, 'life') +
+    t(280, 56, 'Connection set-up (three-way handshake)', 'cb') +
+    arrow(L, 75, R, 105) + t(280, 72, 'SYN, seq = x', 'm') +
+    arrow(R, 115, L, 145) + t(280, 112, 'SYN + ACK, seq = y, ack = x + 1', 'm') +
+    arrow(L, 155, R, 185) + t(280, 152, 'ACK, ack = y + 1', 'm') +
+    t(280, 210, '… data both ways …', 'm') +
+    t(280, 232, 'Release (four segments)', 'cb') +
+    arrow(L, 250, R, 275) + t(280, 247, 'FIN', 'm') +
+    arrow(R, 285, L, 310) + t(280, 282, 'ACK', 'm') +
+    arrow(R, 320, L, 345) + t(280, 317, 'FIN', 'm') +
+    arrow(L, 355, R, 380) + t(280, 352, 'ACK', 'm') +
+    t(L + 70, 396, 'client: TIME-WAIT (2 × MSL)', 'm');
+} else if (name === 'dg-vc') {
+  vb = '0 0 560 250';
+  const node = (x: number, y: number, n: string) => `<circle class="nd" cx="${x}" cy="${y}" r="16"/>` + t(x, y + 4.5, n);
+  body =
+    t(135, 18, 'Datagram', 'cb') + t(415, 18, 'Virtual circuit', 'cb') +
+    node(30, 120, 'A') + node(110, 60, 'R1') + node(110, 180, 'R2') + node(190, 120, 'R3') + node(250, 120, 'B') +
+    w('M46 114 L95 66 M46 126 L95 174 M126 66 L175 114 M126 174 L175 126 M206 120 H234') +
+    t(70, 78, 'p1', 'm2') + t(70, 172, 'p2', 'm2') +
+    t(140, 232, 'each packet routed alone;', 'm') + t(140, 246, 'may arrive out of order', 'm') +
+    `<line class="w" x1="280" y1="30" x2="280" y2="240" stroke-dasharray="4 4"/>` +
+    node(310, 120, 'A') + node(390, 60, 'R1') + node(390, 180, 'R2') + node(470, 120, 'R3') + node(530, 120, 'B') +
+    w('M326 114 L375 66 M326 126 L375 174 M406 66 L455 114 M406 174 L455 126 M486 120 H514') +
+    w('M326 108 L375 60 M406 60 L455 108 M486 114 H514', 'vc') +
+    t(420, 232, 'path set up first (VC id);', 'm') + t(420, 246, 'all packets follow it, in order', 'm');
+}
+---
+
+<svg class="nd" viewBox={vb} role="img" aria-labelledby={`${id}-t`} xmlns="http://www.w3.org/2000/svg">
+  <title id={`${id}-t`}>{label}</title>
+  <g set:html={body} />
+</svg>
+
+<style>
+  svg.nd {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+    height: auto;
+    margin-inline: auto;
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font);
+  }
+  svg.nd :global(.w) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+  }
+  svg.nd :global(.vc) {
+    fill: none;
+    stroke: var(--qe-pipe-build);
+    stroke-width: 3.5;
+  }
+  svg.nd :global(.life) {
+    fill: none;
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+  }
+  svg.nd :global(.ah) {
+    fill: currentColor;
+  }
+  svg.nd :global(circle.nd) {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 1.8;
+  }
+  svg.nd :global(text) {
+    fill: currentColor;
+    font-size: 12.5px;
+  }
+  svg.nd :global(text.c),
+  svg.nd :global(text.cb),
+  svg.nd :global(text.m),
+  svg.nd :global(text.m2) {
+    text-anchor: middle;
+  }
+  svg.nd :global(text.cb) {
+    font-weight: 700;
+    font-size: 13px;
+  }
+  svg.nd :global(text.m),
+  svg.nd :global(text.m2) {
+    font-size: 12px;
+    fill: var(--sl-color-gray-2);
+  }
+  svg.nd :global(text.r),
+  svg.nd :global(text.r2) {
+    text-anchor: end;
+    font-weight: 600;
+  }
+  svg.nd :global(text.r2) {
+    font-weight: 400;
+    font-size: 11px;
+    fill: var(--sl-color-gray-2);
+  }
+  svg.nd :global(.bx) {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+  }
+  svg.nd :global(.hi) {
+    stroke: var(--qe-pipe-build);
+  }
+  svg.nd :global(.tr) {
+    stroke: var(--qe-pipe-emit);
+  }
+  svg.nd :global(.nw) {
+    stroke: var(--qe-warn);
+  }
+  svg.nd :global(.lk) {
+    stroke: var(--sl-color-gray-2);
+  }
+</style>

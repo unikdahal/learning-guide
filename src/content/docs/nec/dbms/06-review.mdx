@@ -1,0 +1,151 @@
+---
+title: "6. Review: 25 mixed questions"
+description: A timed mixed test across the DBMS course — architecture, ER, keys, relational algebra, SQL, normalisation, transactions, concurrency, recovery and indexing — plus written practice.
+sidebar:
+  label: "6. Review test"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** 25 minutes, paper and pen. Aim for 23/25; Computer Officer candidates should also write the SQL at the end.
+
+<Aside type="tip" title="How to use this">
+Each answer names the lesson. Log every miss.
+</Aside>
+
+## Questions
+
+1. The level of abstraction that describes how data is actually stored:
+   (a) view (b) conceptual (c) physical (d) logical
+
+<details><summary>Answer</summary>(c) Lesson 1.</details>
+
+2. A weak entity is identified by:
+   (a) its own key (b) its partial key plus the owner's key (c) a foreign key only (d) a derived attribute
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+3. Total participation is shown by:
+   (a) a dashed line (b) a double line (c) an arrow (d) a double diamond
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+4. A 1:N relationship is mapped by:
+   (a) a new table (b) a foreign key on the N side (c) a foreign key on the 1 side (d) merging the tables
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+5. Referential integrity concerns:
+   (a) primary keys being unique (b) foreign keys matching existing primary keys (c) domains (d) views
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+6. π name (σ salary > 50000 (Employee)) in SQL is:
+   (a) SELECT * FROM Employee (b) SELECT name FROM Employee WHERE salary > 50000 (c) SELECT salary FROM Employee WHERE name > 50000 (d) SELECT name, salary FROM Employee
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+7. Which is not an aggregate function?
+   (a) COUNT (b) AVG (c) LIKE (d) MAX
+
+<details><summary>Answer</summary>(c) Lesson 2.</details>
+
+8. A virtual table defined by a query is a:
+   (a) trigger (b) view (c) index (d) cursor
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+9. Which SQL command removes a table and its definition?
+   (a) DELETE (b) TRUNCATE (c) DROP (d) REMOVE
+
+<details><summary>Answer</summary>(c) Lesson 2.</details>
+
+10. R(A, B, C, D), F = [ A → B, C → D ]. The candidate key is:
+    (a) A (b) AC (c) AB (d) CD
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+11. That relation is in:
+    (a) 1NF only (b) 2NF (c) 3NF (d) BCNF
+
+<details><summary>Answer</summary>(a) A → B and C → D are partial dependencies. Lesson 3.</details>
+
+12. A relation where every determinant is a candidate key is in:
+    (a) 2NF (b) 3NF (c) BCNF (d) 1NF
+
+<details><summary>Answer</summary>(c) Lesson 3.</details>
+
+13. Which decomposition property is essential?
+    (a) dependency preservation (b) lossless join (c) BCNF (d) minimal cover
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+14. Armstrong's axioms are:
+    (a) reflexivity, augmentation, transitivity (b) union, decomposition, closure (c) ACID (d) 1NF, 2NF, 3NF
+
+<details><summary>Answer</summary>(a) Lesson 3.</details>
+
+15. Isolation is ensured by the:
+    (a) recovery manager (b) concurrency control manager (c) DBA (d) query optimiser
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+16. The schedule R1(A) R2(A) W1(A) W2(A) is:
+    (a) conflict serializable as T1 → T2 (b) conflict serializable as T2 → T1 (c) not conflict serializable (d) serial
+
+<details><summary>Answer</summary>(c) R2(A)–W1(A) gives T2 → T1, R1(A)–W2(A) gives T1 → T2. Lesson 4.</details>
+
+17. In strict 2PL, exclusive locks are released:
+    (a) immediately after use (b) at the lock point (c) after commit or abort (d) never
+
+<details><summary>Answer</summary>(c) Lesson 4.</details>
+
+18. In wound-wait, an older transaction requesting a lock held by a younger one:
+    (a) waits (b) dies (c) wounds (rolls back) the younger (d) aborts itself
+
+<details><summary>Answer</summary>(c) Lesson 4.</details>
+
+19. A lost update is caused by:
+    (a) a missing index (b) two transactions overwriting each other's updates (c) a crash (d) a deadlock
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+20. The isolation level that prevents phantoms:
+    (a) read committed (b) repeatable read (c) serializable (d) read uncommitted
+
+<details><summary>Answer</summary>(c) Lesson 4.</details>
+
+21. Under deferred update, after a crash, uncommitted transactions are:
+    (a) undone (b) redone (c) ignored (d) restarted automatically
+
+<details><summary>Answer</summary>(c) Lesson 5.</details>
+
+22. Shadow paging avoids the need for:
+    (a) disks (b) a log (c) page tables (d) transactions
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+23. A secondary index must be:
+    (a) sparse (b) dense (c) clustered (d) hashed
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+24. Block nested-loop join cost with bᵣ = 50, bₛ = 200 (r outer):
+    (a) 250 (b) 10,000 (c) 10,050 (d) 750
+
+<details><summary>Answer</summary>(c) 50 × 200 + 50. Lesson 5.</details>
+
+25. Roll-up and drill-down are operations of:
+    (a) OLTP (b) OLAP (c) 2PC (d) hashing
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+## Lok Sewa written practice (no notes, timed)
+
+1. **(10 marks · 16 min)** Three-schema architecture and data independence. → [Lesson 1](/learning-guide/nec/dbms/01-models-er/)
+2. **(10 marks · 16 min)** Five SQL queries on the Employee/Department schema. → [Lesson 2](/learning-guide/nec/dbms/02-relational-sql/)
+3. **(10 marks · 16 min)** Functional dependency, its role, and normalisation to 3NF. → [Lesson 3](/learning-guide/nec/dbms/03-normalisation/) (reported CE 2078)
+4. **(10 marks · 16 min)** Concurrency problems and two-phase locking. → [Lesson 4](/learning-guide/nec/dbms/04-transactions/) (reported CO 2083)
+5. **(10 marks · 16 min)** Draw an ER diagram for a hospital (patients, doctors, wards, treatments) and map it to tables. → [Lesson 1](/learning-guide/nec/dbms/01-models-er/)
+
+Short notes (5 marks each): ACID · B+ tree index · log-based recovery · weak entity · data warehouse.

@@ -1,0 +1,56 @@
+---
+title: Start here
+description: How the Digital-from-zero course works — NEC Chapter 2 (digital logic and microprocessor) taught from scratch at Lok Sewa depth.
+sidebar:
+  label: Start here
+  order: 0
+---
+import { Aside } from '@astrojs/starlight/components';
+
+This course teaches **NEC Chapter 2 — Digital Logic and Microprocessor (AExE02)** from zero, at the depth Lok Sewa Computer Engineer's written paper needs. The same material is **Lok Sewa CE unit 3 (digital design)** and **unit 2.8 (808X microprocessors)**, both in Section A.
+
+You already think in bits as a programmer. Here you'll learn how those bits are made from gates and flip-flops, and how a microprocessor fetches, decodes and executes instructions.
+
+## How to study each lesson (45–60 minutes)
+
+1. Read the idea section; try the lab if there is one.
+2. Work the examples with pen and paper — digital logic is learned by **drawing**: truth tables, K-maps, timing diagrams.
+3. Read "Traps".
+4. Do "Check yourself" without looking back.
+5. If there's a **"Lok Sewa: write it"** section, write your answer by hand, timed, then compare with the model answer.
+
+## The path
+
+**Part 1 — Numbers and logic (NEC 2.1)**
+
+| # | Lesson | You'll be able to |
+| --- | --- | --- |
+| 1 | [Number systems and codes](/learning-guide/nec/digital/01-number-systems/) | convert between binary, octal, hex, BCD, Gray |
+| 2 | [Signed numbers and binary arithmetic](/learning-guide/nec/digital/02-binary-arithmetic/) | two's complement, overflow, BCD addition |
+| 3 | [Logic gates](/learning-guide/nec/digital/03-logic-gates/) | every gate, universal gates, logic levels |
+| 4 | [Boolean algebra](/learning-guide/nec/digital/04-boolean-algebra/) | laws, De Morgan, SOP and POS |
+| 5 | [Karnaugh maps](/learning-guide/nec/digital/05-karnaugh-maps/) | minimise up to four variables with don't-cares |
+
+**Part 2 — Combinational and sequential circuits (NEC 2.2–2.3)**
+
+| # | Lesson | You'll be able to |
+| --- | --- | --- |
+| 6 | [Adders, subtractors, comparators](/learning-guide/nec/digital/06-arithmetic-circuits/) | design half/full adders, CLA, adder-subtractor |
+| 7 | [MUX, DEMUX, decoders, encoders](/learning-guide/nec/digital/07-mux-decoder-encoder/) | implement functions with MSI chips |
+| 8 | [Latches and flip-flops](/learning-guide/nec/digital/08-flip-flops/) | SR, D, JK, T, race-around, excitation tables |
+| 9 | [Registers and counters](/learning-guide/nec/digital/09-registers-counters/) | design a mod-N synchronous counter |
+| 10 | [Logic families, memory, ADC and DAC](/learning-guide/nec/digital/10-logic-families-memory-adc/) | TTL vs CMOS, memory types, converters |
+
+**Part 3 — Microprocessors (NEC 2.4–2.6)**
+
+| # | Lesson | You'll be able to |
+| --- | --- | --- |
+| 11 | [The 8085 microprocessor](/learning-guide/nec/digital/11-8085/) | architecture, pins, timing, programs |
+| 12 | [The 8086 microprocessor](/learning-guide/nec/digital/12-8086/) | BIU/EU, segmentation, addressing modes |
+| 13 | [Memory and I/O interfacing, DMA](/learning-guide/nec/digital/13-interfacing/) | address decoding, 8255, serial, DMA |
+| 14 | [Interrupts](/learning-guide/nec/digital/14-interrupts/) | 8085/8086 interrupts, ISRs, 8259 |
+| 15 | [Review: Chapter 2](/learning-guide/nec/digital/15-review/) | 25 timed questions |
+
+<Aside type="tip" title="Where it fits in your plan">
+[Plan v2](/learning-guide/nec/roadmap/), Week 4 (7–10 Dec): lessons 1–5 on Mon 7, 6–7 on Mon–Tue, 8–9 on Tue, 11–12 on Wed, 13–14 on Thu. If you have slack in Weeks 1–3, start lessons 1–3 early — they're quick for a programmer.
+</Aside>

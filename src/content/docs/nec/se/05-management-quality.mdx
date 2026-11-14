@@ -1,0 +1,191 @@
+---
+title: "5. Project management, estimation and quality"
+description: Project management activities, size metrics (LOC, function points worked), COCOMO worked for all three modes, duration and staffing, risk management, SQA and formal technical reviews, statistical SQA, ISO 9001, CMMI levels, configuration, change, version and release management, software maintenance types, re-engineering and formal methods.
+sidebar:
+  label: "5. Management, estimation, quality"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** compute effort, duration and staffing with basic COCOMO, compute function points, name the CMMI level and maintenance type for a situation, and describe configuration management.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 8.3** (algorithmic cost modelling, project duration and staffing, SQA, formal technical reviews, statistical SQA, metrics, ISO standards, CMMI, SQA plan, configuration management, CASE). **Lok Sewa CE unit 8** (project management, cost models, configuration management, QA, metrics, maintenance, formal methods, SEI-CMM, ISO).
+</Aside>
+
+## 1. Project management
+
+Activities: **planning** (scope, estimates, schedule, resources), **scheduling** (work breakdown structure, **Gantt charts**, activity networks — critical path, covered in Chapter 10), **risk management**, **people management**, **monitoring and control**, reporting. The "4 Ps": **people, product, process, project**. Project failure usually comes from unrealistic deadlines, changing requirements, under-estimation and poor communication.
+
+## 2. Size and cost estimation
+
+**Size metrics:**
+- **LOC/KLOC** — lines of code: easy to count after the fact, language-dependent, hard to estimate early.
+- **Function points (FP)** — measure functionality from the user's view, independent of language.
+
+### Function points — worked
+
+Count the five components and weight them (simple / average / complex):
+
+| Component | Weights (S / A / C) | Count | Average weight | Total |
+| --- | --- | --- | --- | --- |
+| External inputs (EI) | 3 / 4 / 6 | 24 | 4 | 96 |
+| External outputs (EO) | 4 / 5 / 7 | 16 | 5 | 80 |
+| External inquiries (EQ) | 3 / 4 / 6 | 22 | 4 | 88 |
+| Internal logical files (ILF) | 7 / 10 / 15 | 4 | 10 | 40 |
+| External interface files (EIF) | 5 / 7 / 10 | 2 | 7 | 14 |
+| **Unadjusted FP (UFP)** | | | | **318** |
+
+**Value adjustment factor:** rate 14 general system characteristics (data communications, performance, reusability …) from 0 to 5; sum = ΣFᵢ. **VAF = 0.65 + 0.01 × ΣFᵢ**; **FP = UFP × VAF**.
+With ΣFᵢ = 42: VAF = 1.07 → **FP = 318 × 1.07 ≈ 340**. (ΣFᵢ = 30 → 0.95 → ≈ 302.)
+
+### Basic COCOMO (Boehm)
+
+**Effort E = a × (KLOC)^b person-months; development time D = c × E^d months; average staff = E / D.**
+
+| Mode | Project | a | b | c | d |
+| --- | --- | --- | --- | --- | --- |
+| **Organic** | small team, familiar, flexible requirements | 2.4 | 1.05 | 2.5 | 0.38 |
+| **Semi-detached** | medium, mixed experience | 3.0 | 1.12 | 2.5 | 0.35 |
+| **Embedded** | tight hardware/regulatory constraints | 3.6 | 1.20 | 2.5 | 0.32 |
+
+**Worked: 32 KLOC.**
+
+| Mode | Effort (PM) | Duration (months) | Staff |
+| --- | --- | --- | --- |
+| Organic | 2.4 × 32^1.05 ≈ **91.3** | 2.5 × 91.3^0.38 ≈ **13.9** | ≈ **6.6** |
+| Semi-detached | 3.0 × 32^1.12 ≈ **145.5** | 2.5 × 145.5^0.35 ≈ **14.3** | ≈ 10.2 |
+| Embedded | 3.6 × 32^1.20 ≈ **230.4** | 2.5 × 230.4^0.32 ≈ **14.3** | ≈ 16.2 |
+
+Notice: duration barely changes while effort doubles — adding people doesn't shorten schedules proportionally (**Brooks's law**: adding people to a late project makes it later). **Productivity** = KLOC / E (organic: 32 / 91.3 ≈ 0.35 KLOC per person-month).
+
+**Intermediate COCOMO** multiplies effort by an **effort adjustment factor** from 15 cost drivers (product, hardware, personnel, project attributes). **Detailed COCOMO** applies drivers per phase. **COCOMO II** has application-composition, early-design and post-architecture models and uses object points/FP.
+
+Other techniques: expert judgement, estimation by analogy, Delphi, top-down and bottom-up estimation, **Putnam/SLIM**.
+
+## 3. Risk management
+
+**Risk** = an uncertain event that may harm the project. Types: **project** (schedule, resources), **product** (quality, performance), **business** (market, funding).
+Process: **identify → analyse** (probability × impact = **risk exposure**) **→ plan** (avoid, minimise, contingency) **→ monitor**. Example: "key developer leaves" (probability 30%, impact high) → mitigate by pair programming and documentation. The **spiral model** builds risk analysis into every loop.
+
+## 4. Software quality assurance
+
+**Quality** = conformance to explicit requirements, standards and implicit expectations. **SQA** = the planned, systematic activities that give confidence the product meets quality requirements; separate from (and broader than) testing.
+
+**SQA activities:** prepare an **SQA plan**; participate in process description; review engineering activities and work products; audit; ensure deviations are documented and handled; record non-compliance.
+
+**SQA plan contents:** purpose and scope; management (organisation, tasks, responsibilities); documentation; **standards, practices, conventions and metrics**; reviews and audits; testing; problem reporting and corrective action; tools and methods; configuration management; records; training; risk management.
+
+**Formal technical reviews (FTR):** **walkthroughs** (the author leads peers through the work; informal) and **inspections** (formal, with roles — moderator, author, reader, recorder, inspectors — checklists, and metrics). Typically 3–5 people, under 2 hours, review the **product, not the producer**. Cheapest way to find defects early.
+
+**Statistical SQA:** collect and categorise defects, trace each to its cause (incomplete specification, logic error, standards violation …), apply the **Pareto principle** (80% of defects come from 20% of causes), fix the vital few causes. **Six Sigma** (3.4 defects per million; DMAIC — define, measure, analyse, improve, control).
+
+**Software metrics:** product (size, complexity — cyclomatic, coupling, cohesion), process (defect removal efficiency, effort variance), project (cost, schedule). **Reliability:** MTTF, MTTR, **MTBF = MTTF + MTTR**; **availability = MTTF / (MTTF + MTTR)** — MTTF 990 h and MTTR 10 h → **99%**.
+
+## 5. Standards and maturity models
+
+**ISO 9001** — requirements for a **quality management system** (any industry); ISO 9000-3 / ISO 90003 interprets it for software. Certification by external audit. **ISO/IEC 25010** (formerly 9126) — product quality model. **ISO/IEC 12207** — software life-cycle processes.
+
+**CMMI / SEI-CMM** (Software Engineering Institute, Carnegie Mellon) — process maturity in five levels:
+
+| Level | Name | Characteristic |
+| --- | --- | --- |
+| 1 | **Initial** | ad hoc, chaotic; success depends on heroes |
+| 2 | **Managed** (CMM: Repeatable) | basic project management: requirements management, planning, tracking, configuration management |
+| 3 | **Defined** | organisation-wide standard process, tailored per project; training; peer reviews |
+| 4 | **Quantitatively managed** | process and quality measured and controlled statistically |
+| 5 | **Optimising** | continuous process improvement, defect prevention, innovation |
+
+ISO 9001 vs CMMI: ISO certifies a minimum quality system (pass/fail); CMMI grades maturity in levels and is software-focused.
+
+## 6. Configuration management
+
+**Software configuration management (SCM)** controls change across the life cycle so that the product stays consistent.
+- **Software configuration items (SCIs)** — anything under control: SRS, design, code, test cases, manuals.
+- **Baseline** — a reviewed, approved version of SCIs that can change only through formal change control.
+- **Version control** — track versions and branches (Git, SVN); **build/system building**.
+- **Change management** — change request → impact analysis by the **change control board (CCB)** → approve/reject → implement → verify → update baseline.
+- **Release management** — plan, package and deliver releases (versions, release notes, installation).
+- **Configuration audit** and **status accounting** (report what changed, by whom, when).
+
+## 7. Maintenance, re-engineering and formal methods
+
+**Maintenance types:**
+- **Corrective** — fix faults found in use.
+- **Adaptive** — adapt to a changed environment (new OS, new tax law, new database).
+- **Perfective** — add features, improve performance or usability on request (usually the largest share).
+- **Preventive** — restructure to prevent future problems (refactoring, documentation).
+
+**Lehman's laws** — continuing change, increasing complexity. Maintenance is typically **60–80%** of lifetime cost.
+
+**Re-engineering** of legacy systems: source-code translation, **reverse engineering** (recover design from code), program restructuring, modularisation, data re-engineering. **Forward engineering** builds the new system from the recovered design.
+
+**Formal methods** — mathematically based specification and verification (**Z notation**, VDM, B, model checking). Remove ambiguity and allow proofs; costly and need expertise, so used mainly for safety-critical systems (railway signalling, avionics). **Cleanroom software engineering** — formal specification, correctness verification instead of unit testing, and statistical usage testing.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the basic COCOMO model. Estimate effort, development time and staff for a 32 KLOC organic project. Describe the CMMI maturity levels.
+
+<details>
+<summary>Model answer</summary>
+
+**COCOMO** (Constructive Cost Model, Boehm 1981) is an algorithmic cost-estimation model that predicts effort and schedule from program size in KLOC. Basic COCOMO: effort E = a(KLOC)^b person-months; development time D = c(E)^d months; staff = E/D. Projects are classified as organic (a = 2.4, b = 1.05, c = 2.5, d = 0.38), semi-detached (3.0, 1.12, 2.5, 0.35) or embedded (3.6, 1.20, 2.5, 0.32). Intermediate COCOMO multiplies effort by an adjustment factor from 15 cost drivers; detailed COCOMO applies them per phase.
+
+**Estimate (32 KLOC, organic).**
+- E = 2.4 × 32^1.05 ≈ **91.3 person-months**
+- D = 2.5 × 91.3^0.38 ≈ **13.9 months**
+- Staff = 91.3 / 13.9 ≈ **6.6 ≈ 7 persons**
+- Productivity = 32,000 / 91.3 ≈ 350 LOC per person-month.
+
+**CMMI maturity levels.** *(Draw a staircase.)*
+1. **Initial:** unpredictable, poorly controlled, reactive processes.
+2. **Managed:** projects planned and tracked; requirements and configuration managed; earlier successes can be repeated.
+3. **Defined:** standard organisational processes, tailored for each project; training and peer reviews.
+4. **Quantitatively managed:** processes measured and controlled using statistical techniques; quantitative quality goals.
+5. **Optimising:** continuous improvement through innovation and defect prevention.
+
+Each level builds on the previous one; organisations are appraised against the process areas of each level.
+
+</details>
+
+## Check yourself
+
+1. In COCOMO, effort is measured in:
+   (a) KLOC (b) person-months (c) function points (d) days
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The CMMI level with organisation-wide standard processes is:
+   (a) 2 Managed (b) 3 Defined (c) 4 Quantitatively managed (d) 5 Optimising
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Changing software to work with a new operating system is:
+   (a) corrective (b) adaptive (c) perfective (d) preventive maintenance
+
+<details><summary>Answer</summary>(b)</details>
+
+4. A formal technical review should focus on:
+   (a) the producer (b) the product (c) salaries (d) the schedule only
+
+<details><summary>Answer</summary>(b)</details>
+
+5. VAF with ΣFᵢ = 35:
+   (a) 0.35 (b) 1.00 (c) 1.35 (d) 0.65
+
+<details><summary>Answer</summary>(b) 0.65 + 0.35.</details>
+
+6. A reviewed, approved set of configuration items that changes only through change control is a:
+   (a) release (b) baseline (c) branch (d) build
+
+<details><summary>Answer</summary>(b)</details>
+
+7. MTTF 495 h, MTTR 5 h. Availability =
+   (a) 95% (b) 99% (c) 98% (d) 99.5%
+
+<details><summary>Answer</summary>(b) 495 / 500.</details>
+
+8. Brooks's law says adding people to a late project:
+   (a) finishes it sooner (b) makes it later (c) has no effect (d) reduces cost
+
+<details><summary>Answer</summary>(b)</details>

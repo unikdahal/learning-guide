@@ -1,0 +1,146 @@
+---
+title: "13. Memory and I/O interfacing, 8255, serial and DMA"
+description: Address decoding for memory and I/O, memory-mapped vs I/O-mapped I/O, the 8255 PPI and its control word, data-transfer schemes (programmed, interrupt, DMA), serial communication and the 8251/RS-232.
+sidebar:
+  label: "13. Interfacing, 8255, DMA"
+  order: 13
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** design an address decoder for a memory chip, compare memory-mapped and I/O-mapped I/O, write an 8255 control word, and explain DMA.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.5** (memory and I/O interfacing, 8255 PPI, serial interface and standards, DMA). **Lok Sewa CE unit 2** (I/O, memory-mapped I/O, DMA, 808X interfacing). "Write the 8255 control word" and "explain DMA" are frequent short questions.
+</Aside>
+
+## 1. Memory interfacing — address decoding
+
+A chip needs only some address lines; the remaining **high** lines are decoded to produce its **chip select (CS')**.
+
+**Example.** Interface a **2K × 8 ROM at 0000H** and a **2K × 8 RAM at 0800H** to the 8085.
+- 2K = 2¹¹ → each chip uses **A0–A10**.
+- The ROM spans 0000H–07FFH; the RAM 0800H–0FFFH.
+- A11 distinguishes them (ROM: A11 = 0; RAM: A11 = 1); A12–A15 must all be 0.
+- Use a **3:8 decoder** (74LS138): inputs A13 A12 A11, enabled when A15 = A14 = 0 and IO/M' = 0. Output Y0 → ROM CS', Y1 → RAM CS'.
+- Connect RD' to both chips' OE', WR' to RAM's WE'.
+
+**Absolute decoding** uses all spare address lines (each chip appears once). **Partial (linear) decoding** ignores some lines — cheaper, but each location appears at several addresses (**foldback / mirror** addresses).
+
+## 2. I/O interfacing
+
+| Memory-mapped I/O | I/O-mapped (isolated) I/O |
+| --- | --- |
+| Device gets memory addresses | Device gets separate port addresses |
+| Uses memory instructions (LDA, STA, MOV M) — any register | Uses only **IN/OUT** with the accumulator |
+| 16-bit address → up to 64K devices | 8-bit port address → **256** ports (8085) |
+| Takes memory space | Doesn't use memory space |
+| IO/M' = 0 | IO/M' = 1 |
+
+## 3. 8255 Programmable Peripheral Interface
+
+A chip giving **three 8-bit ports A, B, C** (C splits into upper and lower halves) — 24 programmable I/O lines.
+
+**Port selection (A1 A0):** 00 = Port A, 01 = Port B, 10 = Port C, **11 = control register**.
+
+**Modes:**
+- **Mode 0** — simple I/O (each port in or out).
+- **Mode 1** — strobed (handshake) I/O for ports A and B; port C lines become handshake signals.
+- **Mode 2** — bidirectional bus on port A.
+- **BSR (bit set/reset) mode** — set or clear one port C bit (control word bit 7 = 0).
+
+**I/O-mode control word** (D7 = 1):
+
+| D7 | D6 D5 | D4 | D3 | D2 | D1 | D0 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 = I/O mode | Port A mode | Port A (1 = in) | Port C upper (1 = in) | Port B mode | Port B (1 = in) | Port C lower (1 = in) |
+
+- All ports output, mode 0 → 1000 0000 = **80H**.
+- Port A input, rest output, mode 0 → 1001 0000 = **90H**.
+- Port A and B input, C output → 1001 0010 = **92H**.
+
+**BSR example:** set PC5 → 0 000 101 1 = **0BH**; clear PC5 → **0AH**. (Bits D3–D1 select the bit, D0 = 1 set / 0 reset.)
+
+```text
+MVI A, 80H    ; all ports output, mode 0
+OUT 83H       ; control register (base 80H, A1A0 = 11)
+MVI A, 55H
+OUT 80H       ; send 55H to port A
+```
+
+## 4. Data-transfer schemes
+
+1. **Programmed I/O (polling):** the CPU repeatedly checks a device's status. Simple, but wastes CPU time.
+2. **Interrupt-driven I/O:** the device signals the CPU when ready; the CPU runs a service routine (lesson 14). No busy-waiting.
+3. **DMA (direct memory access):** for bulk transfers (disk, network), a **DMA controller** (8237/8257) moves data **directly between the device and memory without the CPU**.
+   - The DMA controller asserts **HOLD**; the CPU finishes the current bus cycle, floats its buses and replies **HLDA** (hold acknowledge).
+   - The controller drives the bus and transfers the block; then drops HOLD and the CPU resumes.
+   - Modes: **burst** (whole block at once), **cycle stealing** (one word at a time between CPU cycles), **transparent** (only when the CPU isn't using the bus).
+
+## 5. Serial communication
+
+- **Parallel** sends all bits at once (fast, short distances, many wires); **serial** sends one bit at a time (fewer wires, long distances).
+- **Synchronous** (shared clock, blocks of data) vs **asynchronous** (each character framed by a **start bit (0)** and **stop bit(s) (1)**, optional parity).
+- **Baud rate** — symbols per second.
+- **Simplex / half duplex / full duplex.**
+- **8251 USART:** the programmable serial interface chip for the 8085/8086 (parallel ↔ serial conversion).
+- **RS-232:** the classic standard — logic 1 = −3 to −15 V, logic 0 = +3 to +15 V (inverted, larger voltages); a **MAX232** converts to and from TTL levels.
+- The 8085's own **SID/SOD** pins give one serial line through RIM/SIM.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** What is DMA? Explain how a DMA transfer takes place.
+
+<details>
+<summary>Model answer</summary>
+
+**DMA (direct memory access)** is a data-transfer technique in which a peripheral exchanges a block of data directly with memory under the control of a **DMA controller** (e.g. 8237/8257), without the CPU executing instructions for each byte. It is used for high-speed bulk transfers such as disk and network I/O.
+
+**Sequence.**
+1. The device requests service: DREQ → DMA controller.
+2. The DMA controller sends **HOLD** to the CPU.
+3. The CPU completes its current bus cycle, tri-states its address, data and control buses, and returns **HLDA**.
+4. The controller sends DACK to the device and takes over the buses, generating addresses and RD'/WR' signals; data moves between the device and memory. Its address register increments and its count register decrements each transfer.
+5. When the count reaches zero, the controller removes HOLD; the CPU removes HLDA and resumes.
+
+*(Draw CPU, memory, I/O device and DMA controller on a common bus, with HOLD/HLDA and DREQ/DACK lines.)*
+
+**Modes:** burst, cycle stealing, transparent. **Advantage:** much faster than programmed or interrupt I/O and frees the CPU.
+
+</details>
+
+## Check yourself
+
+1. In I/O-mapped I/O on the 8085, the maximum number of input ports is:
+   (a) 64 (b) 128 (c) 256 (d) 65,536
+
+<details><summary>Answer</summary>(c)</details>
+
+2. 8255 control word for all ports as output in mode 0:
+   (a) 00H (b) 80H (c) 9BH (d) FFH
+
+<details><summary>Answer</summary>(b)</details>
+
+3. In the 8255, A1 A0 = 11 selects:
+   (a) port A (b) port B (c) port C (d) control register
+
+<details><summary>Answer</summary>(d)</details>
+
+4. During DMA, the CPU responds to HOLD by asserting:
+   (a) INTA (b) HLDA (c) ALE (d) READY
+
+<details><summary>Answer</summary>(b)</details>
+
+5. A 4K × 8 memory chip needs how many address lines directly connected?
+   (a) 10 (b) 11 (c) 12 (d) 16
+
+<details><summary>Answer</summary>(c)</details>
+
+6. In asynchronous serial communication, the start bit is:
+   (a) 0 (b) 1 (c) either (d) a parity bit
+
+<details><summary>Answer</summary>(a)</details>
+
+7. Partial address decoding produces:
+   (a) faster access (b) foldback (mirror) addresses (c) more memory (d) bus contention
+
+<details><summary>Answer</summary>(b)</details>

@@ -1,0 +1,151 @@
+---
+title: "7. Review: 25 mixed questions"
+description: A timed mixed test across the OS course — processes, scheduling, synchronisation, deadlock, memory, virtual memory, disks and file systems — plus written practice.
+sidebar:
+  label: "7. Review test"
+  order: 7
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** 25 minutes, paper and pen. The numericals here are the ones that recur — check each against the labs.
+
+<Aside type="tip" title="How to use this">
+Each answer names the lesson. Every miss goes in the error log.
+</Aside>
+
+## Questions
+
+1. Which OS structure runs drivers and file systems as user-space servers?
+   (a) monolithic (b) layered (c) microkernel (d) batch
+
+<details><summary>Answer</summary>(c) Lesson 1.</details>
+
+2. A process waiting for I/O is in the:
+   (a) ready state (b) running state (c) waiting (blocked) state (d) new state
+
+<details><summary>Answer</summary>(c) Lesson 1.</details>
+
+3. The context of a process is saved in its:
+   (a) page table (b) PCB (c) TLB (d) file table
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+4. User-level threads differ from kernel threads in that:
+   (a) they are scheduled by the kernel (b) a blocking system call blocks the whole process (c) they run in parallel on multicore (d) they are slower to create
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+5. Processes P1 (burst 6), P2 (8), P3 (7), P4 (3) all arrive at 0. Average waiting time under SJF:
+   (a) 7 (b) 10.25 (c) 6 (d) 13
+
+<details><summary>Answer</summary>(a) order P4, P1, P3, P2: waits 3, 16, 9, 0 → 28/4. Lesson 2.</details>
+
+6. The same processes under FCFS (P1, P2, P3, P4):
+   (a) 7 (b) 10.25 (c) 12 (d) 9
+
+<details><summary>Answer</summary>(b) waits 0, 6, 14, 21 → 41/4. Lesson 2.</details>
+
+7. Round robin is designed especially for:
+   (a) batch systems (b) time-sharing systems (c) real-time systems only (d) single-user systems
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+8. Response time is:
+   (a) completion − arrival (b) first run − arrival (c) waiting + burst (d) burst − waiting
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+9. The section of code that accesses shared data is the:
+   (a) entry section (b) critical section (c) remainder section (d) exit section
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+10. A binary semaphore is equivalent to a:
+    (a) counting semaphore of 5 (b) mutex lock (c) monitor (d) pipe
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+11. In the bounded-buffer solution, the semaphore `full` is initialised to:
+    (a) 0 (b) 1 (c) n (d) −1
+
+<details><summary>Answer</summary>(a) Lesson 3.</details>
+
+12. Dining philosophers illustrates:
+    (a) memory fragmentation (b) deadlock and starvation in resource sharing (c) disk scheduling (d) paging
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+13. Which condition does requesting all resources at once break?
+    (a) mutual exclusion (b) hold and wait (c) no preemption (d) circular wait
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+14. In the Banker's algorithm, a request is granted only if:
+    (a) resources are available (b) the resulting state is safe (c) the process has highest priority (d) no other process is waiting
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+15. Available = (1, 1). P1 needs (1, 0), holds (1, 1); P2 needs (2, 2), holds (0, 1). Safe?
+    (a) yes: P1 then P2 (b) yes: P2 then P1 (c) no (d) cannot tell
+
+<details><summary>Answer</summary>(a) P1 finishes → Work (2, 2) ≥ P2's need. Lesson 4.</details>
+
+16. Internal fragmentation occurs in:
+    (a) paging (b) variable partitions (c) segmentation (d) none
+
+<details><summary>Answer</summary>(a) in the last page. Lesson 5.</details>
+
+17. Page size 2 KB, logical address 5000. Offset =
+    (a) 904 (b) 2 (c) 5000 (d) 1000
+
+<details><summary>Answer</summary>(a) 5000 − 2 × 2048. Lesson 5.</details>
+
+18. The hardware cache for page-table entries is the:
+    (a) L1 cache (b) TLB (c) MMU register (d) buffer cache
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+19. 32-bit addresses with 8 KB pages give how many pages?
+    (a) 2¹³ (b) 2¹⁹ (c) 2²⁰ (d) 2³²
+
+<details><summary>Answer</summary>(b) offset 13 bits. Lesson 5.</details>
+
+20. Which page-replacement algorithm gives the fewest faults?
+    (a) FIFO (b) LRU (c) optimal (d) random
+
+<details><summary>Answer</summary>(c) Lesson 5.</details>
+
+21. Thrashing is reduced by:
+    (a) increasing multiprogramming (b) the working-set model (c) FIFO replacement (d) bigger disks
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+22. Head at 50; requests arrive in the order 90, 10, 60 (cylinders 0–99). FCFS head movement:
+    (a) 170 (b) 130 (c) 120 (d) 80
+
+<details><summary>Answer</summary>(a) 40 + 80 + 50. Lesson 6.</details>
+
+23. The same requests under SSTF:
+    (a) 120 (b) 170 (c) 100 (d) 90
+
+<details><summary>Answer</summary>(a) 50 → 60 (10) → 90 (30) → 10 (80). Lesson 6.</details>
+
+24. FAT is a variant of:
+    (a) contiguous allocation (b) linked allocation (c) indexed allocation (d) bit vector
+
+<details><summary>Answer</summary>(b) Lesson 6.</details>
+
+25. The first user-space process the kernel starts is:
+    (a) the shell (b) init/systemd (c) the bootloader (d) BIOS
+
+<details><summary>Answer</summary>(b) Lesson 6.</details>
+
+## Lok Sewa written practice (no notes, timed)
+
+1. **(10 marks · 16 min)** Deadlock: definition, necessary conditions, handling. → [Lesson 4](/learning-guide/nec/os/04-deadlock/) (reported CE 2078; your Sun 20 Dec task)
+2. **(10 marks · 16 min)** Scheduling numerical with four algorithms. → [Lesson 2](/learning-guide/nec/os/02-scheduling/) (reported CE 2078)
+3. **(10 marks · 16 min)** Virtual memory, page faults, paging vs segmentation. → [Lesson 5](/learning-guide/nec/os/05-memory/) (reported CO 2083)
+4. **(10 marks · 16 min)** Critical section, semaphores, producer–consumer. → [Lesson 3](/learning-guide/nec/os/03-synchronisation/)
+5. **(5 marks · 8 min)** Banker's algorithm on a given state. → [Lesson 4](/learning-guide/nec/os/04-deadlock/)
+
+Short notes (5 marks each): PCB · thrashing · TLB · microkernel · file allocation methods.

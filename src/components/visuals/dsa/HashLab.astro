@@ -1,0 +1,161 @@
+---
+// Hash lab: insert keys into a table with h(k) = k mod m and resolve collisions by linear
+// probing, quadratic probing, double hashing or chaining; see each probe sequence.
+---
+
+<qe-hash class="qe-lab qe-hash not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Hash lab — h(k) = k mod m</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Collision resolution">
+      <button type="button" data-r="lin" aria-pressed="true">Linear probing</button>
+      <button type="button" data-r="quad" aria-pressed="false">Quadratic probing</button>
+      <button type="button" data-r="dbl" aria-pressed="false">Double hashing</button>
+      <button type="button" data-r="chain" aria-pressed="false">Chaining</button>
+    </div>
+    <div class="qe-lab-chips prose" role="group" aria-label="Table size m">
+      <button type="button" data-m="7" aria-pressed="false">m = 7</button>
+      <button type="button" data-m="10" aria-pressed="false">m = 10</button>
+      <button type="button" data-m="11" aria-pressed="true">m = 11</button>
+      <button type="button" data-m="13" aria-pressed="false">m = 13</button>
+    </div>
+    <label class="keys">Keys (inserted in order)
+      <input type="text" data-k value="72, 27, 36, 24, 63, 81, 92, 101" spellcheck="false" />
+    </label>
+    <div class="tbl-wrap"><table class="ht" data-t></table></div>
+    <ol class="log" data-log></ol>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-hash>
+
+<script>
+  class QeHash extends HTMLElement {
+    r = 'lin';
+    m = 11;
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const kin = $('[data-k]') as HTMLInputElement;
+      const draw = () => {
+        const keys = kin.value
+          .split(/[\s,]+/)
+          .filter(Boolean)
+          .map((x) => parseInt(x, 10))
+          .filter((x) => !isNaN(x) && x >= 0)
+          .slice(0, 16);
+        const m = this.m;
+        const R = this.r;
+        const T: (number | null)[] = Array(m).fill(null);
+        const C: number[][] = Array.from({ length: m }, () => []);
+        const log: string[] = [];
+        const r2 = m === 7 ? 5 : 7; // second-hash prime smaller than m
+        let total = 0;
+        let placed = 0;
+        for (const k of keys) {
+          const h = k % m;
+          if (R === 'chain') {
+            C[h].push(k);
+            log.push(`${k} mod ${m} = ${h} → chain at ${h}${C[h].length > 1 ? ` (collision, length ${C[h].length})` : ''}`);
+            total += C[h].length;
+            placed++;
+            continue;
+          }
+          const h2 = r2 - (k % r2);
+          const seq: number[] = [];
+          let ok = false;
+          for (let i = 0; i < m; i++) {
+            const s = R === 'lin' ? (h + i) % m : R === 'quad' ? (h + i * i) % m : (h + i * h2) % m;
+            seq.push(s);
+            if (T[s] === null) {
+              T[s] = k;
+              ok = true;
+              break;
+            }
+          }
+          total += seq.length;
+          if (ok) placed++;
+          const how = R === 'dbl' ? ` (h₂ = ${r2} − ${k} mod ${r2} = ${h2})` : '';
+          log.push(`${k} mod ${m} = ${h}${how}: probes ${seq.join(' → ')}${ok ? ` ✓ slot ${seq[seq.length - 1]}` : ' ✗ no free slot found'}`);
+        }
+        let h = '<thead><tr><th scope="row">Slot</th>' + Array.from({ length: m }, (_, i) => `<th scope="col">${i}</th>`).join('') + '</tr></thead><tbody><tr><th scope="row">Key</th>';
+        h +=
+          R === 'chain'
+            ? C.map((c) => `<td>${c.length ? c.join('<br>↓<br>') : '—'}</td>`).join('')
+            : T.map((v) => `<td class="${v === null ? 'e' : ''}">${v === null ? '—' : v}</td>`).join('');
+        $('[data-t]').innerHTML = h + '</tr></tbody>';
+        $('[data-log]').innerHTML = log.map((l) => `<li>${l}</li>`).join('');
+        const lf = (keys.length / m).toFixed(2);
+        const notes: Record<string, string> = {
+          lin: `Linear probing tries h, h+1, h+2, … — simple, but runs of filled slots grow and merge (primary clustering), so later keys take long probe sequences.`,
+          quad: `Quadratic probing tries h, h+1², h+2², … — breaks up primary clusters, but keys with the same home slot still follow the same sequence (secondary clustering), and it may miss free slots unless m is prime and the table is under half full.`,
+          dbl: `Double hashing steps by a second hash h₂(k) = ${r2} − (k mod ${r2}), which is never 0 — different keys get different probe sequences, so clustering almost disappears.`,
+          chain: `Separate chaining keeps a linked list in each slot; the load factor may exceed 1 and deletion is easy, at the cost of pointer memory.`,
+        };
+        $('[data-note]').textContent = `${notes[R]} Load factor α = n/m = ${keys.length}/${m} = ${lf}; average ${R === 'chain' ? 'chain position' : 'probes'} per key here = ${(total / Math.max(1, placed)).toFixed(2)}. Choose m prime and away from powers of 2 for the division method.`;
+      };
+      const chips = (attr: string, fn: (v: string) => void) =>
+        this.querySelectorAll<HTMLButtonElement>(`[${attr}]`).forEach((b) =>
+          b.addEventListener('click', () => {
+            this.querySelectorAll(`[${attr}]`).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            fn(b.getAttribute(attr)!);
+            draw();
+          }),
+        );
+      chips('data-r', (v) => (this.r = v));
+      chips('data-m', (v) => (this.m = +v));
+      kin.addEventListener('input', draw);
+      draw();
+    }
+  }
+  customElements.define('qe-hash', QeHash);
+</script>
+
+<style>
+  .keys {
+    display: grid;
+    gap: 0.25rem;
+    margin: 0.9rem 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .keys input {
+    font: inherit;
+    font-family: var(--sl-font-mono);
+    font-weight: 400;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .tbl-wrap {
+    overflow-x: auto;
+  }
+  .ht {
+    border-collapse: collapse;
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+  }
+  :global(.qe-hash .ht th),
+  :global(.qe-hash .ht td) {
+    border: 1px solid var(--sl-color-gray-5);
+    padding: 0.3rem 0.45rem;
+    text-align: center;
+    color: var(--sl-color-white);
+    min-width: 2.2rem;
+    vertical-align: top;
+  }
+  :global(.qe-hash .ht th) {
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font);
+    font-size: 0.8rem;
+  }
+  :global(.qe-hash .ht td.e) {
+    color: var(--sl-color-gray-2);
+  }
+  .log {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-1);
+    margin-top: 0.8rem;
+  }
+</style>

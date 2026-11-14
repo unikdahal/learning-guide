@@ -1,0 +1,185 @@
+---
+title: "4. Sorting, searching and hashing"
+description: Pass-by-pass traces of insertion, selection, bubble, quick, merge, heap, shell and radix sort, stability and complexities, sequential and binary search, hash functions, collision resolution by chaining and open addressing with worked probe sequences, and load factor.
+sidebar:
+  label: "4. Sorting, searching, hashing"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+import SortLab from '@components/visuals/dsa/SortLab.astro';
+import HashLab from '@components/visuals/dsa/HashLab.astro';
+
+**Goal:** show any sort pass by pass, give each algorithm's complexities and stability, trace binary search, and fill a hash table with each probing method.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.2** (insertion, selection, exchange, merge, radix, shell and heap sort; sequential, binary and tree search; hashing and collision resolution). The model paper asks the division-method hash function and merge sort's best case. **Lok Sewa CE unit 7** (sorting, hashing) — "sort these numbers using quick/merge/heap sort, showing each pass" is the standard written numerical.
+</Aside>
+
+## 1. Watch them run
+
+<SortLab />
+
+## 2. The sorts, with traces
+
+**Insertion sort** on [5, 2, 4, 6, 1, 3] — after each pass the prefix is sorted:
+- Pass 1: [2, 5, 4, 6, 1, 3] · Pass 2: [2, 4, 5, 6, 1, 3] · Pass 3: [2, 4, 5, 6, 1, 3] · Pass 4: [1, 2, 4, 5, 6, 3] · Pass 5: [1, 2, 3, 4, 5, 6].
+
+**Selection sort** on [64, 25, 12, 22, 11] — swap the minimum to the front each pass:
+- [11, 25, 12, 22, 64] → [11, 12, 25, 22, 64] → [11, 12, 22, 25, 64] → done.
+
+**Bubble sort** — adjacent swaps; each pass fixes the largest remaining element at the end; stop early if a pass makes no swap.
+
+**Quick sort** — partition around a pivot, then recurse on both sides. **Lomuto** partition (pivot = last) on [8, 3, 6, 1, 9, 2, 5], pivot 5:
+- Elements ≤ 5 are swapped into the front: 3, 1, 2 → [3, 1, 2, 8, 9, 6, 5] → pivot swapped into place → **[3, 1, 2, 5, 9, 6, 8]**; 5 is final at index 3. Recurse on [3, 1, 2] and [9, 6, 8].
+- Worst case O(n²) when the pivot is always the min or max (sorted input with a first/last pivot); fix with a random or median-of-three pivot.
+
+**Merge sort** — split in half, sort each, merge. [38, 27, 43, 3, 9, 82, 10] → split to singles → merge pairs [27, 38] [3, 43] [9, 82] [10] → [3, 27, 38, 43] [9, 10, 82] → [3, 9, 10, 27, 38, 43, 82]. Always n log n; O(n) extra space; stable; ideal for linked lists and external (disk) sorting.
+
+**Heap sort** — build a max-heap, then repeatedly swap the root (max) with the last element, shrink the heap and sift down. [4, 10, 3, 5, 1] → heap [10, 5, 3, 4, 1] → swap → [1, 5, 3, 4 | 10] → sift → [5, 4, 3, 1 | 10] → … → [1, 3, 4, 5, 10]. O(n log n) always, in place, not stable.
+
+**Shell sort** — insertion sort on elements a **gap** apart, shrinking the gap (n/2, n/4, … 1). Moves elements far in early passes; about O(n^1.25)–O(n^1.5) depending on the gap sequence.
+
+**Radix sort (LSD)** — sort by each digit from the least significant, using a stable counting sort. [170, 45, 75, 90, 802, 24, 2, 66]:
+- by units: [170, 90, 802, 2, 24, 45, 75, 66]
+- by tens: [802, 2, 24, 45, 66, 170, 75, 90]
+- by hundreds: **[2, 24, 45, 66, 75, 90, 170, 802]**
+- O(d(n + k)) for d digits in base k — not comparison-based, so it beats the n log n lower bound.
+
+| Sort | Best | Average | Worst | Extra space | Stable |
+| --- | --- | --- | --- | --- | --- |
+| Insertion | n | n² | n² | 1 | yes |
+| Selection | n² | n² | n² | 1 | no |
+| Bubble | n | n² | n² | 1 | yes |
+| Shell | n log n | ~n^1.3 | n² (gap-dependent) | 1 | no |
+| **Merge** | **n log n** | n log n | n log n | n | yes |
+| Quick | n log n | n log n | **n²** | log n (stack) | no |
+| Heap | n log n | n log n | n log n | 1 | no |
+| Radix | d(n + k) | d(n + k) | d(n + k) | n + k | yes |
+
+**Stable** = equal keys keep their original order (matters when sorting records by a second key). Comparison sorts can't beat **Ω(n log n)** in the worst case (decision-tree argument). **Internal** sorting fits in memory; **external** sorting (multiway merge of sorted runs) handles data on disk.
+
+## 3. Searching
+
+- **Sequential (linear) search:** check each element — O(n); works on unsorted data.
+- **Binary search:** sorted array; compare with the middle, discard half — **O(log n)**; at most ⌊log₂ n⌋ + 1 comparisons.
+
+```cpp
+int binarySearch(const std::vector<int>& a, int key) {
+    int lo = 0, hi = (int)a.size() - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2;     // avoids overflow of (lo + hi)
+        if (a[mid] == key) return mid;
+        if (a[mid] < key) lo = mid + 1; else hi = mid - 1;
+    }
+    return -1;
+}
+```
+
+Trace: search 23 in [2, 5, 8, 12, 16, 23, 38, 56, 72, 91] — mid = 4 (16) → right; lo = 5, hi = 9, mid = 7 (56) → left; lo = 5, hi = 6, mid = 5 (**23**) → found in **3 comparisons**.
+
+- **Tree search:** BST search O(h). **Interpolation search:** guesses the position from the key's value — O(log log n) for uniform data.
+
+## 4. Hashing
+
+Map a key straight to a table slot with a **hash function**, giving **O(1) average** search, insert and delete.
+
+**Hash functions:**
+- **Division:** **h(k) = k mod m** — choose m **prime**, not close to a power of 2.
+- **Multiplication:** h(k) = ⌊m · frac(k·A)⌋, A ≈ 0.618.
+- **Mid-square:** square the key, take middle digits. **Folding:** split the key into parts and add them.
+
+A **collision** happens when two keys hash to the same slot.
+
+**Collision resolution:**
+- **Separate chaining:** each slot holds a linked list. Load factor α = n/m may exceed 1; average search 1 + α/2.
+- **Open addressing** — all keys in the table (α ≤ 1); probe until a free slot:
+  - **Linear probing:** h, h + 1, h + 2, … — **primary clustering**.
+  - **Quadratic probing:** h + 1², h + 2², … — **secondary clustering**.
+  - **Double hashing:** h + i·h₂(k), with h₂(k) ≠ 0 — best spread.
+  - Deletion needs a "deleted" marker (tombstone), or searches break.
+
+<HashLab />
+
+**Worked (m = 11, keys 72, 27, 36, 24, 63, 81, 92, 101).** Home slots: 72→6, 27→5, 36→3, 24→2, 63→8, 81→4, 92→**4**, 101→**2**.
+- **Linear:** 92 probes 4, 5, 6, 7 → slot 7. 101 probes 2, 3, 4, 5, 6, 7, 8, 9 → slot 9 (8 probes — clustering).
+- **Quadratic:** 92 → 4, 5, 8, 2, 9 → slot 9. 101 → 2, 3, 6, 0 → slot 0.
+- **Double hashing**, h₂(k) = 7 − (k mod 7): 92 → h₂ = 6 → 4, 10 → slot 10. 101 → h₂ = 4 → 2, 6, 10, 3, 7 → slot 7.
+
+Keep α below about 0.7 for open addressing; when it grows, **rehash** into a table about twice as large (prime size).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain quick sort with its algorithm and complexity. Sort 8, 3, 6, 1, 9, 2, 5 showing each partition.
+
+<details>
+<summary>Model answer</summary>
+
+**Quick sort** is a divide-and-conquer sorting algorithm (Hoare, 1962). It picks a **pivot**, partitions the array so that elements ≤ pivot are on its left and larger ones on its right (the pivot is then in its final position), and recursively sorts the two parts.
+
+**Algorithm.**
+```text
+QUICKSORT(A, lo, hi)
+  if lo < hi
+     p = PARTITION(A, lo, hi)
+     QUICKSORT(A, lo, p − 1)
+     QUICKSORT(A, p + 1, hi)
+
+PARTITION(A, lo, hi)          // Lomuto, pivot = last element
+  pivot = A[hi]; i = lo − 1
+  for j = lo to hi − 1
+     if A[j] ≤ pivot: i = i + 1; swap A[i], A[j]
+  swap A[i + 1], A[hi]
+  return i + 1
+```
+
+**Trace.**
+1. [8, 3, 6, 1, 9, 2, 5], pivot 5 → [3, 1, 2, **5**, 9, 6, 8].
+2. Left [3, 1, 2], pivot 2 → [1, **2**, 3].
+3. Right [9, 6, 8], pivot 8 → [6, **8**, 9].
+4. Sub-arrays of size ≤ 1 are sorted. Result: **[1, 2, 3, 5, 6, 8, 9]**.
+
+**Complexity.** Best and average **O(n log n)** (balanced partitions: T(n) = 2T(n/2) + n). Worst **O(n²)** when partitions are maximally unbalanced, e.g. sorted input with last-element pivot (T(n) = T(n − 1) + n). Space O(log n) average for recursion. In place and not stable. Improvements: random or median-of-three pivot, insertion sort for small sub-arrays.
+
+</details>
+
+## Check yourself
+
+1. The best-case time of merge sort is:
+   (a) O(n) (b) O(n log n) (c) O(n²) (d) O(log n)
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The division-method hash function is:
+   (a) h(k) = k / m (b) h(k) = k mod m (c) h(k) = k² mod m (d) h(k) = ⌊m·k⌋
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Which sort is not stable?
+   (a) insertion (b) merge (c) selection (d) bubble
+
+<details><summary>Answer</summary>(c)</details>
+
+4. Quick sort's worst case occurs when:
+   (a) the pivot is the median (b) the array is already sorted and the pivot is the last element (c) elements are distinct (d) n is even
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Maximum comparisons for binary search on 1000 elements:
+   (a) 9 (b) 10 (c) 11 (d) 500
+
+<details><summary>Answer</summary>(b) ⌊log₂ 1000⌋ + 1 = 10.</details>
+
+6. Primary clustering is a problem of:
+   (a) chaining (b) linear probing (c) double hashing (d) binary search
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Which sort is not comparison-based?
+   (a) heap (b) quick (c) radix (d) shell
+
+<details><summary>Answer</summary>(c)</details>
+
+8. The load factor of a hash table is:
+   (a) m/n (b) n/m (c) n × m (d) collisions/n
+
+<details><summary>Answer</summary>(b) keys / slots.</details>

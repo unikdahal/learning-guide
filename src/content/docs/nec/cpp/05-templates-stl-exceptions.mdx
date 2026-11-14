@@ -1,0 +1,159 @@
+---
+title: "5. Templates, STL, exceptions and file streams"
+description: Function and class templates and their overloading, the STL's containers, iterators and algorithms, exception handling (try, catch, throw, multiple handlers, catch-all, rethrow, exceptions with arguments, specifications, uncaught exceptions), and C++ file streams, the stream class hierarchy, ios flags and manipulators — with compiled outputs.
+sidebar:
+  label: "5. Templates, STL, exceptions"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** write a function and a class template, pick the right STL container, trace exception flow, and read manipulator output.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 3.5–3.6** (file handling, stream classes, ios flags and manipulators; templates; STL; exceptions). The model paper asks `ifstream` vs `ofstream`, the purpose of a class template, and what happens to an uncaught exception.
+</Aside>
+
+## 1. Templates (generic programming)
+
+```cpp
+template <typename T>                    // function template
+T mx(T a, T b) { return a > b ? a : b; }
+mx(3, 7);                    // 7     (T deduced as int)
+mx(2.5, 1.5);                // 2.5   (T = double)
+mx<std::string>("apple", "banana");   // banana  (explicit T)
+
+template <typename T, int N = 10>        // class template with a non-type parameter
+class Stack {
+    T data[N]; int top = -1;
+public:
+    void push(const T& x) { data[++top] = x; }
+    T pop() { return data[top--]; }
+};
+Stack<int> si; Stack<std::string, 5> ss;
+```
+
+- A **class template** defines a family of classes parameterised by type — write `Stack` once, use it for any T (purpose asked in the model paper). The compiler **instantiates** a separate class for each type used.
+- **Overloading templates:** an ordinary function with the exact types beats a template; templates can be overloaded with other templates; **specialisation** (`template <> class Stack<bool> { … };`) gives a custom version for one type.
+- Templates give **compile-time polymorphism** without virtual-call overhead; errors appear at instantiation.
+
+## 2. The STL
+
+Three parts: **containers** (hold data), **algorithms** (operate on ranges), **iterators** (connect the two — generalised pointers).
+
+| Category | Containers | Notes |
+| --- | --- | --- |
+| **Sequence** | `vector` (dynamic array), `deque` (double-ended), `list` (doubly linked), `array`, `forward_list` | vector: O(1) random access and push_back; list: O(1) insert anywhere |
+| **Associative** (sorted, balanced trees) | `set`, `multiset`, `map`, `multimap` | O(log n); `map` keeps keys sorted |
+| **Unordered** (hash tables) | `unordered_set`, `unordered_map` … | O(1) average |
+| **Adapters** | `stack`, `queue`, `priority_queue` | restricted interfaces over another container |
+
+```cpp
+std::vector<int> v = {5, 3, 8, 1};
+std::sort(v.begin(), v.end());                    // 1 3 5 8
+std::map<std::string, int> m; m["b"] = 2; m["a"] = 1;
+for (auto& [k, val] : m) std::cout << k << val << " ";   // a1 b2  (sorted by key)
+```
+
+Algorithms (`<algorithm>`): `sort`, `find`, `count`, `reverse`, `max_element`, `binary_search`, `accumulate` (`<numeric>`), `for_each`, `copy`. **Iterator kinds:** input, output, forward, bidirectional (list, map), random-access (vector, deque).
+
+## 3. Exception handling
+
+Separates error-handling code from normal code. **`throw`** raises an exception; **`try`** marks code to watch; **`catch`** handles by type.
+
+```cpp
+void thrower(int x) {
+    if (x < 0) throw std::invalid_argument("negative");   // exception with an argument
+    if (x == 0) throw 0;                                   // any type can be thrown
+}
+for (int v : {-1, 0, 1}) {
+    try { thrower(v); std::cout << "ok "; }
+    catch (const std::invalid_argument& e) { std::cout << "caught " << e.what() << " "; }
+    catch (...) { std::cout << "catch-all "; }             // catches anything; must be last
+}
+// Output: caught negative catch-all ok
+```
+
+- **Multiple handlers** are tried **in order**; the first matching one runs — put **derived** exception types before **base** ones. Catch **by reference** (avoids slicing and copying).
+- **Rethrow** with a bare `throw;` inside a handler to pass the same exception outward:
+
+```cpp
+try {
+    try { throw std::runtime_error("inner"); }
+    catch (const std::exception& e) { std::cout << "handled " << e.what() << ", "; throw; }
+} catch (const std::runtime_error& e) { std::cout << "rethrown " << e.what(); }
+// Output: handled inner, rethrown inner
+```
+
+- **Stack unwinding:** when an exception propagates, destructors of local objects run (that's why RAII works).
+- **Uncaught exception:** if no handler matches, **`std::terminate()`** is called, which by default calls **`abort()`** — the program ends abnormally.
+- **Exception specifications:** old dynamic specs `void f() throw(int);` (deprecated, removed in C++17 — violating one called `unexpected()`); modern **`noexcept`** says a function won't throw (if it does, `terminate()` is called).
+- Standard hierarchy: `std::exception` → `logic_error` (`invalid_argument`, `out_of_range`, `length_error`), `runtime_error` (`overflow_error`, `range_error`), `bad_alloc` (from `new`), `bad_cast`.
+
+## 4. File streams
+
+**Stream class hierarchy:** `ios_base` → `ios` → `istream` / `ostream` → `iostream`; file streams **`ifstream`** (derived from istream — **input, reading**), **`ofstream`** (from ostream — **output, writing**), **`fstream`** (from iostream — both). `cin` is an istream, `cout`/`cerr`/`clog` are ostreams.
+
+```cpp
+{ std::ofstream out("t.txt"); out << "line1\nline2\n"; }      // closed by the destructor
+std::ifstream in("t.txt");
+if (!in) { /* open failed */ }
+std::string line; int n = 0;
+while (std::getline(in, line)) n++;                          // 2 lines
+```
+
+- **Open modes** (`ios::` flags, combinable with `|`): `in`, `out`, `app` (append), `ate` (start at the end), `trunc`, `binary`. `std::fstream f("d.dat", std::ios::in | std::ios::out | std::ios::binary);`
+- **Error state:** `good()`, `eof()`, `fail()`, `bad()`, `clear()`; a stream converts to false after an error.
+- **Binary and random access:** `write(reinterpret_cast<const char*>(&rec), sizeof rec)` / `read(...)`; **`seekg`/`tellg`** (get pointer, input) and **`seekp`/`tellp`** (put pointer, output).
+
+**Formatted I/O — ios flags and manipulators:**
+
+```cpp
+std::cout << std::setw(6) << std::setfill('*') << 42;            // ****42
+std::cout << std::fixed << std::setprecision(2) << 3.14159;      // 3.14
+std::cout << std::hex << 255 << std::dec;                        // ff
+```
+
+- **Manipulators** (`<iomanip>` for those with arguments): `setw(n)` (width — applies to the **next** output only), `setfill(c)`, `setprecision(n)`, `fixed`, `scientific`, `left`/`right`, `hex`/`oct`/`dec`, `showpoint`, `showpos`, `endl` (newline + **flush**), `ws`.
+- **ios member functions/flags:** `cout.width(6)`, `cout.precision(3)`, `cout.fill('0')`, `cout.setf(ios::left, ios::adjustfield)`, `cout.unsetf(ios::fixed)`.
+
+## Check yourself
+
+1. `ifstream` is used for:
+   (a) writing to files (b) reading from files (c) both (d) console output
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The purpose of a class template is to:
+   (a) speed up I/O (b) define a generic class that works with any data type (c) prevent inheritance (d) handle exceptions
+
+<details><summary>Answer</summary>(b)</details>
+
+3. If an exception is not caught:
+   (a) it is ignored (b) `std::terminate()` is called, aborting the program (c) the program continues (d) the compiler reports an error
+
+<details><summary>Answer</summary>(b)</details>
+
+4. `catch (...)` catches:
+   (a) only standard exceptions (b) any exception (c) only integers (d) nothing
+
+<details><summary>Answer</summary>(b)</details>
+
+5. `cout << setw(5) << setfill('0') << 42;` prints:
+   (a) 42000 (b) 00042 (c) 42 (d) 0042
+
+<details><summary>Answer</summary>(b)</details>
+
+6. An STL container with sorted unique keys mapped to values:
+   (a) vector (b) list (c) map (d) queue
+
+<details><summary>Answer</summary>(c)</details>
+
+7. A bare `throw;` inside a catch block:
+   (a) throws an int (b) rethrows the current exception (c) ends the program (d) is a syntax error
+
+<details><summary>Answer</summary>(b)</details>
+
+8. The function that moves the get pointer of an input file stream:
+   (a) seekp (b) seekg (c) tellp (d) fseek
+
+<details><summary>Answer</summary>(b)</details>

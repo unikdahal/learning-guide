@@ -1,0 +1,182 @@
+---
+title: "7. Application layer"
+description: Client-server and P2P, DNS and name resolution, HTTP and HTTPS (methods, status codes, persistent connections, cookies), web caching, FTP, email (SMTP, POP3, IMAP, MIME), DHCP, SNMP, Telnet and SSH, and the tools the syllabus names.
+sidebar:
+  label: "7. Application layer"
+  order: 7
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** explain DNS resolution and DHCP step by step, compare persistent and non-persistent HTTP, know every port, and know what each named tool is for.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 5.5** (HTTP, HTTPS, FTP, PuTTY, WinSCP, email, DNS, P2P, socket programming, application servers, MRTG, PRTG, SNMP, Packet Tracer, Wireshark); the model paper asks an email protocol, the protocol on port 25 and what FTP stands for. **Lok Sewa CE unit 1** (web caching, FTP, email, DNS) and Computer Officer's "DNS resolution and DHCP working" (reported CO 2083).
+</Aside>
+
+## 1. Application architectures
+
+- **Client–server:** an always-on server with a fixed address serves many clients (web, email). Simple to manage; the server is a bottleneck and single point of failure.
+- **Peer-to-peer (P2P):** peers act as both clients and servers (BitTorrent). **Self-scaling** — each new peer adds capacity — but harder to manage and secure. **Hybrid** systems use a server for discovery and P2P for transfer.
+- **Application servers** host business logic between web servers and databases (Tomcat, IIS, WebLogic, JBoss).
+
+## 2. DNS — the Internet's phone book
+
+Maps **names to IP addresses** (and more). A distributed, hierarchical database: **root servers** (13 named root server identities) → **top-level domain (TLD)** servers (.com, .org, .np) → **authoritative** servers (for example.com). Each organisation's **local DNS resolver** caches answers for their **TTL**. Uses **UDP 53** (TCP 53 for large responses and zone transfers).
+
+**Resolution of www.example.com (iterative from the local resolver):**
+1. Host asks its local resolver (a **recursive** query: "find it for me").
+2. Resolver (no cache) asks a **root** server → referral to the .com TLD servers.
+3. Resolver asks a **.com TLD** server → referral to example.com's authoritative server.
+4. Resolver asks the **authoritative** server → the A record (IP).
+5. Resolver caches it and replies to the host.
+
+**Recursive** query: the server takes full responsibility and returns the answer. **Iterative** query: the server returns the best referral it has and the asker continues.
+
+**Records:** **A** (name → IPv4), **AAAA** (→ IPv6), **CNAME** (alias), **MX** (mail server for a domain), **NS** (authoritative name server), **PTR** (IP → name, reverse lookup), SOA, TXT.
+
+## 3. HTTP and HTTPS
+
+**HTTP** — request/response over **TCP 80**; **stateless** (the server keeps no memory of past requests).
+- **Methods:** GET (fetch), POST (submit data), PUT (replace), DELETE, HEAD (headers only), PATCH, OPTIONS.
+- **Status codes:** 1xx informational; **2xx success** (200 OK, 201 Created); **3xx redirection** (301 moved permanently, 302 found, **304 not modified**); **4xx client error** (400 bad request, 401 unauthorised, 403 forbidden, **404 not found**); **5xx server error** (500 internal server error, 503 service unavailable).
+- **Cookies** add state: the server sends `Set-Cookie`, the browser returns it each request — sessions, carts, tracking.
+
+**Non-persistent vs persistent connections.** Fetching a page with 10 embedded images:
+- **Non-persistent (HTTP/1.0):** a new TCP connection per object — each costs **2 RTT** + transfer time (1 RTT for the handshake, 1 for request/response): about 11 × 2 RTT serially.
+- **Persistent (HTTP/1.1 default):** one connection reused — 2 RTT for the base page, then about 1 RTT per object, or about **1 RTT for all objects with pipelining**.
+- HTTP/2: multiplexed streams over one connection, header compression; HTTP/3: over QUIC (UDP).
+
+**HTTPS** = HTTP over **TLS**, **port 443**: encryption, server authentication by certificate, integrity (lesson 8).
+
+## 4. Web caching (proxy servers)
+
+A **proxy cache** sits between the clients and the Internet: the browser asks the proxy; on a hit it answers immediately, on a miss it fetches from the origin, stores a copy and forwards it.
+- Benefits: lower response time, less traffic on the access link, less load on servers.
+- Freshness: **conditional GET** — the cache sends `If-Modified-Since`; the server replies **304 Not Modified** (no body) if unchanged.
+- Example: access link 15 Mbps fully loaded; a cache with 40% hit rate removes 40% of the link traffic — often cheaper than upgrading the link. CDNs are web caching at global scale.
+
+## 5. FTP
+
+**File Transfer Protocol.** Two TCP connections: **control on port 21** (commands such as USER, PASS, LIST, RETR, STOR — kept open, "out-of-band") and **data on port 20** (one per file). **Active mode:** server opens the data connection from port 20 to the client; **passive mode:** the client opens it (firewall-friendly). FTP sends passwords in clear text — use **SFTP** (over SSH, port 22) or **FTPS** (FTP over TLS). **TFTP** is a tiny UDP (69) version for booting devices.
+
+## 6. Email
+
+- **User agent** (Outlook, Thunderbird) → **SMTP** (TCP **25**; 587 for client submission) → sender's mail server → **SMTP** → receiver's mail server → mailbox.
+- **SMTP pushes** mail (sender → server, server → server); it is 7-bit ASCII, so **MIME** encodes attachments, images and non-English text (base64, content types).
+- Retrieval (pull): **POP3** (TCP **110**) — download and usually delete from the server; simple, offline. **IMAP** (TCP **143**) — mail stays on the server, folders and multi-device sync. Secure variants: SMTPS 465, IMAPS 993, POP3S 995.
+- Webmail uses HTTP between the browser and the server.
+
+## 7. DHCP
+
+Automatically assigns an IP address, subnet mask, default gateway and DNS server to a host, with a **lease time**. **UDP 67 (server) / 68 (client)**. The **DORA** exchange:
+1. **Discover** — client broadcasts (source 0.0.0.0, destination 255.255.255.255) to find servers.
+2. **Offer** — a server offers an address.
+3. **Request** — client broadcasts its acceptance (so other servers withdraw their offers).
+4. **Acknowledge** — the server confirms; the client configures itself.
+
+The client renews at 50% of the lease. A **DHCP relay agent** forwards requests across routers. Without a reply, Windows self-assigns 169.254.x.x (APIPA).
+
+## 8. Remote access and management
+
+- **Telnet** (TCP 23) — remote terminal, **clear text** (obsolete). **SSH** (TCP 22) — encrypted remote login, also tunnelling, SCP and SFTP.
+- **PuTTY** — a Windows SSH/Telnet client. **WinSCP** — a Windows SFTP/SCP/FTP file-transfer client.
+- **RDP** (TCP 3389) — Windows remote desktop.
+- **SNMP** (UDP **161** for queries, **162** for traps) — an **SNMP manager** polls **agents** on devices, which expose variables organised in a **MIB**; operations Get, GetNext, Set, and unsolicited **Trap** messages. SNMPv3 adds security.
+
+## 9. Tools the syllabus names
+
+| Tool | What it does |
+| --- | --- |
+| **Wireshark** | captures and decodes packets on an interface — protocol analysis and troubleshooting |
+| **MRTG** (Multi Router Traffic Grapher) | polls devices by SNMP and graphs interface traffic over time |
+| **PRTG** (Paessler Router Traffic Grapher) | a commercial network monitor (SNMP, flow, packet sniffing) with alerts and dashboards |
+| **Cisco Packet Tracer** | simulates networks of routers, switches and PCs for learning and design |
+| ping / tracert (traceroute) / ipconfig (ifconfig, ip) / nslookup (dig) / netstat / arp -a | reachability, path, interface config, DNS lookup, connections, ARP cache |
+
+## 10. Port table to memorise
+
+| Port | Protocol | Port | Protocol |
+| --- | --- | --- | --- |
+| 20, 21 | FTP data, control | 110 | POP3 |
+| 22 | SSH, SFTP, SCP | 123 | NTP (UDP) |
+| 23 | Telnet | 143 | IMAP |
+| 25 | SMTP | 161, 162 | SNMP, SNMP trap (UDP) |
+| 53 | DNS | 179 | BGP |
+| 67, 68 | DHCP server, client (UDP) | 443 | HTTPS |
+| 69 | TFTP (UDP) | 520 | RIP (UDP) |
+| 80 | HTTP | 3389 | RDP |
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain how DNS resolves a domain name. Describe how DHCP assigns an IP address to a client.
+
+<details>
+<summary>Model answer</summary>
+
+**DNS (Domain Name System)** translates human-readable names into IP addresses using a distributed, hierarchical database: root servers, top-level-domain servers (.com, .np) and authoritative servers for each domain. It uses UDP port 53.
+
+**Resolution of www.example.com.** *(Draw host, local DNS server, root, TLD and authoritative servers with numbered arrows.)*
+1. The host's resolver sends a recursive query to the local DNS server.
+2. If the answer is not cached, the local server queries a root server, which refers it to the .com TLD servers.
+3. The local server queries a .com TLD server, which refers it to example.com's authoritative server.
+4. The authoritative server returns the A record (IP address).
+5. The local server caches the record for its TTL and returns the address to the host.
+
+Steps 2–4 are **iterative** queries (each server returns a referral); step 1 is **recursive** (the local server must return the final answer). Caching at every level reduces delay and load.
+
+**DHCP (Dynamic Host Configuration Protocol)** automatically provides an IP address, subnet mask, default gateway and DNS server address for a lease period. It uses UDP ports 67 (server) and 68 (client). *(Draw the four-message exchange.)*
+1. **DHCPDISCOVER** — the client broadcasts to find servers.
+2. **DHCPOFFER** — a server offers an available address and parameters.
+3. **DHCPREQUEST** — the client broadcasts which offer it accepts.
+4. **DHCPACK** — the server confirms the lease; the client configures its interface.
+
+The client renews at half the lease time; a relay agent forwards DHCP messages between subnets.
+
+</details>
+
+## Check yourself
+
+1. The protocol on port 25 is:
+   (a) FTP (b) SMTP (c) Telnet (d) DNS
+
+<details><summary>Answer</summary>(b)</details>
+
+2. FTP stands for:
+   (a) Fast Transfer Protocol (b) File Transfer Protocol (c) File Transmission Process (d) Folder Transfer Protocol
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Which protocol retrieves mail while keeping it on the server?
+   (a) SMTP (b) POP3 (c) IMAP (d) MIME
+
+<details><summary>Answer</summary>(c)</details>
+
+4. The DNS record that names a domain's mail server:
+   (a) A (b) CNAME (c) MX (d) PTR
+
+<details><summary>Answer</summary>(c)</details>
+
+5. HTTP status 404 means:
+   (a) server error (b) not found (c) forbidden (d) moved permanently
+
+<details><summary>Answer</summary>(b)</details>
+
+6. The first message a DHCP client sends is:
+   (a) Request (b) Offer (c) Discover (d) Ack
+
+<details><summary>Answer</summary>(c)</details>
+
+7. WinSCP is used for:
+   (a) packet capture (b) secure file transfer (c) traffic graphing (d) network simulation
+
+<details><summary>Answer</summary>(b)</details>
+
+8. MRTG collects data using:
+   (a) SMTP (b) SNMP (c) ICMP (d) FTP
+
+<details><summary>Answer</summary>(b)</details>
+
+9. HTTP is described as stateless because:
+   (a) it uses UDP (b) the server keeps no memory of earlier requests (c) it has no headers (d) it can't use cookies
+
+<details><summary>Answer</summary>(b)</details>

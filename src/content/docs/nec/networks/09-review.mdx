@@ -1,0 +1,176 @@
+---
+title: "9. Review: 30 mixed questions"
+description: A timed mixed test across Networks from zero — models and devices, data link numericals, LANs, subnetting, routing, TCP/UDP, application protocols and security — plus written practice.
+sidebar:
+  label: "9. Review test"
+  order: 9
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** check Chapter 5 in one sitting: **30 minutes**, paper and pen. NEC gives this chapter about 10 questions — aim for 27/30 here.
+
+<Aside type="tip" title="How to use this">
+Every answer names the lesson. Anything you miss goes into your error log and gets one more MCQ set before the January mocks.
+</Aside>
+
+## Questions
+
+1. Which OSI layer handles routing?
+   (a) data link (b) network (c) transport (d) session
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+2. A hub operates at the:
+   (a) physical layer (b) data link layer (c) network layer (d) application layer
+
+<details><summary>Answer</summary>(a) Lesson 1.</details>
+
+3. The PDU of the data link layer is a:
+   (a) segment (b) packet (c) frame (d) bit
+
+<details><summary>Answer</summary>(c) Lesson 1.</details>
+
+4. Propagation delay over 4000 km at 2 × 10⁸ m/s:
+   (a) 2 ms (b) 20 ms (c) 0.2 ms (d) 200 ms
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+5. The CRC remainder for data 1101011011 with generator 10011 is:
+   (a) 0010 (b) 1110 (c) 1011 (d) 0000
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+6. Hamming check bits for 16 data bits:
+   (a) 4 (b) 5 (c) 6 (d) 8
+
+<details><summary>Answer</summary>(b) 2⁵ = 32 ≥ 16 + 5 + 1. Lesson 2.</details>
+
+7. With a = Tp/Tt = 4.5, stop-and-wait efficiency is:
+   (a) 10% (b) 18% (c) 22% (d) 50%
+
+<details><summary>Answer</summary>(a) 1/(1 + 9). Lesson 2.</details>
+
+8. Selective Repeat with 5-bit sequence numbers: maximum window
+   (a) 31 (b) 16 (c) 32 (d) 15
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+9. Maximum throughput of pure ALOHA:
+   (a) 18.4% (b) 36.8% (c) 50% (d) 1%
+
+<details><summary>Answer</summary>(a) Lesson 3.</details>
+
+10. CSMA/CD minimum frame for 100 Mbps, Tp = 2.5 µs:
+    (a) 250 bits (b) 500 bits (c) 1000 bits (d) 64 bits
+
+<details><summary>Answer</summary>(b) 2 × 2.5 × 10⁻⁶ × 10⁸. Lesson 3.</details>
+
+11. RARP maps:
+    (a) IP to MAC (b) MAC to IP (c) name to IP (d) IP to name
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+12. Collision avoidance with RTS/CTS is used in:
+    (a) 802.3 (b) 802.5 (c) 802.11 (d) 802.4
+
+<details><summary>Answer</summary>(c) Lesson 3.</details>
+
+13. The default mask of a class B address is:
+    (a) 255.0.0.0 (b) 255.255.0.0 (c) 255.255.255.0 (d) 255.255.255.255
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+14. Host 192.168.10.100/27 belongs to network:
+    (a) 192.168.10.64 (b) 192.168.10.96 (c) 192.168.10.100 (d) 192.168.10.128
+
+<details><summary>Answer</summary>(b) block 32. Lesson 4.</details>
+
+15. Its broadcast address is:
+    (a) 192.168.10.127 (b) 192.168.10.255 (c) 192.168.10.111 (d) 192.168.10.95
+
+<details><summary>Answer</summary>(a) Lesson 4.</details>
+
+16. A network needing 500 hosts should use at least:
+    (a) /22 (b) /23 (c) /24 (d) /25
+
+<details><summary>Answer</summary>(b) 2⁹ − 2 = 510. Lesson 4.</details>
+
+17. 10.0.0.0/8 is:
+    (a) public class A (b) private class A (c) multicast (d) loopback
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+18. A routing algorithm that knows the whole topology and runs Dijkstra:
+    (a) distance vector (b) link state (c) path vector (d) flooding
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+19. RIP treats which hop count as infinity?
+    (a) 15 (b) 16 (c) 255 (d) 30
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+20. The IPv4 field that stops packets looping forever:
+    (a) identification (b) TTL (c) checksum (d) protocol
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+21. The compressed form of 2001:0db8:0000:0000:0000:0000:0000:0001 is:
+    (a) 2001:db8::1 (b) 2001:db8:0:1 (c) 2001::db8::1 (d) 2001:db8:1::
+
+<details><summary>Answer</summary>(a) `::` can appear only once. Lesson 5.</details>
+
+22. The transport protocol that provides error control:
+    (a) UDP (b) TCP (c) IP (d) ICMP
+
+<details><summary>Answer</summary>(b) Lesson 6.</details>
+
+23. TCP's three-way handshake sequence:
+    (a) SYN, ACK, FIN (b) SYN, SYN-ACK, ACK (c) ACK, SYN, ACK (d) SYN, FIN, ACK
+
+<details><summary>Answer</summary>(b) Lesson 6.</details>
+
+24. After three duplicate ACKs with cwnd = 24, Reno sets cwnd to about:
+    (a) 1 (b) 12 (c) 24 (d) 48
+
+<details><summary>Answer</summary>(b) Lesson 6.</details>
+
+25. DNS normally uses:
+    (a) TCP 25 (b) UDP 53 (c) UDP 67 (d) TCP 80
+
+<details><summary>Answer</summary>(b) Lesson 7.</details>
+
+26. Which email protocol pushes mail between servers?
+    (a) POP3 (b) IMAP (c) SMTP (d) MIME
+
+<details><summary>Answer</summary>(c) Lesson 7.</details>
+
+27. The tool that captures and decodes packets:
+    (a) PRTG (b) Wireshark (c) PuTTY (d) Packet Tracer
+
+<details><summary>Answer</summary>(b) Lesson 7.</details>
+
+28. In RSA with n = 33, e = 3, the ciphertext for M = 2 is:
+    (a) 6 (b) 8 (c) 9 (d) 2
+
+<details><summary>Answer</summary>(b) 2³ mod 33. Lesson 8.</details>
+
+29. Non-repudiation is provided by:
+    (a) symmetric encryption (b) hashing alone (c) a digital signature (d) a firewall
+
+<details><summary>Answer</summary>(c) Lesson 8.</details>
+
+30. A firewall that inspects full application content:
+    (a) packet filter (b) stateful (c) application-level gateway (d) circuit-level gateway
+
+<details><summary>Answer</summary>(c) Lesson 8.</details>
+
+## Lok Sewa written practice (no notes, timed)
+
+1. **(10 marks · 16 min)** Subnet 200.168.10.0/24 into 7 subnets; give the details for host 200.168.10.75. → [Lesson 4](/learning-guide/nec/networks/04-ip-subnetting/)
+2. **(10 marks · 16 min)** Datagram vs virtual-circuit networks, with diagrams. → [Lesson 1](/learning-guide/nec/networks/01-basics-models/)
+3. **(5 marks · 8 min)** Compare TCP and UDP. → [Lesson 6](/learning-guide/nec/networks/06-transport/)
+4. **(10 marks · 16 min)** Cryptography, symmetric vs asymmetric, and PKI. → [Lesson 8](/learning-guide/nec/networks/08-security/)
+5. **(10 marks · 16 min)** DNS resolution and DHCP. → [Lesson 7](/learning-guide/nec/networks/07-application/)
+
+Short notes (5 marks each): CSMA/CD · count-to-infinity · IPv6 header · token bucket · MITM on Wi-Fi · firewall types.

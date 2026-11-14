@@ -1,0 +1,30 @@
+---
+title: "OS for the exam: start here"
+description: NEC 7.5–7.6 and Lok Sewa CE unit 10 — processes and threads, CPU scheduling, synchronisation, deadlock, memory management and virtual memory, disks, file systems and administration, with labs, worked numericals and model answers.
+sidebar:
+  label: "0. Start here"
+  order: 0
+---
+import { Aside } from '@astrojs/starlight/components';
+
+This course covers **NEC 7.5–7.6** and **Lok Sewa Computer Engineer unit 10 (operating systems)**; for Computer Officer, OS is about **10%** of Paper II.
+
+<Aside type="note" title="What the exam actually asks">
+OS questions are mostly **numericals with fixed procedures** — Gantt charts and average waiting time, Banker's safety algorithm, page-fault counts, address translation, effective access time, disk head movement — plus a few **standard written answers** (process states, deadlock conditions, paging vs segmentation, semaphores). The labs reproduce the numericals so you can check every hand calculation.
+</Aside>
+
+## The path
+
+| # | Lesson | Exam skill |
+| --- | --- | --- |
+| 1 | [OS basics, processes and threads](/learning-guide/nec/os/01-processes-threads/) | OS types and structures, process states, PCB, threads, IPC |
+| 2 | [CPU scheduling](/learning-guide/nec/os/02-scheduling/) | FCFS, SJF, SRTF, RR, priority — Gantt charts and averages |
+| 3 | [Synchronisation](/learning-guide/nec/os/03-synchronisation/) | critical section, Peterson, semaphores, monitors, classical problems |
+| 4 | [Deadlock](/learning-guide/nec/os/04-deadlock/) | Coffman conditions, resource-allocation graphs, Banker's algorithm |
+| 5 | [Memory management and virtual memory](/learning-guide/nec/os/05-memory/) | fragmentation, paging numericals, TLB, page replacement, thrashing |
+| 6 | [Storage, file systems and administration](/learning-guide/nec/os/06-storage-files/) | disk scheduling, allocation methods, directories, RAID, accounts, boot |
+| 7 | [Review test](/learning-guide/nec/os/07-review/) | 25 timed MCQs plus written practice |
+
+<Aside type="tip" title="Where it fits in your plan">
+Plan v2, **Thu 17 Dec**: lessons 1–7 (about 4 hours). Sunday 20 Dec's written answer "deadlock and its conditions (10 marks)" is in lesson 4. Reported Lok Sewa questions: deadlock (CE 2078), scheduling algorithms (CE 2078), virtual memory and paging vs segmentation (CO 2083).
+</Aside>

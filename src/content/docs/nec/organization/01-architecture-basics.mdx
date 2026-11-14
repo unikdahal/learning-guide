@@ -1,0 +1,159 @@
+---
+title: "1. Architecture basics and the instruction cycle"
+description: Architecture vs organisation, the von Neumann and Harvard models, CPU components, bus structures, register transfer notation, and the fetch–decode–execute (and interrupt) cycle.
+sidebar:
+  label: "1. Architecture basics"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DigitalDiagram from '@components/visuals/digital/DigitalDiagram.astro';
+
+**Goal:** define architecture and organisation precisely, compare von Neumann and Harvard machines, and trace an instruction through the instruction cycle in register-transfer notation.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 4.1** (CPU structure and function, computer configuration). **Lok Sewa CE unit 2** (von Neumann/Harvard, bus structures, instruction and execution cycle). "Differentiate computer architecture and organisation" is a reported CE written question (2079); "explain the CPU and its components" is reported for CO (2083).
+</Aside>
+
+## 1. Architecture vs organisation
+
+- **Computer architecture** = the attributes **visible to the programmer** that affect how a program runs: the instruction set, data types and sizes, addressing modes, number of registers, I/O mechanisms. *Does this machine have a multiply instruction?* is an architecture question.
+- **Computer organisation** = **how** those attributes are implemented, invisible to the programmer: control signals, the interface between units, memory technology, whether multiply is done by a hardware multiplier or by repeated addition.
+
+The classic example: every x86 chip from the 8086 onwards shares an architecture (old programs still run), but their organisations differ enormously (pipelines, caches, out-of-order execution). Same contract, different implementation — like an interface and its implementations.
+
+## 2. The stored-program idea: von Neumann and Harvard
+
+<Figure caption="von Neumann (one memory, one bus for both instructions and data) vs Harvard (separate memories and paths).">
+  <DigitalDiagram name="vn-harvard" label="Left: von Neumann — a CPU connected by one shared bus to a single memory holding both instructions and data. Right: Harvard — a CPU with two separate paths, one to an instruction memory and one to a data memory." />
+</Figure>
+
+**von Neumann architecture** (stored-program concept, 1945):
+- Program and data live in the **same memory**, reached over the **same bus**.
+- Instructions run **sequentially** from the program counter.
+- Five parts: input, output, memory, ALU, control unit (CPU = ALU + CU + registers).
+- Weakness: the **von Neumann bottleneck** — instruction fetch and data access queue for one bus, so the CPU waits on memory.
+
+**Harvard architecture:**
+- **Separate** instruction and data memories with separate buses, so an instruction fetch and a data access can happen in the **same cycle**.
+- Used in DSPs and microcontrollers (8051, AVR, PIC).
+- **Modified Harvard** — what your laptop actually is: one main memory (von Neumann for the programmer) but **split L1 instruction and data caches** inside the CPU.
+
+## 3. The CPU and its registers
+
+- **ALU** — arithmetic and logic operations; sets the status flags.
+- **Control unit** — decodes instructions and issues the control signals that sequence everything (lesson 3).
+- **Registers:**
+
+| Register | Holds |
+| --- | --- |
+| **PC** (program counter) | address of the next instruction |
+| **IR** (instruction register) | the instruction being executed |
+| **MAR** (memory address register) | the address sent to memory |
+| **MBR / MDR** (memory buffer/data register) | the word read from or written to memory |
+| **AC** (accumulator), general registers | operands and results |
+| **PSW / flags** | status bits (zero, carry, sign, overflow) and interrupt enable |
+| **SP** | top of the stack |
+
+## 4. Bus structures
+
+A **bus** is a shared group of wires. The **system bus** has:
+- **Address bus** — one-way; width sets the addressable memory (16 lines → 64 K, 32 lines → 4 G).
+- **Data bus** — two-way; width sets how many bits move per transfer (the "word size" of the bus).
+- **Control bus** — read, write, clock, interrupt request/acknowledge, bus request/grant.
+
+Bus organisations: **single bus** (cheap, one transfer at a time), **multiple buses / hierarchical** (a fast processor–memory bus plus slower expansion buses joined by bridges — every PC). **Synchronous** buses use a clock; **asynchronous** buses use handshaking (request/acknowledge).
+
+**Bandwidth** = data width × transfer rate. A 64-bit bus at 100 MHz moving one word per cycle → 8 bytes × 100 M = **800 MB/s**.
+
+## 5. Register transfer notation (RTL)
+
+Exam answers describe micro-operations in RTL:
+- `R2 ← R1` — copy R1 into R2.
+- `P: R2 ← R1` — only when control condition P = 1.
+- `AC ← AC + DR`, `M[AR] ← DR` (write memory at the address in AR), `DR ← M[AR]` (read).
+- Micro-operations separated by commas happen in the **same** clock.
+
+## 6. The instruction cycle
+
+Each instruction passes through these phases, driven by timing signals T0, T1, T2 …:
+
+| Phase | Register transfers (Mano's basic computer) |
+| --- | --- |
+| **Fetch** | T0: `AR ← PC` · T1: `IR ← M[AR], PC ← PC + 1` |
+| **Decode** | T2: decode opcode `IR(12–14)`, `AR ← IR(0–11)`, `I ← IR(15)` |
+| **Indirect** (if I = 1) | T3: `AR ← M[AR]` — fetch the operand's real address |
+| **Execute** | e.g. ADD: `DR ← M[AR]` then `AC ← AC + DR` |
+| **Interrupt** (if enabled and pending) | save PC: `M[0] ← PC`, `PC ← 1`, `IEN ← 0` |
+
+Then back to fetch. The **instruction cycle** is the whole loop; the **fetch cycle** and **execute cycle** are its two main parts (some books add indirect and interrupt cycles). Each phase takes one or more **machine cycles**, and each machine cycle takes several **clock cycles (T-states)** — exactly as you saw for the [8085](/learning-guide/nec/digital/11-8085/).
+
+**Performance equation:** CPU time = instruction count × CPI × clock period. A faster clock, fewer instructions (CISC) or fewer cycles per instruction (RISC, pipelining) each help — but usually trade against the others.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Differentiate between computer architecture and computer organisation. Compare the von Neumann and Harvard architectures.
+
+<details>
+<summary>Model answer</summary>
+
+**Architecture vs organisation.**
+
+| Computer architecture | Computer organisation |
+| --- | --- |
+| Attributes visible to the programmer | Operational units and their interconnection, invisible to the programmer |
+| Instruction set, data types, addressing modes, registers, I/O mechanism | Control signals, interfaces, memory technology, hardware details |
+| *What* the computer does | *How* it does it |
+| Designed first | Designed to realise the architecture |
+| e.g. whether a multiply instruction exists | e.g. multiply by a hardware unit or repeated addition |
+
+A family of computers (e.g. Intel x86) shares one architecture across many organisations, so software stays compatible while hardware improves.
+
+**von Neumann vs Harvard.** *(Draw both block diagrams.)*
+
+| von Neumann | Harvard |
+| --- | --- |
+| Single memory for instructions and data | Separate instruction and data memories |
+| One shared bus | Separate buses |
+| Fetch and data access cannot overlap (von Neumann bottleneck) | Fetch and data access in the same cycle — faster |
+| Simpler, cheaper, flexible memory use | More complex, costlier |
+| General-purpose computers | DSPs, microcontrollers; modified Harvard in CPUs with split L1 caches |
+
+</details>
+
+## Check yourself
+
+1. Which is an **architectural** attribute?
+   (a) control signals (b) memory technology (c) instruction set (d) interface between units
+
+<details><summary>Answer</summary>(c)</details>
+
+2. The register holding the address of the next instruction is:
+   (a) IR (b) MAR (c) PC (d) MBR
+
+<details><summary>Answer</summary>(c)</details>
+
+3. The von Neumann bottleneck is caused by:
+   (a) slow ALU (b) shared bus for instructions and data (c) too few registers (d) small cache
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Harvard architecture is most common in:
+   (a) mainframes (b) DSPs and microcontrollers (c) servers (d) supercomputers
+
+<details><summary>Answer</summary>(b)</details>
+
+5. A 32-bit address bus can address:
+   (a) 64 KB (b) 1 MB (c) 4 GB (d) 16 GB
+
+<details><summary>Answer</summary>(c) 2³² bytes.</details>
+
+6. In the fetch cycle, `IR ← M[AR]` is followed in the same step by:
+   (a) AR ← PC (b) PC ← PC + 1 (c) AC ← AC + DR (d) PC ← 0
+
+<details><summary>Answer</summary>(b)</details>
+
+7. The bandwidth of a 32-bit bus transferring one word per cycle at 50 MHz:
+   (a) 50 MB/s (b) 200 MB/s (c) 1600 MB/s (d) 400 MB/s
+
+<details><summary>Answer</summary>(b) 4 B × 50 M.</details>

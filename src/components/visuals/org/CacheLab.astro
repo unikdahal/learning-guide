@@ -1,0 +1,275 @@
+---
+// Cache lab: feed a sequence of byte addresses into a tiny cache (8-bit addresses, 4-byte blocks)
+// and watch the tag | index | offset split, hits and misses, and LRU replacement.
+---
+
+<qe-cache class="qe-lab qe-cache not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Cache lab — step through the addresses</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Mapping function">
+      <button type="button" data-m="direct" aria-pressed="true">Direct</button>
+      <button type="button" data-m="2way" aria-pressed="false">2-way set-associative</button>
+      <button type="button" data-m="full" aria-pressed="false">Fully associative</button>
+    </div>
+    <div class="qe-lab-chips prose" role="group" aria-label="Number of cache lines">
+      <button type="button" data-l="4" aria-pressed="true">4 lines</button>
+      <button type="button" data-l="8" aria-pressed="false">8 lines</button>
+    </div>
+    <label class="seq">Byte addresses (0–255, comma-separated)
+      <input type="text" data-seq value="0, 4, 16, 0, 32, 4, 16, 64, 0, 36" spellcheck="false" />
+    </label>
+    <div class="acts prose">
+      <button type="button" data-step>Next address ⏵</button>
+      <button type="button" data-all>Run all</button>
+      <button type="button" data-rst>Reset</button>
+    </div>
+    <div class="split" data-split aria-live="polite"></div>
+    <div class="tbl-wrap"><table class="lines" data-lines></table></div>
+    <p class="log" data-log></p>
+    <p class="qe-lab-note" data-note></p>
+  </section>
+</qe-cache>
+
+<script>
+  type Line = { valid: boolean; tag: number; block: number; used: number };
+  class QeCache extends HTMLElement {
+    mode = 'direct';
+    L = 4;
+    pos = 0;
+    t = 0;
+    lines: Line[] = [];
+    results: { a: number; hit: boolean }[] = [];
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const seqIn = $('[data-seq]') as HTMLInputElement;
+      const seq = () =>
+        seqIn.value
+          .split(/[\s,]+/)
+          .filter(Boolean)
+          .map((x) => Math.max(0, Math.min(255, parseInt(x, 10) || 0)));
+      const ways = () => (this.mode === 'direct' ? 1 : this.mode === '2way' ? 2 : this.L);
+      const sets = () => this.L / ways();
+      const bits = (n: number) => Math.round(Math.log2(n));
+      const geom = () => {
+        const ib = bits(sets());
+        return { ob: 2, ib, tb: 8 - 2 - ib };
+      };
+      const reset = () => {
+        this.pos = 0;
+        this.t = 0;
+        this.results = [];
+        this.lines = Array.from({ length: this.L }, () => ({ valid: false, tag: 0, block: 0, used: 0 }));
+        draw(null, -1, false);
+      };
+      const access = (a: number) => {
+        const { ob, ib } = geom();
+        const block = a >> ob;
+        const set = block & (sets() - 1);
+        const tag = block >> ib;
+        const w = ways();
+        const base = set * w;
+        this.t++;
+        for (let i = base; i < base + w; i++) {
+          const l = this.lines[i];
+          if (l.valid && l.tag === tag) {
+            l.used = this.t;
+            return { hit: true, line: i };
+          }
+        }
+        let victim = base;
+        for (let i = base; i < base + w; i++) {
+          if (!this.lines[i].valid) {
+            victim = i;
+            break;
+          }
+          if (this.lines[i].used < this.lines[victim].used) victim = i;
+        }
+        this.lines[victim] = { valid: true, tag, block, used: this.t };
+        return { hit: false, line: victim };
+      };
+      const b = (v: number, n: number) => (n ? v.toString(2).padStart(n, '0') : '—');
+      const draw = (a: number | null, hl: number, hit: boolean) => {
+        const { ob, ib, tb } = geom();
+        const sp = $('[data-split]');
+        if (a === null) {
+          sp.innerHTML = `<span class="fmt">8-bit address = <b>tag</b> ${tb} bits | <b>${this.mode === 'full' ? 'no index' : this.mode === '2way' ? 'set' : 'line'}</b> ${ib} bits | <b>offset</b> ${ob} bits</span>`;
+        } else {
+          const block = a >> ob;
+          sp.innerHTML =
+            `<span class="fmt">Address ${a} = </span>` +
+            `<span class="f tg">${b(block >> ib, tb)}<small>tag</small></span>` +
+            (ib ? `<span class="f ix">${b(block & (sets() - 1), ib)}<small>${this.mode === '2way' ? 'set' : 'line'}</small></span>` : '') +
+            `<span class="f of">${b(a & 3, ob)}<small>offset</small></span>` +
+            `<span class="res ${hit ? 'hit' : 'miss'}">${hit ? 'HIT' : 'MISS'}</span>`;
+        }
+        const w = ways();
+        let h = `<thead><tr><th scope="col">Line</th>${this.mode === '2way' ? '<th scope="col">Set</th>' : ''}<th scope="col">Valid</th><th scope="col">Tag</th><th scope="col">Holds bytes</th></tr></thead><tbody>`;
+        this.lines.forEach((l, i) => {
+          h += `<tr class="${i === hl ? (hit ? 'hl-hit' : 'hl-miss') : ''}"><td>${i}</td>${this.mode === '2way' ? `<td>${Math.floor(i / w)}</td>` : ''}<td>${l.valid ? 1 : 0}</td><td>${l.valid ? b(l.tag, tb) : '—'}</td><td>${l.valid ? `${l.block * 4}–${l.block * 4 + 3}` : '—'}</td></tr>`;
+        });
+        $('[data-lines]').innerHTML = h + '</tbody>';
+        const hits = this.results.filter((r) => r.hit).length;
+        $('[data-log]').innerHTML = this.results.length
+          ? this.results.map((r) => `<span class="${r.hit ? 'hit' : 'miss'}">${r.a}${r.hit ? '✓' : '✗'}</span>`).join(' ') +
+            ` &nbsp; Hit ratio <b>${hits}/${this.results.length}</b>`
+          : 'No accesses yet.';
+        const notes: Record<string, string> = {
+          direct: 'Direct mapping: each block has exactly one possible line (block mod lines). Cheap — but two blocks that share a line evict each other even when other lines are empty (conflict misses). Try 0, 16, 0, 16 with 4 lines.',
+          '2way': 'Two-way set-associative: a block may go in either line of its set; on a miss in a full set, the least recently used line is replaced (LRU). Fewer conflict misses than direct mapping, cheaper than fully associative.',
+          full: 'Fully associative: any block can go in any line, so no index bits — every tag is compared at once (costly hardware). Only capacity misses remain; LRU picks the victim.',
+        };
+        $('[data-note]').textContent = notes[this.mode];
+      };
+      const step = () => {
+        const s = seq();
+        if (this.pos >= s.length) return false;
+        const a = s[this.pos++];
+        const r = access(a);
+        this.results.push({ a, hit: r.hit });
+        draw(a, r.line, r.hit);
+        return true;
+      };
+      $('[data-step]').addEventListener('click', step);
+      $('[data-all]').addEventListener('click', () => {
+        while (step());
+      });
+      $('[data-rst]').addEventListener('click', reset);
+      seqIn.addEventListener('change', reset);
+      const chips = (attr: string, fn: (v: string) => void) =>
+        this.querySelectorAll<HTMLButtonElement>(`[${attr}]`).forEach((btn) =>
+          btn.addEventListener('click', () => {
+            this.querySelectorAll(`[${attr}]`).forEach((x) => x.setAttribute('aria-pressed', String(x === btn)));
+            fn(btn.getAttribute(attr)!);
+            reset();
+          }),
+        );
+      chips('data-m', (v) => (this.mode = v));
+      chips('data-l', (v) => (this.L = +v));
+      reset();
+    }
+  }
+  customElements.define('qe-cache', QeCache);
+</script>
+
+<style>
+  .seq {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .seq input {
+    font: inherit;
+    font-family: var(--sl-font-mono);
+    font-weight: 400;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.9rem 0;
+  }
+  .acts button {
+    font: inherit;
+    font-weight: 700;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: transparent;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .acts button[data-step] {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .split {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 3rem;
+    font-size: 0.9375rem;
+    color: var(--sl-color-gray-1);
+  }
+  :global(.qe-cache .f) {
+    display: inline-grid;
+    text-align: center;
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 2px solid;
+    color: var(--sl-color-white);
+  }
+  :global(.qe-cache .f small) {
+    font-family: var(--sl-font);
+    font-weight: 400;
+    font-size: 0.7rem;
+    color: var(--sl-color-gray-2);
+  }
+  :global(.qe-cache .tg) {
+    border-color: var(--qe-pipe-build);
+  }
+  :global(.qe-cache .ix) {
+    border-color: var(--qe-pipe-emit);
+  }
+  :global(.qe-cache .of) {
+    border-color: var(--sl-color-gray-4);
+  }
+  :global(.qe-cache .res) {
+    font-weight: 800;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+  }
+  :global(.qe-cache .hit) {
+    color: var(--qe-pipe-build);
+    font-weight: 700;
+  }
+  :global(.qe-cache .miss) {
+    color: var(--qe-warn);
+    font-weight: 700;
+  }
+  .tbl-wrap {
+    overflow-x: auto;
+  }
+  .lines {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    margin: 0.6rem 0;
+  }
+  :global(.qe-cache .lines th),
+  :global(.qe-cache .lines td) {
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    padding: 0.3rem 0.5rem;
+    text-align: center;
+    color: var(--sl-color-white);
+  }
+  :global(.qe-cache .lines th) {
+    font-family: var(--sl-font);
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-2);
+  }
+  :global(.qe-cache tr.hl-hit td) {
+    background: color-mix(in srgb, var(--qe-pipe-build) 22%, transparent);
+  }
+  :global(.qe-cache tr.hl-miss td) {
+    background: color-mix(in srgb, var(--qe-warn) 22%, transparent);
+  }
+  .log {
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-1);
+    line-height: 1.8;
+  }
+</style>

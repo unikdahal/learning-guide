@@ -1,0 +1,199 @@
+---
+// Pipeline lab: a space-time diagram for k stages and n instructions, with an optional
+// optional data-hazard stall, plus the cycle counts and speed-up the exam asks for.
+---
+
+<qe-pipe class="qe-lab qe-pipe not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Pipeline lab — space-time diagram</p>
+    <div class="ctl">
+      <label>Stages k <output data-ko>5</output>
+        <input type="range" min="2" max="6" step="1" value="5" data-k aria-label="Number of pipeline stages" />
+      </label>
+      <label>Instructions n <output data-no>5</output>
+        <input type="range" min="1" max="10" step="1" value="5" data-n aria-label="Number of instructions" />
+      </label>
+    </div>
+    <div class="qe-lab-chips prose" role="group" aria-label="Hazard">
+      <button type="button" data-h="0" aria-pressed="true">No hazard</button>
+      <button type="button" data-h="1" aria-pressed="false">I3 needs I2's result (stall)</button>
+      <button type="button" data-h="2" aria-pressed="false">Same, with forwarding</button>
+    </div>
+    <div class="grid-wrap"><svg data-svg role="img" aria-label="Space-time diagram: one row per instruction, one column per clock cycle; each cell shows which stage the instruction is in."></svg></div>
+    <dl class="nums">
+      <div><dt>Non-pipelined</dt><dd data-np></dd></div>
+      <div><dt>Pipelined</dt><dd data-p></dd></div>
+      <div><dt>Speed-up</dt><dd data-s></dd></div>
+    </dl>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-pipe>
+
+<script>
+  class QePipe extends HTMLElement {
+    k = 5;
+    n = 5;
+    h = 0;
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const names5 = ['IF', 'ID', 'EX', 'MEM', 'WB'];
+      const nm = (s: number) => (this.k === 5 ? names5[s] : `S${s + 1}`);
+      const draw = () => {
+        const { k, n } = this;
+        // I3 depends on I2. Without forwarding it waits until I2 writes back (k − 3 cycles for a 5-stage pipe: 2); forwarding removes it
+        const stall = this.h === 1 && n >= 3 && k >= 3 ? Math.max(1, k - 3) : 0;
+        const start: number[] = [];
+        for (let i = 0; i < n; i++) start[i] = i + (i >= 2 ? stall : 0);
+        const total = start[n - 1] + k;
+        const cw = 38, rh = 26, x0 = 40, y0 = 24;
+        const W = x0 + total * cw + 4, H = y0 + n * rh + 4;
+        const svg = $('[data-svg]');
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.style.width = `${Math.min(W, 760)}px`;
+        let g = '';
+        for (let c = 0; c < total; c++) g += `<text x="${x0 + c * cw + cw / 2}" y="16" class="hd">${c + 1}</text>`;
+        for (let i = 0; i < n; i++) {
+          const y = y0 + i * rh;
+          g += `<text x="4" y="${y + 17}" class="rl">I${i + 1}</text>`;
+          for (let c = 0; c < total; c++) g += `<rect x="${x0 + c * cw}" y="${y}" width="${cw}" height="${rh}" class="cell"/>`;
+          // stall bubbles for I3: it sits in ID while waiting
+          if (i === 2 && stall) {
+            for (let s = 0; s < stall; s++) {
+              const c = i + 1 + s; // cycles after its normal IF
+              g += `<rect x="${x0 + c * cw + 2}" y="${y + 2}" width="${cw - 4}" height="${rh - 4}" rx="4" class="bub"/><text x="${x0 + c * cw + cw / 2}" y="${y + 17}" class="st sl">stall</text>`;
+            }
+          }
+          for (let s = 0; s < k; s++) {
+            // I3 enters IF on time, then waits in front of ID; later instructions slip by the same amount
+            const c = i === 2 && stall ? (s === 0 ? 2 : 2 + stall + s) : start[i] + s;
+            g += `<rect x="${x0 + c * cw + 2}" y="${y + 2}" width="${cw - 4}" height="${rh - 4}" rx="4" class="stg s${s % 3}"/><text x="${x0 + c * cw + cw / 2}" y="${y + 17}" class="st">${nm(s)}</text>`;
+          }
+        }
+        svg.innerHTML = g;
+        $('[data-np]').textContent = `n·k = ${n * k} cycles`;
+        $('[data-p]').textContent = stall ? `k + n − 1 + stalls = ${k + n - 1} + ${stall} = ${total} cycles` : `k + n − 1 = ${total} cycles`;
+        $('[data-s]').textContent = `${((n * k) / total).toFixed(2)}× (limit ${k}×)`;
+        const notes = [
+          `Each instruction takes ${k} cycles, but a new one enters every cycle. After the pipeline fills (${k - 1} cycles), one instruction completes per cycle — the ideal CPI is 1. Raise n: the speed-up nk/(k + n − 1) creeps towards k.`,
+          `Data hazard (RAW): I3 reads a register I2 is still computing. Without forwarding, I3 waits in ID until I2 writes back — ${stall} stall cycle(s), and every later instruction slips too.`,
+          `Forwarding (bypassing) sends I2's ALU result straight from the EX/MEM latch to I3's EX input, so the stall disappears for ALU results. (A load followed by a use still costs 1 stall even with forwarding.)`,
+        ];
+        $('[data-note]').textContent = notes[this.h];
+      };
+      const kIn = $('[data-k]') as HTMLInputElement;
+      const nIn = $('[data-n]') as HTMLInputElement;
+      kIn.addEventListener('input', () => {
+        this.k = +kIn.value;
+        ($('[data-ko]') as HTMLOutputElement).value = kIn.value;
+        draw();
+      });
+      nIn.addEventListener('input', () => {
+        this.n = +nIn.value;
+        ($('[data-no]') as HTMLOutputElement).value = nIn.value;
+        draw();
+      });
+      this.querySelectorAll<HTMLButtonElement>('[data-h]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.h = +b.dataset.h!;
+          this.querySelectorAll('[data-h]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          draw();
+        }),
+      );
+      draw();
+    }
+  }
+  customElements.define('qe-pipe', QePipe);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.8rem 1.5rem;
+    margin: 0.4rem 0 0.9rem;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+    margin-left: 0.4rem;
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .grid-wrap {
+    overflow-x: auto;
+    margin: 0.9rem 0 0.4rem;
+  }
+  .grid-wrap svg {
+    display: block;
+    max-width: none;
+    height: auto;
+  }
+  :global(.qe-pipe .hd),
+  :global(.qe-pipe .rl) {
+    fill: var(--sl-color-gray-2);
+    font-size: 11px;
+    font-family: var(--sl-font-mono);
+  }
+  :global(.qe-pipe .hd) {
+    text-anchor: middle;
+  }
+  :global(.qe-pipe .cell) {
+    fill: none;
+    stroke: var(--sl-color-gray-5);
+  }
+  :global(.qe-pipe .stg) {
+    stroke: none;
+  }
+  :global(.qe-pipe .s0) {
+    fill: color-mix(in srgb, var(--qe-pipe-build) 45%, transparent);
+  }
+  :global(.qe-pipe .s1) {
+    fill: color-mix(in srgb, var(--qe-pipe-emit) 45%, transparent);
+  }
+  :global(.qe-pipe .s2) {
+    fill: color-mix(in srgb, var(--sl-color-gray-3) 45%, transparent);
+  }
+  :global(.qe-pipe .bub) {
+    fill: none;
+    stroke: var(--qe-warn);
+    stroke-dasharray: 3 2;
+  }
+  :global(.qe-pipe .st) {
+    fill: var(--sl-color-white);
+    font-size: 10px;
+    font-weight: 700;
+    text-anchor: middle;
+    font-family: var(--sl-font-mono);
+  }
+  :global(.qe-pipe .sl) {
+    font-size: 8px;
+  }
+  .nums {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.6rem;
+    margin: 0.6rem 0;
+  }
+  .nums div {
+    margin: 0;
+  }
+  .nums dt {
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-2);
+  }
+  .nums dd {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

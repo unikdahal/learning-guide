@@ -1,0 +1,139 @@
+---
+title: "3. C++ classes and objects"
+description: Namespaces, function overloading and resolution, inline functions, default arguments, references, classes and objects, access specifiers, constructors (default, parameterised, copy) and destructors, dynamic objects, this, static members, const members and objects, and friend functions and classes — with compiled outputs.
+sidebar:
+  label: "3. Classes and objects"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** know which overload, constructor and access rule applies in any snippet, and use static, const, `this` and friend correctly.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 3.3** (namespaces, function overloading, inline functions, default arguments, pass/return by reference, classes and objects, access specifiers, member functions, constructors and destructors, dynamic objects, `this`, static members, const members and objects, friend functions and classes). The model paper asks the access specifier for class-only access and how a friend function is declared.
+</Aside>
+
+## 1. C++ additions to C
+
+- **Namespaces** prevent name clashes: `namespace hr { int count; }` → `hr::count`; `using namespace std;` imports a namespace (avoid in headers).
+- **References** — an alias for an existing variable: `int& r = x;` must be initialised, can't be reseated, can't be null. **Pass by reference** (`void inc(int& n) { n++; }`) modifies the caller's variable without pointer syntax; `const T&` avoids copying large objects.
+- **Inline functions** — `inline` asks the compiler to substitute the body at the call site (no call overhead) for small functions; it's a hint. Member functions defined inside the class are implicitly inline.
+- **`new` / `delete`** replace `malloc`/`free` and call constructors/destructors: `Box* b = new Box(2.0); delete b;` — arrays: `new int[10]` with `delete[]`.
+- `bool`, `string`, `cin`/`cout` (`iostream`), `//` comments, declarations anywhere.
+
+## 2. Function overloading and default arguments
+
+Same name, **different parameter lists** (number, types or order). The return type alone **can't** distinguish overloads. Resolved at **compile time** (static polymorphism) by best match: exact → promotion → standard conversion → user-defined conversion.
+
+```cpp
+void f(int)    { cout << "int "; }
+void f(double) { cout << "double "; }
+void f(char)   { cout << "char "; }
+f(5); f(5.0); f('a'); f(5.0f);        // int double char double   (float promotes to double)
+```
+
+**Default arguments** fill trailing parameters from the right; they must be **trailing** (rightmost):
+
+```cpp
+int add(int a, int b = 10, int c = 20) { return a + b + c; }
+add(1); add(1, 2); add(1, 2, 3);       // 31 23 6
+```
+
+## 3. Classes and objects
+
+A **class** bundles data members and member functions (encapsulation); an **object** is an instance.
+
+| Specifier | Accessible from |
+| --- | --- |
+| `private` | **only the class's own members** (and friends) — the default in a `class` |
+| `protected` | the class and its **derived classes** |
+| `public` | anywhere — the default in a `struct` |
+
+Member functions can be defined inside the class or outside with the **scope resolution operator**: `double Box::volume() { … }`.
+
+## 4. Constructors and destructors
+
+- A **constructor** has the class's name, **no return type**, runs automatically at creation, can be overloaded. Types: **default** (no arguments), **parameterised**, **copy** (`Box(const Box& other)`), **move** (C++11), **conversion** (single argument). **Initialiser lists** (`Complex(double r, double i) : re(r), im(i) {}`) are required for const and reference members.
+- The **copy constructor** runs when an object is initialised from another, **passed by value**, or returned by value:
+
+```cpp
+class Copy { public: Copy() {} Copy(const Copy&) { cout << "copy "; } };
+void byVal(Copy) {}
+void byRef(const Copy&) {}
+Copy cp; byVal(cp); byRef(cp);         // prints "copy " once — only for byVal
+```
+
+  If you define none, the compiler generates a **shallow** (member-wise) copy — wrong for classes owning raw pointers (two objects free the same memory): write a **deep copy** (rule of three/five).
+- A **destructor** `~Box()` — no arguments, no return type, **not overloadable**, runs when the object goes out of scope or is `delete`d; releases resources (RAII). Objects are destroyed in **reverse order of construction**.
+
+## 5. `this`, static and const
+
+- **`this`** — a pointer to the calling object, available in non-static member functions: disambiguates (`this->x = x;`) and enables **chaining** (`return *this;`).
+- **Static data member** — **one copy shared by all objects**; must be defined outside the class (`int Counter::count = 0;`). **Static member function** — called on the class (`Counter::get()`), has **no `this`**, can access only static members.
+
+```cpp
+class Counter { public: static int count; Counter() { ++count; } ~Counter() { --count; } };
+int Counter::count = 0;
+{ Counter a, b; { Counter c; cout << Counter::count; } cout << Counter::count; }   // 3 then 2
+```
+
+- **const member function** — `double area() const;` promises not to modify the object; the only kind callable on a **const object**. **const data member** — must be initialised in the initialiser list. `mutable` members may change even in const functions.
+
+## 6. Friend functions and classes
+
+A **friend function** is **not a member** but may access the class's private and protected members; it's declared **inside** the class with the keyword `friend` and defined outside **without** `Box::` or `friend`:
+
+```cpp
+class Box {
+    double w;
+public:
+    Box(double x) : w(x) {}
+    friend double width(const Box& b);     // declaration inside the class
+};
+double width(const Box& b) { return b.w; }  // ordinary function; may read the private w
+// width(Box(2.5)) returns 2.5
+```
+
+Friend functions are called like ordinary functions (no object prefix), aren't inherited, and are commonly used for operator overloading where the left operand isn't the class (`operator<<`). A **friend class** — `friend class Report;` — gives all of Report's members access. Friendship is **not mutual and not transitive**.
+
+## Check yourself
+
+1. The access specifier allowing access only within the class itself:
+   (a) public (b) protected (c) private (d) friend
+
+<details><summary>Answer</summary>(c)</details>
+
+2. A friend function is declared:
+   (a) outside the class with `friend` (b) inside the class with the `friend` keyword (c) as a static member (d) with the scope resolution operator
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Which can't distinguish overloaded functions?
+   (a) number of parameters (b) parameter types (c) return type only (d) parameter order
+
+<details><summary>Answer</summary>(c)</details>
+
+4. A constructor:
+   (a) has return type void (b) has no return type (c) must be private (d) can't be overloaded
+
+<details><summary>Answer</summary>(b)</details>
+
+5. A static member function cannot:
+   (a) access static data (b) be called with the class name (c) use the `this` pointer (d) be public
+
+<details><summary>Answer</summary>(c)</details>
+
+6. The default access in a C++ `struct` is:
+   (a) private (b) public (c) protected (d) none
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Passing an object by value to a function invokes the:
+   (a) destructor first (b) copy constructor (c) default constructor (d) assignment operator
+
+<details><summary>Answer</summary>(b)</details>
+
+8. Default arguments must be supplied:
+   (a) from the left (b) from the right (trailing parameters) (c) in any order (d) only for the first parameter
+
+<details><summary>Answer</summary>(b)</details>

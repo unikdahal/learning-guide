@@ -1,0 +1,227 @@
+---
+title: "5. Network layer and routing"
+description: IPv4 header and fragmentation with a worked example, ICMP, router internals, routing algorithm types, Dijkstra's link-state algorithm step by step, distance vector and count-to-infinity, RIP, OSPF and BGP, multicast routing, and IPv6 with the transition from IPv4.
+sidebar:
+  label: "5. Network layer, routing"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** fragment a datagram by hand, run Dijkstra as a table, explain count-to-infinity, place RIP/OSPF/BGP correctly, and compare IPv4 with IPv6.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 5.3** (RIP, OSPF, BGP, unicast and multicast routing, shortest path, flooding, distance vector, link state, ARP, RARP, IP, ICMP, IPv6 formats and extension headers, transition, multicasting); the model paper asks the types of routing algorithm. **Lok Sewa CE unit 1** (routing, IP, fragmentation, ICMP, RIP, OSPF, router internals, IPv6).
+</Aside>
+
+## 1. The network layer's two jobs
+
+- **Forwarding** (data plane, per packet, nanoseconds): move a packet from an input port to the right output port by looking up the destination in the **forwarding table** using **longest prefix match**.
+- **Routing** (control plane, seconds): compute the paths that fill those tables, using routing algorithms and protocols.
+
+**Longest prefix match:** with entries 10.0.0.0/8 → port 1 and 10.1.0.0/16 → port 2, a packet for 10.1.5.5 matches both and goes out **port 2** (more specific).
+
+## 2. IPv4 header (20–60 bytes)
+
+| Field | Bits | Purpose |
+| --- | --- | --- |
+| Version | 4 | 4 |
+| IHL (header length) | 4 | in 4-byte words: 5 (20 B) to 15 (60 B) |
+| Type of service / DSCP | 8 | priority, QoS |
+| Total length | 16 | header + data, max 65,535 |
+| Identification | 16 | groups fragments of one datagram |
+| Flags | 3 | **DF** (don't fragment), **MF** (more fragments) |
+| Fragment offset | 13 | position of this fragment's data, **in 8-byte units** |
+| TTL | 8 | decremented per hop; 0 → discard and send ICMP time exceeded |
+| Protocol | 8 | **1 ICMP, 6 TCP, 17 UDP** |
+| Header checksum | 16 | header only; recomputed each hop (TTL changes) |
+| Source, destination address | 32 + 32 | |
+| Options | 0–40 B | rarely used |
+
+### Fragmentation — worked
+
+A 4000-byte datagram (20-byte header + **3980** bytes of data), ID = 777, crosses a link with **MTU 1500**.
+- Max data per fragment = 1500 − 20 = 1480 (a multiple of 8 ✓).
+
+| Fragment | Data bytes | Total length | Offset (÷ 8) | MF |
+| --- | --- | --- | --- | --- |
+| 1 | 0–1479 (1480) | 1500 | 0 | 1 |
+| 2 | 1480–2959 (1480) | 1500 | **185** | 1 |
+| 3 | 2960–3979 (1020) | 1040 | **370** | 0 |
+
+All three keep ID 777. Only the **destination** reassembles. (IPv6 routers never fragment — the source must, after path-MTU discovery.)
+
+## 3. ICMP
+
+Carried inside IP (protocol 1); reports errors and diagnostics:
+- **Echo request / reply** (types 8 / 0) — **ping**.
+- **Destination unreachable** (3), **time exceeded** (11) — **traceroute** sends packets with TTL = 1, 2, 3 … and lists the routers that return "time exceeded"; **redirect** (5); **source quench** (obsolete).
+
+## 4. Inside a router
+
+- **Input ports** — terminate the line, do the forwarding-table lookup, queue.
+- **Switching fabric** — moves packets to the output port: via **memory** (oldest, CPU copies), via a **shared bus**, or via a **crossbar / interconnection network** (fastest, parallel).
+- **Output ports** — queue (buffer) and transmit; **scheduling** (FIFO, priority, weighted fair queuing) and **drop policy** (tail drop, RED).
+- **Routing processor** — runs routing protocols, builds the table.
+- **Head-of-line blocking:** a packet at the front of an input queue blocks those behind it even when their outputs are free.
+
+## 5. Routing algorithms — types
+
+- **Static** (configured by hand) vs **dynamic** (adapt to changes).
+- **Global / link state** (every router knows the whole topology — Dijkstra) vs **decentralised / distance vector** (each knows only neighbours' estimates — Bellman–Ford).
+- **Flooding** — send every packet out on every link except the one it came in on. Robust (finds the shortest path, used for broadcasting link-state updates) but floods the network; limit with hop counts or sequence numbers.
+- Also: **hierarchical** routing (inside / between autonomous systems), **source** routing, **adaptive** vs **non-adaptive**.
+
+## 6. Link state: Dijkstra's algorithm
+
+Each router floods **link-state packets** (its neighbours and link costs) so everyone has the full map, then runs Dijkstra.
+
+**Network:** A–B 2, A–C 5, B–C 2, B–D 6, C–D 1, C–E 4, D–E 2. Source A. Each cell is (distance, previous node).
+
+| Step | Settled set N′ | B | C | D | E |
+| --- | --- | --- | --- | --- | --- |
+| 0 | A | **2, A** | 5, A | ∞ | ∞ |
+| 1 | A B | | **4, B** | 8, B | ∞ |
+| 2 | A B C | | | **5, C** | 8, C |
+| 3 | A B C D | | | | **7, D** |
+| 4 | A B C D E | | | | |
+
+Each step settles the **smallest** tentative distance (bold) and relaxes its neighbours. Shortest paths: B = 2 (A–B), C = 4 (A–B–C), D = 5 (A–B–C–D), E = 7 (A–B–C–D–E). **A's forwarding table:** every destination goes **via B**.
+
+Complexity O(n²) simple, O(E log V) with a heap — you know this one from DSA.
+
+## 7. Distance vector: Bellman–Ford
+
+Each router keeps a vector of its best-known distance to every destination and periodically sends it to its **neighbours**:
+
+**Dₓ(y) = min over neighbours v of [ c(x, v) + Dᵥ(y) ]**
+
+Good news (a cheaper link) travels fast. Bad news travels slowly — **count-to-infinity**: in A–B–C, if link B–C breaks, B may believe A's old claim "I reach C in 2" (which went through B), set its distance to 3, then A updates to 4, and so on, counting up.
+
+Fixes: **maximum hop count** (RIP: 16 = infinity), **split horizon** (don't advertise a route back to the neighbour you learned it from), **poison reverse** (advertise it back with infinity), **triggered updates**, **hold-down timers**.
+
+| | Distance vector | Link state |
+| --- | --- | --- |
+| Knowledge | neighbours' vectors only | full topology |
+| Algorithm | Bellman–Ford | Dijkstra |
+| Messages | whole table, to neighbours, periodically | small LSPs, flooded to all, on change |
+| Convergence | slow; count-to-infinity | fast |
+| CPU and memory | low | higher |
+| Protocol | RIP | OSPF, IS-IS |
+
+## 8. Routing protocols
+
+The Internet is a collection of **autonomous systems (AS)** — networks under one administration.
+
+**Intra-AS (interior gateway protocols):**
+- **RIP** — distance vector; metric = **hop count**, maximum **15** (16 = unreachable); updates every **30 s**; runs over **UDP 520**. Simple; for small networks.
+- **OSPF** — **link state**, Dijkstra; metric = cost (based on bandwidth); hierarchical **areas** around a backbone (area 0); authentication; runs directly over IP (protocol 89); fast convergence; uses multicast.
+
+**Inter-AS (exterior):**
+- **BGP** (Border Gateway Protocol, v4) — **path vector**: advertisements carry the full list of ASes on the path (loop prevention) plus attributes; routes chosen by **policy**, not just shortest path; runs over **TCP 179**; **eBGP** between ASes, **iBGP** inside one. The Internet's glue.
+
+## 9. Multicast routing
+
+Deliver one packet to a **group** (class D 224.0.0.0/4).
+- **IGMP** — hosts tell their local router which groups they belong to.
+- Routers build **trees**: **source-based** (one shortest-path tree per source — DVMRP, MOSPF, PIM-DM) or **shared** (one tree per group via a core / rendezvous point — CBT, PIM-SM). **RPF** (reverse path forwarding) — forward a packet only if it arrived on the interface on the shortest path back to the source.
+
+## 10. IPv6
+
+Why: IPv4's 2³² ≈ 4.3 billion addresses ran out. IPv6 has **128-bit** addresses (2¹²⁸).
+
+**Notation:** eight groups of four hex digits. Drop leading zeros in a group and replace **one** run of all-zero groups with `::`.
+2001:0db8:0000:0000:0000:ff00:0042:8329 → **2001:db8::ff00:42:8329**. Loopback = `::1`.
+
+**Fixed 40-byte base header:** version (4 bits), traffic class (8), **flow label** (20 — identifies a flow for QoS), payload length (16), **next header** (8 — the type of the next header), **hop limit** (8 — replaces TTL), source (128), destination (128).
+
+**Compared with IPv4:** no header checksum (faster processing), no fragmentation by routers, no options in the base header — they move to **extension headers** chained by "next header": hop-by-hop options, routing, fragment, destination options, **authentication (AH)** and **ESP** (IPsec built in). Address types **unicast, multicast, anycast** — **no broadcast**. Stateless address autoconfiguration (SLAAC); ARP is replaced by **Neighbour Discovery** (ICMPv6).
+
+**Transition from IPv4:**
+1. **Dual stack** — hosts and routers run both.
+2. **Tunnelling** — IPv6 packets carried inside IPv4 packets across IPv4-only regions (6to4, Teredo).
+3. **Header translation** (NAT64 / SIIT) — when one side speaks only IPv6 and the other only IPv4.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Compare distance-vector and link-state routing. Explain the count-to-infinity problem and its solutions.
+
+<details>
+<summary>Model answer</summary>
+
+**Distance-vector routing.** Each router maintains a table (vector) of the least cost to each destination and the next hop. Periodically it sends its whole vector to its directly connected neighbours, and updates its own using the Bellman–Ford equation Dₓ(y) = minᵥ [c(x, v) + Dᵥ(y)]. Example: RIP.
+
+**Link-state routing.** Each router discovers its neighbours and link costs, builds a link-state packet, and floods it to all routers. Every router then has the complete topology and runs Dijkstra's algorithm to compute shortest paths. Example: OSPF.
+
+| Basis | Distance vector | Link state |
+| --- | --- | --- |
+| Information | Knows only neighbours' distance estimates | Knows entire topology |
+| Algorithm | Bellman–Ford | Dijkstra |
+| Updates | Whole table to neighbours, periodic | LSPs flooded to all routers, on change |
+| Convergence | Slow; routing loops possible | Fast |
+| Resources | Less memory and CPU | More memory and CPU |
+| Scalability | Small networks | Large networks (with areas) |
+| Example | RIP | OSPF, IS-IS |
+
+**Count-to-infinity.** Consider A — B — C with unit costs. A reaches C at cost 2 via B. If link B–C fails, B sets its cost to C to ∞, but before it can tell A, A advertises "C at cost 2". B adopts 2 + 1 = 3 via A; A then updates to 4 via B; the costs keep increasing until they reach "infinity". Meanwhile packets loop between A and B. *(Draw the A–B–C line with the table of successive values.)*
+
+**Solutions.**
+1. **Defining infinity** as a small number (RIP: 16) so counting stops quickly.
+2. **Split horizon:** never advertise a route back on the interface it was learned from.
+3. **Poison reverse:** advertise it back with cost ∞.
+4. **Triggered updates** and **hold-down timers** to spread bad news quickly and ignore stale good news.
+
+(These fail for loops of three or more routers — one reason large networks use link-state protocols.)
+
+</details>
+
+## Check yourself
+
+1. RIP uses which metric?
+   (a) bandwidth (b) delay (c) hop count (d) cost
+
+<details><summary>Answer</summary>(c)</details>
+
+2. OSPF is a:
+   (a) distance-vector protocol (b) link-state protocol (c) path-vector protocol (d) exterior gateway protocol
+
+<details><summary>Answer</summary>(b)</details>
+
+3. BGP is used:
+   (a) within an autonomous system (b) between autonomous systems (c) for ARP (d) for multicast only
+
+<details><summary>Answer</summary>(b)</details>
+
+4. A fragment carries offset 185. Its data starts at byte:
+   (a) 185 (b) 1480 (c) 370 (d) 1500
+
+<details><summary>Answer</summary>(b) 185 × 8.</details>
+
+5. The IPv4 protocol field value for TCP is:
+   (a) 1 (b) 6 (c) 17 (d) 89
+
+<details><summary>Answer</summary>(b)</details>
+
+6. traceroute relies on ICMP:
+   (a) echo reply (b) time exceeded (c) redirect (d) source quench
+
+<details><summary>Answer</summary>(b)</details>
+
+7. The IPv6 base header is:
+   (a) 20 bytes (b) 32 bytes (c) 40 bytes (d) variable
+
+<details><summary>Answer</summary>(c)</details>
+
+8. Which address type does IPv6 not have?
+   (a) unicast (b) multicast (c) anycast (d) broadcast
+
+<details><summary>Answer</summary>(d)</details>
+
+9. Split horizon addresses:
+   (a) fragmentation (b) count-to-infinity (c) congestion (d) ARP spoofing
+
+<details><summary>Answer</summary>(b)</details>
+
+10. Which routing technique sends a packet out on every link?
+    (a) flooding (b) distance vector (c) link state (d) static
+
+<details><summary>Answer</summary>(a)</details>

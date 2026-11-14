@@ -1,0 +1,137 @@
+---
+// Static diagrams for the DSA course: a binary tree for traversals, an AVL RL-rotation,
+// and the weighted graph used for BFS/DFS, Prim and Kruskal (MST edges highlighted).
+interface Props {
+  name: 'tree' | 'avl-rl' | 'graph';
+  label: string;
+}
+const { name, label } = Astro.props;
+const id = `dd-${name}`;
+const t = (x: number, y: number, s: string, cls = 'c') => `<text x="${x}" y="${y}" class="${cls}">${s}</text>`;
+const node = (x: number, y: number, s: string, cls = 'nd') => `<circle class="${cls}" cx="${x}" cy="${y}" r="17"/>` + t(x, y + 5, s, 'nl');
+const edge = (x1: number, y1: number, x2: number, y2: number, cls = 'e') => `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+
+type N = [string, number, number, string?];
+const drawTree = (nodes: N[], edges: [string, string][]) => {
+  const pos: Record<string, [number, number]> = {};
+  nodes.forEach(([n, x, y]) => (pos[n] = [x, y]));
+  return (
+    edges.map(([a, b]) => edge(pos[a][0], pos[a][1], pos[b][0], pos[b][1])).join('') +
+    nodes.map(([n, x, y, c]) => node(x, y, n, c ?? 'nd')).join('')
+  );
+};
+
+let vb = '0 0 560 240';
+let body = '';
+if (name === 'tree') {
+  vb = '0 0 560 230';
+  body =
+    drawTree(
+      [['A', 280, 30], ['B', 180, 90], ['C', 380, 90], ['D', 120, 150], ['E', 240, 150], ['F', 440, 150], ['G', 200, 210]],
+      [['A', 'B'], ['A', 'C'], ['B', 'D'], ['B', 'E'], ['C', 'F'], ['E', 'G']],
+    ) +
+    t(30, 30, 'level 0', 'lv') + t(30, 90, 'level 1', 'lv') + t(30, 150, 'level 2', 'lv') + t(30, 210, 'level 3', 'lv');
+} else if (name === 'avl-rl') {
+  vb = '0 0 660 250';
+  body =
+    t(140, 18, 'After inserting 25: node 20 has balance −2', 'cb') +
+    drawTree(
+      [['20', 130, 50, 'nd bad'], ['10', 60, 110], ['40', 200, 110], ['30', 160, 170], ['50', 240, 170], ['25', 120, 230, 'nd new']],
+      [['20', '10'], ['20', '40'], ['40', '30'], ['40', '50'], ['30', '25']],
+    ) +
+    t(330, 120, 'RL', 'cb') + `<path class="ar" d="M300 132 H360"/><path class="ah" d="M360 132 l-9 -5 v10 z"/>` + t(330, 156, 'rotate right at 40,', 'sm') + t(330, 170, 'then left at 20', 'sm') +
+    t(530, 18, 'Balanced: 30 is the new root', 'cb') +
+    drawTree(
+      [['30', 530, 50, 'nd ok'], ['20', 470, 110], ['40', 590, 110], ['10', 435, 170], ['25', 505, 170, 'nd new'], ['50', 625, 170]],
+      [['30', '20'], ['30', '40'], ['20', '10'], ['20', '25'], ['40', '50']],
+    );
+} else {
+  vb = '0 0 460 250';
+  const P: Record<string, [number, number]> = { A: [40, 125], B: [160, 40], C: [160, 210], D: [300, 40], E: [300, 210], F: [420, 125] };
+  const E: [string, string, number, boolean][] = [
+    ['A', 'B', 4, false], ['A', 'C', 2, true], ['B', 'C', 1, true], ['B', 'D', 5, true], ['C', 'D', 8, false],
+    ['C', 'E', 10, false], ['D', 'E', 2, true], ['D', 'F', 6, false], ['E', 'F', 3, true],
+  ];
+  body =
+    E.map(([a, b, w, m]) => {
+      const [x1, y1] = P[a];
+      const [x2, y2] = P[b];
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      return edge(x1, y1, x2, y2, m ? 'e mst' : 'e') + `<rect class="wbg" x="${mx - 11}" y="${my - 10}" width="22" height="18" rx="4"/>` + t(mx, my + 4, String(w), 'wt');
+    }).join('') + Object.entries(P).map(([n, [x, y]]) => node(x, y, n)).join('');
+}
+---
+
+<svg class="dd" viewBox={vb} role="img" aria-labelledby={`${id}-t`} xmlns="http://www.w3.org/2000/svg">
+  <title id={`${id}-t`}>{label}</title>
+  <g set:html={body} />
+</svg>
+
+<style>
+  svg.dd {
+    display: block;
+    width: 100%;
+    max-width: 660px;
+    height: auto;
+    margin-inline: auto;
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font);
+  }
+  svg.dd :global(.e) {
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 2;
+  }
+  svg.dd :global(.e.mst) {
+    stroke: var(--qe-pipe-build);
+    stroke-width: 4.5;
+  }
+  svg.dd :global(.nd) {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+  svg.dd :global(.nd.bad) {
+    stroke: var(--qe-warn);
+    stroke-width: 3;
+  }
+  svg.dd :global(.nd.new) {
+    stroke: var(--qe-pipe-emit);
+    stroke-width: 3;
+  }
+  svg.dd :global(.nd.ok) {
+    stroke: var(--qe-pipe-build);
+    stroke-width: 3;
+  }
+  svg.dd :global(text) {
+    fill: currentColor;
+    font-size: 12.5px;
+    text-anchor: middle;
+  }
+  svg.dd :global(.nl) {
+    font-weight: 700;
+    font-size: 13px;
+  }
+  svg.dd :global(.cb) {
+    font-weight: 700;
+  }
+  svg.dd :global(.lv),
+  svg.dd :global(.sm) {
+    font-size: 11px;
+    fill: var(--sl-color-gray-2);
+  }
+  svg.dd :global(.wbg) {
+    fill: var(--sl-color-gray-6);
+  }
+  svg.dd :global(.wt) {
+    font-weight: 700;
+    font-size: 12px;
+  }
+  svg.dd :global(.ar) {
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+  svg.dd :global(.ah) {
+    fill: currentColor;
+  }
+</style>

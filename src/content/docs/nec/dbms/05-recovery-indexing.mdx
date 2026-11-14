@@ -1,0 +1,161 @@
+---
+title: "5. Recovery, indexing and query processing"
+description: Failure classification, storage types, log-based recovery with deferred and immediate update, a worked undo/redo example, checkpoints, shadow paging, indexing (primary, secondary, dense, sparse, B+ tree, hash), query processing and cost, optimisation heuristics, and distributed, object-oriented, warehouse and data-mining basics.
+sidebar:
+  label: "5. Recovery, indexing, queries"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** decide which transactions to undo and redo from a log, explain WAL and checkpoints, compare index types, and list the standard optimisation heuristics.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.4** (failure classification, recovery and atomicity, log-based recovery) and **7.3** (query cost estimation, query operations, evaluation of expressions, query optimisation). The model paper asks what is stored before a transaction executes. **Lok Sewa CE unit 9** (crash recovery, query processing and optimisation, hash and tree indexing, distributed and OO databases, data mining and warehousing).
+</Aside>
+
+## 1. Failures and storage
+
+**Failure classes:**
+- **Transaction failure** — logical error (bad input, constraint violation) or system error (deadlock victim).
+- **System crash** — power or OS failure; **volatile memory lost**, disk intact.
+- **Disk (media) failure** — head crash; recover from backups/archives.
+
+**Storage:** **volatile** (RAM — lost on crash), **non-volatile** (disk, SSD), **stable** (an abstraction — replicated on independent non-volatile devices so it is never lost; the log lives here).
+
+## 2. Log-based recovery
+
+The **log** is a sequence of records on stable storage:
+- `<T start>`, `<T, X, old value, new value>`, `<T commit>`, `<T abort>`.
+
+**Write-ahead logging (WAL) rule:** the log record of an update — holding the **old value** (for undo) and the new value (for redo) — must reach stable storage **before** the changed data does; and all of a transaction's log records must be on stable storage before it **commits**. This is the answer to "what is stored before a transaction modifies data".
+
+**Deferred update (NO-UNDO/REDO):** writes go only to the log until commit; at commit, apply them. After a crash: **redo** committed transactions; uncommitted ones never touched the database, so ignore them.
+
+**Immediate update (UNDO/REDO):** the database may be updated before commit. After a crash:
+- **Undo** every transaction with `<T start>` but no `<T commit>`/`<T abort>` — restore **old** values, scanning the log **backwards**.
+- **Redo** every transaction with `<T commit>` — reapply **new** values, scanning **forwards**.
+- Undo and redo are **idempotent** (doing them twice gives the same result).
+
+### Worked
+
+```text
+<T1 start>
+<T1, A, 1000, 950>
+<T1, B, 2000, 2050>
+<T1 commit>
+<T2 start>
+<T2, C, 700, 600>
+<checkpoint>          -- (ignore for now)
+<T3 start>
+<T3, A, 950, 900>
+<T3 commit>
+<T2, D, 500, 450>
+--- crash ---
+```
+
+- Committed: **T1, T3** → **redo** (A = 950, B = 2050, then A = 900).
+- Not committed: **T2** → **undo** backwards (D = 500, C = 700).
+- Final: A = 900, B = 2050, C = 700, D = 500.
+
+**Checkpoints** limit the work: periodically force log and dirty pages to disk and write `<checkpoint L>` (L = active transactions). On recovery, transactions that committed **before** the checkpoint need no redo; scan back only to the last checkpoint (plus earlier records of transactions in L). Above, with the checkpoint taken after T1 committed, **T1 needs no redo**; redo T3; undo T2 (including C, logged before the checkpoint — T2 was active in L).
+
+**Shadow paging:** keep a **shadow page table** (the committed state) and a **current page table**; updates go to new pages. Commit = atomically switch the pointer to the current table; abort = discard it. No log needed, but data gets fragmented and garbage collection is needed; hard with concurrency.
+
+**ARIES** (used by real systems): WAL, LSNs on pages, analysis → redo (repeat history) → undo phases, compensation log records.
+
+## 3. Indexing
+
+An **index** is an auxiliary structure that speeds up lookup on a **search key** (like a book index).
+
+- **Primary (clustering) index:** on the attribute the file is **sorted** by. **Secondary (non-clustering) index:** on another attribute — must be **dense**.
+- **Dense index:** an entry for **every** search-key value. **Sparse index:** entries for **some** values (one per block) — only possible on a sorted (clustering) file; smaller.
+- **Multilevel index:** an index on the index, when the index itself is large.
+- **B+ tree index** (the standard): balanced, all leaves at the same depth, leaves linked for range queries; search/insert/delete O(log n) with a large fan-out, so 3–4 levels index millions of rows. (Structure in [DSA lesson 3](/learning-guide/nec/dsa/03-trees/#6-multiway-and-other-balanced-trees).)
+- **Hash index:** bucket = h(key); **equality** lookups in O(1); useless for ranges. **Static hashing** (fixed buckets, overflow chains) vs **dynamic/extendible hashing** (a directory that doubles; buckets split as needed).
+- Indexes speed up reads but slow down inserts/updates and use space.
+
+## 4. Query processing and optimisation
+
+**Steps:** (1) **parsing and translation** — SQL → relational-algebra expression; (2) **optimisation** — choose the cheapest equivalent **evaluation plan**; (3) **evaluation** by the query execution engine.
+
+**Cost** is measured mainly in **disk block transfers and seeks** (plus CPU). Notation: bᵣ = blocks of r, nᵣ = tuples of r.
+- **Selection:** linear scan bᵣ; binary search on a sorted file ⌈log₂ bᵣ⌉; with a B+ tree index, (height + matching blocks).
+- **Join:** nested loop nᵣ·bₛ + bᵣ (very bad); **block nested loop** bᵣ·bₛ + bᵣ; **indexed nested loop**; **sort-merge**; **hash join** ≈ 3(bᵣ + bₛ).
+- Example: bᵣ = 100, bₛ = 400 → block nested loop with r outer = 100 × 400 + 100 = **40,100** transfers; hash join ≈ 3 × 500 = **1,500**.
+
+**Heuristic optimisation rules** (on the query tree):
+1. **Perform selections as early as possible** (push σ down).
+2. **Perform projections early** (drop unneeded columns).
+3. Replace a **Cartesian product followed by selection with a join**.
+4. Execute the **most restrictive** selections and joins first (smallest intermediate results).
+5. Use **equivalence rules** (σ cascades and commutes, joins are commutative and associative) to reorder.
+
+**Cost-based optimisation** estimates plan costs from catalogue **statistics** (row counts, distinct values, histograms) and picks the cheapest; join ordering by dynamic programming. **Materialised** evaluation (write intermediates) vs **pipelined** evaluation (pass tuples on). (You work with exactly these trade-offs in query engines — the exam just wants the rules listed.)
+
+## 5. Beyond the relational core (CE extras)
+
+- **Distributed databases:** data spread across sites. **Fragmentation** (horizontal — rows; vertical — columns), **replication**, **transparency** (location, fragmentation, replication). Distributed commit via **two-phase commit (2PC)**: coordinator sends PREPARE, participants vote, coordinator sends COMMIT/ABORT. CAP theorem: under a network partition, choose consistency or availability.
+- **Object-oriented databases:** objects with identity, encapsulation, inheritance, complex types; **object-relational** systems add these to SQL (user-defined types, arrays).
+- **Data warehouse:** a **subject-oriented, integrated, time-variant, non-volatile** collection of data for decision support (Inmon). Loaded by **ETL**. **Star schema** (central fact table + dimension tables), snowflake schema. **OLAP** operations: roll-up, drill-down, slice, dice, pivot. OLTP (many short updates) vs OLAP (complex read-mostly analysis).
+- **Data mining:** discovering patterns — **association rules** (support, confidence; Apriori), **classification** (decision trees, naive Bayes), **clustering** (k-means), prediction, outlier detection.
+- **Database security:** authentication, authorisation (GRANT/REVOKE, roles), views, encryption, auditing, **SQL injection** prevention (parameterised queries).
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Explain log-based recovery with immediate database modification. Given the log in this lesson, which transactions are undone and which redone?
+
+<details>
+<summary>Model answer</summary>
+
+**Log-based recovery** records every database modification in a log on stable storage before the change is written to the database (write-ahead logging). Log records: `<Ti start>`, `<Ti, X, V_old, V_new>`, `<Ti commit>`, `<Ti abort>`.
+
+**Immediate modification.** Updates may be written to the database before the transaction commits, so after a crash the recovery manager needs both operations:
+- **undo(Ti):** restore old values of all items updated by Ti, scanning the log backwards — for every Ti that has `<Ti start>` but no `<Ti commit>` or `<Ti abort>`.
+- **redo(Ti):** set all items updated by Ti to their new values, scanning forwards — for every Ti with both `<Ti start>` and `<Ti commit>`.
+Both are idempotent. Checkpoints reduce the portion of the log to be processed.
+
+**For the given log:** T1 and T3 have commit records → **redo T1 and T3**. T2 has a start but no commit → **undo T2** (D ← 500, C ← 700). Final values: A = 900, B = 2050, C = 700, D = 500. With the checkpoint, T1 committed before it and need not be redone.
+
+</details>
+
+## Check yourself
+
+1. Before a transaction modifies data, what must be written to stable storage?
+   (a) the new index (b) the log record with old and new values (c) the query plan (d) a backup
+
+<details><summary>Answer</summary>(b) write-ahead logging.</details>
+
+2. After a crash with immediate update, a transaction with a start record but no commit is:
+   (a) redone (b) undone (c) ignored (d) committed
+
+<details><summary>Answer</summary>(b)</details>
+
+3. A sparse index can be built only on:
+   (a) a heap file (b) the attribute the file is sorted by (c) a secondary key (d) a hash file
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Hash indexes are poor for:
+   (a) equality search (b) range queries (c) insertions (d) small tables
+
+<details><summary>Answer</summary>(b)</details>
+
+5. A key heuristic in query optimisation is to:
+   (a) perform joins before selections (b) push selections down early (c) avoid indexes (d) use Cartesian products
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Checkpoints are used to:
+   (a) lock tables (b) reduce recovery time (c) normalise relations (d) encrypt the log
+
+<details><summary>Answer</summary>(b)</details>
+
+7. A data warehouse is:
+   (a) volatile and current (b) subject-oriented, integrated, time-variant, non-volatile (c) a transaction log (d) a type of index
+
+<details><summary>Answer</summary>(b)</details>
+
+8. Which commit protocol ensures atomicity across sites?
+   (a) 2PL (b) 2PC (c) wait-die (d) WAL
+
+<details><summary>Answer</summary>(b)</details>

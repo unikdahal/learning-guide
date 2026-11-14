@@ -1,0 +1,163 @@
+---
+title: "4. Computer arithmetic: Booth, division and IEEE 754"
+description: Signed-number addition and overflow, Booth's multiplication algorithm with a full trace, restoring and non-restoring division, and IEEE 754 single and double precision encoding and decoding.
+sidebar:
+  label: "4. Computer arithmetic"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** trace Booth's algorithm and restoring division step by step, and encode/decode an IEEE 754 single-precision number.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 4.2** (arithmetic and logic operations) — floating point and Booth appear regularly. **Lok Sewa CE unit 2** (computer arithmetic, data representation). The Booth trace and an IEEE 754 encoding are both 5-mark numericals.
+</Aside>
+
+## 1. Addition, subtraction and overflow (recap)
+
+Signed integers are in **two's complement** ([digital lesson 2](/learning-guide/nec/digital/02-binary-arithmetic/)). Subtraction is addition of the two's complement. **Overflow** happens only when two numbers of the **same sign** give a result of the opposite sign; hardware detects it as **carry into the MSB ⊕ carry out of the MSB**.
+
+## 2. Booth's multiplication algorithm
+
+Multiplies **signed** two's-complement numbers directly. It treats a run of 1s in the multiplier as (next power) − (first power), so long runs cost only one subtraction and one addition.
+
+**Registers:** A (accumulator, starts 0), Q (multiplier), Q₋₁ (one extra bit, starts 0), M (multiplicand), count = n.
+
+**Each step**, look at **Q₀ Q₋₁**:
+- **10** → A ← A − M
+- **01** → A ← A + M
+- **00** or **11** → nothing
+- then **arithmetic shift right** A, Q, Q₋₁ together (A's sign bit is copied), and count − 1.
+
+The product is in **A Q**.
+
+### Worked: 7 × (−3), 4 bits
+
+M = 0111, −M = 1001, Q = 1101 (−3).
+
+| Step | Q₀Q₋₁ | Operation | A | Q | Q₋₁ |
+| --- | --- | --- | --- | --- | --- |
+| start | | | 0000 | 1101 | 0 |
+| 1 | 10 | A ← A − M | 1001 | 1101 | 0 |
+| | | shift | 1100 | 1110 | 1 |
+| 2 | 01 | A ← A + M | 0011 | 1110 | 1 |
+| | | shift | 0001 | 1111 | 0 |
+| 3 | 10 | A ← A − M | 1010 | 1111 | 0 |
+| | | shift | 1101 | 0111 | 1 |
+| 4 | 11 | none | 1101 | 0111 | 1 |
+| | | shift | 1110 | 1011 | 1 |
+
+Result A Q = **1110 1011** = −(0001 0101) = **−21** ✓.
+
+## 3. Division
+
+**Restoring division** (unsigned): A = 0 (n + 1 bits), Q = dividend, M = divisor. Repeat n times:
+1. Shift A Q left one bit.
+2. A ← A − M.
+3. If A is negative: Q₀ ← 0 and **restore** A ← A + M. Otherwise Q₀ ← 1.
+
+Quotient in Q, remainder in A.
+
+**Worked: 7 ÷ 2** (Q = 0111, M = 00010):
+
+| Step | After shift (A, Q) | A − M | Result |
+| --- | --- | --- | --- |
+| 1 | 00000, 111_ | 11110 (negative) | restore A = 00000, Q = 1110 |
+| 2 | 00001, 110_ | 11111 (negative) | restore A = 00001, Q = 1100 |
+| 3 | 00011, 100_ | 00001 (positive) | A = 00001, Q = 1001 |
+| 4 | 00011, 001_ | 00001 (positive) | A = 00001, Q = 0011 |
+
+Quotient **0011 = 3**, remainder **1** ✓.
+
+**Non-restoring division** skips the restore: if A is negative, the *next* step adds M instead of subtracting it (shift, then A ← A + M). A final correction adds M if A ends negative. Fewer operations per step.
+
+## 4. Floating point — IEEE 754
+
+A number is stored as **sign × 1.mantissa × 2^(exponent − bias)**:
+
+| Format | Sign | Exponent | Mantissa (fraction) | Bias |
+| --- | --- | --- | --- | --- |
+| **Single** (32-bit) | 1 | 8 | 23 | **127** |
+| **Double** (64-bit) | 1 | 11 | 52 | **1023** |
+
+The leading 1 of a **normalised** number isn't stored (the **hidden bit**) — one free bit of precision.
+
+### Encode −6.75 in single precision
+
+1. Sign: negative → **1**.
+2. Binary: 6.75 = 110.11.
+3. Normalise: 1.1011 × 2².
+4. Exponent: 2 + 127 = 129 = **1000 0001**.
+5. Mantissa: bits after the point, padded: **1011 0000 … 0** (23 bits).
+
+`1 10000001 10110000000000000000000` = **C0D8 0000H**.
+
+### Decode 4120 0000H
+
+0100 0001 0010 0000 … → sign 0; exponent 1000 0010 = 130 → 130 − 127 = 3; mantissa .01 → 1.01 × 2³ = 1010₂ = **10.0**.
+
+**Special values:** exponent all 0s with mantissa 0 = **±0**; exponent all 0s, mantissa ≠ 0 = **denormal** (tiny numbers, no hidden 1); exponent all 1s with mantissa 0 = **±∞**; exponent all 1s, mantissa ≠ 0 = **NaN** (0/0, √−1). Single-precision range ≈ ±1.2 × 10⁻³⁸ to ±3.4 × 10³⁸, about 7 decimal digits.
+
+**Floating-point addition:** align exponents (shift the smaller number's mantissa right), add mantissas, normalise, round. That's why `0.1 + 0.2 != 0.3` in your code — 0.1 has no exact binary form.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Explain Booth's algorithm with a flowchart and multiply (−5) × 3 using 4-bit numbers.
+
+<details>
+<summary>Model answer</summary>
+
+**Booth's algorithm** multiplies two signed binary numbers in two's complement. *(Draw the flowchart: initialise A = 0, Q₋₁ = 0, M = multiplicand, Q = multiplier, count = n → test Q₀Q₋₁ → 10: A ← A − M; 01: A ← A + M; 00/11: nothing → arithmetic shift right A, Q, Q₋₁; count ← count − 1 → repeat until count = 0 → product in AQ.)*
+
+**(−5) × 3.** M = 1011 (−5), −M = 0101, Q = 0011 (3).
+
+| Step | Q₀Q₋₁ | Operation | A | Q | Q₋₁ |
+| --- | --- | --- | --- | --- | --- |
+| start | | | 0000 | 0011 | 0 |
+| 1 | 10 | A ← A − M = 0000 + 0101 | 0101 | 0011 | 0 |
+| | | ASR | 0010 | 1001 | 1 |
+| 2 | 11 | none; ASR | 0001 | 0100 | 1 |
+| 3 | 01 | A ← A + M = 0001 + 1011 | 1100 | 0100 | 1 |
+| | | ASR | 1110 | 0010 | 0 |
+| 4 | 00 | none; ASR | 1111 | 0001 | 0 |
+
+Product AQ = 1111 0001 = −(0000 1111) = **−15** ✓.
+
+</details>
+
+## Check yourself
+
+1. In Booth's algorithm, Q₀Q₋₁ = 01 means:
+   (a) A ← A − M (b) A ← A + M (c) shift only (d) stop
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The bias for IEEE 754 single precision is:
+   (a) 127 (b) 128 (c) 1023 (d) 255
+
+<details><summary>Answer</summary>(a)</details>
+
+3. The number of mantissa bits stored in IEEE 754 double precision:
+   (a) 23 (b) 32 (c) 52 (d) 64
+
+<details><summary>Answer</summary>(c)</details>
+
+4. Exponent all 1s with a zero mantissa represents:
+   (a) zero (b) infinity (c) NaN (d) denormal
+
+<details><summary>Answer</summary>(b)</details>
+
+5. +1.0 in single precision is:
+   (a) 3F80 0000H (b) 4000 0000H (c) 0000 0001H (d) BF80 0000H
+
+<details><summary>Answer</summary>(a) exponent 127 = 0111 1111, mantissa 0.</details>
+
+6. In restoring division, if A becomes negative after subtraction:
+   (a) Q₀ ← 1 (b) Q₀ ← 0 and A is restored (c) the algorithm stops (d) M is shifted
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Overflow in two's complement addition is detected by:
+   (a) carry out only (b) carry into MSB XOR carry out of MSB (c) the zero flag (d) parity
+
+<details><summary>Answer</summary>(b)</details>

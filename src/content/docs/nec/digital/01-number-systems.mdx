@@ -1,0 +1,118 @@
+---
+title: "1. Number systems and codes"
+description: Binary, octal, decimal and hexadecimal from scratch — conversions including fractions, and the codes NEC asks about — BCD, Gray, excess-3, ASCII and parity.
+sidebar:
+  label: "1. Number systems and codes"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+import BinaryLab from '@components/visuals/digital/BinaryLab.astro';
+
+**Goal:** convert any number between bases 2, 8, 10 and 16 (including fractions), and encode decimal digits in BCD, Gray and excess-3.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.1** (number systems). **Lok Sewa CE 3.1** (digital and analog systems, number systems) — Paper I MCQs and quick Paper II numericals. You use hex daily; the new parts are fractions, BCD and Gray.
+</Aside>
+
+## 1. Positional number systems
+
+Every system has a **base** (radix) r and digits 0 … r−1. A digit's value = digit × r^(position), positions counting from 0 at the right of the point (negative to the right).
+
+| System | Base | Digits | Example |
+| --- | --- | --- | --- |
+| Binary | 2 | 0, 1 | 1011₂ |
+| Octal | 8 | 0–7 | 17₈ |
+| Decimal | 10 | 0–9 | 25₁₀ |
+| Hexadecimal | 16 | 0–9, A–F (10–15) | 2F₁₆ or 2FH |
+
+`1011.01₂ = 1·8 + 0·4 + 1·2 + 1·1 + 0·½ + 1·¼ = 11.25₁₀`
+
+<BinaryLab />
+
+## 2. Conversions
+
+**Any base → decimal:** multiply each digit by its place value and add.
+`2F₁₆ = 2 × 16 + 15 = 47`. `17₈ = 1 × 8 + 7 = 15`.
+
+**Decimal → base r (integer part): repeated division**, read the remainders **bottom-up**.
+25 → 25/2 = 12 r1, 12/2 = 6 r0, 6/2 = 3 r0, 3/2 = 1 r1, 1/2 = 0 r1 → **11001₂**.
+
+**Decimal → base r (fraction part): repeated multiplication**, read the integer parts **top-down**.
+0.625 × 2 = 1.25 → 1; 0.25 × 2 = 0.5 → 0; 0.5 × 2 = 1.0 → 1 → **.101₂**. So 25.625 = **11001.101₂**.
+Some fractions never end (0.1₁₀ = 0.000110011…₂) — the reason `0.1 + 0.2 ≠ 0.3` in floating point.
+
+**Binary ⇄ octal / hex — group the bits:** 3 bits per octal digit, 4 per hex digit, starting from the binary point (pad with zeros).
+- 1101 0110₂ → D6H. 011 010 110₂ → 326₈.
+- 3A7H → 0011 1010 0111₂.
+- Octal ⇄ hex: go through binary.
+
+## 3. Codes
+
+**BCD (binary-coded decimal, 8421):** each decimal **digit** in 4 bits. 59 → `0101 1001`. Codes 1010–1111 are **invalid**. Used in displays, calculators, financial arithmetic. Note BCD ≠ binary: 59 in binary is 111011.
+
+**Excess-3:** BCD + 3 per digit. 5 → 0101 + 0011 = **1000**. It's **self-complementing**: inverting the bits gives the 9's complement (handy for subtraction).
+
+**Gray code:** consecutive values differ in **exactly one bit** — no glitches when several bits would otherwise change at once. Used in K-map labelling, rotary encoders and FIFOs crossing clock domains.
+- Binary → Gray: keep the MSB; each next Gray bit = XOR of adjacent binary bits. 1011 → **1110**.
+- Gray → binary: keep the MSB; each next binary bit = previous binary bit XOR current Gray bit. 1110 → 1011.
+
+| Decimal | Binary | Gray | BCD | Excess-3 |
+| --- | --- | --- | --- | --- |
+| 0 | 0000 | 0000 | 0000 | 0011 |
+| 1 | 0001 | 0001 | 0001 | 0100 |
+| 2 | 0010 | 0011 | 0010 | 0101 |
+| 3 | 0011 | 0010 | 0011 | 0110 |
+| 4 | 0100 | 0110 | 0100 | 0111 |
+| 5 | 0101 | 0111 | 0101 | 1000 |
+| 6 | 0110 | 0101 | 0110 | 1001 |
+| 7 | 0111 | 0100 | 0111 | 1010 |
+| 8 | 1000 | 1100 | 1000 | 1011 |
+| 9 | 1001 | 1101 | 1001 | 1100 |
+
+**ASCII:** 7-bit character code. 'A' = 65 = 41H, 'a' = 97 = 61H (they differ by 20H — one bit), '0' = 48 = 30H. Unicode extends it (UTF-8 is backward-compatible) — and Nepali Unicode (Devanagari) is on the Lok Sewa Computer Officer syllabus.
+
+**Parity bit:** one extra bit makes the count of 1s even (even parity) or odd (odd parity); detects any single-bit error. 1011001 with even parity → parity bit 0 (four 1s).
+
+## Traps
+
+- Read division remainders **bottom-up**, multiplication carries **top-down**.
+- BCD of 25 is 0010 0101, not 11001.
+- Group bits from the **binary point** outward.
+- Hex digits A–F = 10–15; "2FH" — the H means hexadecimal.
+
+## Check yourself
+
+1. 101101₂ in decimal is:
+   (a) 43 (b) 45 (c) 47 (d) 53
+
+<details><summary>Answer</summary>(b) 32 + 8 + 4 + 1 = 45.</details>
+
+2. (3F)₁₆ in decimal is:
+   (a) 63 (b) 48 (c) 31 (d) 315
+
+<details><summary>Answer</summary>(a) 3 × 16 + 15.</details>
+
+3. 0.375₁₀ in binary is:
+   (a) 0.011 (b) 0.101 (c) 0.110 (d) 0.111
+
+<details><summary>Answer</summary>(a) 0.375 × 2 = 0.75 → 0; × 2 = 1.5 → 1; 0.5 × 2 = 1.0 → 1.</details>
+
+4. The BCD code for 47 is:
+   (a) 101111 (b) 0100 0111 (c) 0010 1111 (d) 0111 0100
+
+<details><summary>Answer</summary>(b) one nibble per digit.</details>
+
+5. The Gray code of binary 1001 is:
+   (a) 1101 (b) 1110 (c) 1011 (d) 0110
+
+<details><summary>Answer</summary>(a) 1, 1⊕0 = 1, 0⊕0 = 0, 0⊕1 = 1.</details>
+
+6. A self-complementing code is:
+   (a) BCD (b) Gray (c) Excess-3 (d) ASCII
+
+<details><summary>Answer</summary>(c)</details>
+
+7. (725)₈ in binary is:
+   (a) 111010101 (b) 111001010 (c) 101010111 (d) 110101111
+
+<details><summary>Answer</summary>(a) 7 = 111, 2 = 010, 5 = 101.</details>

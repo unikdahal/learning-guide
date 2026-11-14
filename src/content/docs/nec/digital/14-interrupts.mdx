@@ -1,0 +1,146 @@
+---
+title: "14. Interrupts"
+description: What interrupts are and why they beat polling, the interrupt cycle, 8085 hardware and software interrupts with vector addresses and priorities, SIM and RIM, 8086 interrupt types and the vector table, and the 8259 PIC.
+sidebar:
+  label: "14. Interrupts"
+  order: 14
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** explain how an interrupt is serviced, list the 8085 interrupts with priority and vector addresses, and find any 8086 interrupt vector.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.6** (interrupts, ISR, interrupt processing). **Lok Sewa CE unit 2** (interrupts); "explain the interrupt structure of the 8085" is a regular 10-marker. If you know OS interrupts and context switching, this is the hardware underneath.
+</Aside>
+
+## 1. What an interrupt is
+
+An **interrupt** is a signal that makes the CPU pause its current program, run an **interrupt service routine (ISR)**, and then resume. Like an event handler — the device calls you, rather than you polling the device.
+
+**Servicing sequence:**
+1. The CPU finishes the current instruction.
+2. It checks whether the interrupt is enabled/unmasked.
+3. It pushes the **PC onto the stack** (the 8086 also pushes flags and CS).
+4. It loads the **vector address** of the ISR into PC.
+5. The ISR runs (saving any registers it uses with PUSH).
+6. **RET** (8085) or **IRET** (8086) pops the return address; the program resumes.
+
+**Classifications:**
+- **Hardware** (a pin) vs **software** (an instruction, e.g. RST n, INT n).
+- **Maskable** (can be disabled) vs **non-maskable** (cannot — for emergencies such as power failure).
+- **Vectored** (fixed ISR address) vs **non-vectored** (the device supplies the address).
+- Edge- vs level-triggered.
+
+## 2. 8085 interrupts
+
+| Interrupt | Priority | Vector | Maskable? | Trigger |
+| --- | --- | --- | --- | --- |
+| **TRAP** (RST 4.5) | 1 (highest) | **0024H** | **No** | edge **and** level |
+| RST 7.5 | 2 | **003CH** | yes | rising edge (latched) |
+| RST 6.5 | 3 | **0034H** | yes | level |
+| RST 5.5 | 4 | **002CH** | yes | level |
+| INTR | 5 (lowest) | non-vectored | yes | level; device puts RST n / CALL on the bus after INTA' |
+
+Vector rule: **RST n → n × 8** in hex. RST 7.5 → 7.5 × 8 = 60 = 3CH; RST 5.5 → 44 = 2CH; TRAP = RST 4.5 → 36 = 24H.
+
+**Software interrupts RST 0–RST 7:** one-byte calls to 0000H, 0008H, 0010H, … 0038H (n × 8). RST 0 = 0000H, the reset address.
+
+**Control instructions:**
+- **EI / DI** — enable/disable all maskable interrupts (not TRAP).
+- **SIM** (set interrupt mask): the accumulator bits mask RST 7.5/6.5/5.5 individually, reset the RST 7.5 latch, and send serial output on SOD.
+- **RIM** (read interrupt mask): reads masks, pending interrupts and the SID serial input into A.
+
+## 3. 8086 interrupts
+
+- **256 interrupt types** (0–255).
+- **Interrupt vector table (IVT)** in the first **1 KB of memory: 00000H–003FFH**. Each entry is 4 bytes — new IP (2 bytes) then new CS (2 bytes).
+- **Vector address for type n = 4 × n.** Type 2 → 00008H; type 21H → 84H.
+- On an interrupt the 8086 pushes **flags, CS, IP**, clears IF and TF, then loads CS:IP from the IVT. **IRET** restores all three.
+
+Predefined types:
+
+| Type | Meaning |
+| --- | --- |
+| 0 | divide error |
+| 1 | single step (TF = 1) |
+| 2 | **NMI** (non-maskable pin) |
+| 3 | breakpoint (one-byte INT 3 — debuggers) |
+| 4 | overflow (INTO with OF = 1) |
+| 5–31 | reserved by Intel |
+| 32–255 | available to users (INT n), e.g. DOS INT 21H |
+
+Hardware pins: **NMI** (non-maskable) and **INTR** (maskable through IF, with STI/CLI).
+
+## 4. The 8259 programmable interrupt controller
+
+One INTR pin isn't enough for many devices. The **8259 PIC** accepts **8 interrupt requests (IR0–IR7)**, resolves priority (fixed or rotating), masks individual lines, and gives the CPU the vector. **Cascaded** — one master plus up to 8 slaves — it handles **64** interrupt inputs. The PC's classic IRQ0–IRQ15 came from two cascaded 8259s.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is an interrupt? Explain the interrupt structure of the 8085 microprocessor with priorities and vector addresses.
+
+<details>
+<summary>Model answer</summary>
+
+**Interrupt.** A signal from hardware or software that causes the processor to suspend its current program, save its return address, execute an interrupt service routine (ISR), and then return. It lets the CPU respond to events without continuous polling.
+
+**Types.** Hardware vs software; maskable vs non-maskable; vectored vs non-vectored; edge vs level triggered.
+
+**8085 hardware interrupts.**
+
+| Interrupt | Priority | Vector | Maskable | Triggering |
+| --- | --- | --- | --- | --- |
+| TRAP | Highest | 0024H | No | Edge and level |
+| RST 7.5 | 2 | 003CH | Yes | Positive edge |
+| RST 6.5 | 3 | 0034H | Yes | Level |
+| RST 5.5 | 4 | 002CH | Yes | Level |
+| INTR | Lowest | Non-vectored | Yes | Level |
+
+*(Draw a diagram of the five interrupt pins entering the interrupt-control block, showing the SIM mask bits and EI/DI flip-flop for the maskable ones.)*
+
+**INTR.** When INTR is high and interrupts are enabled, the 8085 sends INTA'; the external device places an RST or CALL instruction on the data bus, which gives the ISR address.
+
+**Software interrupts.** RST 0–7, vector = n × 8 (0000H to 0038H).
+
+**Control.** EI/DI enable or disable all maskable interrupts; SIM masks RST 7.5, 6.5, 5.5 individually and resets the RST 7.5 flip-flop; RIM reads mask status and pending interrupts.
+
+**Servicing.** Complete current instruction → push PC → jump to vector → execute ISR → RET restores PC.
+
+</details>
+
+## Check yourself
+
+1. The non-maskable interrupt of the 8085 is:
+   (a) RST 7.5 (b) INTR (c) TRAP (d) RST 5.5
+
+<details><summary>Answer</summary>(c)</details>
+
+2. The vector address of RST 6.5 is:
+   (a) 0030H (b) 0034H (c) 003CH (d) 002CH
+
+<details><summary>Answer</summary>(b) 6.5 × 8 = 52 = 34H.</details>
+
+3. The non-vectored 8085 interrupt is:
+   (a) TRAP (b) RST 7.5 (c) INTR (d) RST 5.5
+
+<details><summary>Answer</summary>(c)</details>
+
+4. In the 8086, the vector for interrupt type 4 is at:
+   (a) 00004H (b) 00010H (c) 00016H (d) 00040H
+
+<details><summary>Answer</summary>(b) 4 × 4 = 16 = 10H.</details>
+
+5. The instruction that masks individual 8085 interrupts is:
+   (a) EI (b) DI (c) SIM (d) RIM
+
+<details><summary>Answer</summary>(c)</details>
+
+6. The 8086 interrupt vector table occupies:
+   (a) 00000H–000FFH (b) 00000H–003FFH (c) FFFF0H–FFFFFH (d) 01000H–013FFH
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Cascading one master and eight slave 8259s handles how many interrupts?
+   (a) 8 (b) 16 (c) 64 (d) 256
+
+<details><summary>Answer</summary>(c)</details>

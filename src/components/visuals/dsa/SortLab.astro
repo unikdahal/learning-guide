@@ -1,0 +1,264 @@
+---
+// Sort lab: step through insertion, selection or bubble sort (or one quicksort partition)
+// on your own array, seeing each comparison and swap, the pass results and the counts.
+---
+
+<qe-sort class="qe-lab qe-sort not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Sort lab — watch every comparison</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Algorithm">
+      <button type="button" data-a="ins" aria-pressed="true">Insertion</button>
+      <button type="button" data-a="sel" aria-pressed="false">Selection</button>
+      <button type="button" data-a="bub" aria-pressed="false">Bubble</button>
+      <button type="button" data-a="part" aria-pressed="false">Quick: one partition</button>
+    </div>
+    <label class="arr">Array (comma-separated, up to 10 numbers)
+      <input type="text" data-in value="5, 2, 4, 6, 1, 3" spellcheck="false" />
+    </label>
+    <div class="acts prose">
+      <button type="button" data-step>Next step ⏵</button>
+      <button type="button" data-pass>Finish pass</button>
+      <button type="button" data-all>Run all</button>
+      <button type="button" data-rst>Reset</button>
+    </div>
+    <div class="bars" data-bars aria-hidden="true"></div>
+    <p class="now" data-now aria-live="polite"></p>
+    <p class="cnt" data-cnt></p>
+    <ol class="passes" data-passes></ol>
+    <p class="qe-lab-note" data-note></p>
+  </section>
+</qe-sort>
+
+<script>
+  type Step = { a: number[]; hi: number[]; kind: 'cmp' | 'swap' | 'pass' | 'done'; msg: string; sorted: number[] };
+  class QeSort extends HTMLElement {
+    alg = 'ins';
+    steps: Step[] = [];
+    pos = 0;
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const inp = $('[data-in]') as HTMLInputElement;
+      const read = () =>
+        inp.value
+          .split(/[\s,]+/)
+          .filter(Boolean)
+          .slice(0, 10)
+          .map((x) => parseInt(x, 10))
+          .filter((x) => !isNaN(x));
+      const build = () => {
+        const a = read();
+        const S: Step[] = [];
+        const push = (kind: Step['kind'], hi: number[], msg: string, sorted: number[] = []) => S.push({ a: [...a], hi, kind, msg, sorted });
+        const n = a.length;
+        if (this.alg === 'ins') {
+          for (let k = 1; k < n; k++) {
+            const x = a[k];
+            let j = k - 1;
+            push('cmp', [k], `Pass ${k}: take key ${x}`);
+            while (j >= 0) {
+              push('cmp', [j, j + 1], `Compare ${a[j]} > ${x}?`);
+              if (a[j] > x) {
+                a[j + 1] = a[j];
+                a[j] = x;
+                push('swap', [j, j + 1], `Yes — shift ${a[j + 1]} right`);
+                j--;
+              } else break;
+            }
+            push('pass', [], `After pass ${k}: [${a.join(', ')}]`, Array.from({ length: k + 1 }, (_, i) => i));
+          }
+        } else if (this.alg === 'sel') {
+          for (let k = 0; k < n - 1; k++) {
+            let m = k;
+            for (let j = k + 1; j < n; j++) {
+              push('cmp', [m, j], `Pass ${k + 1}: is ${a[j]} < current min ${a[m]}?`, Array.from({ length: k }, (_, i) => i));
+              if (a[j] < a[m]) m = j;
+            }
+            if (m !== k) {
+              [a[k], a[m]] = [a[m], a[k]];
+              push('swap', [k, m], `Swap min ${a[k]} into position ${k}`, Array.from({ length: k }, (_, i) => i));
+            }
+            push('pass', [], `After pass ${k + 1}: [${a.join(', ')}]`, Array.from({ length: k + 1 }, (_, i) => i));
+          }
+        } else if (this.alg === 'bub') {
+          for (let k = 0; k < n - 1; k++) {
+            let swapped = false;
+            const done = Array.from({ length: k }, (_, i) => n - 1 - i);
+            for (let j = 0; j < n - 1 - k; j++) {
+              push('cmp', [j, j + 1], `Pass ${k + 1}: ${a[j]} > ${a[j + 1]}?`, done);
+              if (a[j] > a[j + 1]) {
+                [a[j], a[j + 1]] = [a[j + 1], a[j]];
+                swapped = true;
+                push('swap', [j, j + 1], `Swap → ${a[j]}, ${a[j + 1]}`, done);
+              }
+            }
+            push('pass', [], `After pass ${k + 1}: [${a.join(', ')}]${swapped ? '' : ' — no swaps, so stop early'}`, [...done, n - 1 - k]);
+            if (!swapped) break;
+          }
+        } else {
+          const p = a[n - 1];
+          let i = -1;
+          push('cmp', [n - 1], `Lomuto partition: pivot = last element ${p}; i = −1`);
+          for (let j = 0; j < n - 1; j++) {
+            push('cmp', [j, n - 1], `a[${j}] = ${a[j]} ≤ ${p}?`);
+            if (a[j] <= p) {
+              i++;
+              [a[i], a[j]] = [a[j], a[i]];
+              push('swap', [i, j], `Yes: i = ${i}, swap a[${i}] and a[${j}]`);
+            }
+          }
+          [a[i + 1], a[n - 1]] = [a[n - 1], a[i + 1]];
+          push('pass', [i + 1], `Place pivot at index ${i + 1}: [${a.join(', ')}] — smaller on the left, larger on the right; recurse on both sides`, [i + 1]);
+        }
+        push('done', [], `Done: [${a.join(', ')}]`, this.alg === 'part' ? [] : a.map((_, i) => i));
+        this.steps = S;
+        this.pos = 0;
+        draw();
+      };
+      const draw = () => {
+        const s = this.pos === 0 ? null : this.steps[this.pos - 1];
+        const arr = s ? s.a : read();
+        const max = Math.max(1, ...arr.map(Math.abs));
+        $('[data-bars]').innerHTML = arr
+          .map((v, i) => {
+            const c = s && s.hi.includes(i) ? (s.kind === 'swap' ? 'sw' : 'cm') : s && s.sorted.includes(i) ? 'ok' : '';
+            return `<div class="bar ${c}"><span style="height:${Math.max(6, (Math.abs(v) / max) * 100)}%"></span><b>${v}</b></div>`;
+          })
+          .join('');
+        $('[data-now]').textContent = s ? s.msg : 'Press “Next step”.';
+        const done = this.steps.slice(0, this.pos);
+        $('[data-cnt]').textContent = `Comparisons ${done.filter((x) => x.kind === 'cmp' && x.hi.length === 2).length} · swaps/shifts ${done.filter((x) => x.kind === 'swap').length}`;
+        $('[data-passes]').innerHTML = done
+          .filter((x) => x.kind === 'pass')
+          .map((x) => `<li>${x.msg}</li>`)
+          .join('');
+        const notes: Record<string, string> = {
+          ins: 'Insertion sort grows a sorted prefix, inserting each new key by shifting larger ones right. Best case O(n) on sorted input, worst O(n²); stable; great for small or nearly sorted arrays.',
+          sel: 'Selection sort finds the minimum of the unsorted part and swaps it to the front: always n(n − 1)/2 comparisons (O(n²) even when sorted) but at most n − 1 swaps; not stable.',
+          bub: 'Bubble sort swaps adjacent out-of-order pairs; each pass bubbles the largest remaining element to the end. With the early-exit flag the best case is O(n); worst O(n²); stable.',
+          part: 'Quicksort partitions around a pivot, then sorts both sides recursively: O(n log n) on average, O(n²) worst case (e.g. already-sorted input with a last-element pivot); in place, not stable.',
+        };
+        $('[data-note]').textContent = notes[this.alg];
+      };
+      const step = () => {
+        if (this.pos < this.steps.length) {
+          this.pos++;
+          draw();
+          return true;
+        }
+        return false;
+      };
+      $('[data-step]').addEventListener('click', step);
+      $('[data-pass]').addEventListener('click', () => {
+        while (step() && !['pass', 'done'].includes(this.steps[this.pos - 1].kind));
+      });
+      $('[data-all]').addEventListener('click', () => {
+        while (step());
+      });
+      $('[data-rst]').addEventListener('click', build);
+      inp.addEventListener('change', build);
+      this.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.alg = b.dataset.a!;
+          this.querySelectorAll('[data-a]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          if (this.alg === 'part' && inp.value === '5, 2, 4, 6, 1, 3') inp.value = '8, 3, 6, 1, 9, 2, 5';
+          build();
+        }),
+      );
+      build();
+    }
+  }
+  customElements.define('qe-sort', QeSort);
+</script>
+
+<style>
+  .arr {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .arr input {
+    font: inherit;
+    font-family: var(--sl-font-mono);
+    font-weight: 400;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.9rem 0;
+  }
+  .acts button {
+    font: inherit;
+    font-weight: 700;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: transparent;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .acts button[data-step] {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .bars {
+    display: flex;
+    gap: 0.4rem;
+    align-items: flex-end;
+    height: 9rem;
+    padding: 0.4rem 0;
+  }
+  :global(.qe-sort .bar) {
+    flex: 1;
+    max-width: 3.2rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  :global(.qe-sort .bar span) {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    background: var(--sl-color-gray-4);
+  }
+  :global(.qe-sort .bar b) {
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+    color: var(--sl-color-white);
+    margin-top: 0.2rem;
+  }
+  :global(.qe-sort .bar.cm span) {
+    background: var(--qe-pipe-emit);
+  }
+  :global(.qe-sort .bar.sw span) {
+    background: var(--qe-warn);
+  }
+  :global(.qe-sort .bar.ok span) {
+    background: var(--qe-pipe-build);
+  }
+  .now {
+    font-weight: 700;
+    color: var(--sl-color-white);
+    min-height: 1.5rem;
+  }
+  .cnt {
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+    color: var(--sl-color-gray-2);
+  }
+  .passes {
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+    color: var(--sl-color-gray-1);
+  }
+</style>

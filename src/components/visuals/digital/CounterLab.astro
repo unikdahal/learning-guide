@@ -1,0 +1,235 @@
+---
+// Counter lab: a 4-bit synchronous counter with selectable modulus, plus ring and Johnson modes.
+// Press "Clock" to apply a rising edge; the timing diagram shows CLK and Q0–Q3 for the last 16 pulses.
+---
+
+<qe-counter class="qe-lab qe-cnt not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Counter lab — press Clock</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Counter type">
+      <button type="button" data-m="up" aria-pressed="true">Binary up</button>
+      <button type="button" data-m="ring" aria-pressed="false">Ring</button>
+      <button type="button" data-m="johnson" aria-pressed="false">Johnson</button>
+    </div>
+    <div class="ctl" data-modctl>
+      <label>Modulus (resets after N states) <output data-no>16</output>
+        <input type="range" min="2" max="16" step="1" value="16" data-n aria-label="Counter modulus" />
+      </label>
+    </div>
+    <div class="acts prose">
+      <button type="button" data-clk>Clock ⏵</button>
+      <button type="button" data-run aria-pressed="false">Auto</button>
+      <button type="button" data-rst>Reset</button>
+    </div>
+    <div class="leds" aria-hidden="true"></div>
+    <p class="state">State Q3Q2Q1Q0 = <output data-st>0000</output> (decimal <output data-dec>0</output>)</p>
+    <svg viewBox="0 0 340 170" role="img" aria-label="Timing diagram: the clock and outputs Q0 to Q3 over the most recent clock pulses." class="td">
+      <g data-td></g>
+    </svg>
+    <p class="qe-lab-note" data-note aria-live="polite"></p>
+  </section>
+</qe-counter>
+
+<script>
+  class QeCounter extends HTMLElement {
+    mode = 'up';
+    n = 16;
+    q = 0;
+    hist: number[] = [0];
+    timer = 0;
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const leds = $('.leds');
+      for (let k = 3; k >= 0; k--) {
+        const d = document.createElement('span');
+        d.className = 'led';
+        d.dataset.k = String(k);
+        d.textContent = `Q${k}`;
+        leds.appendChild(d);
+      }
+      const seed = () => (this.mode === 'ring' ? 0b0001 : 0);
+      const next = (q: number) => {
+        if (this.mode === 'up') return (q + 1) % this.n;
+        if (this.mode === 'ring') return ((q << 1) | (q >> 3)) & 15;
+        const msb = (q >> 3) & 1; // Johnson: shift left, feed inverted MSB into Q0
+        return ((q << 1) & 15) | (1 - msb);
+      };
+      const draw = () => {
+        const q = this.q;
+        const s = q.toString(2).padStart(4, '0');
+        ($('[data-st]') as HTMLOutputElement).value = s;
+        ($('[data-dec]') as HTMLOutputElement).value = String(q);
+        leds.querySelectorAll<HTMLElement>('.led').forEach((d) => d.classList.toggle('on', !!((q >> +d.dataset.k!) & 1)));
+        const H = this.hist.slice(-16);
+        const W = 290 / 16;
+        const rows = ['CLK', 'Q0', 'Q1', 'Q2', 'Q3'];
+        let g = '';
+        rows.forEach((name, r) => {
+          const y0 = 18 + r * 30;
+          g += `<text x="2" y="${y0 + 12}" class="tl">${name}</text>`;
+          let d = '';
+          H.forEach((v, i) => {
+            const x = 44 + i * W;
+            if (r === 0) {
+              d += `${i ? 'L' : 'M'}${x} ${y0 + 18} V${y0} H${x + W / 2} V${y0 + 18} H${x + W}`;
+            } else {
+              const bit = (v >> (r - 1)) & 1;
+              const y = bit ? y0 : y0 + 18;
+              d += `${i ? 'L' : 'M'}${x} ${y} H${x + W}`;
+            }
+          });
+          g += `<path d="${d}" class="${r === 0 ? 'clk' : 'sig'}"/>`;
+        });
+        $('[data-td]').innerHTML = g;
+        const notes: Record<string, string> = {
+          up: `Binary up counter, mod-${this.n}: ${this.n} states (0 to ${this.n - 1}), then back to 0. Look at the timing diagram: Q0 toggles every clock, Q1 every 2, Q2 every 4, Q3 every 8 — each output divides the frequency by 2.${this.n < 16 ? ` To reset at ${this.n}, a real circuit detects state ${this.n} (${this.n.toString(2).padStart(4, '0')}) and clears the flip-flops.` : ''}`,
+          ring: 'Ring counter: a single 1 circulates through 4 flip-flops — 4 states with 4 flip-flops (n states). Each state has exactly one bit set, so no decoder is needed.',
+          johnson: 'Johnson (twisted-ring) counter: the inverted last bit is fed back, so 1s fill up then 0s fill up — 8 states with 4 flip-flops (2n states).',
+        };
+        $('[data-note]').textContent = notes[this.mode];
+      };
+      const tick = () => {
+        this.q = next(this.q);
+        this.hist.push(this.q);
+        if (this.hist.length > 40) this.hist.shift();
+        draw();
+      };
+      const reset = () => {
+        this.q = seed();
+        this.hist = [this.q];
+        draw();
+      };
+      $('[data-clk]').addEventListener('click', tick);
+      $('[data-rst]').addEventListener('click', reset);
+      const run = $('[data-run]');
+      run.addEventListener('click', () => {
+        if (this.timer) {
+          clearInterval(this.timer);
+          this.timer = 0;
+          run.setAttribute('aria-pressed', 'false');
+        } else {
+          this.timer = window.setInterval(tick, 600);
+          run.setAttribute('aria-pressed', 'true');
+        }
+      });
+      const nIn = $('[data-n]') as HTMLInputElement;
+      nIn.addEventListener('input', () => {
+        this.n = +nIn.value;
+        ($('[data-no]') as HTMLOutputElement).value = String(this.n);
+        reset();
+      });
+      this.querySelectorAll<HTMLButtonElement>('[data-m]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.mode = b.dataset.m!;
+          this.querySelectorAll('[data-m]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          ($('[data-modctl]') as HTMLElement).style.display = this.mode === 'up' ? '' : 'none';
+          reset();
+        }),
+      );
+      reset();
+    }
+    disconnectedCallback() {
+      clearInterval(this.timer);
+    }
+  }
+  customElements.define('qe-counter', QeCounter);
+</script>
+
+<style>
+  .ctl {
+    margin: 0.9rem 0 0;
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+    margin-left: 0.4rem;
+  }
+  .ctl input {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.9rem 0;
+  }
+  .acts button {
+    font: inherit;
+    font-weight: 700;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: transparent;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .acts button[data-clk] {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .acts button[aria-pressed='true'] {
+    border-color: var(--sl-color-accent);
+  }
+  .leds {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  :global(.qe-cnt .led) {
+    width: 3rem;
+    padding: 0.5rem 0;
+    text-align: center;
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    border-radius: 8px;
+    border: 1px solid var(--sl-color-gray-4);
+    color: var(--sl-color-gray-3);
+  }
+  :global(.qe-cnt .led.on) {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .state {
+    text-align: center;
+    font-size: 0.9375rem;
+    margin: 0.6rem 0;
+    color: var(--sl-color-gray-1);
+  }
+  .state output {
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .td {
+    width: 100%;
+    max-width: 560px;
+    height: auto;
+    display: block;
+    margin-inline: auto;
+  }
+  :global(.qe-cnt .tl) {
+    fill: var(--sl-color-gray-2);
+    font-size: 11px;
+    font-family: var(--sl-font-mono);
+  }
+  :global(.qe-cnt .clk) {
+    fill: none;
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+  }
+  :global(.qe-cnt .sig) {
+    fill: none;
+    stroke: var(--qe-pipe-build);
+    stroke-width: 2.5;
+  }
+</style>

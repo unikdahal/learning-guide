@@ -1,0 +1,260 @@
+---
+// CPU scheduling lab: edit a process table, pick FCFS, SJF, SRTF, round robin or priority,
+// and get the Gantt chart plus completion, turnaround and waiting times with averages.
+---
+
+<qe-sched class="qe-lab qe-sched not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">CPU scheduling lab — Gantt chart and waiting times</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Scheduling algorithm">
+      <button type="button" data-a="fcfs" aria-pressed="true">FCFS</button>
+      <button type="button" data-a="sjf" aria-pressed="false">SJF</button>
+      <button type="button" data-a="srtf" aria-pressed="false">SRTF</button>
+      <button type="button" data-a="rr" aria-pressed="false">Round robin</button>
+      <button type="button" data-a="prio" aria-pressed="false">Priority</button>
+    </div>
+    <div class="ctl">
+      <label>Processes — one per line: name arrival burst [priority]
+        <textarea data-p rows="5" spellcheck="false">P1 0 8 3
+P2 1 4 1
+P3 2 9 4
+P4 3 5 2</textarea>
+      </label>
+      <label><span>Time quantum (round robin): <output data-qo>4</output></span>
+        <input type="range" min="1" max="8" value="4" data-q aria-label="Round-robin time quantum" />
+      </label>
+    </div>
+    <div class="gantt-wrap"><svg data-g role="img" aria-label="Gantt chart of which process runs in each time interval."></svg></div>
+    <div class="tbl-wrap"><table class="res" data-t></table></div>
+    <p class="avg" data-avg aria-live="polite"></p>
+    <p class="qe-lab-note" data-note></p>
+  </section>
+</qe-sched>
+
+<script>
+  type P = { n: string; a: number; b: number; pr: number };
+  class QeSched extends HTMLElement {
+    alg = 'fcfs';
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const ta = $('[data-p]') as HTMLTextAreaElement;
+      const qIn = $('[data-q]') as HTMLInputElement;
+      const parse = (): P[] =>
+        ta.value
+          .split('\n')
+          .map((l) => l.trim().split(/\s+/))
+          .filter((x) => x.length >= 3 && !isNaN(+x[1]) && !isNaN(+x[2]) && +x[2] > 0)
+          .slice(0, 8)
+          .map((x) => ({ n: x[0], a: +x[1], b: +x[2], pr: x[3] !== undefined && !isNaN(+x[3]) ? +x[3] : 0 }));
+      const run = (ps: P[], alg: string, q: number) => {
+        const rem = new Map(ps.map((p) => [p.n, p.b]));
+        const done = new Map<string, number>();
+        const gantt: [string, number, number][] = [];
+        const order = [...ps].sort((x, y) => x.a - y.a || ps.indexOf(x) - ps.indexOf(y));
+        const arrived = new Set<string>();
+        const rq: P[] = [];
+        let t = 0;
+        const admit = (now: number) => {
+          for (const p of order) if (p.a <= now && !arrived.has(p.n)) { arrived.add(p.n); rq.push(p); }
+        };
+        const push = (n: string, s: number, e: number) => {
+          const last = gantt[gantt.length - 1];
+          if (last && last[0] === n && last[2] === s) last[2] = e;
+          else gantt.push([n, s, e]);
+        };
+        admit(0);
+        let guard = 0;
+        while (done.size < ps.length && guard++ < 1000) {
+          admit(t);
+          const avail = rq.filter((p) => !done.has(p.n));
+          if (!avail.length) {
+            const nx = Math.min(...ps.filter((p) => !arrived.has(p.n)).map((p) => p.a));
+            gantt.push(['idle', t, nx]);
+            t = nx;
+            continue;
+          }
+          let p: P;
+          let r: number;
+          if (alg === 'fcfs') { p = avail[0]; r = rem.get(p.n)!; }
+          else if (alg === 'sjf') { p = avail.reduce((m, x) => (x.b < m.b ? x : m)); r = rem.get(p.n)!; }
+          else if (alg === 'prio') { p = avail.reduce((m, x) => (x.pr < m.pr ? x : m)); r = rem.get(p.n)!; }
+          else if (alg === 'srtf') {
+            p = avail.reduce((m, x) => (rem.get(x.n)! < rem.get(m.n)! ? x : m));
+            const nxt = ps.filter((x) => x.a > t).map((x) => x.a);
+            r = Math.min(rem.get(p.n)!, nxt.length ? Math.min(...nxt) - t : rem.get(p.n)!);
+          } else {
+            p = rq.shift()!;
+            r = Math.min(q, rem.get(p.n)!);
+          }
+          push(p.n, t, t + r);
+          t += r;
+          rem.set(p.n, rem.get(p.n)! - r);
+          if (alg === 'rr') {
+            admit(t);
+            if (rem.get(p.n)! > 0) rq.push(p);
+          }
+          if (rem.get(p.n) === 0) {
+            done.set(p.n, t);
+            if (alg !== 'rr') rq.splice(rq.indexOf(p), 1);
+          }
+        }
+        return { gantt, done };
+      };
+      const draw = () => {
+        const ps = parse();
+        const q = +qIn.value;
+        ($('[data-qo]') as HTMLOutputElement).value = qIn.value;
+        if (!ps.length) return;
+        const { gantt, done } = run(ps, this.alg, q);
+        const end = gantt[gantt.length - 1][2];
+        const W = 640, x0 = 6, pw = W - 12, Y = 8, H = 34;
+        const X = (v: number) => x0 + (v / end) * pw;
+        const names = [...new Set(ps.map((p) => p.n))];
+        let g = '';
+        for (const [n, s, e] of gantt) {
+          const ci = n === 'idle' ? -1 : names.indexOf(n) % 4;
+          g += `<rect x="${X(s)}" y="${Y}" width="${X(e) - X(s)}" height="${H}" class="blk c${ci}"/>`;
+          if (X(e) - X(s) > 18) g += `<text x="${(X(s) + X(e)) / 2}" y="${Y + 22}" class="bn">${n === 'idle' ? '—' : n}</text>`;
+        }
+        const ticks = [...new Set([0, ...gantt.map((x) => x[2])])];
+        for (const v of ticks) g += `<text x="${X(v)}" y="${Y + H + 15}" class="tk">${v}</text>`;
+        const svg = $('[data-g]');
+        svg.setAttribute('viewBox', `0 0 ${W} 64`);
+        svg.innerHTML = g;
+        let rows = '';
+        let sw = 0, st = 0;
+        for (const p of ps) {
+          const ct = done.get(p.n)!;
+          const tat = ct - p.a, wt = tat - p.b;
+          sw += wt; st += tat;
+          rows += `<tr><td>${p.n}</td><td>${p.a}</td><td>${p.b}</td>${this.alg === 'prio' ? `<td>${p.pr}</td>` : ''}<td>${ct}</td><td>${tat}</td><td>${wt}</td></tr>`;
+        }
+        $('[data-t]').innerHTML = `<thead><tr><th scope="col">Process</th><th scope="col">Arrival</th><th scope="col">Burst</th>${this.alg === 'prio' ? '<th scope="col">Priority</th>' : ''}<th scope="col">Completion</th><th scope="col">Turnaround = C − A</th><th scope="col">Waiting = TAT − B</th></tr></thead><tbody>${rows}</tbody>`;
+        $('[data-avg]').textContent = `Average waiting time = ${sw} / ${ps.length} = ${(sw / ps.length).toFixed(2)} · average turnaround = ${st} / ${ps.length} = ${(st / ps.length).toFixed(2)}`;
+        const notes: Record<string, string> = {
+          fcfs: 'FCFS runs processes in arrival order, non-preemptively. Simple and fair in order, but one long job makes everyone behind it wait (convoy effect).',
+          sjf: 'Non-preemptive SJF picks the shortest burst among the arrived processes when the CPU becomes free. It minimises average waiting time for a given set, but needs burst estimates and can starve long jobs.',
+          srtf: 'SRTF (preemptive SJF) re-checks at every arrival and runs the process with the least remaining time. Lowest average waiting time of all; most context switches; starvation possible.',
+          rr: `Round robin gives each process a ${q}-unit quantum in turn (a process arriving during a slice joins the queue before the preempted one). Good response time for time-sharing; a huge quantum becomes FCFS, a tiny one wastes time on context switches.`,
+          prio: 'Non-preemptive priority runs the highest-priority arrived process (smaller number = higher priority here). Low-priority processes can starve; aging raises their priority over time.',
+        };
+        $('[data-note]').textContent = notes[this.alg];
+      };
+      this.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.alg = b.dataset.a!;
+          this.querySelectorAll('[data-a]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          draw();
+        }),
+      );
+      ta.addEventListener('input', draw);
+      qIn.addEventListener('input', draw);
+      draw();
+    }
+  }
+  customElements.define('qe-sched', QeSched);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 0.8rem 1.5rem;
+    margin: 0.9rem 0;
+    align-items: start;
+  }
+  @media (max-width: 40rem) {
+    .ctl {
+      grid-template-columns: 1fr;
+    }
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.3rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl textarea {
+    font: inherit;
+    font-family: var(--sl-font-mono);
+    font-weight: 400;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    resize: vertical;
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+  }
+  .ctl input[type='range'] {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .gantt-wrap svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  :global(.qe-sched .blk) {
+    stroke: var(--sl-color-black);
+    stroke-width: 1.5;
+  }
+  :global(.qe-sched .c0) {
+    fill: color-mix(in srgb, var(--qe-pipe-build) 55%, var(--sl-color-gray-6));
+  }
+  :global(.qe-sched .c1) {
+    fill: color-mix(in srgb, var(--qe-pipe-emit) 55%, var(--sl-color-gray-6));
+  }
+  :global(.qe-sched .c2) {
+    fill: color-mix(in srgb, var(--qe-warn) 45%, var(--sl-color-gray-6));
+  }
+  :global(.qe-sched .c3) {
+    fill: color-mix(in srgb, var(--sl-color-gray-3) 60%, var(--sl-color-gray-6));
+  }
+  :global(.qe-sched .c-1) {
+    fill: var(--sl-color-gray-6);
+  }
+  :global(.qe-sched .bn) {
+    fill: var(--sl-color-white);
+    font-weight: 700;
+    font-size: 12px;
+    text-anchor: middle;
+    font-family: var(--sl-font-mono);
+  }
+  :global(.qe-sched .tk) {
+    fill: var(--sl-color-gray-2);
+    font-size: 11px;
+    text-anchor: middle;
+    font-family: var(--sl-font-mono);
+  }
+  .tbl-wrap {
+    overflow-x: auto;
+  }
+  .res {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+    margin-top: 0.6rem;
+  }
+  :global(.qe-sched .res th),
+  :global(.qe-sched .res td) {
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    padding: 0.3rem 0.5rem;
+    text-align: center;
+    color: var(--sl-color-white);
+  }
+  :global(.qe-sched .res th) {
+    font-family: var(--sl-font);
+    font-size: 0.78rem;
+    color: var(--sl-color-gray-2);
+  }
+  .avg {
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

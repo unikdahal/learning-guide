@@ -1,0 +1,162 @@
+---
+title: "3. Functional dependencies and normalisation"
+description: Anomalies, functional dependencies, Armstrong's axioms, attribute closure and finding candidate keys, minimal cover, 1NF to BCNF with a full worked decomposition, lossless-join and dependency-preserving decomposition, and 4NF/5NF in brief.
+sidebar:
+  label: "3. FDs, normalisation"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** compute attribute closures, find all candidate keys, identify the highest normal form, and decompose to 3NF/BCNF losslessly.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.3** (normalisation 1NF, 2NF, 3NF, BCNF; functional dependencies). The model paper asks which normal form reduces redundancy. **Lok Sewa CE unit 9** — "functional dependency and its role in database design" is a reported CE 2078 question, and normalisation is on your Wed 16 Dec extras list.
+</Aside>
+
+## 1. Why normalise: anomalies
+
+A badly designed table — **StudentCourse(sid, sname, cid, cname, instructor, office, grade)** — stores each student's name once per course and each instructor's office once per student:
+- **Update anomaly:** an instructor moves office → many rows to change; miss one and the data is inconsistent.
+- **Insertion anomaly:** can't record a new course until a student enrols (sid would be NULL in the key).
+- **Deletion anomaly:** delete the last student in a course and you lose the course and instructor details.
+
+**Normalisation** decomposes tables using functional dependencies to remove redundancy and these anomalies.
+
+## 2. Functional dependencies
+
+**X → Y** (X functionally determines Y) if any two tuples that agree on X also agree on Y. Example: sid → sname; (sid, cid) → grade.
+- **Trivial** FD: Y ⊆ X (AB → A).
+- **Full** FD: Y depends on all of X, not a proper subset. **Partial** FD: Y depends on part of a composite key.
+- **Transitive** FD: X → Y and Y → Z (Y not a key) gives X → Z.
+
+**Armstrong's axioms** (sound and complete):
+1. **Reflexivity:** if Y ⊆ X then X → Y.
+2. **Augmentation:** if X → Y then XZ → YZ.
+3. **Transitivity:** if X → Y and Y → Z then X → Z.
+
+Derived rules: **union** (X → Y, X → Z ⇒ X → YZ), **decomposition** (X → YZ ⇒ X → Y), **pseudo-transitivity** (X → Y, WY → Z ⇒ WX → Z).
+
+### Attribute closure X⁺
+
+All attributes determined by X. Start with X; repeatedly add the right side of any FD whose left side is already inside.
+
+**Worked.** R(A, B, C, D, E, F), F = [ A → BC, E → CF, B → E, CD → EF ].
+- **A⁺** = A → (A → BC) ABC → (B → E) ABCE → (E → CF) **ABCEF**. D is missing, so A is not a key.
+- **AD⁺** = ABCEF + D = **ABCDEF** → AD is a super key.
+- Is it minimal? A⁺ lacks D; D⁺ = D. So **AD is a candidate key**.
+- **D never appears on any right side, so every key must contain D**; A is needed too (D⁺ = D). Here AD is the **only** candidate key.
+
+Shortcut for keys: attributes on **no** right side must be in every key; attributes **only** on right sides are in no key; test the rest.
+
+**Minimal (canonical) cover:** single attributes on the right, no extraneous left attributes, no redundant FDs. For the F above: A → B, A → C, E → C, E → F, B → E, CD → E, CD → F; then A → C is redundant (A → B → E → C) and so is CD → F (CD → E → F). Minimal cover: **A → B, B → E, E → C, E → F, CD → E**.
+
+## 3. Normal forms
+
+| Form | Rule |
+| --- | --- |
+| **1NF** | all attribute values **atomic** (no repeating groups or multivalued cells) |
+| **2NF** | 1NF + **no partial dependency** of a non-prime attribute on a candidate key |
+| **3NF** | 2NF + **no transitive dependency** of a non-prime attribute on a key. Equivalently: for every non-trivial X → A, **X is a super key or A is prime** |
+| **BCNF** | for every non-trivial X → A, **X is a super key** (every determinant is a candidate key) |
+| 4NF | BCNF + no non-trivial **multivalued dependencies** (X →→ Y) |
+| 5NF | no **join dependencies** not implied by keys |
+
+(A **prime** attribute belongs to some candidate key.) BCNF ⊂ 3NF ⊂ 2NF ⊂ 1NF. Higher normal forms reduce redundancy further, at the cost of more joins.
+
+## 4. Worked decomposition
+
+**StudentCourse(sid, sname, cid, cname, instructor, office, grade)** with FDs:
+- sid → sname
+- cid → cname, instructor
+- instructor → office
+- sid, cid → grade
+
+Candidate key: **(sid, cid)**.
+
+**2NF** — remove partial dependencies (sname depends only on sid; cname, instructor, office only on cid):
+- Student(**sid**, sname)
+- Course(**cid**, cname, instructor, office)
+- Enrolment(**sid, cid**, grade)
+
+**3NF** — Course has the transitive dependency cid → instructor → office:
+- Course(**cid**, cname, instructor)
+- Instructor(**instructor**, office)
+
+Final 3NF (and BCNF) schema: **Student(sid, sname), Course(cid, cname, instructor), Instructor(instructor, office), Enrolment(sid, cid, grade)**.
+
+### 3NF but not BCNF
+
+**Teaches(student, course, teacher)** — each teacher teaches one course (teacher → course), and for each course a student has one teacher ((student, course) → teacher). Keys: (student, course) and (student, teacher). Every attribute is prime, so it is in **3NF**; but teacher → course has a determinant that isn't a super key, so it is **not BCNF**. BCNF decomposition: **(teacher, course)** and **(student, teacher)** — lossless, but the FD (student, course) → teacher is **no longer enforceable** in a single table.
+
+## 5. Properties of a good decomposition
+
+- **Lossless join** (essential): joining the pieces gives back exactly the original relation. A decomposition of R into R1 and R2 is lossless if **R1 ∩ R2 → R1 or R1 ∩ R2 → R2** (the common attributes are a key of one side).
+- **Dependency preservation** (desirable): every FD can be checked within one piece.
+- **3NF decomposition (synthesis)** always achieves both; **BCNF** is always lossless but may lose dependency preservation.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is a functional dependency? Explain its role in database design. Normalise StudentCourse(sid, sname, cid, cname, instructor, office, grade) to 3NF.
+
+<details>
+<summary>Model answer</summary>
+
+**Functional dependency.** In relation R, X → Y holds if, for any two tuples t1 and t2, t1[X] = t2[X] implies t1[Y] = t2[Y] — the value of X uniquely determines the value of Y. Example: sid → sname. Types: trivial/non-trivial, full/partial, transitive. Armstrong's axioms (reflexivity, augmentation, transitivity) derive all implied FDs.
+
+**Role in design.**
+1. **Identifying keys:** attribute closure under FDs finds super keys and candidate keys.
+2. **Detecting redundancy and anomalies:** partial and transitive dependencies cause update, insertion and deletion anomalies.
+3. **Defining normal forms:** 2NF, 3NF and BCNF are stated in terms of FDs.
+4. **Guiding decomposition:** FDs decide how to split relations, and test lossless join (common attributes form a key of one part) and dependency preservation.
+5. **Integrity constraints:** FDs are business rules the database must enforce.
+
+**Normalisation.** FDs: sid → sname; cid → cname, instructor; instructor → office; (sid, cid) → grade. Key: (sid, cid). The relation is in 1NF (atomic values).
+
+- **2NF** (remove partial dependencies on the key): Student(sid, sname); Course(cid, cname, instructor, office); Enrolment(sid, cid, grade).
+- **3NF** (remove the transitive dependency cid → instructor → office): Course(cid, cname, instructor); Instructor(instructor, office).
+
+**Result:** Student(<u>sid</u>, sname), Course(<u>cid</u>, cname, instructor), Instructor(<u>instructor</u>, office), Enrolment(<u>sid, cid</u>, grade). Each decomposition is lossless (the shared attribute is a key of one part) and dependency-preserving; all four relations are also in BCNF.
+
+</details>
+
+## Check yourself
+
+1. The normal form that removes transitive dependencies:
+   (a) 1NF (b) 2NF (c) 3NF (d) 4NF
+
+<details><summary>Answer</summary>(c)</details>
+
+2. In BCNF, every determinant is a:
+   (a) foreign key (b) candidate key (c) non-prime attribute (d) composite attribute
+
+<details><summary>Answer</summary>(b)</details>
+
+3. R(A, B, C) with A → B, B → C. A⁺ is:
+   (a) A (b) AB (c) ABC (d) BC
+
+<details><summary>Answer</summary>(c)</details>
+
+4. A partial dependency violates:
+   (a) 1NF (b) 2NF (c) 3NF only (d) BCNF only
+
+<details><summary>Answer</summary>(b)</details>
+
+5. If X → Y and Y → Z then X → Z by:
+   (a) reflexivity (b) augmentation (c) transitivity (d) union
+
+<details><summary>Answer</summary>(c)</details>
+
+6. Decomposing R into R1 and R2 is lossless if R1 ∩ R2 is a key of:
+   (a) R only (b) R1 or R2 (c) neither (d) both necessarily
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Multivalued dependencies are removed by:
+   (a) 2NF (b) 3NF (c) BCNF (d) 4NF
+
+<details><summary>Answer</summary>(d)</details>
+
+8. Normalisation mainly reduces:
+   (a) query speed (b) redundancy and anomalies (c) the number of attributes (d) security risks
+
+<details><summary>Answer</summary>(b)</details>

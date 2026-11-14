@@ -1,0 +1,138 @@
+---
+title: "4. Boolean algebra"
+description: Boolean laws and theorems, De Morgan's theorems, duality, algebraic simplification, minterms and maxterms, canonical SOP and POS forms.
+sidebar:
+  label: "4. Boolean algebra"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** simplify expressions with the laws, apply De Morgan confidently, and convert a truth table into canonical SOP and POS.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.1** (Boolean algebra, SOP and POS). **Lok Sewa CE 3.2–3.3**. A "state and prove De Morgan's theorems" or "simplify and realise with NAND gates" question is common in written papers.
+</Aside>
+
+## 1. The laws
+
+Variables are 0 or 1; `+` is OR, `·` is AND, `'` is NOT.
+
+| Law | AND form | OR form |
+| --- | --- | --- |
+| Identity | A·1 = A | A + 0 = A |
+| Null (dominance) | A·0 = 0 | A + 1 = 1 |
+| Idempotent | A·A = A | A + A = A |
+| Complement | A·A' = 0 | A + A' = 1 |
+| Involution | (A')' = A | |
+| Commutative | AB = BA | A + B = B + A |
+| Associative | (AB)C = A(BC) | (A + B) + C = A + (B + C) |
+| Distributive | A(B + C) = AB + AC | **A + BC = (A + B)(A + C)** |
+| Absorption | A(A + B) = A | A + AB = A |
+| Redundancy | A(A' + B) = AB | **A + A'B = A + B** |
+| Consensus | | AB + A'C + BC = AB + A'C |
+
+The second distributive law (`A + BC = (A + B)(A + C)`) has no equivalent in ordinary algebra — a favourite trick.
+
+**Duality:** swap AND ↔ OR and 0 ↔ 1 in any true identity and you get another true identity (that's why the table has two columns).
+
+## 2. De Morgan's theorems
+
+`(A·B)' = A' + B'`   and   `(A + B)' = A'·B'`
+
+"Break the bar, change the sign." They extend to any number of variables: `(ABC)' = A' + B' + C'`.
+
+**Proof by truth table** (the exam method): list all four combinations of A and B, compute both sides, and show the columns match.
+
+| A | B | A·B | (A·B)' | A' + B' |
+| --- | --- | --- | --- | --- |
+| 0 | 0 | 0 | 1 | 1 |
+| 0 | 1 | 0 | 1 | 1 |
+| 1 | 0 | 0 | 1 | 1 |
+| 1 | 1 | 1 | 0 | 0 |
+
+## 3. Simplifying algebraically
+
+**Example 1.** `F = AB + AB'` = A(B + B') = A·1 = **A**.
+
+**Example 2.** `F = A'B'C + A'BC + AB'C + ABC` = A'C(B' + B) + AC(B' + B) = A'C + AC = **C**.
+
+**Example 3.** `F = (A + B)(A + C)` = **A + BC** (distributive).
+
+**Example 4.** `F = ((A + B')C)'` = (A + B')' + C' = **A'B + C'** (De Morgan twice).
+
+Fewer literals → fewer gates → cheaper, faster circuits. For more than three or four variables, algebra gets error-prone — use K-maps (next lesson).
+
+## 4. Minterms, maxterms and canonical forms
+
+For n variables there are 2ⁿ rows in a truth table.
+
+- A **minterm** is an AND term containing every variable once, true for exactly **one** row. Row 101 (A = 1, B = 0, C = 1) → minterm m5 = AB'C.
+- A **maxterm** is an OR term, false for exactly one row. Row 101 → maxterm M5 = (A' + B + C').
+- `mᵢ' = Mᵢ`.
+
+**Canonical SOP (sum of minterms):** OR together the minterms of the rows where F = 1. `F = Σm(1, 3, 5)`.
+
+**Canonical POS (product of maxterms):** AND together the maxterms of the rows where F = 0. The same F = ΠM(0, 2, 4, 6, 7).
+
+The two lists are **complementary**: together they cover every row exactly once.
+
+**Example.** F = 1 for rows 1, 2, 3, 7 of (A, B, C):
+- SOP: F = A'B'C + A'BC' + A'BC + ABC = Σm(1, 2, 3, 7).
+- POS: F = ΠM(0, 4, 5, 6).
+
+SOP maps directly onto AND–OR (equivalently **NAND–NAND**) circuits; POS maps onto OR–AND (equivalently **NOR–NOR**).
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** State and prove De Morgan's theorems. Simplify F = A'B'C' + A'BC' + AB'C' + ABC' and implement it using NAND gates only.
+
+<details>
+<summary>Model answer</summary>
+
+**Statements.** (1) The complement of a product equals the sum of the complements: (AB)' = A' + B'. (2) The complement of a sum equals the product of the complements: (A + B)' = A'B'.
+
+**Proof.** By truth table for all combinations of A, B *(draw the 4-row table above for theorem 1; a similar table for theorem 2 shows (A + B)' and A'B' are both 1 only for A = B = 0)*. Since the output columns are identical, the theorems hold.
+
+**Simplification.**
+F = A'C'(B' + B) + AC'(B' + B) = A'C' + AC' = C'(A' + A) = **C'**.
+
+**NAND realisation.** C' is obtained from a single NAND gate with both inputs tied to C. *(Draw.)*
+
+</details>
+
+## Check yourself
+
+1. A + A'B simplifies to:
+   (a) A (b) B (c) A + B (d) AB
+
+<details><summary>Answer</summary>(c)</details>
+
+2. (A + B)' equals:
+   (a) A' + B' (b) A'B' (c) AB (d) A + B
+
+<details><summary>Answer</summary>(b)</details>
+
+3. A(A + B) equals:
+   (a) AB (b) A (c) B (d) A + B
+
+<details><summary>Answer</summary>(b) absorption.</details>
+
+4. The dual of A + 0 = A is:
+   (a) A·1 = A (b) A·0 = 0 (c) A + 1 = 1 (d) A' = A
+
+<details><summary>Answer</summary>(a)</details>
+
+5. For three variables, the number of minterms is:
+   (a) 3 (b) 6 (c) 8 (d) 9
+
+<details><summary>Answer</summary>(c) 2³.</details>
+
+6. The minterm for A = 1, B = 1, C = 0 is:
+   (a) A'B'C (b) ABC' (c) A + B + C' (d) A' + B' + C
+
+<details><summary>Answer</summary>(b) m6.</details>
+
+7. An SOP expression is most directly implemented with:
+   (a) NOR–NOR (b) NAND–NAND (c) XOR only (d) NOT only
+
+<details><summary>Answer</summary>(b)</details>

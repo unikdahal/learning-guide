@@ -1,0 +1,183 @@
+---
+title: "4. Software testing"
+description: Verification vs validation, testing principles, unit, integration (top-down, bottom-up, sandwich), system and acceptance testing (alpha, beta), regression and other test types, black-box techniques (equivalence partitioning, boundary-value analysis, decision tables) and white-box techniques (statement, branch, basis-path coverage, cyclomatic complexity worked), test automation and metrics, and debugging.
+sidebar:
+  label: "4. Testing"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import SeDiagram from '@components/visuals/se/SeDiagram.astro';
+
+**Goal:** name the test level or type for any situation, design black-box test cases with equivalence partitions and boundary values, and compute cyclomatic complexity three ways.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 8.3** (unit, integration, system, component and acceptance testing; test case design; automation; metrics). The model paper asks which testing is also called acceptance testing and which testing re-checks old features after fixes. **Lok Sewa CE unit 8** (implementation and testing).
+</Aside>
+
+## 1. Basics
+
+- **Verification:** "Are we building the product **right**?" — conforms to its specification (reviews, inspections, static analysis).
+- **Validation:** "Are we building the **right product**?" — meets the user's real needs (testing with users, acceptance).
+- **Error** (human mistake) → **fault/defect/bug** (in the code) → **failure** (wrong behaviour observed).
+- Principles: testing shows the **presence**, not the absence, of defects; exhaustive testing is impossible; test early; defects cluster; the "pesticide paradox" (the same tests stop finding new bugs).
+
+## 2. Levels of testing
+
+| Level | Tests | By |
+| --- | --- | --- |
+| **Unit (component)** | individual functions/classes in isolation | developers |
+| **Integration** | interfaces between units | developers / testers |
+| **System** | the whole system against the SRS — functional and non-functional | independent test team |
+| **Acceptance** | whether the customer accepts it — **user acceptance testing (UAT)** | customer / users |
+
+**Integration strategies:**
+- **Big bang** — integrate everything at once; faults are hard to locate.
+- **Top-down** — start at the top module; replace missing lower modules with **stubs** (dummy called modules). Early skeleton; low-level logic tested late.
+- **Bottom-up** — start with low-level modules; **drivers** (dummy calling programs) exercise them. No stubs needed; no working program until the end.
+- **Sandwich (hybrid)** — both at once, meeting in the middle.
+
+**Acceptance testing:** **alpha** — at the **developer's site** by users, with developers watching; **beta** — at the **customer's site**, in real conditions, without developers. Also contract and regulatory acceptance testing.
+
+**Other test types:**
+- **Regression testing** — re-run existing tests after a change or fix to check nothing **old** broke.
+- **Smoke testing** — a quick check that the build's basic functions work; **sanity testing** — a narrow check of one fix.
+- **Performance** (load, **stress** — beyond limits, volume, spike), **security**, **usability**, **recovery**, **compatibility**, **installation** testing.
+- **Static testing** (reviews, walkthroughs, inspections — no execution) vs **dynamic testing** (execute the code).
+
+## 3. Black-box (functional) test design
+
+Test from the specification, without looking at the code.
+
+**Equivalence partitioning** — divide inputs into classes that the program should treat the same; test one value per class.
+
+**Boundary-value analysis** — errors cluster at the edges; test at, just below and just above each boundary.
+
+**Example.** A field accepts an **age from 18 to 60**.
+- Partitions: **< 18** (invalid), **18–60** (valid), **> 60** (invalid) → test 10, 35, 70.
+- Boundaries: **17, 18, 19, 59, 60, 61** (some books test only 17, 18, 60, 61, or min, min+, nominal, max−, max).
+
+**Decision tables** — for combinations of conditions (e.g. tax rate by income slab × taxpayer type); one rule (column) per combination → one test case per rule. **Cause–effect graphing**, **state-transition testing** (test each transition of a state machine), **use-case testing**.
+
+## 4. White-box (structural) test design
+
+Test from the code's structure.
+
+- **Statement coverage** — every statement executed at least once.
+- **Branch (decision) coverage** — every branch outcome (true and false) taken. Branch coverage ⇒ statement coverage, not vice versa.
+- **Condition coverage**, MC/DC (aviation), **path coverage** (every path — usually infeasible with loops).
+- **Basis-path testing** (McCabe): test a set of **linearly independent paths**; their number is the **cyclomatic complexity**.
+
+### Cyclomatic complexity — worked
+
+```cpp
+int netCount(const int a[], int n) {
+    int count = 0;                    // 1
+    for (int i = 0; i < n; i++) {     // 2 (test), 7 (i++)
+        if (a[i] > 0)                 // 3
+            count++;                  // 4
+        else if (a[i] < 0)            // 5
+            count--;                  // 6
+    }
+    return count;                     // 8
+}
+```
+
+<Figure caption="Control-flow graph of netCount: 8 nodes, 10 edges, 3 decision nodes.">
+  <SeDiagram name="cfg" label="Control-flow graph with nodes 1 to 8. 1 to 2. 2 true to 3, 2 false to 8. 3 true to 4, 3 false to 5. 5 true to 6, 5 false to 7. 4 to 7, 6 to 7, and 7 back to 2." />
+</Figure>
+
+Three ways, same answer:
+1. **V(G) = E − N + 2** = 10 − 8 + 2 = **4**.
+2. **V(G) = P + 1** (P = predicate/decision nodes: 2, 3, 5) = 3 + 1 = **4**.
+3. **V(G) = number of regions** of the planar graph = **4**.
+
+**Basis paths (4 test cases):**
+1. 1 → 2 → 8 (empty array)
+2. 1 → 2 → 3 → 4 → 7 → 2 → 8 (one positive)
+3. 1 → 2 → 3 → 5 → 6 → 7 → 2 → 8 (one negative)
+4. 1 → 2 → 3 → 5 → 7 → 2 → 8 (one zero)
+
+Guideline: keep V(G) ≤ 10 per module; higher means hard to test and maintain.
+
+**Black-box vs white-box:**
+
+| Black-box | White-box |
+| --- | --- |
+| based on requirements/specification | based on internal code structure |
+| no programming knowledge needed | needs code knowledge |
+| finds missing functions, interface and behaviour errors | finds logic errors, dead code, untested paths |
+| system and acceptance levels mostly | unit and integration levels mostly |
+| equivalence partitioning, BVA, decision tables | statement/branch/path coverage, basis paths |
+
+(**Grey-box** combines both.)
+
+## 5. Test cases, automation, metrics and debugging
+
+A **test case**: ID, description, preconditions, **input data**, steps, **expected result**, actual result, pass/fail.
+
+**Test automation** — scripts and frameworks run tests repeatedly (JUnit/GoogleTest for units, Selenium for web UIs, CI pipelines). Best for regression, smoke and load tests; manual testing remains for exploratory and usability testing. **Test-driven development** writes the test first.
+
+**Testing metrics:** test coverage (% statements/branches), **defect density** (defects per KLOC), **defect removal efficiency** DRE = defects found before release / (before + after) — e.g. 90 found in testing and 10 by users → DRE = 90%; test pass rate; mean time to failure.
+
+**Debugging** (after a test fails) — locate and fix the fault: **brute force** (dumps, print statements), **backtracking** (trace backwards from the symptom), **cause elimination** (binary partitioning of hypotheses); then re-test and run regression tests.
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Differentiate black-box and white-box testing. Find the cyclomatic complexity of `netCount` and list its basis paths.
+
+<details>
+<summary>Model answer</summary>
+
+**Black-box testing** treats the software as a closed box and designs test cases from the requirements, checking inputs against expected outputs — techniques: equivalence partitioning, boundary-value analysis, decision tables. **White-box testing** designs test cases from the internal logic of the code — techniques: statement, branch and basis-path coverage. *(Add the comparison table from the lesson.)*
+
+**Cyclomatic complexity.** *(Draw the control-flow graph.)* Nodes N = 8, edges E = 10, decision nodes P = 3 (the loop test, `a[i] > 0`, `a[i] < 0`).
+- V(G) = E − N + 2 = 10 − 8 + 2 = 4
+- V(G) = P + 1 = 4
+- Regions = 4
+
+**Basis paths:** 1-2-8; 1-2-3-4-7-2-8; 1-2-3-5-6-7-2-8; 1-2-3-5-7-2-8. Test inputs: empty array; [5]; [−3]; [0].
+
+</details>
+
+## Check yourself
+
+1. Acceptance testing is also called:
+   (a) unit testing (b) user acceptance testing (c) integration testing (d) regression testing
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Re-running tests after a fix to check that old features still work is:
+   (a) smoke testing (b) regression testing (c) alpha testing (d) stress testing
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Top-down integration uses:
+   (a) drivers (b) stubs (c) both (d) neither
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Beta testing is done:
+   (a) by developers at their site (b) by users at the customer's site (c) by the compiler (d) during unit testing
+
+<details><summary>Answer</summary>(b)</details>
+
+5. A CFG has 12 edges and 9 nodes. V(G) =
+   (a) 3 (b) 5 (c) 21 (d) 4
+
+<details><summary>Answer</summary>(b) 12 − 9 + 2.</details>
+
+6. Boundary-value analysis is a:
+   (a) white-box technique (b) black-box technique (c) debugging method (d) review method
+
+<details><summary>Answer</summary>(b)</details>
+
+7. "Are we building the product right?" defines:
+   (a) validation (b) verification (c) acceptance (d) certification
+
+<details><summary>Answer</summary>(b)</details>
+
+8. Testing beyond normal operating limits to find the breaking point is:
+   (a) load testing (b) stress testing (c) smoke testing (d) usability testing
+
+<details><summary>Answer</summary>(b)</details>

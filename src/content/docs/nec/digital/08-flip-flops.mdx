@@ -1,0 +1,152 @@
+---
+title: "8. Latches and flip-flops"
+description: Sequential logic from scratch — SR latch, gated latches, D, JK and T flip-flops, edge triggering, master-slave, race-around, characteristic and excitation tables, setup and hold time.
+sidebar:
+  label: "8. Latches and flip-flops"
+  order: 8
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DigitalDiagram from '@components/visuals/digital/DigitalDiagram.astro';
+
+**Goal:** explain how a circuit remembers a bit, write each flip-flop's characteristic and excitation tables, and explain race-around and its cures.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 2.3** (RS, gated, edge-triggered and master-slave flip-flops). The model paper asks about clock-driven synchronous circuits. **Lok Sewa CE 3.4** (sequential logic); "explain the JK flip-flop and race-around condition" is a frequent written question.
+</Aside>
+
+## 1. Sequential circuits need memory
+
+A **sequential** circuit's output depends on present inputs **and past history** (stored state). The storage element for one bit is a **latch** or **flip-flop** — a **bistable** circuit: it has two stable states and stays in one until told to change.
+
+- **Latch:** level-sensitive — follows its inputs while enabled.
+- **Flip-flop:** edge-triggered — changes only at a clock **edge**.
+- **Synchronous** circuits change state only on a common clock edge (every CPU); asynchronous ones change whenever inputs change.
+
+## 2. The SR latch
+
+Two cross-coupled NOR gates: each output feeds back into the other gate.
+
+<Figure caption="An SR latch: the feedback loop is the memory.">
+  <DigitalDiagram name="sr-latch" label="Two NOR gates. R enters the top gate, whose output is Q; S enters the bottom gate, whose output is Q prime. Each output is wired back as the second input of the other gate." />
+</Figure>
+
+| S | R | Q⁺ | Meaning |
+| --- | --- | --- | --- |
+| 0 | 0 | Q | hold (memory) |
+| 0 | 1 | 0 | reset |
+| 1 | 0 | 1 | set |
+| 1 | 1 | — | **invalid** (both outputs 0; unpredictable when released) |
+
+A **NAND** latch is the same idea with active-low inputs (S'R'): 11 = hold, 00 = invalid.
+
+**Gated (clocked) SR latch:** add two AND/NAND gates so S and R act only while an enable/clock is high.
+
+**D latch:** feed S = D and R = D' — the invalid state can't happen. While enabled, Q follows D ("transparent"); when disabled, Q holds.
+
+## 3. Flip-flops
+
+**Edge triggering** samples inputs only at the rising (or falling) clock edge, so the output changes once per clock. Shown in symbols by a small triangle (▷) on the clock input; a bubble means falling edge.
+
+| Flip-flop | Characteristic equation | Behaviour |
+| --- | --- | --- |
+| SR | Q⁺ = S + R'Q (SR = 0) | set/reset/hold; 11 invalid |
+| **D** | Q⁺ = D | stores D at the edge (registers, pipelines) |
+| **JK** | Q⁺ = JQ' + K'Q | like SR but J = K = 1 **toggles** |
+| **T** | Q⁺ = T ⊕ Q | T = 1 toggles, T = 0 holds (counters) |
+
+JK truth table: 00 hold, 01 reset, 10 set, **11 toggle**.
+
+### Excitation tables (for designing counters)
+
+"To go from Q to Q⁺, what inputs are needed?" (X = don't care):
+
+| Q → Q⁺ | S R | J K | D | T |
+| --- | --- | --- | --- | --- |
+| 0 → 0 | 0 X | 0 X | 0 | 0 |
+| 0 → 1 | 1 0 | 1 X | 1 | 1 |
+| 1 → 0 | 0 1 | X 1 | 0 | 1 |
+| 1 → 1 | X 0 | X 0 | 1 | 0 |
+
+## 4. Race-around condition
+
+In a **level-triggered** JK flip-flop with J = K = 1, the output toggles — and the new output feeds back through the gates and toggles it **again**, repeatedly, for as long as the clock stays high (whenever the clock pulse is longer than the propagation delay). The final state is unpredictable.
+
+**Cures:**
+1. **Master–slave JK:** two latches in series with opposite clock phases. The master accepts inputs while the clock is high; the slave copies the master when the clock goes low. The output changes once per clock.
+2. **Edge-triggered** flip-flops (the modern answer).
+3. Make the clock pulse narrower than the propagation delay (impractical).
+
+## 5. Timing and extra inputs
+
+- **Setup time:** inputs must be stable this long **before** the clock edge. **Hold time:** stable this long **after**. Violations cause metastability — the reason for synchroniser flip-flops between clock domains.
+- **Propagation delay:** clock edge → output change. With setup time, this sets the maximum clock frequency.
+- **Asynchronous preset and clear:** force Q = 1 or 0 immediately, ignoring the clock (reset at power-up).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the JK flip-flop with its logic diagram, truth table and characteristic equation. What is the race-around condition and how is it eliminated?
+
+<details>
+<summary>Model answer</summary>
+
+**JK flip-flop.** A clocked SR flip-flop with feedback from the outputs: J is ANDed with Q' and K with Q at the input gates, so the invalid SR state becomes a **toggle**. *(Draw two 3-input NAND input gates fed by J, CLK, Q' and K, CLK, Q, driving a NAND latch.)*
+
+**Truth table (on the clock).**
+
+| J | K | Q⁺ |
+| --- | --- | --- |
+| 0 | 0 | Q (hold) |
+| 0 | 1 | 0 (reset) |
+| 1 | 0 | 1 (set) |
+| 1 | 1 | Q' (toggle) |
+
+**Characteristic equation.** From a K-map of Q⁺ in terms of J, K, Q: **Q⁺ = JQ' + K'Q**.
+
+**Race-around condition.** When J = K = 1 and the clock stays high longer than the flip-flop's propagation delay, the output toggles, the new value feeds back, and it toggles again — oscillating for the whole pulse. The final state is uncertain.
+
+**Elimination.**
+1. Master–slave JK flip-flop: the master is enabled on the clock's high level and the slave on its low level, so the output can change only once per clock cycle. *(Draw two cascaded latches with an inverted clock to the slave.)*
+2. Edge-triggered JK flip-flop, which responds only at a clock edge.
+3. Keeping the clock pulse width less than the propagation delay (difficult in practice).
+
+**Uses.** Counters, frequency dividers, shift registers.
+
+</details>
+
+## Check yourself
+
+1. The invalid input combination for a NOR-based SR latch is:
+   (a) S = 0, R = 0 (b) S = 1, R = 0 (c) S = 0, R = 1 (d) S = 1, R = 1
+
+<details><summary>Answer</summary>(d)</details>
+
+2. A JK flip-flop with J = K = 1 will:
+   (a) hold (b) set (c) reset (d) toggle
+
+<details><summary>Answer</summary>(d)</details>
+
+3. The characteristic equation of a D flip-flop is:
+   (a) Q⁺ = D (b) Q⁺ = D' (c) Q⁺ = D ⊕ Q (d) Q⁺ = DQ
+
+<details><summary>Answer</summary>(a)</details>
+
+4. Race-around occurs in a:
+   (a) D flip-flop (b) level-triggered JK flip-flop with J = K = 1 (c) master–slave JK (d) edge-triggered T
+
+<details><summary>Answer</summary>(b)</details>
+
+5. The excitation for a JK flip-flop to go from 1 to 0 is:
+   (a) J = 0, K = X (b) J = X, K = 1 (c) J = 1, K = X (d) J = X, K = 0
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Circuits whose state changes only at clock edges are called:
+   (a) combinational (b) asynchronous (c) synchronous (d) analog
+
+<details><summary>Answer</summary>(c)</details>
+
+7. A latch differs from a flip-flop in that a latch is:
+   (a) edge-triggered (b) level-sensitive (c) faster (d) unable to store data
+
+<details><summary>Answer</summary>(b)</details>

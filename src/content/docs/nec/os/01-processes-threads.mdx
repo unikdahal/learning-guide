@@ -1,0 +1,182 @@
+---
+title: "1. OS basics, processes and threads"
+description: What an operating system does, OS types, structures (monolithic, layered, microkernel, modular), system calls, process states and the PCB, context switching, schedulers, threads and multithreading models, and inter-process communication.
+sidebar:
+  label: "1. Processes, threads"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** draw the process state diagram, list the PCB's contents, compare processes with threads and kernel structures, and name the IPC mechanisms.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.5** (OS types, structure, services; processes, threads, process control). **Lok Sewa CE unit 10** (processes, threads, SMP, microkernels).
+</Aside>
+
+## 1. What an OS is
+
+An **operating system** is the software layer between applications and hardware. Two views: a **resource manager** (allocates CPU, memory, devices, files fairly and efficiently) and an **extended machine** (hides hardware detail behind clean abstractions — processes, files, sockets).
+
+**Services:** program execution, I/O operations, file-system manipulation, communication, error detection, resource allocation, accounting, protection and security, user interface (CLI, GUI).
+
+**Types:**
+
+| Type | Idea |
+| --- | --- |
+| **Batch** | jobs grouped and run without interaction (early mainframes) |
+| **Multiprogramming** | several jobs in memory; the CPU switches when one waits for I/O — better utilisation |
+| **Time-sharing (multitasking)** | rapid switching gives each interactive user a fast response |
+| **Real-time** | correct **and on time**: **hard** (missing a deadline is failure — airbag, pacemaker) vs **soft** (degraded — video) |
+| **Distributed** | many networked machines appear as one system |
+| **Network** | machines share resources over a network but stay separate |
+| **Multiprocessor (parallel)** | several CPUs share memory — **symmetric (SMP)** (every CPU runs the kernel, equal) or **asymmetric** (one master) |
+| Embedded, mobile | constrained devices; Android, iOS |
+
+**Dual mode:** **user mode** vs **kernel (supervisor) mode** set by a mode bit; privileged instructions run only in kernel mode. A **system call** (trap) is the controlled entry from user to kernel: process control (fork, exec, exit, wait), file management (open, read, write, close), device management, information, communication. **Interrupts** come from hardware; **traps/exceptions** from software.
+
+## 2. OS structures
+
+| Structure | Description | Plus / minus |
+| --- | --- | --- |
+| **Simple / monolithic** | the whole kernel is one big program in kernel mode (MS-DOS, traditional UNIX, Linux) | fast (direct calls); a bug anywhere can crash everything; hard to maintain |
+| **Layered** | layer n uses only layer n − 1 (THE system) | easy to debug and verify; hard to define layers; slower |
+| **Microkernel** | only essentials in the kernel (IPC, basic scheduling, low-level memory); drivers, file systems, servers run in **user space** and talk by **message passing** (Mach, QNX, MINIX 3) | reliable, secure, extensible; slower (message overhead) |
+| **Modular** | a core kernel plus **loadable modules** (Linux, Solaris) | flexible like a microkernel, fast like a monolith |
+| **Hybrid** | mixes (Windows NT, macOS XNU) | |
+| Virtual machines | a hypervisor runs several OSes on one machine (type 1 bare-metal, type 2 hosted) | isolation |
+
+## 3. Processes
+
+A **process** is a **program in execution** — code (text), data, heap, stack, plus CPU state. A program is passive (a file); a process is active.
+
+**Process states:**
+
+```text
+new ──admitted──▶ ready ◀──── I/O or event completes ──── waiting
+                    │  ▲                                      ▲
+           dispatch │  │ interrupt / time slice expires       │ I/O or event wait
+                    ▼  │                                      │
+                  running ─────────────────────────────────────┘
+                    │
+                   exit
+                    ▼
+                terminated
+```
+
+(Five-state model. Seven-state adds **suspended ready** and **suspended blocked** — processes swapped out to disk by the medium-term scheduler.)
+
+**PCB (process control block)** — the kernel's record of a process: **process ID**, **state**, **program counter**, **CPU registers**, scheduling info (priority, queue pointers), memory-management info (page tables, base/limit), accounting info, I/O status (open files, devices).
+
+**Context switch:** save the running process's state into its PCB, load the next one's — pure overhead (typically microseconds).
+
+**Schedulers:**
+- **Long-term (job scheduler)** — which jobs enter memory; controls the **degree of multiprogramming**; balances CPU-bound and I/O-bound jobs.
+- **Short-term (CPU scheduler)** — which ready process runs next; runs very often (milliseconds).
+- **Medium-term** — swaps processes out and back in.
+
+**Process creation:** `fork()` duplicates the caller (returns 0 to the child, the child's PID to the parent); `exec()` loads a new program; `wait()` collects the child's exit status. A child that exits before the parent waits is a **zombie**; a child whose parent exits first is an **orphan** (adopted by init).
+
+```cpp
+#include <sys/wait.h>
+#include <unistd.h>
+#include <cstdio>
+
+int main() {
+    pid_t pid = fork();
+    if (pid == 0) {                       // child
+        execlp("ls", "ls", "-l", nullptr);
+    } else if (pid > 0) {                 // parent
+        wait(nullptr);
+        std::puts("child finished");
+    }
+}
+```
+
+(How many processes do `fork(); fork(); fork();` create? **2³ = 8** in total, 7 new.)
+
+## 4. Threads
+
+A **thread** is a unit of CPU execution **inside** a process: its own **program counter, registers and stack**, sharing the process's **code, data, heap and open files**.
+
+| Process | Thread |
+| --- | --- |
+| heavyweight; own address space | lightweight; shares the address space |
+| creation and switch are expensive | cheap |
+| communicate via IPC | communicate via shared memory directly |
+| isolated (a crash affects one) | one thread's bug can corrupt all |
+
+Benefits of multithreading: responsiveness, resource sharing, economy, scalability on multicore.
+
+**User-level threads** (managed by a library; fast; a blocking call blocks all; no true parallelism) vs **kernel-level threads** (managed by the OS; parallel on multicore; slower to create). **Models:** many-to-one, **one-to-one** (Linux, Windows), many-to-many.
+
+## 5. Inter-process communication (IPC)
+
+- **Shared memory** — fastest; processes must synchronise themselves (lesson 3).
+- **Message passing** — `send`/`receive` through the kernel; direct or indirect (mailboxes); blocking (synchronous) or non-blocking.
+- **Pipes** (unidirectional; anonymous between related processes, **named pipes / FIFOs** between any), **message queues**, **signals**, **sockets** (also across machines), **RPC** (remote procedure call — calls a procedure on another machine as if local; stubs marshal parameters).
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Explain the process state transition diagram and the process control block.
+
+<details>
+<summary>Model answer</summary>
+
+A **process** is a program in execution. During its life it moves between states. *(Draw the five-state diagram with labelled transitions.)*
+
+- **New:** being created.
+- **Ready:** loaded in memory, waiting for the CPU.
+- **Running:** instructions are executing on the CPU.
+- **Waiting (blocked):** waiting for an event such as I/O completion.
+- **Terminated:** finished execution.
+
+**Transitions:** new → ready (admitted by the long-term scheduler); ready → running (dispatched by the short-term scheduler); running → ready (interrupt or time-quantum expiry — preemption); running → waiting (I/O request or wait for an event); waiting → ready (I/O or event completes); running → terminated (exit).
+
+**Process control block.** The data structure the OS keeps for each process; it stores the context needed to resume the process after a context switch. *(Draw a box with the fields.)*
+- Process ID and parent ID
+- Process state
+- Program counter
+- CPU registers
+- CPU-scheduling information (priority, queue pointers)
+- Memory-management information (base/limit registers, page tables)
+- Accounting information (CPU time used, time limits)
+- I/O status information (open files, allocated devices)
+
+</details>
+
+## Check yourself
+
+1. A process moves from running to ready when:
+   (a) it requests I/O (b) its time slice expires (c) it exits (d) I/O completes
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The PCB does **not** usually contain:
+   (a) program counter (b) process state (c) source code of the program (d) open file list
+
+<details><summary>Answer</summary>(c)</details>
+
+3. Which scheduler controls the degree of multiprogramming?
+   (a) short-term (b) long-term (c) medium-term (d) dispatcher
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Threads of one process share:
+   (a) stack (b) registers (c) code and data (d) program counter
+
+<details><summary>Answer</summary>(c)</details>
+
+5. In a microkernel, device drivers run in:
+   (a) kernel space (b) user space (c) firmware (d) the bootloader
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Total processes after `fork(); fork();` (including the original):
+   (a) 2 (b) 3 (c) 4 (d) 8
+
+<details><summary>Answer</summary>(c)</details>
+
+7. An airbag controller needs a:
+   (a) batch OS (b) time-sharing OS (c) hard real-time OS (d) network OS
+
+<details><summary>Answer</summary>(c)</details>

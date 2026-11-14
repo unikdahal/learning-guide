@@ -1,0 +1,151 @@
+---
+title: "6. Storage, file systems and administration"
+description: Disk structure and access time, disk scheduling (FCFS, SSTF, SCAN, C-SCAN, LOOK, C-LOOK) worked, RAID levels, files and access methods, directory structures, allocation methods (contiguous, linked, indexed) and free-space management, file-system performance, I/O techniques, security, user accounts, and startup and shutdown.
+sidebar:
+  label: "6. Storage, files, admin"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** compute head movement for every disk-scheduling algorithm, compare file-allocation methods, and explain the boot process and account administration.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.6** (files and directories, allocation and fragmentation, disk layout, file-system performance, user accounts, startup and shutdown). **Lok Sewa CE unit 10** (I/O, disks, file systems, security and trusted systems).
+</Aside>
+
+## 1. Disks
+
+A hard disk has platters → tracks → **sectors**; tracks at the same position on all surfaces form a **cylinder**.
+
+**Access time = seek time** (move the arm to the cylinder — the biggest part) **+ rotational latency** (wait for the sector; average = half a rotation) **+ transfer time**.
+
+Example: 7200 RPM → one rotation = 60/7200 s = 8.33 ms → average rotational latency **4.17 ms**.
+
+SSDs have no moving parts: no seek or rotation; limited write cycles (wear levelling); the disk-scheduling algorithms below matter mainly for hard disks.
+
+## 2. Disk scheduling
+
+Requests for cylinders **98, 183, 37, 122, 14, 124, 65, 67**; head at **53**; cylinders 0–199.
+
+| Algorithm | Service order | Head movement |
+| --- | --- | --- |
+| **FCFS** | 53 → 98 → 183 → 37 → 122 → 14 → 124 → 65 → 67 | **640** |
+| **SSTF** (shortest seek first) | 53 → 65 → 67 → 37 → 14 → 98 → 122 → 124 → 183 | **236** |
+| **SCAN** (elevator), moving towards 0 | 53 → 37 → 14 → **0** → 65 → 67 → 98 → 122 → 124 → 183 | 53 + 183 = **236** |
+| **SCAN**, moving towards 199 | 53 → 65 … 183 → **199** → 37 → 14 | 146 + 185 = **331** |
+| **C-SCAN**, towards 199 | 53 → 65 … 183 → 199, jump to **0** → 14 → 37 | 146 + 199 + 37 = **382** (counting the return) |
+| **LOOK**, towards 199 | 53 → 65 … 183 → 37 → 14 (turn at the last request) | 130 + 169 = **299** |
+| **C-LOOK**, towards 199 | 53 → 65 … 183, jump to 14 → 37 | 130 + 169 + 23 = **322** |
+
+- **FCFS** — fair, slow. **SSTF** — like SJF: good average, can **starve** distant requests. **SCAN** — sweeps end to end. **C-SCAN** — sweeps one way, returns without serving: **more uniform wait times**. **LOOK / C-LOOK** — like SCAN/C-SCAN but turn at the last request instead of the disk end.
+- Whether C-SCAN counts the return jump varies by book — **state your convention** in the answer.
+
+## 3. RAID
+
+| Level | Method | Fault tolerance | Notes |
+| --- | --- | --- | --- |
+| 0 | striping | none | fastest, full capacity |
+| 1 | mirroring | 1 disk | 50% capacity, fast reads |
+| 5 | striping with **distributed parity** | 1 disk | n − 1 disks of capacity; common |
+| 6 | two parities | 2 disks | |
+| 10 (1+0) | striped mirrors | 1 per mirror | fast and safe, 50% capacity |
+
+## 4. Files and directories
+
+A **file** is a named collection of related information on secondary storage. Attributes: name, identifier, type, location, size, protection, timestamps, owner. Operations: create, open, read, write, seek (reposition), delete, truncate, close. The OS keeps an **open-file table**.
+
+**Access methods:** **sequential** (in order — tapes, logs), **direct/random** (any block by number — databases), **indexed** (an index points to blocks — ISAM).
+
+**Directory structures:**
+- **Single-level** — one directory for all; name clashes.
+- **Two-level** — a directory per user.
+- **Tree-structured** — subdirectories; absolute and relative paths.
+- **Acyclic graph** — sharing via links (hard and symbolic).
+- **General graph** — cycles possible; needs garbage collection.
+
+## 5. Allocation methods
+
+| Method | How | Plus | Minus |
+| --- | --- | --- | --- |
+| **Contiguous** | each file occupies consecutive blocks (start, length) | fast sequential **and** direct access | **external fragmentation**; files hard to grow |
+| **Linked** | each block points to the next (start, end) | no external fragmentation; files grow easily | **sequential access only**; pointer space; one broken pointer loses the rest. **FAT** (file allocation table) keeps the links in a table → direct access possible |
+| **Indexed** | an **index block** lists all the file's blocks | direct access, no external fragmentation | index-block overhead; large files need linked, multilevel or **combined** schemes |
+
+**UNIX inode** (combined scheme): 12 **direct** pointers + **single**, **double** and **triple indirect** pointers. With 4 KB blocks and 4-byte pointers (1024 pointers per block), max file ≈ 48 KB + 4 MB + 4 GB + 4 TB.
+
+**Free-space management:** **bit vector** (bitmap — 1 bit per block; easy to find contiguous runs), **linked list** of free blocks, **grouping**, **counting** (start, length runs).
+
+**File-system performance:** buffer cache / page cache, **read-ahead** and **free-behind** for sequential access, keeping metadata and data close, **journaling** (log metadata changes for fast, consistent crash recovery — ext4, NTFS), defragmentation for HDDs.
+
+## 6. I/O techniques
+
+**Programmed I/O** (polling), **interrupt-driven I/O**, **DMA** (see [Organisation lesson 7](/learning-guide/nec/organization/07-io-multiprocessors/)). Kernel I/O subsystem: **buffering** (cope with speed mismatch), **caching**, **spooling** (queue output for a device that can't interleave — printers), device reservation, error handling. Device drivers hide hardware detail behind a uniform interface; device types: block, character, network.
+
+## 7. Protection, security and administration
+
+- **Protection** (internal — controlling access): access matrix, **access control lists** (per object), **capability lists** (per subject); UNIX permissions **rwx** for owner/group/others — `chmod 754 file` → owner rwx, group r-x, others r--. Principle of **least privilege**.
+- **Security** (external threats): authentication (passwords — stored salted and hashed; two-factor), malware (viruses, worms, Trojans, trap doors, logic bombs), buffer overflows, denial of service. **Trusted systems** and the **reference monitor** (every access checked); the **trusted computing base**; security classes (Orange Book).
+- **User accounts:** administrator/root (full control), standard users, guest; groups; `useradd`, `passwd`, `usermod` on Linux; a standard user needs the administrator password to change system settings.
+- **Startup (boot):** power on → **BIOS/UEFI** runs **POST** (power-on self-test) → finds the boot device → **bootloader** (GRUB, Windows Boot Manager) from the MBR/EFI partition → loads the **kernel** into memory → kernel initialises hardware and mounts the root file system → starts the first process (**init / systemd**) → services and login.
+- **Shutdown:** notify processes, stop services in order, flush buffers and caches to disk, unmount file systems, then halt or power off — an unclean shutdown risks file-system inconsistency (fixed by `fsck`/`chkdsk` or journaling).
+
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Explain the SCAN and C-SCAN disk-scheduling algorithms. For requests 98, 183, 37, 122, 14, 124, 65, 67 with the head at 53 (cylinders 0–199) moving towards 199, find the total head movement for each.
+
+<details>
+<summary>Model answer</summary>
+
+**SCAN (elevator).** The head moves in one direction serving every request until it reaches the end of the disk, then reverses and serves requests in the opposite direction. Waiting times are more uniform than SSTF and there is no starvation, but cylinders just visited wait longest.
+
+Towards 199: 53 → 65 → 67 → 98 → 122 → 124 → 183 → 199 → 37 → 14. Movement = (199 − 53) + (199 − 14) = 146 + 185 = **331 cylinders**.
+
+**C-SCAN (circular SCAN).** The head serves requests in one direction only; on reaching the end it returns immediately to the other end without serving, then continues in the same direction. It treats the cylinders as a circular list, giving more uniform waiting times.
+
+Towards 199: 53 → 65 → 67 → 98 → 122 → 124 → 183 → 199 → (jump) 0 → 14 → 37. Movement = 146 + 199 + 37 = **382 cylinders** (counting the return sweep; 183 if the return is not counted).
+
+*(Draw both head-movement charts: cylinder on the x-axis, time downwards.)*
+
+</details>
+
+## Check yourself
+
+1. Which disk algorithm can starve requests?
+   (a) FCFS (b) SSTF (c) SCAN (d) C-SCAN
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The elevator algorithm is another name for:
+   (a) SSTF (b) SCAN (c) FCFS (d) C-LOOK
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Average rotational latency of a 6000 RPM disk:
+   (a) 10 ms (b) 5 ms (c) 6 ms (d) 1 ms
+
+<details><summary>Answer</summary>(b) one rotation = 10 ms.</details>
+
+4. Which allocation method suffers from external fragmentation?
+   (a) contiguous (b) linked (c) indexed (d) FAT
+
+<details><summary>Answer</summary>(a)</details>
+
+5. Linked allocation supports efficiently:
+   (a) direct access only (b) sequential access (c) both equally (d) neither
+
+<details><summary>Answer</summary>(b)</details>
+
+6. RAID 1 provides:
+   (a) striping without redundancy (b) mirroring (c) distributed parity (d) double parity
+
+<details><summary>Answer</summary>(b)</details>
+
+7. `chmod 640 f` gives others:
+   (a) read (b) read and write (c) no permissions (d) execute
+
+<details><summary>Answer</summary>(c) 6 = rw-, 4 = r--, 0 = ---.</details>
+
+8. The program that runs POST at power-on is in the:
+   (a) kernel (b) BIOS/UEFI firmware (c) shell (d) bootloader
+
+<details><summary>Answer</summary>(b)</details>

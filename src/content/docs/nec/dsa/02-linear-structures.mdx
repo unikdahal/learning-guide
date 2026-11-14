@@ -1,0 +1,237 @@
+---
+title: "2. Stacks, queues and linked lists"
+description: Stack operations and applications, infix to postfix and prefix conversion with full stack traces, postfix evaluation, linear and circular queues, deques and priority queues, and singly, doubly and circular linked lists with C++ operations.
+sidebar:
+  label: "2. Stacks, queues, lists"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** convert infix to postfix and prefix showing the stack at every step, evaluate postfix, handle circular-queue overflow conditions, and write list insertion and deletion.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.1** (stacks and queues, infix to postfix conversion and evaluation, array and linked-list implementations, singly, doubly and circular lists). The model paper asks the previous pointer in a circular doubly linked list. **Lok Sewa CE unit 7** (linear data structures) — the postfix trace table is the classic written numerical.
+</Aside>
+
+## 1. Stack — LIFO
+
+Operations: **push**, **pop**, **peek/top**, isEmpty, isFull — all **O(1)**. Errors: **overflow** (push on full), **underflow** (pop on empty).
+
+```cpp
+class Stack {
+    int a[100];
+    int top = -1;
+public:
+    void push(int x) { if (top == 99) throw std::overflow_error("overflow"); a[++top] = x; }
+    int pop() { if (top == -1) throw std::underflow_error("underflow"); return a[top--]; }
+    int peek() const { return a[top]; }
+    bool empty() const { return top == -1; }
+};
+```
+
+**Applications:** function calls and recursion, expression conversion and evaluation, parenthesis matching, undo, backtracking (maze, DFS), browser back button.
+
+## 2. Infix, postfix, prefix
+
+- **Infix** A + B (operator between — needs precedence and brackets).
+- **Postfix (reverse Polish)** A B + — no brackets needed; easy for machines to evaluate with one stack.
+- **Prefix (Polish)** + A B.
+
+Precedence: `^` (right-associative) > `* /` > `+ −` (left-associative).
+
+### Infix → postfix algorithm
+
+Scan left to right:
+1. **Operand** → output.
+2. **(** → push.
+3. **)** → pop to output until **(**; discard both brackets.
+4. **Operator** → while the stack top has **higher precedence, or equal precedence and is left-associative**, pop it to output; then push the operator.
+5. At the end, pop everything to output.
+
+**Worked: A + B * (C − D) / E**
+
+| Symbol | Stack (bottom → top) | Output |
+| --- | --- | --- |
+| A | | A |
+| + | + | A |
+| B | + | A B |
+| * | + * | A B |
+| ( | + * ( | A B |
+| C | + * ( | A B C |
+| − | + * ( − | A B C |
+| D | + * ( − | A B C D |
+| ) | + * | A B C D − |
+| / | + / | A B C D − * |
+| E | + / | A B C D − * E |
+| end | | **A B C D − * E / +** |
+
+At `/`, the top `*` has equal precedence and is left-associative, so `*` is popped first.
+
+**Infix → prefix:** reverse the infix (swapping `(` and `)`), convert to postfix (treat equal precedence as *not* popping), then reverse the result. Here: **+ A / * B − C D E**.
+
+### Evaluating postfix
+
+Operand → push. Operator → pop **two** (first popped is the **right** operand), apply, push the result.
+
+**Worked: 5 3 2 * + 4 −**
+
+| Symbol | Action | Stack |
+| --- | --- | --- |
+| 5, 3, 2 | push | 5 3 2 |
+| * | 3 * 2 = 6 | 5 6 |
+| + | 5 + 6 = 11 | 11 |
+| 4 | push | 11 4 |
+| − | 11 − 4 = 7 | **7** |
+
+(For prefix, scan right to left; the first popped is the **left** operand.)
+
+## 3. Queue — FIFO
+
+Insert at the **rear** (enqueue), remove from the **front** (dequeue).
+
+**Linear array queue problem:** after some dequeues, the front slots are wasted — rear reaches the end while the array has space.
+
+**Circular queue** wraps around with modulo:
+- enqueue: `rear = (rear + 1) % N`
+- dequeue: `front = (front + 1) % N`
+- **Full** when `(rear + 1) % N == front` (one slot is left empty to tell full from empty) — or keep a count.
+- **Empty** when `front == rear` (in the one-slot-empty convention) or count == 0.
+
+```cpp
+class CircularQueue {
+    std::vector<int> a; int front = 0, rear = 0;
+public:
+    explicit CircularQueue(int n) : a(n) {}
+    bool full() const  { return (rear + 1) % (int)a.size() == front; }
+    bool empty() const { return front == rear; }
+    void enqueue(int x) { if (full()) throw std::overflow_error("full"); a[rear] = x; rear = (rear + 1) % a.size(); }
+    int dequeue() { if (empty()) throw std::underflow_error("empty"); int x = a[front]; front = (front + 1) % a.size(); return x; }
+};
+```
+
+**Variants:** **deque** (insert/delete at both ends; input-restricted and output-restricted), **priority queue** (remove the highest-priority element — implemented with a heap, O(log n)). **Applications:** CPU and disk scheduling, BFS, print spooling, buffers.
+
+## 4. Linked lists
+
+Nodes with data + pointer(s); dynamic size; O(1) insertion/deletion once the position is known; no random access (O(n) to reach the k-th node); extra memory for pointers.
+
+```cpp
+struct Node { int data; Node* next; };
+
+void insertFront(Node*& head, int x) { head = new Node{x, head}; }
+
+void insertAfter(Node* p, int x) { p->next = new Node{x, p->next}; }
+
+void deleteKey(Node*& head, int key) {
+    Node** cur = &head;                      // pointer to the link to rewrite
+    while (*cur && (*cur)->data != key) cur = &(*cur)->next;
+    if (*cur) { Node* t = *cur; *cur = t->next; delete t; }
+}
+
+Node* reverse(Node* head) {                  // classic interview and exam favourite
+    Node* prev = nullptr;
+    while (head) { Node* nx = head->next; head->next = prev; prev = head; head = nx; }
+    return prev;
+}
+```
+
+| Type | Links | Notes |
+| --- | --- | --- |
+| **Singly** | next | traverse one way |
+| **Doubly** | prev, next | traverse both ways; delete a node given only a pointer to it in O(1) |
+| **Circular singly** | last → first | any node can start a full traversal; round-robin scheduling |
+| **Circular doubly** | last ↔ first | **head→prev is the last node**; last→next is the head |
+
+**Doubly linked deletion of node p:** `p->prev->next = p->next; p->next->prev = p->prev; delete p;`
+
+| Operation | Array | Linked list |
+| --- | --- | --- |
+| Access k-th | O(1) | O(n) |
+| Insert/delete at front | O(n) (shift) | O(1) |
+| Memory | contiguous, fixed (or amortised resize) | scattered, extra pointer per node |
+| Cache behaviour | excellent | poor |
+
+**Polynomial representation:** each node holds (coefficient, exponent); adding two polynomials merges the lists in exponent order. **Sparse matrices** use triplets (row, column, value) or linked lists.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Write an algorithm to convert an infix expression to postfix. Convert ((A + B) * C − (D − E)) ^ (F + G) showing the stack at each step.
+
+<details>
+<summary>Model answer</summary>
+
+**Algorithm (using an operator stack).**
+1. Scan the infix expression from left to right.
+2. If the symbol is an operand, append it to the output.
+3. If it is `(`, push it.
+4. If it is `)`, pop and output operators until `(` is popped; discard the brackets.
+5. If it is an operator, pop and output operators from the stack while the top has higher precedence (or equal precedence and the incoming operator is left-associative); then push the incoming operator.
+6. After the scan, pop and output all remaining operators.
+
+Precedence: ^ (right-associative) > *, / > +, −.
+
+**Trace.**
+
+| Symbol | Stack | Postfix |
+| --- | --- | --- |
+| ( | ( | |
+| ( | ( ( | |
+| A | ( ( | A |
+| + | ( ( + | A |
+| B | ( ( + | A B |
+| ) | ( | A B + |
+| * | ( * | A B + |
+| C | ( * | A B + C |
+| − | ( − | A B + C * |
+| ( | ( − ( | A B + C * |
+| D | ( − ( | A B + C * D |
+| − | ( − ( − | A B + C * D |
+| E | ( − ( − | A B + C * D E |
+| ) | ( − | A B + C * D E − |
+| ) | | A B + C * D E − − |
+| ^ | ^ | A B + C * D E − − |
+| ( | ^ ( | A B + C * D E − − |
+| F | ^ ( | A B + C * D E − − F |
+| + | ^ ( + | A B + C * D E − − F |
+| G | ^ ( + | A B + C * D E − − F G |
+| ) | ^ | A B + C * D E − − F G + |
+| end | | **A B + C * D E − − F G + ^** |
+
+</details>
+
+## Check yourself
+
+1. Postfix of A * (B + C) / D:
+   (a) A B C + * D / (b) A B + C * D / (c) A B C * + D / (d) * A + B C / D
+
+<details><summary>Answer</summary>(a)</details>
+
+2. The value of postfix 6 2 3 + − 3 8 2 / + * is:
+   (a) 7 (b) 1 (c) 49 (d) 4
+
+<details><summary>Answer</summary>(a) 6 − 5 = 1; 3 + 4 = 7; 1 × 7.</details>
+
+3. In a circular queue of size N (one slot kept empty), the full condition is:
+   (a) rear == N − 1 (b) front == rear (c) (rear + 1) % N == front (d) front == 0
+
+<details><summary>Answer</summary>(c)</details>
+
+4. In a circular doubly linked list, the previous pointer of the head points to:
+   (a) NULL (b) itself (c) the last node (d) the second node
+
+<details><summary>Answer</summary>(c)</details>
+
+5. Which data structure checks balanced parentheses?
+   (a) queue (b) stack (c) tree (d) graph
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Accessing the k-th element of a singly linked list is:
+   (a) O(1) (b) O(log n) (c) O(n) (d) O(n²)
+
+<details><summary>Answer</summary>(c)</details>
+
+7. A priority queue is best implemented with a:
+   (a) stack (b) heap (c) linked list only (d) circular queue
+
+<details><summary>Answer</summary>(b)</details>
