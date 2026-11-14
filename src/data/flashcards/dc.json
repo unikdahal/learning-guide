@@ -1,0 +1,114 @@
+[
+ {
+  "q": "1 kΩ, 1 mA, 1 µF in base units",
+  "a": "10³ Ω, 10⁻³ A, 10⁻⁶ F"
+ },
+ {
+  "q": "Current is the rate of flow of…",
+  "a": "charge: I = Q/t (1 A = 1 C/s)"
+ },
+ {
+  "q": "Ohm's law",
+  "a": "V = IR (at constant temperature)"
+ },
+ {
+  "q": "Three forms of electrical power",
+  "a": "P = VI = I²R = V²/R"
+ },
+ {
+  "q": "Resistance of a wire",
+  "a": "R = ρL/A — doubles with length, quarters if diameter doubles"
+ },
+ {
+  "q": "Series resistors",
+  "a": "R = R₁ + R₂ + …; same current through each"
+ },
+ {
+  "q": "Two resistors in parallel",
+  "a": "R = R₁R₂/(R₁ + R₂); same voltage across each"
+ },
+ {
+  "q": "Voltage divider output",
+  "a": "V_out = V × R₂/(R₁ + R₂)"
+ },
+ {
+  "q": "Current divider: current in R₁ of a pair",
+  "a": "I₁ = I × R₂/(R₁ + R₂) — the OTHER resistor on top"
+ },
+ {
+  "q": "KCL states…",
+  "a": "ΣI entering a node = ΣI leaving (conservation of charge)"
+ },
+ {
+  "q": "KVL states…",
+  "a": "ΣV around any closed loop = 0 (conservation of energy)"
+ },
+ {
+  "q": "Nodal vs mesh analysis uses",
+  "a": "nodal → KCL with node voltages; mesh → KVL with loop currents"
+ },
+ {
+  "q": "Delta → star (equal resistors)",
+  "a": "R_star = R_delta/3"
+ },
+ {
+  "q": "Star → delta (equal resistors)",
+  "a": "R_delta = 3 R_star"
+ },
+ {
+  "q": "Delta → star, arm Ra",
+  "a": "Ra = Rab·Rca/(Rab + Rbc + Rca)"
+ },
+ {
+  "q": "Balanced Wheatstone bridge condition",
+  "a": "R₁/R₂ = R₃/R₄ — no current in the middle arm"
+ },
+ {
+  "q": "Superposition applies to…",
+  "a": "linear, bilateral networks; voltages and currents, NOT power"
+ },
+ {
+  "q": "Turning off sources (superposition, Thevenin)",
+  "a": "voltage source → short circuit; current source → open circuit"
+ },
+ {
+  "q": "Thevenin equivalent",
+  "a": "V_th (open-circuit voltage) in series with R_th"
+ },
+ {
+  "q": "Norton equivalent",
+  "a": "I_N (short-circuit current) in parallel with R_N = R_th"
+ },
+ {
+  "q": "Thevenin ↔ Norton",
+  "a": "V_th = I_N × R_th"
+ },
+ {
+  "q": "Maximum power transfer condition",
+  "a": "R_L = R_th"
+ },
+ {
+  "q": "Maximum power delivered",
+  "a": "P_max = V_th²/(4R_th)"
+ },
+ {
+  "q": "Efficiency at maximum power transfer",
+  "a": "50%"
+ },
+ {
+  "q": "Linear vs non-linear element",
+  "a": "linear: V–I graph is a straight line through the origin (resistor); non-linear: diode"
+ },
+ {
+  "q": "Active vs passive element",
+  "a": "active supplies energy (sources); passive absorbs/stores (R, L, C)"
+ },
+ {
+  "q": "Bilateral element",
+  "a": "same behaviour for either current direction (resistor); a diode is unilateral"
+ },
+ {
+  "q": "Ideal voltage source internal resistance",
+  "a": "zero (ideal current source: infinite)"
+ }
+]

@@ -1,0 +1,134 @@
+[
+ {
+  "q": "Capacitance",
+  "a": "C = Q/V; parallel plates C = εA/d"
+ },
+ {
+  "q": "Energy in a capacitor",
+  "a": "E = ½CV²"
+ },
+ {
+  "q": "Capacitors in series",
+  "a": "1/C = 1/C₁ + 1/C₂ (like resistors in parallel)"
+ },
+ {
+  "q": "Inductor voltage",
+  "a": "v = L di/dt"
+ },
+ {
+  "q": "Energy in an inductor",
+  "a": "E = ½LI²"
+ },
+ {
+  "q": "Faraday + Lenz",
+  "a": "e = −N dΦ/dt — induced emf opposes the change"
+ },
+ {
+  "q": "Inductors in series",
+  "a": "L = L₁ + L₂ (no mutual coupling)"
+ },
+ {
+  "q": "RC time constant",
+  "a": "τ = RC; 63.2% charged after 1τ, ≈ 99% after 5τ"
+ },
+ {
+  "q": "RL time constant",
+  "a": "τ = L/R"
+ },
+ {
+  "q": "Transformer EMF equation",
+  "a": "E = 4.44 f N Φ_m"
+ },
+ {
+  "q": "Transformer turns ratio",
+  "a": "V₁/V₂ = N₁/N₂ = I₂/I₁"
+ },
+ {
+  "q": "Transformer maximum efficiency when…",
+  "a": "copper loss = iron (core) loss"
+ },
+ {
+  "q": "Iron losses consist of…",
+  "a": "hysteresis + eddy-current loss (reduced by laminations)"
+ },
+ {
+  "q": "v = Vm sin(ωt + φ): ω",
+  "a": "ω = 2πf rad/s; T = 1/f"
+ },
+ {
+  "q": "RMS of a sine",
+  "a": "Vm/√2 ≈ 0.707 Vm"
+ },
+ {
+  "q": "Average of a sine (half cycle)",
+  "a": "2Vm/π ≈ 0.637 Vm (full cycle: 0)"
+ },
+ {
+  "q": "Form factor and peak factor of a sine",
+  "a": "1.11 and 1.414"
+ },
+ {
+  "q": "Nepal mains: RMS, peak, frequency",
+  "a": "230 V, 50 Hz; peak ≈ 325 V (400 V line-to-line three-phase)"
+ },
+ {
+  "q": "Inductive reactance",
+  "a": "X_L = 2πfL — rises with frequency"
+ },
+ {
+  "q": "Capacitive reactance",
+  "a": "X_C = 1/(2πfC) — falls with frequency"
+ },
+ {
+  "q": "In a pure inductor, current…",
+  "a": "LAGS voltage by 90° (ELI)"
+ },
+ {
+  "q": "In a pure capacitor, current…",
+  "a": "LEADS voltage by 90° (ICE)"
+ },
+ {
+  "q": "Series RLC impedance",
+  "a": "Z = √(R² + (X_L − X_C)²)"
+ },
+ {
+  "q": "Resonant frequency",
+  "a": "f₀ = 1/(2π√(LC))"
+ },
+ {
+  "q": "At series resonance",
+  "a": "Z = R (minimum), current maximum, power factor 1"
+ },
+ {
+  "q": "At parallel resonance",
+  "a": "impedance maximum, line current minimum"
+ },
+ {
+  "q": "Quality factor (series)",
+  "a": "Q = X_L/R = (1/R)√(L/C); bandwidth = f₀/Q"
+ },
+ {
+  "q": "Power triangle",
+  "a": "S² = P² + Q²; P in W, Q in VAR, S in VA"
+ },
+ {
+  "q": "Power factor",
+  "a": "cos φ = P/S = R/Z"
+ },
+ {
+  "q": "Star connection",
+  "a": "V_L = √3 V_ph, I_L = I_ph"
+ },
+ {
+  "q": "Delta connection",
+  "a": "V_L = V_ph, I_L = √3 I_ph"
+ },
+ {
+  "q": "Three-phase power",
+  "a": "P = √3 V_L I_L cos φ"
+ },
+ {
+  "q": "Low-pass RC filter cut-off",
+  "a": "f_c = 1/(2πRC); output −3 dB (70.7%) there"
+ }
+]

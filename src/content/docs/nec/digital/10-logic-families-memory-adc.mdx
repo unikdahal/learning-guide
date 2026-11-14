@@ -71,6 +71,40 @@ Converts an n-bit number into a proportional voltage.
 
 **Quantisation error:** ±½ LSB — the unavoidable rounding error.
 
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Compare TTL and CMOS logic families. Explain the working of a successive-approximation ADC.
+
+<details>
+<summary>Model answer</summary>
+
+**TTL vs CMOS.**
+
+| Parameter | TTL (74xx) | CMOS (4000, 74HC) |
+| --- | --- | --- |
+| Devices | bipolar transistors | complementary n- and p-MOSFETs |
+| Supply | 5 V ± 5% | 3–15 V (4000), 2–6 V (HC) |
+| Static power | milliwatts per gate | nanowatts (≈ zero); rises with frequency (CV²f) |
+| Noise margin | ≈ 0.4 V | ≈ 30–45% of VDD — higher |
+| Fan-out | ≈ 10 | very large (≥ 50) |
+| Speed | fast (standard ≈ 10 ns) | slower in the 4000 series; modern CMOS is very fast |
+| Input | current-driven; unused inputs float high | voltage-driven, very high impedance; unused inputs must be tied |
+| Sensitivity | robust | static-sensitive |
+| Density | lower | very high — used in VLSI |
+
+**Successive-approximation ADC.** *(Draw: analog input → comparator ← DAC ← SAR register ← control/clock; digital output from the SAR.)*
+1. The successive-approximation register (SAR) starts by setting the **MSB = 1**, others 0.
+2. The DAC converts this trial code to a voltage, which the **comparator** compares with the input.
+3. If the DAC voltage exceeds the input, the bit is reset to 0; otherwise it stays 1.
+4. The next bit is tried the same way — a **binary search** — until all n bits are decided.
+5. The SAR then holds the digital output; an end-of-conversion signal is raised.
+
+**Example** (4-bit, Vref = 16 V, input 10.3 V): try 1000 (8 V) → keep; 1100 (12 V) → too high, clear; 1010 (10 V) → keep; 1011 (11 V) → clear → result **1010**.
+
+**Features:** conversion time n clock cycles, fixed and independent of the input; medium speed and resolution; the most common general-purpose ADC (microcontrollers). Faster: flash; more accurate and noise-immune: dual-slope.
+
+</details>
+
 ## Check yourself
 
 1. The fastest logic family is:

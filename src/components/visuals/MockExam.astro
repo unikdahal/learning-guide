@@ -1,0 +1,293 @@
+---
+// Timed multiple-choice mock: answer, submit, then see the score, a per-chapter breakdown and an
+// explanation for every question. Answers are saved in this browser until reset.
+interface Q {
+  ch: number;
+  sub: string;
+  q: string;
+  opts: string[];
+  ans: number;
+  why: string;
+}
+interface Props {
+  id: string;
+  questions: Q[];
+  minutes?: number;
+  target?: number;
+}
+const { id, questions, minutes = 120, target = 50 } = Astro.props;
+const L = ['a', 'b', 'c', 'd'];
+---
+
+<qe-mock class="qe-mock not-content" data-id={id} data-min={minutes} data-target={target} data-key={JSON.stringify(questions.map((q) => [q.ch, q.ans]))}>
+  <div class="bar" data-bar>
+    <span class="timer" data-timer aria-live="off">{minutes}:00</span>
+    <span class="done" data-done>0 / {questions.length} answered</span>
+    <button type="button" data-start>Start {minutes}-minute timer</button>
+    <button type="button" data-submit>Submit and mark</button>
+  </div>
+  <div class="result" data-result hidden tabindex="-1"></div>
+  <ol class="qs">
+    {
+      questions.map((q, i) => (
+        <li class="q" data-i={i}>
+          <fieldset>
+            <legend>
+              <span class="tag">{q.sub}</span> {q.q}
+            </legend>
+            {q.opts.map((o, j) => (
+              <label class="opt">
+                <input type="radio" name={`${id}-q${i}`} value={j} /> ({L[j]}) {o}
+              </label>
+            ))}
+          </fieldset>
+          <p class="why" hidden>
+            <strong>Answer ({L[q.ans]}).</strong> {q.why}
+          </p>
+        </li>
+      ))
+    }
+  </ol>
+  <div class="bar end">
+    <button type="button" data-submit2>Submit and mark</button>
+    <button type="button" data-reset>Clear all answers</button>
+  </div>
+</qe-mock>
+
+<script>
+  class QeMock extends HTMLElement {
+    connectedCallback() {
+      const id = this.dataset.id!;
+      const key: [number, number][] = JSON.parse(this.dataset.key!);
+      const target = +this.dataset.target!;
+      const total = key.length;
+      const store = `qe-mock-${id}`;
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const radios = () => [...this.querySelectorAll<HTMLInputElement>('input[type=radio]')];
+      let state: { a: Record<number, number>; end?: number; marked?: boolean } = { a: {} };
+      try {
+        state = JSON.parse(localStorage.getItem(store) || '') || state;
+      } catch {
+        /* none saved */
+      }
+      const save = () => {
+        try {
+          localStorage.setItem(store, JSON.stringify(state));
+        } catch {
+          /* ignore */
+        }
+      };
+      for (const [i, v] of Object.entries(state.a)) {
+        const r = this.querySelector<HTMLInputElement>(`input[name="${id}-q${i}"][value="${v}"]`);
+        if (r) r.checked = true;
+      }
+      const count = () => ($('[data-done]').textContent = `${Object.keys(state.a).length} / ${total} answered`);
+      this.addEventListener('change', (e) => {
+        const t = e.target as HTMLInputElement;
+        if (t.type !== 'radio') return;
+        const i = +t.name.split('-q').pop()!;
+        state.a[i] = +t.value;
+        save();
+        count();
+      });
+      let tick: number | undefined;
+      const runTimer = () => {
+        clearInterval(tick);
+        const show = () => {
+          const left = Math.max(0, Math.round((state.end! - Date.now()) / 1000));
+          $('[data-timer]').textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+          if (left === 0) {
+            clearInterval(tick);
+            $('[data-timer]').textContent = 'Time up';
+          }
+        };
+        show();
+        tick = window.setInterval(show, 1000);
+      };
+      $('[data-start]').addEventListener('click', () => {
+        state.end = Date.now() + +this.dataset.min! * 60000;
+        save();
+        runTimer();
+      });
+      if (state.end && state.end > Date.now()) runTimer();
+      const mark = () => {
+        clearInterval(tick);
+        state.marked = true;
+        save();
+        const per = new Map<number, [number, number]>();
+        let score = 0;
+        key.forEach(([ch, ans], i) => {
+          const li = this.querySelector(`li[data-i="${i}"]`) as HTMLElement;
+          const got = state.a[i];
+          const ok = got === ans;
+          if (ok) score++;
+          const p = per.get(ch) ?? [0, 0];
+          per.set(ch, [p[0] + (ok ? 1 : 0), p[1] + 1]);
+          li.classList.toggle('right', ok);
+          li.classList.toggle('wrong', !ok);
+          (li.querySelector('.why') as HTMLElement).hidden = false;
+          li.querySelectorAll('label').forEach((lab, j) => lab.classList.toggle('key', j === ans));
+        });
+        const rows = [...per.entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([ch, [g, n]]) => `<tr${g < n * 0.6 ? ' class="low"' : ''}><td>Chapter ${ch}</td><td>${g} / ${n}</td></tr>`)
+          .join('');
+        const r = $('[data-result]');
+        r.hidden = false;
+        r.innerHTML = `<p class="score">Score: <strong>${score} / ${total}</strong> — ${score >= target ? `at or above the ${target} target.` : `below the ${target} target.`} ${Object.keys(state.a).length < total ? `(${total - Object.keys(state.a).length} unanswered.)` : ''}</p>
+          <table><thead><tr><th scope="col">Chapter</th><th scope="col">Correct</th></tr></thead><tbody>${rows}</tbody></table>
+          <p class="hint">Chapters below 6/10 are underlined — repass them first. Every question now shows its answer and explanation; add each miss to your error log.</p>`;
+        r.focus();
+      };
+      $('[data-submit]').addEventListener('click', mark);
+      $('[data-submit2]').addEventListener('click', mark);
+      $('[data-reset]').addEventListener('click', () => {
+        state = { a: {} };
+        save();
+        radios().forEach((x) => (x.checked = false));
+        this.querySelectorAll('li.q').forEach((li) => {
+          li.classList.remove('right', 'wrong');
+          (li.querySelector('.why') as HTMLElement).hidden = true;
+          li.querySelectorAll('label').forEach((l) => l.classList.remove('key'));
+        });
+        $('[data-result]').hidden = true;
+        clearInterval(tick);
+        $('[data-timer]').textContent = `${this.dataset.min}:00`;
+        count();
+      });
+      count();
+      if (state.marked) mark();
+    }
+  }
+  customElements.define('qe-mock', QeMock);
+</script>
+
+<style>
+  .qe-mock {
+    display: block;
+    margin-top: 1rem;
+  }
+  .bar {
+    position: sticky;
+    top: var(--sl-nav-height, 3.5rem);
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-bg);
+  }
+  .bar.end {
+    position: static;
+  }
+  .timer {
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--sl-color-white);
+  }
+  .done {
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+    color: var(--sl-color-gray-2);
+    margin-right: auto;
+  }
+  button {
+    font: inherit;
+    font-weight: 700;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: transparent;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  button[data-submit],
+  button[data-submit2] {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .result {
+    margin: 1rem 0;
+    padding: 1rem 1.1rem;
+    border-radius: 10px;
+    border: 2px solid var(--sl-color-accent);
+  }
+  :global(.qe-mock .score) {
+    font-size: 1.15rem;
+    margin: 0 0 0.6rem;
+  }
+  :global(.qe-mock .result table) {
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  :global(.qe-mock .result td),
+  :global(.qe-mock .result th) {
+    padding: 0.2rem 0.9rem 0.2rem 0;
+    text-align: left;
+  }
+  :global(.qe-mock .result tr.low td) {
+    text-decoration: underline wavy var(--qe-warn);
+  }
+  :global(.qe-mock .hint) {
+    font-size: 0.85rem;
+    color: var(--sl-color-gray-2);
+    margin: 0.6rem 0 0;
+  }
+  .qs {
+    padding-left: 1.6rem;
+    margin: 1rem 0;
+  }
+  .q {
+    margin: 0 0 1.1rem;
+    padding: 0.2rem 0 0.2rem 0.6rem;
+    border-left: 3px solid transparent;
+  }
+  :global(.qe-mock li.right) {
+    border-left-color: var(--sl-color-text-accent);
+  }
+  :global(.qe-mock li.wrong) {
+    border-left-color: var(--qe-warn);
+  }
+  fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
+  legend {
+    font-weight: 600;
+    color: var(--sl-color-white);
+    padding: 0;
+    margin-bottom: 0.35rem;
+  }
+  .tag {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-2);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 4px;
+    padding: 0 0.3rem;
+    margin-right: 0.2rem;
+  }
+  .opt {
+    display: block;
+    padding: 0.15rem 0;
+    color: var(--sl-color-gray-1);
+    cursor: pointer;
+  }
+  :global(.qe-mock label.key) {
+    font-weight: 700;
+    color: var(--sl-color-white);
+    text-decoration: underline;
+    text-decoration-color: var(--sl-color-text-accent);
+  }
+  .why {
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-1);
+    margin: 0.35rem 0 0;
+  }
+</style>

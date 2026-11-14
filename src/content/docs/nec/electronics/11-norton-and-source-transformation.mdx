@@ -67,6 +67,27 @@ An ideal voltage source (R = 0) would need an infinite current source, and an id
 | Resistance | same: sources killed, look in from a–b | same |
 | Link | Vth = In × Rn | In = Vth / Rth |
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** State Norton's theorem and explain the steps to find the Norton equivalent, with an example.
+
+<details>
+<summary>Model answer</summary>
+
+**Statement.** Any linear, bilateral two-terminal network can be replaced by an equivalent circuit consisting of a current source **In** in parallel with a resistance **Rn**, where In is the current through a short circuit across the terminals and Rn is the resistance seen from the terminals with all independent sources replaced by their internal resistances (voltage sources shorted, current sources opened).
+
+**Steps.**
+1. Remove the load resistor RL.
+2. Short the load terminals and find the short-circuit current — this is In.
+3. Switch off the sources and find the resistance across the terminals — this is Rn (= Rth).
+4. Draw In in parallel with Rn and reconnect RL; the load current is I_L = In × Rn / (Rn + RL).
+
+**Example.** 12 V source with 4 Ω in series, 12 Ω across the terminals, RL = 6 Ω. Shorting the terminals bypasses the 12 Ω: In = 12/4 = **3 A**. Rn = 4 ∥ 12 = **3 Ω**. I_L = 3 × 3 / (3 + 6) = **1 A**. *(Draw the original and the Norton equivalent.)*
+
+**Relation to Thevenin:** Vth = In·Rn, Rth = Rn — the two equivalents are interchangeable by source transformation.
+
+</details>
+
 ## Check yourself
 
 1. The Norton current is the:

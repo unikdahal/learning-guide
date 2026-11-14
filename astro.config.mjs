@@ -52,6 +52,8 @@ const necSidebar = [
           { label: 'OS for the exam', items: [{ autogenerate: { directory: 'nec/os' } }] },
           { label: 'Software engineering', items: [{ autogenerate: { directory: 'nec/se' } }] },
           { label: 'C and C++ for the exam', items: [{ autogenerate: { directory: 'nec/cpp' } }] },
+          { label: 'Flashcards', items: [{ autogenerate: { directory: 'nec/flashcards' } }] },
+          { label: 'Mocks', items: [{ autogenerate: { directory: 'nec/mocks' } }] },
   { label: 'Chapters', items: [{ autogenerate: { directory: 'nec/chapters' } }] },
 ];
 

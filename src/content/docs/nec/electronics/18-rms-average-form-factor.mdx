@@ -74,6 +74,30 @@ A **square wave** has the same value all the time apart from its sign, so RMS = 
 - **Use RMS** in `P = VI`, not peak.
 - Form factor is RMS/**average**; peak factor is **peak**/RMS.
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Derive the RMS and average values of a sinusoidal voltage and find its form factor and peak factor.
+
+<details>
+<summary>Model answer</summary>
+
+Let v = Vm sin θ, θ = ωt. *(Sketch one cycle and v².)*
+
+**RMS value** — the DC value that would produce the same heating in a resistor:
+V²rms = (1/2π) ∫₀^2π Vm² sin²θ dθ = (Vm²/2π) ∫₀^2π (1 − cos 2θ)/2 dθ = (Vm²/2π)(π) = Vm²/2
+→ **Vrms = Vm/√2 ≈ 0.707 Vm**.
+
+**Average value** — over a full cycle the positive and negative halves cancel, so the average is **0**; the conventional average is taken over a **half cycle**:
+Vavg = (1/π) ∫₀^π Vm sin θ dθ = (Vm/π)[−cos θ]₀^π = (Vm/π)(2) → **Vavg = 2Vm/π ≈ 0.637 Vm**.
+
+**Form factor** = Vrms / Vavg = (Vm/√2)/(2Vm/π) = π/(2√2) ≈ **1.11**.
+
+**Peak (crest) factor** = Vm / Vrms = **√2 ≈ 1.414**.
+
+**Significance:** RMS is what meters and ratings use (220 V mains has Vm ≈ 311 V); the form factor indicates the waveform's shape (square wave 1.0, triangle 1.155).
+
+</details>
+
 ## Check yourself
 
 1. The RMS value of a sine wave of peak Vm is:

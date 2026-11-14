@@ -96,6 +96,39 @@ double width(const Box& b) { return b.w; }  // ordinary function; may read the p
 
 Friend functions are called like ordinary functions (no object prefix), aren't inherited, and are commonly used for operator overloading where the left operand isn't the class (`operator<<`). A **friend class** — `friend class Report;` — gives all of Report's members access. Friendship is **not mutual and not transitive**.
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** What is a constructor? Explain its types with examples, including the copy constructor.
+
+<details>
+<summary>Model answer</summary>
+
+A **constructor** is a special member function with the same name as the class, no return type, called automatically when an object is created, to initialise it. It can be overloaded; a **destructor** (`~Class()`) cleans up when the object is destroyed.
+
+```cpp
+class Point {
+    int x, y;
+public:
+    Point() : x(0), y(0) {}                       // default constructor
+    Point(int a, int b) : x(a), y(b) {}           // parameterised constructor
+    Point(const Point& p) : x(p.x), y(p.y) {}     // copy constructor
+    ~Point() {}                                    // destructor
+};
+Point p1;            // default
+Point p2(3, 4);      // parameterised
+Point p3 = p2;       // copy
+```
+
+**Types.**
+1. **Default** — no parameters; supplied by the compiler if no constructor is declared.
+2. **Parameterised** — takes arguments to initialise members with given values.
+3. **Copy** — initialises a new object from an existing one; called on initialisation from an object, passing by value and returning by value. The compiler's default does a **shallow** member-wise copy; classes owning dynamic memory need a **deep** copy.
+4. Others: **constructor with default arguments**, **dynamic constructor** (allocates memory with `new`), **move constructor** (C++11).
+
+**Characteristics:** same name as the class; no return type; declared public (usually); can't be virtual; can be overloaded; called automatically.
+
+</details>
+
 ## Check yourself
 
 1. The access specifier allowing access only within the class itself:

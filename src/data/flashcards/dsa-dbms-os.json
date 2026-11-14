@@ -1,0 +1,158 @@
+[
+ {
+  "q": "Big O / Ω / Θ",
+  "a": "upper / lower / tight bound"
+ },
+ {
+  "q": "T(n) = 2T(n/2) + n",
+  "a": "Θ(n log n)"
+ },
+ {
+  "q": "Postfix of A + B * C",
+  "a": "A B C * +"
+ },
+ {
+  "q": "Circular queue full (one slot empty)",
+  "a": "(rear + 1) % N == front"
+ },
+ {
+  "q": "Leaves in a binary tree",
+  "a": "nodes with two children + 1"
+ },
+ {
+  "q": "Inorder of a BST",
+  "a": "sorted order"
+ },
+ {
+  "q": "AVL balance factor",
+  "a": "height(left) − height(right) ∈ −1, 0, 1"
+ },
+ {
+  "q": "Build heap time",
+  "a": "O(n)"
+ },
+ {
+  "q": "B+ tree data pointers",
+  "a": "leaves only; leaves linked"
+ },
+ {
+  "q": "Stable sorts",
+  "a": "insertion, bubble, merge, radix"
+ },
+ {
+  "q": "Quick sort worst case",
+  "a": "O(n²) — sorted input with first/last pivot"
+ },
+ {
+  "q": "Binary search max comparisons",
+  "a": "⌊log₂ n⌋ + 1"
+ },
+ {
+  "q": "Primary vs secondary clustering",
+  "a": "linear probing vs quadratic probing"
+ },
+ {
+  "q": "BFS / DFS use a…",
+  "a": "queue / stack"
+ },
+ {
+  "q": "Prim vs Kruskal",
+  "a": "grow one tree (heap) vs sorted edges + union–find"
+ },
+ {
+  "q": "Greedy fails for…",
+  "a": "0/1 knapsack (DP works)"
+ },
+ {
+  "q": "Three-schema levels",
+  "a": "external (view), conceptual, internal (physical)"
+ },
+ {
+  "q": "Weak entity notation",
+  "a": "double rectangle; identifying relationship = double diamond"
+ },
+ {
+  "q": "M:N relationship maps to…",
+  "a": "a new table with both keys"
+ },
+ {
+  "q": "WHERE vs HAVING",
+  "a": "filters rows before grouping vs groups after"
+ },
+ {
+  "q": "2NF / 3NF / BCNF",
+  "a": "no partial deps / no transitive deps / every determinant a candidate key"
+ },
+ {
+  "q": "Lossless decomposition test",
+  "a": "common attributes are a key of one side"
+ },
+ {
+  "q": "ACID",
+  "a": "atomicity, consistency, isolation, durability"
+ },
+ {
+  "q": "Conflict serializable iff…",
+  "a": "precedence graph is acyclic"
+ },
+ {
+  "q": "2PL guarantees…",
+  "a": "conflict serializability (not deadlock freedom)"
+ },
+ {
+  "q": "Wait-die vs wound-wait (younger requests from older)",
+  "a": "dies vs waits"
+ },
+ {
+  "q": "Immediate update recovery",
+  "a": "undo uncommitted (backwards), redo committed (forwards)"
+ },
+ {
+  "q": "Process states",
+  "a": "new, ready, running, waiting, terminated"
+ },
+ {
+  "q": "Lowest average waiting time",
+  "a": "SJF / SRTF"
+ },
+ {
+  "q": "Convoy effect / starvation fix",
+  "a": "FCFS / aging"
+ },
+ {
+  "q": "Coffman conditions",
+  "a": "mutual exclusion, hold and wait, no preemption, circular wait"
+ },
+ {
+  "q": "Banker's Need",
+  "a": "Max − Allocation"
+ },
+ {
+  "q": "Semaphore operations",
+  "a": "wait (P) and signal (V), atomic"
+ },
+ {
+  "q": "Paging physical address",
+  "a": "frame × page size + offset"
+ },
+ {
+  "q": "EAT with TLB",
+  "a": "h(t + m) + (1 − h)(t + 2m)"
+ },
+ {
+  "q": "Belady's anomaly occurs in…",
+  "a": "FIFO page replacement"
+ },
+ {
+  "q": "Thrashing fix",
+  "a": "working-set model / page-fault-frequency control"
+ },
+ {
+  "q": "Disk algorithm that can starve",
+  "a": "SSTF"
+ },
+ {
+  "q": "RPC failure semantics safe for idempotent ops",
+  "a": "at-least-once"
+ }
+]

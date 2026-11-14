@@ -1,0 +1,142 @@
+[
+ {
+  "q": "Architecture vs organisation",
+  "a": "architecture: programmer-visible (ISA); organisation: how it's implemented"
+ },
+ {
+  "q": "von Neumann vs Harvard",
+  "a": "one memory/bus for code and data vs separate memories and buses"
+ },
+ {
+  "q": "PC, IR, MAR, MDR",
+  "a": "next instruction address; current instruction; memory address; memory data"
+ },
+ {
+  "q": "Zero-address instructions use…",
+  "a": "a stack (postfix)"
+ },
+ {
+  "q": "Relative addressing EA",
+  "a": "PC (after fetch) + offset"
+ },
+ {
+  "q": "Indexed addressing EA",
+  "a": "index register + address field"
+ },
+ {
+  "q": "Indirect addressing EA",
+  "a": "EA = M[address field] — two memory references"
+ },
+ {
+  "q": "RISC traits",
+  "a": "fixed-length, load/store, few modes, many registers, hardwired, ~1 CPI"
+ },
+ {
+  "q": "Hardwired vs microprogrammed",
+  "a": "fast but rigid vs slower but flexible (control memory)"
+ },
+ {
+  "q": "Register holding the next microinstruction address",
+  "a": "CAR (control address register)"
+ },
+ {
+  "q": "Horizontal vs vertical microcode",
+  "a": "one bit per signal (wide) vs encoded fields (narrow)"
+ },
+ {
+  "q": "Booth: Q₀Q₋₁ = 10 / 01",
+  "a": "A ← A − M / A ← A + M (then arithmetic shift right)"
+ },
+ {
+  "q": "IEEE 754 single: sign/exponent/mantissa, bias",
+  "a": "1/8/23, bias 127"
+ },
+ {
+  "q": "IEEE 754 double bias",
+  "a": "1023 (11-bit exponent, 52-bit mantissa)"
+ },
+ {
+  "q": "Exponent all 1s, mantissa 0",
+  "a": "±infinity (mantissa ≠ 0 → NaN)"
+ },
+ {
+  "q": "Pipeline time for n instructions, k stages",
+  "a": "(k + n − 1) clock cycles"
+ },
+ {
+  "q": "Maximum pipeline speed-up",
+  "a": "k (number of stages)"
+ },
+ {
+  "q": "Pipeline clock period",
+  "a": "slowest stage + latch delay"
+ },
+ {
+  "q": "Three pipeline hazards",
+  "a": "structural, data (RAW/WAR/WAW), control"
+ },
+ {
+  "q": "Fix for data hazards",
+  "a": "forwarding (bypassing), stalls, reordering"
+ },
+ {
+  "q": "Fix for control hazards",
+  "a": "branch prediction, delayed branch"
+ },
+ {
+  "q": "Flynn: vector processors / multicore",
+  "a": "SIMD / MIMD"
+ },
+ {
+  "q": "Amdahl's law",
+  "a": "speed-up = 1/((1 − f) + f/S)"
+ },
+ {
+  "q": "Locality of reference",
+  "a": "temporal (reuse soon) and spatial (neighbours soon)"
+ },
+ {
+  "q": "AMAT (memory after a miss)",
+  "a": "T_c + (1 − h)·T_m"
+ },
+ {
+  "q": "Cache address fields",
+  "a": "tag | index (line/set) | offset"
+ },
+ {
+  "q": "Direct-mapped line",
+  "a": "block number mod number of lines"
+ },
+ {
+  "q": "Fully associative cache",
+  "a": "no index field; any block anywhere"
+ },
+ {
+  "q": "Write-back cache uses a…",
+  "a": "dirty bit; memory updated on eviction"
+ },
+ {
+  "q": "Replacement policy decides…",
+  "a": "which block to evict when the cache/set is full"
+ },
+ {
+  "q": "Chips needed for 4K × 16 from 1K × 4",
+  "a": "16"
+ },
+ {
+  "q": "DMA modes",
+  "a": "burst, cycle stealing, transparent"
+ },
+ {
+  "q": "Daisy-chain priority set by…",
+  "a": "position in the chain"
+ },
+ {
+  "q": "Crossbar crosspoints for p CPUs, m memories",
+  "a": "p × m"
+ },
+ {
+  "q": "Cache coherence protocols",
+  "a": "snooping (MESI) and directory-based"
+ }
+]

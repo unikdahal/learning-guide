@@ -111,6 +111,36 @@ fclose(fp);
 - **Sequential access** reads from start to end. **Random access:** `fseek(fp, offset, origin)` with `SEEK_SET` (start), `SEEK_CUR`, `SEEK_END`; `ftell(fp)` gives the current position; `rewind(fp)` goes back to the start. Record k of fixed-size records: `fseek(fp, k * sizeof(struct Student), SEEK_SET);`.
 - `feof(fp)` (end of file), `ferror(fp)`; `EOF` is a negative constant (usually −1).
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Differentiate structure and union in C with an example showing their sizes.
+
+<details>
+<summary>Model answer</summary>
+
+Both are user-defined types that group members of different types under one name.
+
+| Structure | Union |
+| --- | --- |
+| keyword `struct` | keyword `union` |
+| each member gets **separate** memory | all members **share** one memory location |
+| size ≥ sum of member sizes (plus padding) | size = size of the **largest** member (plus padding) |
+| all members hold values simultaneously | only the **last-written** member holds a meaningful value |
+| any member can be initialised | only the first member can be initialised (C89) |
+| used for records (student, employee) | used to save memory and for variant data (packets, type punning) |
+
+```c
+struct S { int i; char c[8]; };   /* sizeof = 12 (4 + 8) */
+union  U { int i; char c[8]; };   /* sizeof = 8  (largest member) */
+
+union U u;
+u.i = 65;            /* writing i overwrites the bytes that c[] uses */
+```
+
+Members are accessed the same way in both — the dot operator, or the arrow operator through a pointer.
+
+</details>
+
 ## Check yourself
 
 1. On a 64-bit system, `sizeof(char*)` is:

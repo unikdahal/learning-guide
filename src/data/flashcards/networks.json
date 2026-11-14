@@ -1,0 +1,170 @@
+[
+ {
+  "q": "OSI layers, top to bottom",
+  "a": "application, presentation, session, transport, network, data link, physical"
+ },
+ {
+  "q": "PDU at transport / network / data link",
+  "a": "segment / packet / frame"
+ },
+ {
+  "q": "Hub, switch, router layers",
+  "a": "1, 2, 3"
+ },
+ {
+  "q": "Router separates…",
+  "a": "broadcast domains (switch: collision domains)"
+ },
+ {
+  "q": "Datagram vs virtual circuit",
+  "a": "independent packets, no setup vs fixed path set up first, in order"
+ },
+ {
+  "q": "Transmission vs propagation delay",
+  "a": "L/R vs d/s"
+ },
+ {
+  "q": "Hamming check bits rule",
+  "a": "2^r ≥ m + r + 1"
+ },
+ {
+  "q": "CRC receiver accepts when…",
+  "a": "remainder is 0"
+ },
+ {
+  "q": "Stop-and-wait efficiency",
+  "a": "1/(1 + 2a), a = T_p/T_t"
+ },
+ {
+  "q": "GBN vs SR maximum window (m-bit seq)",
+  "a": "2^m − 1 vs 2^(m−1)"
+ },
+ {
+  "q": "Pure / slotted ALOHA max throughput",
+  "a": "18.4% / 36.8%"
+ },
+ {
+  "q": "CSMA/CD minimum frame",
+  "a": "L = 2 × T_p × R (64 bytes for classic Ethernet)"
+ },
+ {
+  "q": "Wi-Fi medium access",
+  "a": "CSMA/CA"
+ },
+ {
+  "q": "Ethernet frame size, MTU",
+  "a": "64–1518 bytes; 1500"
+ },
+ {
+  "q": "MAC address length",
+  "a": "48 bits"
+ },
+ {
+  "q": "ARP maps…",
+  "a": "IP → MAC (view cache: arp -a)"
+ },
+ {
+  "q": "Private IPv4 ranges",
+  "a": "10/8, 172.16/12, 192.168/16"
+ },
+ {
+  "q": "Usable hosts in /n",
+  "a": "2^(32 − n) − 2"
+ },
+ {
+  "q": "Mask /27 and block size",
+  "a": "255.255.255.224; 32"
+ },
+ {
+  "q": "Bits to borrow for N subnets",
+  "a": "⌈log₂ N⌉"
+ },
+ {
+  "q": "IPv4 fragment offset unit",
+  "a": "8 bytes"
+ },
+ {
+  "q": "IPv4 protocol numbers ICMP/TCP/UDP",
+  "a": "1 / 6 / 17"
+ },
+ {
+  "q": "traceroute uses…",
+  "a": "TTL expiry → ICMP time exceeded"
+ },
+ {
+  "q": "RIP metric and infinity",
+  "a": "hop count; 16"
+ },
+ {
+  "q": "OSPF / BGP",
+  "a": "link state (Dijkstra) / path vector between ASes"
+ },
+ {
+  "q": "Count-to-infinity fixes",
+  "a": "split horizon, poison reverse, hold-down, max hop count"
+ },
+ {
+  "q": "IPv6 address and header size",
+  "a": "128 bits; 40-byte base header; no broadcast"
+ },
+ {
+  "q": "UDP header size",
+  "a": "8 bytes"
+ },
+ {
+  "q": "TCP handshake",
+  "a": "SYN → SYN+ACK → ACK"
+ },
+ {
+  "q": "Slow start / congestion avoidance",
+  "a": "cwnd doubles each RTT / +1 MSS each RTT"
+ },
+ {
+  "q": "On timeout (Tahoe)",
+  "a": "ssthresh = cwnd/2, cwnd = 1"
+ },
+ {
+  "q": "Token vs leaky bucket",
+  "a": "token allows bursts; leaky gives a constant rate"
+ },
+ {
+  "q": "Ports: FTP, SSH, Telnet, SMTP, DNS",
+  "a": "20/21, 22, 23, 25, 53"
+ },
+ {
+  "q": "Ports: HTTP, POP3, IMAP, SNMP, HTTPS",
+  "a": "80, 110, 143, 161/162, 443"
+ },
+ {
+  "q": "DHCP exchange",
+  "a": "Discover, Offer, Request, Ack (UDP 67/68)"
+ },
+ {
+  "q": "DNS record for mail server",
+  "a": "MX"
+ },
+ {
+  "q": "POP3 vs IMAP",
+  "a": "download (and delete) vs keep on server, sync"
+ },
+ {
+  "q": "RSA keys",
+  "a": "n = pq, φ = (p−1)(q−1), e·d ≡ 1 mod φ"
+ },
+ {
+  "q": "Digital signature uses…",
+  "a": "the sender's private key (verify with public key)"
+ },
+ {
+  "q": "DES / AES key sizes",
+  "a": "56 bits / 128, 192 or 256 bits"
+ },
+ {
+  "q": "IPsec AH vs ESP",
+  "a": "authentication only vs encryption (+ integrity)"
+ },
+ {
+  "q": "Firewall types",
+  "a": "packet filter, stateful, application gateway (proxy), circuit-level gateway"
+ }
+]

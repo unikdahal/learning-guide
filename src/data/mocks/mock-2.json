@@ -1,0 +1,1302 @@
+[
+ {
+  "ch": 1,
+  "sub": "1.1",
+  "q": "Three 6 Ω resistors in parallel are connected in series with a 4 Ω resistor. The total resistance is:",
+  "opts": [
+   "10 Ω",
+   "6 Ω",
+   "22 Ω",
+   "2 Ω"
+  ],
+  "ans": 1,
+  "why": "6 ∥ 6 ∥ 6 = 2 Ω; 2 + 4 = 6 Ω."
+ },
+ {
+  "ch": 1,
+  "sub": "1.1",
+  "q": "The hot resistance of a 100 W, 220 V lamp is:",
+  "opts": [
+   "2.2 Ω",
+   "484 Ω",
+   "4840 Ω",
+   "22 Ω"
+  ],
+  "ans": 1,
+  "why": "R = V²/P = 220²/100 = 484 Ω."
+ },
+ {
+  "ch": 1,
+  "sub": "1.2",
+  "q": "A 24 V source with a 6 Ω series resistor has 3 Ω across the output terminals. The Thevenin equivalent is:",
+  "opts": [
+   "24 V, 9 Ω",
+   "8 V, 2 Ω",
+   "12 V, 2 Ω",
+   "8 V, 9 Ω"
+  ],
+  "ans": 1,
+  "why": "Vth = 24 × 3/9 = 8 V (voltage divider); Rth = 6 ∥ 3 = 2 Ω."
+ },
+ {
+  "ch": 1,
+  "sub": "1.2",
+  "q": "For that source, the maximum power any load can draw is:",
+  "opts": [
+   "32 W",
+   "16 W",
+   "8 W",
+   "4 W"
+  ],
+  "ans": 2,
+  "why": "P_max = Vth²/(4Rth) = 64/8 = 8 W, at R_L = 2 Ω."
+ },
+ {
+  "ch": 1,
+  "sub": "1.3",
+  "q": "For v = 100 sin(100πt) V, the frequency and RMS value are:",
+  "opts": [
+   "50 Hz, 63.7 V",
+   "314 Hz, 70.7 V",
+   "50 Hz, 70.7 V",
+   "100 Hz, 100 V"
+  ],
+  "ans": 2,
+  "why": "ω = 100π = 2πf → f = 50 Hz; Vrms = 100/√2 = 70.7 V."
+ },
+ {
+  "ch": 1,
+  "sub": "1.3",
+  "q": "A series circuit has R = 10 Ω, X_L = 20 Ω, X_C = 10 Ω. Its power factor is:",
+  "opts": [
+   "0.707 lagging",
+   "1.0",
+   "0.707 leading",
+   "0.5 lagging"
+  ],
+  "ans": 0,
+  "why": "Z = √(10² + 10²) = 14.14 Ω; PF = R/Z = 0.707; X_L > X_C, so the circuit is inductive and current lags."
+ },
+ {
+  "ch": 1,
+  "sub": "1.4",
+  "q": "An ideal bridge rectifier is fed with 12 V RMS. The average (DC) output voltage is about:",
+  "opts": [
+   "12 V",
+   "10.8 V",
+   "16.97 V",
+   "5.4 V"
+  ],
+  "ans": 1,
+  "why": "Vm = 12√2 = 16.97 V; full-wave Vdc = 2Vm/π ≈ 10.8 V."
+ },
+ {
+  "ch": 1,
+  "sub": "1.4",
+  "q": "A transistor has β = 100. Its α is about:",
+  "opts": [
+   "0.01",
+   "1.01",
+   "0.99",
+   "100"
+  ],
+  "ans": 2,
+  "why": "α = β/(1 + β) = 100/101 ≈ 0.99."
+ },
+ {
+  "ch": 1,
+  "sub": "1.5",
+  "q": "An RC phase-shift oscillator with three identical RC sections needs a minimum amplifier gain of:",
+  "opts": [
+   "29",
+   "1",
+   "60",
+   "3"
+  ],
+  "ans": 0,
+  "why": "Each section gives 60°, total 180°; the feedback network attenuates by 1/29, so |A| ≥ 29 (Barkhausen)."
+ },
+ {
+  "ch": 1,
+  "sub": "1.6",
+  "q": "A non-inverting op-amp amplifier has R_f = 90 kΩ and R₁ = 10 kΩ. Its voltage gain is:",
+  "opts": [
+   "9",
+   "−10",
+   "−9",
+   "10"
+  ],
+  "ans": 3,
+  "why": "Gain = 1 + R_f/R₁ = 1 + 9 = 10."
+ },
+ {
+  "ch": 2,
+  "sub": "2.1",
+  "q": "The 8-bit two's-complement representation of −88 is:",
+  "opts": [
+   "1101 1000",
+   "1010 0111",
+   "1010 1000",
+   "0101 1000"
+  ],
+  "ans": 2,
+  "why": "+88 = 0101 1000 → invert = 1010 0111 → +1 = 1010 1000."
+ },
+ {
+  "ch": 2,
+  "sub": "2.1",
+  "q": "AB + AB' simplifies to:",
+  "opts": [
+   "1",
+   "B",
+   "A",
+   "AB"
+  ],
+  "ans": 2,
+  "why": "AB + AB' = A(B + B') = A · 1 = A."
+ },
+ {
+  "ch": 2,
+  "sub": "2.2",
+  "q": "The minimum number of 2-input NAND gates needed to build an XOR gate is:",
+  "opts": [
+   "3",
+   "4",
+   "2",
+   "5"
+  ],
+  "ans": 1,
+  "why": "The standard NAND-only XOR uses four gates."
+ },
+ {
+  "ch": 2,
+  "sub": "2.2",
+  "q": "A BCD adder adds 0110 to the binary sum when:",
+  "opts": [
+   "the sum is greater than 9 or there is a carry out",
+   "the sum is less than 6",
+   "there is no carry",
+   "the sum is odd"
+  ],
+  "ans": 0,
+  "why": "Sums above 9 (or with a carry) are invalid BCD; adding 6 skips the six unused codes."
+ },
+ {
+  "ch": 2,
+  "sub": "2.3",
+  "q": "The minimum number of flip-flops for a mod-12 counter is:",
+  "opts": [
+   "3",
+   "4",
+   "12",
+   "6"
+  ],
+  "ans": 1,
+  "why": "2³ = 8 < 12 ≤ 16 = 2⁴."
+ },
+ {
+  "ch": 2,
+  "sub": "2.3",
+  "q": "A 4-bit Johnson (twisted-ring) counter has how many distinct states?",
+  "opts": [
+   "16",
+   "8",
+   "4",
+   "2"
+  ],
+  "ans": 1,
+  "why": "A Johnson counter with n flip-flops has 2n states."
+ },
+ {
+  "ch": 2,
+  "sub": "2.4",
+  "q": "The 8085 instruction MVI B, 05H uses which addressing mode?",
+  "opts": [
+   "register indirect",
+   "direct",
+   "immediate",
+   "implied"
+  ],
+  "ans": 2,
+  "why": "The operand 05H is part of the instruction."
+ },
+ {
+  "ch": 2,
+  "sub": "2.4",
+  "q": "The 8085 instruction XCHG exchanges:",
+  "opts": [
+   "PC with HL",
+   "HL with DE",
+   "SP with HL",
+   "A with B"
+  ],
+  "ans": 1,
+  "why": "XCHG swaps the HL and DE register pairs."
+ },
+ {
+  "ch": 2,
+  "sub": "2.5",
+  "q": "A 2764 EPROM is organised as 8K × 8. It needs how many address lines?",
+  "opts": [
+   "16",
+   "11",
+   "8",
+   "13"
+  ],
+  "ans": 3,
+  "why": "8K = 2¹³ locations."
+ },
+ {
+  "ch": 2,
+  "sub": "2.6",
+  "q": "In the 8086, the interrupt vector for type 8 is stored at physical address:",
+  "opts": [
+   "00080H",
+   "00008H",
+   "00020H",
+   "00800H"
+  ],
+  "ans": 2,
+  "why": "Type n is at 4n: 4 × 8 = 32 = 20H."
+ },
+ {
+  "ch": 3,
+  "sub": "3.1",
+  "q": "printf(\"%d\", 'a' - 'A'); prints:",
+  "opts": [
+   "32",
+   "0",
+   "26",
+   "65"
+  ],
+  "ans": 0,
+  "why": "ASCII 'a' = 97, 'A' = 65; difference 32."
+ },
+ {
+  "ch": 3,
+  "sub": "3.1",
+  "q": "for (i = 1; i <= 10; i += 3) count++; — count increases how many times?",
+  "opts": [
+   "4",
+   "3",
+   "5",
+   "10"
+  ],
+  "ans": 0,
+  "why": "i takes 1, 4, 7, 10 → four iterations (then i = 13)."
+ },
+ {
+  "ch": 3,
+  "sub": "3.2",
+  "q": "For int a[10];, the expression sizeof(a) / sizeof(a[0]) gives:",
+  "opts": [
+   "1",
+   "10",
+   "4",
+   "40"
+  ],
+  "ans": 1,
+  "why": "Total bytes divided by bytes per element = number of elements."
+ },
+ {
+  "ch": 3,
+  "sub": "3.2",
+  "q": "char *p = \"NEC\"; printf(\"%c\", *(p + 1)); prints:",
+  "opts": [
+   "C",
+   "an address",
+   "E",
+   "N"
+  ],
+  "ans": 2,
+  "why": "p + 1 points to the second character."
+ },
+ {
+  "ch": 3,
+  "sub": "3.3",
+  "q": "Which of these is not a member function of the class it accesses?",
+  "opts": [
+   "friend function",
+   "destructor",
+   "static member function",
+   "constructor"
+  ],
+  "ans": 0,
+  "why": "A friend is declared inside the class but is not a member."
+ },
+ {
+  "ch": 3,
+  "sub": "3.3",
+  "q": "A constructor that takes no arguments is called a:",
+  "opts": [
+   "default constructor",
+   "parameterised constructor",
+   "destructor",
+   "copy constructor"
+  ],
+  "ans": 0,
+  "why": "The default constructor has no parameters (or all defaulted)."
+ },
+ {
+  "ch": 3,
+  "sub": "3.4",
+  "q": "A pure virtual function is declared as:",
+  "opts": [
+   "virtual void f() {}",
+   "void f() = 0;",
+   "pure void f();",
+   "virtual void f() = 0;"
+  ],
+  "ans": 3,
+  "why": "\"= 0\" after a virtual function declaration makes it pure; the class becomes abstract."
+ },
+ {
+  "ch": 3,
+  "sub": "3.4",
+  "q": "Function overriding requires the derived-class function to have:",
+  "opts": [
+   "a different name",
+   "fewer parameters",
+   "a different return type",
+   "the same signature as the base function"
+  ],
+  "ans": 3,
+  "why": "Same name and parameter list; with virtual it dispatches at run time."
+ },
+ {
+  "ch": 3,
+  "sub": "3.5",
+  "q": "The keyword that begins a generic function or class definition in C++ is:",
+  "opts": [
+   "generic",
+   "typename",
+   "template",
+   "class"
+  ],
+  "ans": 2,
+  "why": "template <typename T> …"
+ },
+ {
+  "ch": 3,
+  "sub": "3.6",
+  "q": "Which C++ statement handles any exception type?",
+  "opts": [
+   "catch (void)",
+   "catch (...)",
+   "catch (all)",
+   "catch (Exception e)"
+  ],
+  "ans": 1,
+  "why": "The ellipsis handler catches everything and must come last."
+ },
+ {
+  "ch": 4,
+  "sub": "4.1",
+  "q": "Which is a characteristic of RISC processors?",
+  "opts": [
+   "memory operands in arithmetic instructions",
+   "variable-length instructions",
+   "microprogrammed control as the norm",
+   "load/store architecture"
+  ],
+  "ans": 3,
+  "why": "RISC accesses memory only through load and store instructions."
+ },
+ {
+  "ch": 4,
+  "sub": "4.1",
+  "q": "In microprogrammed control, the microprogram is stored in:",
+  "opts": [
+   "main memory",
+   "cache",
+   "control memory",
+   "registers"
+  ],
+  "ans": 2,
+  "why": "A control memory (ROM) holds the microinstructions."
+ },
+ {
+  "ch": 4,
+  "sub": "4.2",
+  "q": "A 16 KB direct-mapped cache with 64-byte blocks and 32-bit byte addresses has a tag of:",
+  "opts": [
+   "20 bits",
+   "18 bits",
+   "8 bits",
+   "6 bits"
+  ],
+  "ans": 1,
+  "why": "256 lines → index 8 bits; offset 6 bits; tag = 32 − 8 − 6 = 18."
+ },
+ {
+  "ch": 4,
+  "sub": "4.2",
+  "q": "The exponent bias in IEEE 754 single precision is:",
+  "opts": [
+   "255",
+   "128",
+   "1023",
+   "127"
+  ],
+  "ans": 3,
+  "why": "8-bit exponent, bias 2⁷ − 1 = 127 (double: 1023)."
+ },
+ {
+  "ch": 4,
+  "sub": "4.3",
+  "q": "A DMA controller that takes the bus for one word at a time between CPU cycles is using:",
+  "opts": [
+   "burst mode",
+   "cycle stealing",
+   "polling",
+   "block mode"
+  ],
+  "ans": 1,
+  "why": "Cycle stealing interleaves single transfers with CPU bus use."
+ },
+ {
+  "ch": 4,
+  "sub": "4.3",
+  "q": "In daisy-chain interrupt priority, priority is decided by:",
+  "opts": [
+   "the device's position in the chain",
+   "software polling order",
+   "the vector address",
+   "the interrupt mask"
+  ],
+  "ans": 0,
+  "why": "The acknowledge signal passes along the chain; the nearest requesting device takes it."
+ },
+ {
+  "ch": 4,
+  "sub": "4.4",
+  "q": "In embedded-system design metrics, NRE cost is:",
+  "opts": [
+   "the cost per unit manufactured",
+   "the power consumed",
+   "the one-time cost of designing the system",
+   "the time to market"
+  ],
+  "ans": 2,
+  "why": "Non-recurring engineering cost is paid once, however many units are made."
+ },
+ {
+  "ch": 4,
+  "sub": "4.5",
+  "q": "Rate-monotonic scheduling assigns higher priority to tasks with:",
+  "opts": [
+   "earlier deadlines at run time",
+   "longer execution time",
+   "more memory",
+   "shorter periods"
+  ],
+  "ans": 3,
+  "why": "Static priority by period: shorter period, higher priority."
+ },
+ {
+  "ch": 4,
+  "sub": "4.5",
+  "q": "A low-priority task holds a resource needed by a high-priority task while a medium task runs. This is:",
+  "opts": [
+   "priority inversion",
+   "starvation of the low task",
+   "deadlock",
+   "thrashing"
+  ],
+  "ans": 0,
+  "why": "Fixed by priority inheritance or priority ceiling."
+ },
+ {
+  "ch": 4,
+  "sub": "4.6",
+  "q": "In VHDL, a signal is assigned with:",
+  "opts": [
+   "=",
+   "<=",
+   ":=",
+   "=>"
+  ],
+  "ans": 1,
+  "why": "Signals use <=; variables use :=."
+ },
+ {
+  "ch": 5,
+  "sub": "5.1",
+  "q": "Routing between networks is a function of which OSI layer?",
+  "opts": [
+   "network",
+   "transport",
+   "data link",
+   "session"
+  ],
+  "ans": 0,
+  "why": "The network layer forwards packets using logical (IP) addresses."
+ },
+ {
+  "ch": 5,
+  "sub": "5.2",
+  "q": "How many Hamming check bits are needed for 8 data bits?",
+  "opts": [
+   "8",
+   "3",
+   "4",
+   "5"
+  ],
+  "ans": 2,
+  "why": "2^r ≥ m + r + 1: r = 4 gives 16 ≥ 13."
+ },
+ {
+  "ch": 5,
+  "sub": "5.2",
+  "q": "The maximum throughput of pure ALOHA is about:",
+  "opts": [
+   "100%",
+   "18.4%",
+   "50%",
+   "36.8%"
+  ],
+  "ans": 1,
+  "why": "S = G e^(−2G), maximum 1/(2e) at G = 0.5."
+ },
+ {
+  "ch": 5,
+  "sub": "5.3",
+  "q": "Host 192.168.1.130/26 is in network:",
+  "opts": [
+   "192.168.1.128",
+   "192.168.1.0",
+   "192.168.1.64",
+   "192.168.1.192"
+  ],
+  "ans": 0,
+  "why": "/26 → block 64: 128–191."
+ },
+ {
+  "ch": 5,
+  "sub": "5.3",
+  "q": "The broadcast address of that network is:",
+  "opts": [
+   "192.168.1.255",
+   "192.168.1.129",
+   "192.168.1.127",
+   "192.168.1.191"
+  ],
+  "ans": 3,
+  "why": "Next network starts at 192, so broadcast = 191."
+ },
+ {
+  "ch": 5,
+  "sub": "5.3",
+  "q": "An IPv6 address is:",
+  "opts": [
+   "128 bits",
+   "64 bits",
+   "32 bits",
+   "48 bits"
+  ],
+  "ans": 0,
+  "why": "IPv6 uses 128-bit addresses."
+ },
+ {
+  "ch": 5,
+  "sub": "5.4",
+  "q": "The minimum TCP header size is:",
+  "opts": [
+   "40 bytes",
+   "20 bytes",
+   "8 bytes",
+   "60 bytes"
+  ],
+  "ans": 1,
+  "why": "20 bytes without options (UDP: 8)."
+ },
+ {
+  "ch": 5,
+  "sub": "5.5",
+  "q": "DNS queries normally use:",
+  "opts": [
+   "TCP port 80",
+   "TCP port 25",
+   "UDP port 67",
+   "UDP port 53"
+  ],
+  "ans": 3,
+  "why": "DNS uses UDP 53 (TCP 53 for large responses and zone transfers)."
+ },
+ {
+  "ch": 5,
+  "sub": "5.5",
+  "q": "Which tool graphs interface traffic over time by polling devices with SNMP?",
+  "opts": [
+   "PuTTY",
+   "MRTG",
+   "Wireshark",
+   "WinSCP"
+  ],
+  "ans": 1,
+  "why": "MRTG = Multi Router Traffic Grapher."
+ },
+ {
+  "ch": 5,
+  "sub": "5.6",
+  "q": "A Caesar cipher with shift 3 encrypts \"NEC\" as:",
+  "opts": [
+   "OFD",
+   "KBZ",
+   "QHF",
+   "PIG"
+  ],
+  "ans": 2,
+  "why": "N→Q, E→H, C→F."
+ },
+ {
+  "ch": 6,
+  "sub": "6.1",
+  "q": "The minimum DFA accepting binary strings that end in \"01\" has how many states?",
+  "opts": [
+   "5",
+   "2",
+   "4",
+   "3"
+  ],
+  "ans": 3,
+  "why": "States track: nothing useful, last bit 0, last two bits 01."
+ },
+ {
+  "ch": 6,
+  "sub": "6.1",
+  "q": "The pumping lemma for regular languages is used to:",
+  "opts": [
+   "prove a language is regular",
+   "minimise a DFA",
+   "convert an NFA to a DFA",
+   "prove a language is not regular"
+  ],
+  "ans": 3,
+  "why": "It gives a property every regular language has; failing it proves non-regularity."
+ },
+ {
+  "ch": 6,
+  "sub": "6.2",
+  "q": "In Chomsky normal form, every production is of the form:",
+  "opts": [
+   "A → aα",
+   "A → a only",
+   "A → BC or A → a",
+   "A → αβ"
+  ],
+  "ans": 2,
+  "why": "GNF is A → aα (terminal followed by variables)."
+ },
+ {
+  "ch": 6,
+  "sub": "6.2",
+  "q": "A pushdown automaton is a finite automaton plus:",
+  "opts": [
+   "two tapes",
+   "a tape",
+   "a queue",
+   "a stack"
+  ],
+  "ans": 3,
+  "why": "PDAs accept exactly the context-free languages."
+ },
+ {
+  "ch": 6,
+  "sub": "6.3",
+  "q": "Which problem is undecidable?",
+  "opts": [
+   "CFG membership",
+   "sorting",
+   "DFA emptiness",
+   "the halting problem"
+  ],
+  "ans": 3,
+  "why": "No TM decides whether an arbitrary TM halts on an arbitrary input."
+ },
+ {
+  "ch": 6,
+  "sub": "6.3",
+  "q": "Context-sensitive (type 1) languages are accepted by:",
+  "opts": [
+   "any Turing machine only",
+   "finite automata",
+   "pushdown automata",
+   "linear bounded automata"
+  ],
+  "ans": 3,
+  "why": "Type 0 → TM, 1 → LBA, 2 → PDA, 3 → FA."
+ },
+ {
+  "ch": 6,
+  "sub": "6.4",
+  "q": "An 800 × 600 raster display with 8 bits per pixel needs a frame buffer of:",
+  "opts": [
+   "48,000 bytes",
+   "3.84 MB",
+   "60,000 bytes",
+   "480,000 bytes"
+  ],
+  "ans": 3,
+  "why": "800 × 600 × 8 bits = 3,840,000 bits = 480,000 bytes (≈ 469 KB)."
+ },
+ {
+  "ch": 6,
+  "sub": "6.5",
+  "q": "Rotating the point (1, 0) by 90° anticlockwise about the origin gives:",
+  "opts": [
+   "(1, 1)",
+   "(−1, 0)",
+   "(0, 1)",
+   "(0, −1)"
+  ],
+  "ans": 2,
+  "why": "x' = x cos θ − y sin θ = 0; y' = x sin θ + y cos θ = 1."
+ },
+ {
+  "ch": 6,
+  "sub": "6.5",
+  "q": "A Cohen–Sutherland region code has:",
+  "opts": [
+   "4 bits",
+   "3 bits",
+   "2 bits",
+   "8 bits"
+  ],
+  "ans": 0,
+  "why": "Top, bottom, right, left."
+ },
+ {
+  "ch": 6,
+  "sub": "6.6",
+  "q": "In perspective projection, parallel lines not parallel to the projection plane:",
+  "opts": [
+   "converge at a vanishing point",
+   "become perpendicular",
+   "remain parallel",
+   "disappear"
+  ],
+  "ans": 0,
+  "why": "Projectors meet at the centre of projection, so distant objects shrink and parallels converge."
+ },
+ {
+  "ch": 7,
+  "sub": "7.1",
+  "q": "The value of the postfix expression 2 3 4 * + is:",
+  "opts": [
+   "20",
+   "9",
+   "24",
+   "14"
+  ],
+  "ans": 3,
+  "why": "3 × 4 = 12; 2 + 12 = 14."
+ },
+ {
+  "ch": 7,
+  "sub": "7.1",
+  "q": "The maximum number of nodes in a binary tree of height 4 (root at height 0) is:",
+  "opts": [
+   "31",
+   "16",
+   "15",
+   "32"
+  ],
+  "ans": 0,
+  "why": "2^(h+1) − 1 = 31."
+ },
+ {
+  "ch": 7,
+  "sub": "7.2",
+  "q": "The maximum number of comparisons for binary search on 1024 sorted elements is:",
+  "opts": [
+   "10",
+   "1024",
+   "11",
+   "512"
+  ],
+  "ans": 2,
+  "why": "⌊log₂ 1024⌋ + 1 = 11."
+ },
+ {
+  "ch": 7,
+  "sub": "7.2",
+  "q": "Which sorting algorithm has O(n log n) worst-case time and sorts in place?",
+  "opts": [
+   "quick sort",
+   "heap sort",
+   "insertion sort",
+   "merge sort"
+  ],
+  "ans": 1,
+  "why": "Heap sort: O(n log n) always, O(1) extra space."
+ },
+ {
+  "ch": 7,
+  "sub": "7.3",
+  "q": "A relation in 2NF with no transitive dependency of non-prime attributes on a key is in:",
+  "opts": [
+   "1NF",
+   "4NF",
+   "5NF",
+   "3NF"
+  ],
+  "ans": 3,
+  "why": "That is the definition of 3NF."
+ },
+ {
+  "ch": 7,
+  "sub": "7.4",
+  "q": "The ACID property that keeps committed changes after a crash is:",
+  "opts": [
+   "isolation",
+   "consistency",
+   "durability",
+   "atomicity"
+  ],
+  "ans": 2,
+  "why": "Durability is provided by the recovery system (log on stable storage)."
+ },
+ {
+  "ch": 7,
+  "sub": "7.5",
+  "q": "Processes with bursts 5, 3 and 8 all arrive at time 0. Under SJF, the average waiting time is:",
+  "opts": [
+   "3.67",
+   "5.33",
+   "4.33",
+   "3.00"
+  ],
+  "ans": 0,
+  "why": "Order 3, 5, 8: waits 0, 3, 8 → 11/3 ≈ 3.67."
+ },
+ {
+  "ch": 7,
+  "sub": "7.5",
+  "q": "The semaphore operation that may block the calling process is:",
+  "opts": [
+   "post",
+   "signal",
+   "wait",
+   "release"
+  ],
+  "ans": 2,
+  "why": "wait (P) blocks when the value is not positive."
+ },
+ {
+  "ch": 7,
+  "sub": "7.6",
+  "q": "Page size 4 KB. Logical address 20000 lies on page:",
+  "opts": [
+   "4",
+   "5",
+   "20",
+   "3"
+  ],
+  "ans": 0,
+  "why": "20000 ÷ 4096 = 4 remainder 3616."
+ },
+ {
+  "ch": 7,
+  "sub": "7.6",
+  "q": "Reference string 1 2 3 4 1 2 with 3 frames under FIFO gives how many page faults?",
+  "opts": [
+   "5",
+   "3",
+   "6",
+   "4"
+  ],
+  "ans": 2,
+  "why": "1, 2, 3 fault; 4 replaces 1; 1 replaces 2; 2 replaces 3 — every reference faults."
+ },
+ {
+  "ch": 8,
+  "sub": "8.1",
+  "q": "The process model organised around repeated risk analysis is:",
+  "opts": [
+   "spiral",
+   "V-model",
+   "waterfall",
+   "Big Bang"
+  ],
+  "ans": 0,
+  "why": "Boehm's spiral: planning, risk analysis, engineering, evaluation in each loop."
+ },
+ {
+  "ch": 8,
+  "sub": "8.1",
+  "q": "\"The system shall support 500 concurrent users\" is a:",
+  "opts": [
+   "non-functional requirement",
+   "functional requirement",
+   "domain requirement",
+   "user story only"
+  ],
+  "ans": 0,
+  "why": "It constrains performance, not behaviour."
+ },
+ {
+  "ch": 8,
+  "sub": "8.2",
+  "q": "The most desirable type of cohesion is:",
+  "opts": [
+   "functional",
+   "temporal",
+   "coincidental",
+   "logical"
+  ],
+  "ans": 0,
+  "why": "All elements contribute to one well-defined task."
+ },
+ {
+  "ch": 8,
+  "sub": "8.3",
+  "q": "A control-flow graph has 9 edges and 7 nodes. Its cyclomatic complexity is:",
+  "opts": [
+   "2",
+   "4",
+   "16",
+   "3"
+  ],
+  "ans": 1,
+  "why": "V(G) = E − N + 2 = 9 − 7 + 2 = 4."
+ },
+ {
+  "ch": 8,
+  "sub": "8.3",
+  "q": "Testing done by users at the customer's site, without developers present, is:",
+  "opts": [
+   "beta testing",
+   "integration testing",
+   "alpha testing",
+   "unit testing"
+  ],
+  "ans": 0,
+  "why": "Alpha is at the developer's site; beta is at the customer's."
+ },
+ {
+  "ch": 8,
+  "sub": "8.3",
+  "q": "Which CMMI level introduces organisation-wide standard processes?",
+  "opts": [
+   "Level 2 Managed",
+   "Level 4 Quantitatively managed",
+   "Level 3 Defined",
+   "Level 5 Optimising"
+  ],
+  "ans": 2,
+  "why": "Defined: standard processes tailored per project."
+ },
+ {
+  "ch": 8,
+  "sub": "8.4",
+  "q": "A conceptual (domain) model shows:",
+  "opts": [
+   "the sequence of messages",
+   "conceptual classes, associations and attributes — no methods",
+   "deployment nodes",
+   "classes with methods and visibility"
+  ],
+  "ans": 1,
+  "why": "Methods are added later in the design class diagram."
+ },
+ {
+  "ch": 8,
+  "sub": "8.5",
+  "q": "The GRASP pattern that gives a responsibility to the class holding the needed information is:",
+  "opts": [
+   "Creator",
+   "Pure Fabrication",
+   "Information Expert",
+   "Controller"
+  ],
+  "ans": 2,
+  "why": "Information Expert."
+ },
+ {
+  "ch": 8,
+  "sub": "8.5",
+  "q": "Visibility from object A to B because B is passed as a method argument is:",
+  "opts": [
+   "attribute visibility",
+   "local visibility",
+   "global visibility",
+   "parameter visibility"
+  ],
+  "ans": 3,
+  "why": "The four kinds are attribute, parameter, local and global."
+ },
+ {
+  "ch": 8,
+  "sub": "8.6",
+  "q": "A one-to-many association in a design is usually implemented as:",
+  "opts": [
+   "a single reference attribute",
+   "a global variable",
+   "inheritance",
+   "a collection attribute (list or map)"
+  ],
+  "ans": 3,
+  "why": "The \"many\" end becomes a collection."
+ },
+ {
+  "ch": 9,
+  "sub": "9.1",
+  "q": "PEAS stands for:",
+  "opts": [
+   "Performance, Effectors, Agents, Systems",
+   "Performance, Environment, Actuators, Sensors",
+   "Plan, Execute, Analyse, Sense",
+   "Percepts, Effects, Actions, States"
+  ],
+  "ans": 1,
+  "why": "The task-environment description for designing an agent."
+ },
+ {
+  "ch": 9,
+  "sub": "9.1",
+  "q": "An environment whose next state is completely determined by the current state and the agent's action is:",
+  "opts": [
+   "deterministic",
+   "partially observable",
+   "stochastic",
+   "dynamic"
+  ],
+  "ans": 0,
+  "why": "Deterministic vs stochastic."
+ },
+ {
+  "ch": 9,
+  "sub": "9.2",
+  "q": "A* search evaluates nodes with:",
+  "opts": [
+   "f(n) = g(n) − h(n)",
+   "f(n) = g(n) + h(n)",
+   "f(n) = h(n)",
+   "f(n) = g(n)"
+  ],
+  "ans": 1,
+  "why": "Path cost so far plus estimated cost to the goal; optimal with an admissible h."
+ },
+ {
+  "ch": 9,
+  "sub": "9.2",
+  "q": "Alpha–beta pruning improves:",
+  "opts": [
+   "BFS",
+   "hill climbing",
+   "minimax game search",
+   "A* search"
+  ],
+  "ans": 2,
+  "why": "It skips branches that cannot change the minimax decision."
+ },
+ {
+  "ch": 9,
+  "sub": "9.3",
+  "q": "Resolution refutation succeeds when it derives:",
+  "opts": [
+   "a tautology",
+   "a unifier",
+   "the original query",
+   "the empty clause"
+  ],
+  "ans": 3,
+  "why": "Adding the negated goal and reaching the empty clause proves the goal."
+ },
+ {
+  "ch": 9,
+  "sub": "9.4",
+  "q": "Forward chaining in an expert system is:",
+  "opts": [
+   "goal-driven",
+   "data-driven",
+   "backtracking only",
+   "random"
+  ],
+  "ans": 1,
+  "why": "It starts from known facts and fires rules towards conclusions; backward chaining is goal-driven."
+ },
+ {
+  "ch": 9,
+  "sub": "9.5",
+  "q": "k-means clustering is an example of:",
+  "opts": [
+   "a genetic algorithm",
+   "reinforcement learning",
+   "unsupervised learning",
+   "supervised learning"
+  ],
+  "ans": 2,
+  "why": "It groups unlabelled data."
+ },
+ {
+  "ch": 9,
+  "sub": "9.5",
+  "q": "Which is a genetic-algorithm operator?",
+  "opts": [
+   "backpropagation",
+   "defuzzification",
+   "crossover",
+   "unification"
+  ],
+  "ans": 2,
+  "why": "GA operators: selection, crossover, mutation."
+ },
+ {
+  "ch": 9,
+  "sub": "9.6",
+  "q": "A single-layer perceptron cannot learn:",
+  "opts": [
+   "XOR",
+   "AND",
+   "OR",
+   "NOT"
+  ],
+  "ans": 0,
+  "why": "XOR is not linearly separable; an MLP with backpropagation can learn it."
+ },
+ {
+  "ch": 9,
+  "sub": "9.6",
+  "q": "The output range of the sigmoid activation function is:",
+  "opts": [
+   "0 to ∞",
+   "−1 to 1",
+   "−∞ to ∞",
+   "0 to 1"
+  ],
+  "ans": 3,
+  "why": "tanh gives −1 to 1; ReLU 0 to ∞."
+ },
+ {
+  "ch": 10,
+  "sub": "10.1",
+  "q": "The size of an A4 sheet is:",
+  "opts": [
+   "210 × 297 mm",
+   "148 × 210 mm",
+   "297 × 420 mm",
+   "420 × 594 mm"
+  ],
+  "ans": 0,
+  "why": "A3 is 297 × 420; each size halves the one above."
+ },
+ {
+  "ch": 10,
+  "sub": "10.1",
+  "q": "In third-angle projection, the top view is drawn:",
+  "opts": [
+   "to the left of the front view",
+   "above the front view",
+   "behind the front view",
+   "below the front view"
+  ],
+  "ans": 1,
+  "why": "First angle puts it below; third angle above."
+ },
+ {
+  "ch": 10,
+  "sub": "10.2",
+  "q": "Rs 10,000 invested at 10% compounded annually for 2 years becomes:",
+  "opts": [
+   "Rs 12,210",
+   "Rs 11,000",
+   "Rs 12,000",
+   "Rs 12,100"
+  ],
+  "ans": 3,
+  "why": "F = P(1 + i)ⁿ = 10,000 × 1.21."
+ },
+ {
+  "ch": 10,
+  "sub": "10.2",
+  "q": "An asset costs Rs 1,00,000 with salvage Rs 10,000 after 5 years. Straight-line depreciation per year is:",
+  "opts": [
+   "Rs 20,000",
+   "Rs 22,000",
+   "Rs 10,000",
+   "Rs 18,000"
+  ],
+  "ans": 3,
+  "why": "(P − S)/n = 90,000/5."
+ },
+ {
+  "ch": 10,
+  "sub": "10.3",
+  "q": "PERT estimates: optimistic 2, most likely 5, pessimistic 14 days. The expected time is:",
+  "opts": [
+   "6 days",
+   "7 days",
+   "5 days",
+   "8 days"
+  ],
+  "ans": 0,
+  "why": "te = (a + 4m + b)/6 = (2 + 20 + 14)/6 = 6."
+ },
+ {
+  "ch": 10,
+  "sub": "10.3",
+  "q": "Activities on the critical path have:",
+  "opts": [
+   "the earliest finish only",
+   "maximum float",
+   "negative duration",
+   "zero total float"
+  ],
+  "ans": 3,
+  "why": "The critical path is the longest path; delaying any of it delays the project."
+ },
+ {
+  "ch": 10,
+  "sub": "10.4",
+  "q": "Which contract is not a cost-plus type?",
+  "opts": [
+   "cost plus percentage",
+   "lump sum",
+   "cost plus fixed fee",
+   "cost plus incentive"
+  ],
+  "ans": 1,
+  "why": "Lump-sum and item-rate contracts are fixed-price types."
+ },
+ {
+  "ch": 10,
+  "sub": "10.4",
+  "q": "Buying insurance against a project risk is a risk response called:",
+  "opts": [
+   "transfer",
+   "avoidance",
+   "acceptance",
+   "mitigation by redesign"
+  ],
+  "ans": 0,
+  "why": "Transfer shifts the impact to a third party."
+ },
+ {
+  "ch": 10,
+  "sub": "10.5",
+  "q": "The statutory body that registers engineers in Nepal is:",
+  "opts": [
+   "Ministry of Physical Infrastructure",
+   "Nepal Engineers' Association",
+   "Nepal Engineering Council",
+   "Public Service Commission"
+  ],
+  "ans": 2,
+  "why": "NEA is the professional association; NEC is the regulator."
+ },
+ {
+  "ch": 10,
+  "sub": "10.6",
+  "q": "The Nepal Engineering Council Act was enacted in:",
+  "opts": [
+   "2045 BS",
+   "2055 BS",
+   "2063 BS",
+   "2072 BS"
+  ],
+  "ans": 1,
+  "why": "Nepal Engineering Council Act, 2055."
+ }
+]
