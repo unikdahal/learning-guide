@@ -1,0 +1,154 @@
+---
+title: "2. Pointers, arrays, strings, structures and files"
+description: Pointers and pointer arithmetic, pointers and arrays, sizeof traps, passing pointers to functions, strings and string functions, dynamic memory, structures vs unions with padding, arrays of structures and structure pointers, and C file I/O with modes and random access.
+sidebar:
+  label: "2. Pointers, structs, files"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** evaluate pointer expressions, give `sizeof` results for arrays, pointers, structs and unions, and write the standard file-handling calls.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 3.2** (pointer arithmetic, pointers and arrays, passing pointers, structure vs union, arrays of structures, structures and pointers, file I/O, sequential and random access); the model paper asks the size of a pointer. **Lok Sewa CE unit 6**.
+</Aside>
+
+## 1. Pointers
+
+A **pointer** stores an address. `&x` = address of x; `*p` = the value at the address in p (dereference).
+
+```c
+int v[] = {10, 20, 30};
+int *p = v;               /* an array name decays to a pointer to its first element */
+printf("%d %d ", *p + 1, *(p + 1));   /* 11 20  — precedence: *p first, then + 1 */
+p++;                                  /* moves by sizeof(int) bytes, to v[1] */
+printf("%d %td", *p, p - v);          /* 20 1   — pointer difference counts elements */
+```
+
+- **Pointer arithmetic** scales by the pointed-to type: `p + 1` advances `sizeof(*p)` bytes. Valid operations: pointer ± integer, pointer − pointer (same array), comparisons. **Not** pointer + pointer, multiply or divide.
+- `a[i]` is defined as `*(a + i)` — so `i[a]` also works (a classic trick question).
+- **Pointer size** depends on the **architecture**, not the type it points to: **8 bytes on 64-bit**, 4 on 32-bit, 2 on 16-bit Turbo C. `sizeof(char*) == sizeof(double*)`.
+- **Special pointers:** `NULL` (points nowhere), **void pointer** (`void*` — generic, must be cast before dereferencing), **dangling** (points to freed memory), **wild** (uninitialised), **pointer to pointer** (`int **pp`), **function pointer** (`int (*fp)(int, int) = add;`).
+- `const int *p` — the **value** can't change through p; `int *const p` — the **pointer** can't change.
+
+**Passing pointers** lets a function change the caller's variables:
+
+```c
+void swap(int *a, int *b) { int t = *a; *a = *b; *b = t; }
+/* call: swap(&x, &y); */
+```
+
+## 2. Arrays, strings and sizeof
+
+```c
+char str[] = "hello";   /* an array of 6 chars (5 + '\0') */
+char *ps   = "hello";   /* a pointer to a string literal (read-only) */
+/* sizeof(str) = 6, sizeof(ps) = 8 on 64-bit; strlen of both = 5 */
+/* sizeof("abc") = 4, strlen("abc") = 3 */
+```
+
+- Strings are `char` arrays ending in `'\0'`. **`sizeof` counts the terminator; `strlen` doesn't.**
+- An array passed to a function **decays to a pointer** — inside the function `sizeof(arr)` is the pointer size, so pass the length separately.
+- `string.h`: `strlen`, `strcpy(dest, src)`, `strncpy`, `strcat`, `strcmp` (0 if equal, negative/positive by first difference), `strchr`, `strstr`, `strrev` (non-standard).
+
+**Dynamic memory (`stdlib.h`):** `malloc(n)` (uninitialised), `calloc(count, size)` (**zeroed**), `realloc(p, n)`, `free(p)`. Always check for `NULL`; free exactly once; set the pointer to `NULL` after freeing. A **memory leak** is allocated memory never freed.
+
+## 3. Structures and unions
+
+```c
+struct S { char c; int i; };                   /* sizeof = 8  (1 + 3 padding + 4) */
+struct T { char a; char b; int i; double d; }; /* sizeof = 16 (1 + 1 + 2 pad + 4 + 8) */
+union  U { int i; char c[8]; };                /* sizeof = 8  (largest member) */
+```
+
+| Structure | Union |
+| --- | --- |
+| each member has **its own** memory | all members **share** the same memory |
+| size ≥ sum of members (plus **padding** for alignment) | size = **largest member** (plus padding) |
+| all members usable at once | only **one** member meaningful at a time |
+| keyword `struct` | keyword `union` |
+
+Padding aligns members to their size; ordering members from largest to smallest reduces it. `#pragma pack` removes it (non-standard).
+
+**Arrays of structures and structure pointers:**
+
+```c
+struct Student { int roll; char name[30]; float marks; };
+struct Student s[3] = {{1, "Asha", 82.5f}, {2, "Bikash", 74.0f}, {3, "Chandra", 91.0f}};
+struct Student *ptr = &s[2];
+printf("%s %.1f", ptr->name, (*ptr).marks);   /* Chandra 91.0 — ptr->x is (*ptr).x */
+```
+
+Structures can be passed by value (copied), by pointer, or returned; nested structures and **self-referential** structures (`struct Node { int data; struct Node *next; };`) build linked lists. `typedef struct { … } Student;` drops the `struct` keyword.
+
+**`enum`:** named integer constants, starting at 0 unless set: `enum Day { SUN, MON, TUE };` → MON = 1.
+
+## 4. Files in C
+
+```c
+FILE *fp = fopen("data.txt", "w");      /* returns NULL on failure — always check */
+if (fp == NULL) { perror("open"); return 1; }
+fprintf(fp, "%d %s\n", 1, "Asha");
+fclose(fp);
+
+fp = fopen("data.txt", "r");
+int roll; char name[30];
+while (fscanf(fp, "%d %29s", &roll, name) == 2) printf("%d %s\n", roll, name);
+fclose(fp);
+```
+
+| Mode | Meaning |
+| --- | --- |
+| `"r"` | read; file must exist |
+| `"w"` | write; **creates or truncates** |
+| `"a"` | append; creates if missing |
+| `"r+"` | read and write; must exist |
+| `"w+"` | read and write; truncates |
+| `"a+"` | read and append |
+| add `b` | binary mode (`"rb"`, `"wb"`) |
+
+- Character I/O `fgetc`/`fputc`; string `fgets`/`fputs`; formatted `fprintf`/`fscanf`; **block (binary)** `fread`/`fwrite` (whole structs).
+- **Sequential access** reads from start to end. **Random access:** `fseek(fp, offset, origin)` with `SEEK_SET` (start), `SEEK_CUR`, `SEEK_END`; `ftell(fp)` gives the current position; `rewind(fp)` goes back to the start. Record k of fixed-size records: `fseek(fp, k * sizeof(struct Student), SEEK_SET);`.
+- `feof(fp)` (end of file), `ferror(fp)`; `EOF` is a negative constant (usually −1).
+
+## Check yourself
+
+1. On a 64-bit system, `sizeof(char*)` is:
+   (a) 1 (b) 2 (c) 4 (d) 8
+
+<details><summary>Answer</summary>(d) pointer size depends on the architecture, not the type.</details>
+
+2. If `int *p` holds address 1000 and `sizeof(int)` is 4, `p + 2` is:
+   (a) 1002 (b) 1008 (c) 1004 (d) 1016
+
+<details><summary>Answer</summary>(b)</details>
+
+3. The size of a union is:
+   (a) the sum of its members (b) the size of its largest member (plus padding) (c) the smallest member (d) always 4
+
+<details><summary>Answer</summary>(b)</details>
+
+4. `a[3]` is equivalent to:
+   (a) `*a + 3` (b) `*(a + 3)` (c) `&a + 3` (d) `a + 3`
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Which mode erases an existing file's contents?
+   (a) "r" (b) "a" (c) "w" (d) "r+"
+
+<details><summary>Answer</summary>(c)</details>
+
+6. Which function moves the file pointer for random access?
+   (a) fopen (b) fseek (c) fgets (d) fclose
+
+<details><summary>Answer</summary>(b)</details>
+
+7. `calloc` differs from `malloc` in that it:
+   (a) is faster (b) initialises memory to zero (c) never fails (d) frees automatically
+
+<details><summary>Answer</summary>(b)</details>
+
+8. For `struct Student *p`, the member `marks` is accessed by:
+   (a) p.marks (b) p->marks (c) *p.marks (d) &p->marks
+
+<details><summary>Answer</summary>(b) or `(*p).marks`.</details>

@@ -1,0 +1,150 @@
+---
+title: "1. C basics and output traps"
+description: C tokens and data types, operators with precedence and the classic traps (integer division, modulo with negatives, increment, short-circuit, comma, bitwise), formatted and unformatted I/O, control statements and switch fall-through, functions, storage classes, and recursion including indirect recursion — with compiled outputs.
+sidebar:
+  label: "1. C basics, output traps"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** predict the output of short C fragments without a compiler, and know every data type, specifier and storage class by name.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 3.1** (tokens, operators, formatted and unformatted I/O, control statements, loops, user-defined and recursive functions, arrays, strings). The model paper asks which is not a C data type and an example of indirect recursion. **Lok Sewa CE unit 6** (data types, control structures, functions).
+</Aside>
+
+## 1. Tokens and data types
+
+**Tokens** — the smallest units: **keywords** (32 in C89: `int`, `return`, `static`, `sizeof` …), **identifiers**, **constants**, **string literals**, **operators**, **special symbols** (`; { } [ ] ( ) ,`).
+
+**Basic data types:** `char`, `int`, `float`, `double`, `void`; modifiers `short`, `long`, `signed`, `unsigned`. **Derived:** arrays, pointers, functions. **User-defined:** `struct`, `union`, `enum`, `typedef`.
+- **Not C data types** (MCQ favourites): `string` (C uses `char` arrays), `boolean`/`bool` before C99 (`_Bool` since C99), `real`, `byte`.
+- On a typical 64-bit system: `char` 1 (always), `short` 2, `int` 4, `long` 8, `float` 4, `double` 8, any pointer 8. `sizeof(char)` is 1 by definition; the rest are implementation-defined (Turbo C's 16-bit `int` is 2 bytes).
+
+**Format specifiers:** `%d`/`%i` int · `%u` unsigned · `%ld` long · `%f` float/double · `%lf` double in `scanf` · `%e` scientific · `%c` char · `%s` string · `%p` pointer · `%x` hex · `%o` octal · `%%` a percent sign.
+
+## 2. Operators and their traps
+
+Precedence (high → low, abridged): `() [] -> .` → unary `! ~ ++ -- - * & sizeof (type)` → `* / %` → `+ -` → `<< >>` → `< <= > >=` → `== !=` → `&` → `^` → `|` → `&&` → `||` → `?:` → assignment `= += …` → comma `,`. Unary, ternary and assignment associate **right to left**; the rest left to right.
+
+Every output below was compiled and run:
+
+| Code | Output | Why |
+| --- | --- | --- |
+| `int a = 10, b = 3;` `printf("%d %d %.2f", a / b, a % b, (float)a / b);` | `3 1 3.33` | integer division truncates; cast first for a real result |
+| `printf("%d %d %d", 7 / 2 * 2, -7 / 2, -7 % 2);` | `6 -3 -1` | left-to-right; division truncates **towards zero**; `%` takes the sign of the **dividend** |
+| `int x = 5; int y = x++; int z = ++x;` then print `x y z` | `7 5 7` | post-increment yields the old value; pre-increment the new |
+| `char c = 'A' + 2; printf("%c %d", c, c);` | `C 67` | characters are small integers (ASCII 'A' = 65) |
+| `int r = 2 + 3 * 4 % 5;` | `4` | `3 * 4 = 12`, `12 % 5 = 2`, `2 + 2` |
+| `int q = 10 > 5 > 2;` | `0` | `(10 > 5)` is `1`; `1 > 2` is `0` |
+| `5 & 3, 5 \| 3, 5 ^ 3, ~5, 5 << 2` | `1 7 6 -6 20` | `~5 = -(5 + 1)` in two's complement; `<< 2` multiplies by 4 |
+| `int s = 0; if (s && ++s) {}` then print `s` | `0` | **short-circuit**: `&&` stops at the first false operand, so `++s` never runs |
+| `int w = (1, 2, 3);` | `3` | the **comma operator** evaluates left to right and yields the last value |
+| `printf("%d", printf("Hi\n"));` | `Hi` then `3` | `printf` returns the number of characters printed (`H`, `i`, `\n`) |
+| `float f = 0.1f; if (f == 0.1) …` | not equal | `0.1f` (float) and `0.1` (double) round differently — never compare floats with `==` |
+| `unsigned int un = -1; printf("%u", un);` | `4294967295` | `-1` wraps to the largest 32-bit unsigned value |
+
+**Undefined behaviour to recognise, not compute:** `i = i++ + ++i;` or `printf("%d %d", i++, i);` modify and read a variable without a sequence point — the C standard gives **no defined answer**. If an MCQ offers "undefined/compiler-dependent", that's the answer.
+
+## 3. Input and output
+
+- **Formatted:** `printf`, `scanf` (needs **addresses**: `scanf("%d", &n);` — but no `&` for a `char` array: `scanf("%s", name);` reads one word).
+- **Unformatted:** `getchar`/`putchar` (one character), `gets` (**removed in C11 — unsafe**, use `fgets(buf, size, stdin)`), `puts` (string + newline). `getch`/`getche` are non-standard (conio.h).
+- Escape sequences: `\n` newline, `\t` tab, `\\`, `\'`, `\"`, `\0` null.
+
+## 4. Control statements
+
+- `if`, `if-else`, `else if`, nested `if`, `switch`; loops `for`, `while` (entry-controlled), `do-while` (**exit-controlled — runs at least once**); jumps `break`, `continue`, `goto`, `return`.
+- **`switch` fall-through:** without `break`, execution continues into the following cases:
+
+```c
+int k = 2;
+switch (k) {
+  case 1: printf("one ");
+  case 2: printf("two ");
+  case 3: printf("three ");
+  default: printf("def");
+}
+/* Output: two three def */
+```
+
+  `switch` works only on **integer/character** expressions with **constant** case labels (not strings or floats).
+- **Stray semicolon:** `for (i = 0; i < 5; i++); printf("%d", i);` prints **`5`** — the loop body is the empty statement.
+- `while (1)` / `for (;;)` — infinite loops; `continue` in a `for` loop still runs the increment.
+
+## 5. Functions, storage classes and recursion
+
+A function has a **declaration (prototype)**, **definition** and **call**. C passes arguments **by value**; to modify a caller's variable, pass its **address** (call by reference simulated with pointers).
+
+**Storage classes:**
+
+| Class | Storage | Default value | Scope | Lifetime |
+| --- | --- | --- | --- | --- |
+| `auto` | stack | garbage | block | block |
+| `register` | CPU register (a hint) | garbage | block | block; can't take its address |
+| `static` (local) | data segment | **0** | block | **whole program** — keeps its value between calls |
+| `extern` / global | data segment | 0 | whole program (all files with `extern`) | whole program |
+
+```c
+int counter(void) { static int c = 0; return ++c; }
+/* counter(); counter(); counter() returns 3 */
+```
+
+A `static` **global** variable or function is visible only within its own file (internal linkage).
+
+**Recursion** — a function calling itself, needing a **base case**:
+- **Direct:** `fact(n)` calls `fact(n - 1)` — `fact(5)` = **120**.
+- **Indirect (mutual):** A calls B and B calls A:
+
+```c
+int isOdd(int n);
+int isEven(int n) { return n == 0 ? 1 : isOdd(n - 1); }
+int isOdd(int n)  { return n == 0 ? 0 : isEven(n - 1); }
+/* isEven(10) = 1, isOdd(7) = 1 */
+```
+
+- Also **tail** recursion (the recursive call is last) and **tree** recursion (several calls — naive Fibonacci).
+
+**Arrays:** `int a[5] = {1, 2};` sets the rest to **0** (`a[3]` is 0). 2-D arrays are stored **row-major**: `int m[2][3] = {{1,2,3},{4,5,6}};` → `m[1][2]` = **6**, `*(*(m + 1) + 1)` = **5**. **No bounds checking** — writing past the end is undefined behaviour.
+
+## Check yourself
+
+1. Which is **not** a C data type?
+   (a) int (b) float (c) string (d) char
+
+<details><summary>Answer</summary>(c)</details>
+
+2. `printf("%d", 17 % -5);` prints:
+   (a) −2 (b) 2 (c) 3 (d) −3
+
+<details><summary>Answer</summary>(b) the sign follows the dividend (17).</details>
+
+3. Function A calls B and B calls A. This is:
+   (a) direct recursion (b) indirect recursion (c) tail recursion (d) iteration
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Which loop always executes at least once?
+   (a) for (b) while (c) do-while (d) none
+
+<details><summary>Answer</summary>(c)</details>
+
+5. The default initial value of a `static` local variable is:
+   (a) garbage (b) 0 (c) 1 (d) −1
+
+<details><summary>Answer</summary>(b)</details>
+
+6. `int i = 0; if (i++ || i++) {}` — the final value of i is:
+   (a) 0 (b) 1 (c) 2 (d) undefined
+
+<details><summary>Answer</summary>(c) the first `i++` yields 0 (false), so the second runs. `||` has a sequence point, so it's defined.</details>
+
+7. The specifier for printing a pointer value:
+   (a) %d (b) %x (c) %p (d) %u
+
+<details><summary>Answer</summary>(c)</details>
+
+8. `printf("%d", 10 / 4 * 4);` prints:
+   (a) 10 (b) 8 (c) 2 (d) 2.5
+
+<details><summary>Answer</summary>(b)</details>

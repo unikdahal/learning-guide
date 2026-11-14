@@ -1,0 +1,166 @@
+---
+title: "4. Inheritance, polymorphism and operator overloading"
+description: Unary and binary operator overloading (member and friend, prefix and postfix), data conversion, inheritance types and visibility modes, constructor and destructor order, multipath (diamond) inheritance and virtual base classes, virtual functions and dynamic binding, overriding vs overloading, pure virtual functions and abstract classes, and virtual destructors — with compiled outputs.
+sidebar:
+  label: "4. Inheritance, polymorphism"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** predict constructor/destructor order and virtual calls, explain the diamond problem, and overload operators correctly.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 3.4–3.5** (operator overloading, data conversion, inheritance types, constructor/destructor order, virtual functions, dynamic binding). The model paper asks what operator overloading means, the effect of method overriding, and how a virtual function is declared. **Lok Sewa CE unit 6** — "polymorphism and inheritance with examples" is reported for CE 2079 (answered in lesson 6).
+</Aside>
+
+## 1. Operator overloading
+
+**Operator overloading** gives an existing operator a user-defined meaning for class types (`c1 + c2` for complex numbers) — compile-time polymorphism. Syntax: `ReturnType operator symbol (parameters)`.
+
+```cpp
+class Complex {
+    double re, im;
+public:
+    Complex(double r = 0, double i = 0) : re(r), im(i) {}
+    Complex operator+(const Complex& o) const { return Complex(re + o.re, im + o.im); }  // binary, member
+    Complex& operator++()    { ++re; return *this; }                                     // prefix ++c
+    Complex  operator++(int) { Complex t = *this; ++re; return t; }                      // postfix c++ (dummy int)
+    friend ostream& operator<<(ostream& os, const Complex& c) { return os << c.re << "+" << c.im << "i"; }
+};
+
+Complex x(1, 2), y(3, 4);
+cout << x + y;      // 4+6i
+cout << x++;        // 1+2i  (returns the old value; x is now 2+2i)
+cout << ++x;        // 3+2i
+```
+
+Rules:
+- A **member** binary operator takes **one** argument (the left operand is `*this`); a **friend** binary operator takes **two**. Member unary: none; friend unary: one.
+- Operators that **can't be overloaded:** `::` (scope), `.` (member access), `.*`, `?:` (ternary), `sizeof`, `typeid`.
+- `=`, `()`, `[]`, `->` must be **members**. `<<` and `>>` for streams must be **non-members** (usually friends), since the left operand is a stream.
+- You can't create new operators or change precedence, associativity or arity.
+
+## 2. Data conversion
+
+| Conversion | How |
+| --- | --- |
+| basic → class | a **constructor** taking the basic type: `Meter(double v)` lets `Meter m = 5.5;` |
+| class → basic | a **conversion operator**: `operator double() const { return m; }` lets `double d = m;` (prints 5.5) |
+| class → class | a constructor in the destination class taking the source, **or** a conversion operator in the source class |
+
+Mark single-argument constructors `explicit` to prevent unwanted implicit conversions.
+
+## 3. Inheritance
+
+A **derived** class acquires the members of a **base** class ("is-a"): reuse and extension.
+
+**Types:** **single** (A → B), **multiple** (A, B → C), **multilevel** (A → B → C), **hierarchical** (A → B, A → C), **hybrid** (a combination), **multipath** (D inherits from B and C, which both inherit from A — the **diamond**).
+
+**Visibility modes** — how base members appear in the derived class:
+
+| Base member | public inheritance | protected inheritance | private inheritance |
+| --- | --- | --- | --- |
+| public | public | protected | private |
+| protected | protected | protected | private |
+| private | **not accessible** | not accessible | not accessible |
+
+Private base members are always inherited but **never directly accessible** in the derived class.
+
+### Constructor and destructor order
+
+**Constructors run base → derived; destructors run derived → base.** In multiple inheritance, bases construct in the order they're **listed in the class declaration**.
+
+```cpp
+struct Base    { Base()    { cout << "Base() "; }    virtual ~Base()    { cout << "~Base() "; } };
+struct Derived : Base { Derived() { cout << "Derived() "; } ~Derived() { cout << "~Derived() "; } };
+Base* p = new Derived();   // Base() Derived()
+delete p;                  // ~Derived() ~Base()   (because ~Base is virtual)
+```
+
+Arguments reach a base constructor through the derived constructor's initialiser list: `Derived(int x) : Base(x) {}`.
+
+### Multipath (diamond) inheritance and virtual base classes
+
+```cpp
+struct A  { A()  { cout << "A "; } };
+struct B2 : A { B2() { cout << "B2 "; } };
+struct C2 : A { C2() { cout << "C2 "; } };
+struct D2 : B2, C2 { D2() { cout << "D2 "; } };     // A B2 A C2 D2  — two copies of A!
+
+struct B : virtual A { B() { cout << "B "; } };
+struct C : virtual A { C() { cout << "C "; } };
+struct D : B, C { D() { cout << "D "; } };          // A B C D       — one shared A
+```
+
+Without `virtual`, D2 contains **two A sub-objects** — wasted space and **ambiguity** (`d2.member_of_A` won't compile). Declaring A as a **virtual base class** makes B and C share one A; the most-derived class constructs it first.
+
+## 4. Polymorphism: virtual functions and dynamic binding
+
+**Polymorphism** = "many forms": **compile-time** (function and operator overloading, templates) vs **run-time** (virtual functions).
+
+```cpp
+struct Base    { void show() { cout << "Base::show "; }    virtual void vshow() { cout << "Base::vshow "; } };
+struct Derived : Base { void show() { cout << "Derived::show "; } void vshow() override { cout << "Derived::vshow "; } };
+
+Base* p = new Derived();
+p->show();    // Base::show     — non-virtual: chosen by the POINTER type at compile time (static binding)
+p->vshow();   // Derived::vshow — virtual: chosen by the OBJECT type at run time (dynamic binding)
+```
+
+- Declare with **`virtual`** in the base; a derived function with the same signature **overrides** it (`override` asks the compiler to check). Calls through a **base pointer or reference** dispatch on the actual object.
+- Implemented with a **vtable** (per class, table of function addresses) and a **vptr** in each object — so a class with virtual functions grows by a pointer (`sizeof(Base)` = 8 here: just the vptr).
+- **Overriding vs overloading:**
+
+| Overloading | Overriding |
+| --- | --- |
+| same name, **different parameters** | same name **and signature** in a derived class |
+| same scope (or class) | base and derived classes |
+| resolved at **compile time** | resolved at **run time** (if virtual) |
+| return type may differ | return type same (or covariant) |
+
+- **Effect of overriding:** the derived class's version replaces the base version for objects of the derived class — through a base pointer only if the function is virtual.
+- **Pure virtual function:** `virtual double area() = 0;` — no body required. A class with at least one is an **abstract class**: it **can't be instantiated**, only used as a base (an interface). Derived classes must override every pure virtual function to become concrete.
+- **Virtual destructor:** if you `delete` a derived object through a base pointer, the base destructor **must be virtual** — otherwise only `~Base()` runs (undefined behaviour, leaks).
+- Constructors **can't** be virtual.
+
+## Check yourself
+
+1. Operator overloading means:
+   (a) creating new operators (b) giving existing operators extra meaning for user-defined types (c) changing operator precedence (d) overloading functions only
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Which operator cannot be overloaded?
+   (a) + (b) [] (c) :: (d) `<<`
+
+<details><summary>Answer</summary>(c)</details>
+
+3. A virtual function is declared with:
+   (a) `virtual` in the base class (b) `override` in the base class (c) `static` (d) `friend`
+
+<details><summary>Answer</summary>(a)</details>
+
+4. Creating a Derived object (Derived : Base) runs constructors in the order:
+   (a) Derived, Base (b) Base, Derived (c) only Derived (d) undefined
+
+<details><summary>Answer</summary>(b)</details>
+
+5. The diamond problem is solved by:
+   (a) friend classes (b) virtual base classes (c) templates (d) static members
+
+<details><summary>Answer</summary>(b)</details>
+
+6. A class with a pure virtual function:
+   (a) can be instantiated (b) is abstract and can't be instantiated (c) must be a friend (d) has no constructor
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Under private inheritance, a public base member becomes:
+   (a) public (b) protected (c) private (d) inaccessible
+
+<details><summary>Answer</summary>(c)</details>
+
+8. The postfix `++` overload is distinguished by:
+   (a) a dummy `int` parameter (b) returning void (c) being static (d) being a friend
+
+<details><summary>Answer</summary>(a)</details>

@@ -1,0 +1,30 @@
+---
+title: "C and C++ for the exam: start here"
+description: NEC Chapter 3 and Lok Sewa CE unit 6 — C and C++ in exam form, with output-prediction traps, pointers and structures, classes, inheritance and polymorphism, templates, STL, exceptions and file streams, every output verified by compiling.
+sidebar:
+  label: "0. Start here"
+  order: 0
+---
+import { Aside } from '@astrojs/starlight/components';
+
+This course covers **NEC Chapter 3 (ACtE03, about 10 questions)** and **Lok Sewa Computer Engineer unit 6 (structured and object-oriented programming)**; Computer Officer adds a little Java and language translators, covered in lesson 6.
+
+<Aside type="note" title="Why a coder still needs this">
+You write code daily, so the risk is not ignorance — it's **exam trivia that production code avoids**: integer division and `%` with negatives, `switch` fall-through, `sizeof` on arrays vs pointers, struct padding, constructor/destructor order, which `f()` overload is chosen, `x++` vs `++x`, manipulators like `setfill`. NEC asks these as one-line MCQs. **Every output on these pages was produced by compiling and running the code** (gcc/g++ 13, 64-bit Linux), so you can trust them — sizes like `sizeof(int*)` are stated for that platform.
+</Aside>
+
+## The path
+
+| # | Lesson | Exam skill |
+| --- | --- | --- |
+| 1 | [C basics and output traps](/learning-guide/nec/cpp/01-c-basics/) | operators, precedence, I/O, control flow, functions, storage classes, recursion |
+| 2 | [Pointers, arrays, strings, structures and files](/learning-guide/nec/cpp/02-pointers-structures-files/) | pointer arithmetic, `sizeof` traps, struct vs union, file I/O |
+| 3 | [C++ classes and objects](/learning-guide/nec/cpp/03-classes-objects/) | overloading, references, constructors, `this`, static, const, friend |
+| 4 | [Inheritance, polymorphism and operator overloading](/learning-guide/nec/cpp/04-inheritance-polymorphism/) | inheritance types and order, virtual functions, abstract classes, conversions |
+| 5 | [Templates, STL, exceptions and file streams](/learning-guide/nec/cpp/05-templates-stl-exceptions/) | templates, containers, `try`/`catch`/`throw`, streams and manipulators |
+| 6 | [OOP vs structured: written answers](/learning-guide/nec/cpp/06-oop-written-answers/) | the reported CE 2079 and CO 2083 questions |
+| 7 | [Review test](/learning-guide/nec/cpp/07-review/) | 25 timed MCQs |
+
+<Aside type="tip" title="Where it fits in your plan">
+Plan v2, **Sat 19 Dec, 21:30**: lessons 1–5 at speed (predict each output before opening the answer), lesson 6's two written answers, then the review test. About 3 hours.
+</Aside>

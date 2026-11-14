@@ -1,0 +1,149 @@
+---
+title: "7. Review: 25 mixed questions"
+description: A timed mixed test across the C and C++ course — output prediction, data types, pointers, structures, files, classes, inheritance, virtual functions, templates, STL, exceptions and streams.
+sidebar:
+  label: "7. Review test"
+  order: 7
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** 25 minutes, no compiler. Your strongest chapter — aim for 24/25; every miss is a trap to remember.
+
+<Aside type="tip" title="How to use this">
+Predict before opening each answer. Outputs assume a typical 64-bit compiler (gcc/g++) unless stated.
+</Aside>
+
+## Questions
+
+1. `printf("%d", 5 / 2 + 5 % 2);` prints:
+   (a) 2 (b) 3 (c) 3.5 (d) 4
+
+<details><summary>Answer</summary>(b) 2 + 1. Lesson 1.</details>
+
+2. `int a = 5; int b = a++ * 2;` — the value of b:
+   (a) 10 (b) 12 (c) 11 (d) undefined
+
+<details><summary>Answer</summary>(a) post-increment yields 5. Lesson 1.</details>
+
+3. `printf("%d", -9 % 4);` prints:
+   (a) 1 (b) −1 (c) 3 (d) −3
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+4. Which is a valid C storage class?
+   (a) public (b) register (c) virtual (d) mutable
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+5. `switch` case labels must be:
+   (a) any expression (b) integer or character constants (c) strings (d) floats
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+6. On a 32-bit system, `sizeof(double*)` is:
+   (a) 8 (b) 4 (c) 2 (d) depends on double
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+7. `char s[] = "Nepal"; sizeof(s)` is:
+   (a) 5 (b) 6 (c) 8 (d) 4
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+8. For `int a[] = {2, 4, 6}; int *p = a + 1;`, `*p + 1` is:
+   (a) 3 (b) 5 (c) 6 (d) 4
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+9. The members of a union:
+   (a) each have their own memory (b) share the same memory (c) must be integers (d) are always public and static
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+10. `fopen("log.txt", "a")` opens the file for:
+    (a) reading (b) writing from the start (c) appending at the end (d) binary reading
+
+<details><summary>Answer</summary>(c) Lesson 2.</details>
+
+11. Which is resolved at compile time?
+    (a) virtual function calls (b) function overloading (c) dynamic_cast (d) exceptions
+
+<details><summary>Answer</summary>(b) Lessons 3–4.</details>
+
+12. A copy constructor's parameter is typically:
+    (a) the class by value (b) a const reference to the class (c) a pointer to int (d) nothing
+
+<details><summary>Answer</summary>(b) by value would recurse infinitely. Lesson 3.</details>
+
+13. A static data member is:
+    (a) separate for each object (b) shared by all objects of the class (c) only in derived classes (d) always const
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+14. `this` is:
+    (a) a reference to the base class (b) a pointer to the object invoking a member function (c) a static variable (d) available in static functions
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+15. `inline` functions mainly reduce:
+    (a) memory use (b) function-call overhead (c) compile time (d) recursion depth
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+16. Destructors in a derived-class object run in the order:
+    (a) base then derived (b) derived then base (c) undefined (d) only derived
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+17. `Base* p = new Derived(); p->f();` calls Derived::f only if f is:
+    (a) static (b) virtual in Base (c) private (d) inline
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+18. Method overriding means the derived class:
+    (a) adds a function with different parameters (b) provides its own implementation of a base function with the same signature (c) hides all base members (d) calls the base constructor
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+19. Which can't be overloaded in C++?
+    (a) == (b) ?: (c) [] (d) ()
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+20. Multipath inheritance creating two copies of a base is fixed by:
+    (a) friend (b) virtual base class (c) abstract class (d) template
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+21. `template <typename T> T sq(T x) { return x * x; }` — `sq(2.5)` returns:
+    (a) 6 (b) 6.25 (c) 5 (d) compile error
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+22. The STL container best for frequent insertion in the middle with iterators:
+    (a) vector (b) list (c) array (d) stack
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+23. A function that throws an exception nobody catches results in:
+    (a) a compile error (b) `terminate()` being called (c) the exception being ignored (d) a return value of −1
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+24. `ofstream` is derived from:
+    (a) istream (b) ostream (c) iostream (d) fstream
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+25. `cout << fixed << setprecision(1) << 2.46;` prints:
+    (a) 2.4 (b) 2.5 (c) 2.46 (d) 2
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+## Lok Sewa written practice (no notes, timed)
+
+1. **(10 marks · 16 min)** Why choose OOP over structured programming? → [Lesson 6](/learning-guide/nec/cpp/06-oop-written-answers/) (reported CE 2079)
+2. **(10 marks · 16 min)** Polymorphism and inheritance with examples. → [Lesson 6](/learning-guide/nec/cpp/06-oop-written-answers/) (reported CE 2079)
+3. **(5 marks · 8 min)** Java access modifiers; role of language translators. → [Lesson 6](/learning-guide/nec/cpp/06-oop-written-answers/) (reported CO 2083)
+
+Short notes (5 marks each): structure vs union · friend function · virtual function and dynamic binding · exception handling in C++ · file modes in C.

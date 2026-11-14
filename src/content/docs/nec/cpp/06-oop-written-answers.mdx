@@ -1,0 +1,181 @@
+---
+title: "6. OOP vs structured programming: written answers"
+description: Model answers for the reported Lok Sewa questions — why choose OOP over structured programming, polymorphism and inheritance with examples, Java access modifiers, and the role of language translators (compiler, interpreter, assembler, linker, loader).
+sidebar:
+  label: "6. Written answers"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** write the four reported Chapter 3 / unit 6 questions as full Paper II answers.
+
+<Aside type="note" title="Where this scores for you">
+**Lok Sewa CE unit 6** — "why choose OOP over structured programming?" and "polymorphism and inheritance with examples" (both reported CE 2079). **Computer Officer** — "Java access modifiers" and "role of language translators" (reported CO 2083).
+</Aside>
+
+## 1. Why choose OOP over structured programming? (10 marks · 16 minutes)
+
+<details>
+<summary>Model answer</summary>
+
+**Structured (procedural) programming** organises a program as a hierarchy of functions operating on shared data, using sequence, selection and iteration with top-down decomposition (C, Pascal). **Object-oriented programming** organises a program as a collection of **objects** that combine data and the functions that operate on it, communicating by messages (C++, Java, Python).
+
+| Basis | Structured programming | Object-oriented programming |
+| --- | --- | --- |
+| Unit of decomposition | functions (procedures) | objects / classes |
+| Approach | top-down | bottom-up (build classes, then compose) |
+| Data and functions | separate; data often global | bundled together (encapsulation) |
+| Data security | data exposed to all functions | data hidden with access specifiers |
+| Reuse | copying or calling functions | inheritance, composition, templates |
+| Extension | modify existing functions | add subclasses, override (open–closed) |
+| Polymorphism | not supported | overloading, overriding, virtual functions |
+| Modelling | models actions | models real-world entities |
+| Maintenance of large systems | harder — changes ripple through shared data | easier — changes stay inside classes |
+| Examples | C, Pascal, Fortran | C++, Java, C#, Python |
+
+**Reasons to choose OOP.**
+1. **Encapsulation and data hiding** protect data from accidental change; invariants are enforced by the class.
+2. **Abstraction** — users of a class depend only on its interface.
+3. **Reusability** through inheritance and composition reduces duplicated code and development time.
+4. **Polymorphism** lets new types be added without changing code that uses the base interface.
+5. **Modularity and maintainability** — classes map to real-world entities, so large systems are easier to understand, test and change.
+6. **Scalability and teamwork** — classes are natural units of work and of testing.
+
+**When structured programming is still preferable:** small programs, performance-critical low-level code, embedded systems with tight memory — OOP adds some overhead (indirection, larger code).
+
+</details>
+
+## 2. Polymorphism and inheritance with examples (10 marks · 16 minutes)
+
+<details>
+<summary>Model answer</summary>
+
+**Inheritance** is the mechanism by which a new class (derived class) acquires the data members and member functions of an existing class (base class), expressing an "is-a" relationship and enabling reuse and extension.
+
+```cpp
+class Shape {                       // base class
+protected:
+    std::string name;
+public:
+    Shape(std::string n) : name(n) {}
+    virtual double area() const = 0;            // pure virtual: Shape is abstract
+    virtual ~Shape() = default;
+    void describe() const { std::cout << name << " area " << area() << '\n'; }
+};
+class Circle : public Shape {       // single inheritance
+    double r;
+public:
+    Circle(double r) : Shape("Circle"), r(r) {}
+    double area() const override { return 3.14159 * r * r; }
+};
+class Rectangle : public Shape {
+    double w, h;
+public:
+    Rectangle(double w, double h) : Shape("Rectangle"), w(w), h(h) {}
+    double area() const override { return w * h; }
+};
+```
+
+**Types of inheritance:** single, multiple, multilevel, hierarchical (Circle and Rectangle from Shape, as above), hybrid; multipath (diamond) needs virtual base classes. *(Draw a small diagram of each.)* Visibility modes public, protected and private control how base members appear in the derived class. Constructors run base → derived; destructors derived → base.
+
+**Polymorphism** ("many forms") is the ability of one interface to take different forms.
+
+1. **Compile-time (static) polymorphism** — resolved by the compiler: **function overloading** (`area(int)`, `area(double, double)`), **operator overloading** (`Complex + Complex`), templates.
+2. **Run-time (dynamic) polymorphism** — resolved during execution through **virtual functions**: a base-class pointer or reference calls the derived class's overriding function.
+
+```cpp
+std::vector<std::unique_ptr<Shape>> shapes;
+shapes.push_back(std::make_unique<Circle>(1.0));
+shapes.push_back(std::make_unique<Rectangle>(2.0, 3.0));
+for (const auto& s : shapes) s->describe();
+// Circle area 3.14159
+// Rectangle area 6
+```
+
+The same call `s->describe()` → `area()` behaves differently for each object — dynamic binding through the vtable. New shapes can be added without changing this loop.
+
+**Advantages:** code reuse, extensibility, flexibility, cleaner design (one interface, many implementations).
+
+</details>
+
+## 3. Java access modifiers (5 marks · 8 minutes)
+
+<details>
+<summary>Model answer</summary>
+
+Access modifiers control the visibility of classes, fields, methods and constructors in Java.
+
+| Modifier | Same class | Same package | Subclass (other package) | Other packages |
+| --- | --- | --- | --- | --- |
+| `private` | ✓ | ✗ | ✗ | ✗ |
+| default (no keyword, package-private) | ✓ | ✓ | ✗ | ✗ |
+| `protected` | ✓ | ✓ | ✓ (through inheritance) | ✗ |
+| `public` | ✓ | ✓ | ✓ | ✓ |
+
+- A top-level class can be only `public` or default.
+- Typical use: fields `private` with `public` getters/setters (encapsulation); `protected` for members meant for subclasses.
+
+```java
+public class Account {
+    private double balance;                 // hidden
+    protected String owner;                 // visible to subclasses
+    double rate;                            // package-private
+    public double getBalance() { return balance; }
+}
+```
+
+**Contrast with C++:** C++ has no package level; it has `private` (default for class), `protected`, `public` (default for struct), and `friend` to grant access selectively. Java has no friends; packages play that role.
+
+</details>
+
+## 4. Role of language translators (5 marks · 8 minutes)
+
+<details>
+<summary>Model answer</summary>
+
+Computers execute only machine code, so programs written in other languages must be **translated**. A **language translator** converts source code into machine code (or an intermediate form), reports errors, and enables portability and productivity.
+
+1. **Assembler** — translates **assembly language** (mnemonics like `MOV A, B`) into machine code, one instruction to one machine instruction; resolves labels (two-pass assembler).
+2. **Compiler** — translates the **whole high-level program** into object/machine code **before execution**; reports all errors after analysis; the output runs fast and independently (C, C++). Phases: lexical analysis, syntax analysis, semantic analysis, intermediate code generation, optimisation, code generation.
+3. **Interpreter** — translates and executes the program **statement by statement**; stops at the first error; no separate object file; slower execution but easy debugging (Python, classic BASIC, shell scripts).
+4. **Hybrid** — Java compiles to **bytecode**, which the **JVM** interprets or JIT-compiles.
+
+**Supporting programs:** the **linker** combines object files and libraries into one executable (resolving external references); the **loader** places the executable in memory and starts it; the **preprocessor** handles `#include` and `#define` before compilation.
+
+| Compiler | Interpreter |
+| --- | --- |
+| translates the whole program at once | translates line by line |
+| generates object code | no object code |
+| faster execution | slower execution |
+| errors shown after compilation | stops at the first error |
+| more memory for object code | less memory |
+| C, C++ | Python, Ruby, BASIC |
+
+</details>
+
+## Check yourself
+
+1. Bundling data with the functions that operate on it is:
+   (a) inheritance (b) encapsulation (c) polymorphism (d) abstraction
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Run-time polymorphism in C++ is achieved through:
+   (a) function overloading (b) templates (c) virtual functions (d) operator overloading
+
+<details><summary>Answer</summary>(c)</details>
+
+3. The Java modifier allowing access within the same package only:
+   (a) private (b) default (no keyword) (c) protected (d) public
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Which translator executes a program line by line?
+   (a) compiler (b) assembler (c) interpreter (d) linker
+
+<details><summary>Answer</summary>(c)</details>
+
+5. The program that combines object files into an executable:
+   (a) loader (b) linker (c) assembler (d) preprocessor
+
+<details><summary>Answer</summary>(b)</details>
