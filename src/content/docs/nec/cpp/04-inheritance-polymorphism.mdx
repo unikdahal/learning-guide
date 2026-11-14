@@ -94,6 +94,32 @@ struct D : B, C { D() { cout << "D "; } };          // A B C D       — one sha
 
 Without `virtual`, D2 contains **two A sub-objects** — wasted space and **ambiguity** (`d2.member_of_A` won't compile). Declaring A as a **virtual base class** makes B and C share one A; the most-derived class constructs it first.
 
+### Composition ("has-a") vs inheritance ("is-a")
+
+**Composition** builds a class from **member objects** of other classes — a Car *has an* Engine. The parts are constructed **before** the whole's constructor body and destroyed **after** its destructor:
+
+```cpp
+class Engine { public: Engine() { cout << "Engine() "; } ~Engine() { cout << "~Engine() "; } void start() { cout << "vroom "; } };
+class Car {
+    Engine engine;                     // composition: lives and dies with the Car
+    std::string model;
+public:
+    Car(std::string m) : model(m) { cout << "Car() "; }
+    ~Car() { cout << "~Car() "; }
+    void drive() { engine.start(); }   // delegation
+};
+{ Car c("Swift"); c.drive(); }          // Engine() Car() vroom ~Car() ~Engine()
+```
+
+| Inheritance | Composition |
+| --- | --- |
+| "is-a" (Circle is a Shape) | "has-a" (Car has an Engine) |
+| reuse by extending the base's interface | reuse by delegating to a member |
+| fixed at compile time; tight coupling to the base | parts can be swapped (e.g. via pointers/interfaces); looser coupling |
+| supports polymorphic substitution | no substitution by itself |
+
+Guideline: **"favour composition over inheritance"** unless there's a genuine is-a relationship. **Aggregation** is the weaker form — the part can exist independently (a Department *has* Professors held by pointer/reference; deleting the department doesn't delete them). In UML: composition = filled diamond ◆, aggregation = hollow diamond ◇.
+
 ## 4. Polymorphism: virtual functions and dynamic binding
 
 **Polymorphism** = "many forms": **compile-time** (function and operator overloading, templates) vs **run-time** (virtual functions).

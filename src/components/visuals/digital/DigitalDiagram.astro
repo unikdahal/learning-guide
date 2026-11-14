@@ -2,7 +2,7 @@
 // Static diagrams for the "Digital from zero" lessons: gate-level circuits, a K-map with groups,
 // a multiplexer, an SR latch, and block diagrams of the 8085 and 8086.
 interface Props {
-  name: 'full-adder' | 'kmap' | 'mux' | 'sr-latch' | 'p8085' | 'p8086' | 'vn-harvard' | 'micro-cu';
+  name: 'full-adder' | 'kmap' | 'mux' | 'sr-latch' | 'p8085' | 'p8086' | 'vn-harvard' | 'micro-cu' | 'fsm-mealy' | 'fsm-moore';
   label: string;
 }
 const { name, label } = Astro.props;
@@ -128,6 +128,34 @@ if (name === 'full-adder') {
     w('M450 216 H530') + t(492, 208, 'control', 'c') + t(492, 238, 'signals', 'c') +
     w('M320 216 H148 V42 H165') + t(234, 234, 'next address + condition', 'c') +
     w('M225 6 V30') + t(233, 18, 'status bits (flags)', 'm') + t(112, 58, 'map', 'c');
+} else if (name === 'fsm-mealy' || name === 'fsm-moore') {
+  const mk = `<defs><marker id="${id}-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="dot"/></marker></defs>`;
+  const st = (x: number, y: number, n: string, sub = '') =>
+    `<circle class="g" cx="${x}" cy="${y}" r="24"/>` + t(x, sub ? y - 1 : y + 4.5, n, 'cb') + (sub ? t(x, y + 13, sub, 'c') : '');
+  const ar = (d: string) => `<path class="w arc" d="${d}" marker-end="url(#${id}-ah)"/>`;
+  if (name === 'fsm-mealy') {
+    vb = '0 0 560 250';
+    body = mk +
+      st(90, 120, 'S0') + st(280, 120, 'S1') + st(470, 120, 'S2') +
+      ar('M76 100 C55 45 125 45 104 100') + t(90, 40, '0/0', 'c') +
+      ar('M114 112 L254 112') + t(185, 104, '1/0', 'c') +
+      ar('M266 100 C245 45 315 45 294 100') + t(280, 40, '1/0', 'c') +
+      ar('M304 112 L444 112') + t(375, 104, '0/0', 'c') +
+      ar('M448 133 C400 170 340 170 300 136') + t(375, 172, '1/1', 'cb') +
+      ar('M466 144 C440 240 120 240 92 145') + t(280, 232, '0/0', 'c');
+  } else {
+    vb = '0 0 520 320';
+    body = mk +
+      st(90, 150, 'S0', '0') + st(260, 60, 'S1', '0') + st(430, 150, 'S2', '0') + st(260, 240, 'S3', '1') +
+      ar('M67 141 C20 115 20 185 67 159') + t(22, 150, '0', 'c') +
+      ar('M110 136 L237 72') + t(160, 92, '1', 'c') +
+      ar('M246 41 C230 -5 290 -5 274 41') + t(296, 20, '1', 'c') +
+      ar('M283 72 L409 137') + t(360, 92, '0', 'c') +
+      ar('M418 171 C380 215 330 238 284 242') + t(370, 228, '1', 'cb') +
+      ar('M281 228 C325 205 370 185 412 165') + t(338, 196, '0', 'c') +
+      ar('M260 216 L260 86') + t(270, 150, '1', 'c') +
+      ar('M445 170 C500 330 40 330 82 173') + t(260, 312, '0', 'c');
+  }
 }
 ---
 
@@ -159,6 +187,9 @@ if (name === 'full-adder') {
   }
   .dg :global(.dot) {
     fill: currentColor;
+  }
+  .dg :global(.arc) {
+    stroke-width: 1.6;
   }
   .dg :global(text) {
     fill: currentColor;

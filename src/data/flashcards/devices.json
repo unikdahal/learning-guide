@@ -1,0 +1,146 @@
+[
+ {
+  "q": "Intrinsic vs extrinsic semiconductor",
+  "a": "pure vs doped"
+ },
+ {
+  "q": "n-type doping",
+  "a": "pentavalent donor (P, As, Sb); majority carriers electrons"
+ },
+ {
+  "q": "p-type doping",
+  "a": "trivalent acceptor (B, Al, Ga, In); majority carriers holes"
+ },
+ {
+  "q": "Cut-in (knee) voltage",
+  "a": "silicon ≈ 0.7 V, germanium ≈ 0.3 V"
+ },
+ {
+  "q": "Reverse-biased diode",
+  "a": "depletion layer widens; tiny leakage current until breakdown"
+ },
+ {
+  "q": "Diode current equation",
+  "a": "I = I_s(e^(V/ηV_T) − 1), V_T ≈ 26 mV at room temperature"
+ },
+ {
+  "q": "Half-wave rectifier: Vdc, ripple, efficiency",
+  "a": "Vm/π; ripple factor 1.21; max efficiency 40.6%"
+ },
+ {
+  "q": "Full-wave rectifier: Vdc, ripple, efficiency",
+  "a": "2Vm/π; ripple factor 0.48; max efficiency 81.2%"
+ },
+ {
+  "q": "PIV: half-wave, centre-tap, bridge",
+  "a": "Vm, 2Vm, Vm"
+ },
+ {
+  "q": "Output ripple frequency (50 Hz mains)",
+  "a": "half-wave 50 Hz; full-wave 100 Hz"
+ },
+ {
+  "q": "Zener diode use",
+  "a": "voltage regulator — operated in reverse breakdown"
+ },
+ {
+  "q": "BJT current relation",
+  "a": "I_E = I_B + I_C"
+ },
+ {
+  "q": "α and β",
+  "a": "α = I_C/I_E, β = I_C/I_B, β = α/(1 − α)"
+ },
+ {
+  "q": "BJT active region biasing",
+  "a": "base–emitter forward, base–collector reverse"
+ },
+ {
+  "q": "Saturation vs cut-off",
+  "a": "saturation: both junctions forward (switch ON); cut-off: both reverse (OFF)"
+ },
+ {
+  "q": "CE amplifier",
+  "a": "high voltage and current gain; 180° phase shift — most used"
+ },
+ {
+  "q": "CC amplifier (emitter follower)",
+  "a": "voltage gain ≈ 1, high input / low output impedance — buffer"
+ },
+ {
+  "q": "CB amplifier",
+  "a": "current gain < 1, low input impedance, high frequency"
+ },
+ {
+  "q": "Most stable BJT bias",
+  "a": "voltage-divider (self) bias"
+ },
+ {
+  "q": "Q-point",
+  "a": "DC operating point (I_CQ, V_CEQ) on the load line"
+ },
+ {
+  "q": "FET vs BJT",
+  "a": "FET: voltage-controlled, unipolar, very high input impedance; BJT: current-controlled, bipolar"
+ },
+ {
+  "q": "Enhancement MOSFET",
+  "a": "no channel at V_GS = 0; needs V_GS > V_T to conduct"
+ },
+ {
+  "q": "CMOS inverter static power",
+  "a": "almost zero — one transistor is always off"
+ },
+ {
+  "q": "Class A / B / AB / C conduction angle",
+  "a": "360° / 180° / between 180° and 360° / < 180°"
+ },
+ {
+  "q": "Maximum efficiency: class A, class B",
+  "a": "25% (resistive load; 50% transformer-coupled); 78.5%"
+ },
+ {
+  "q": "Crossover distortion occurs in…",
+  "a": "class B — fixed by class AB biasing"
+ },
+ {
+  "q": "Negative feedback gain",
+  "a": "A_f = A/(1 + Aβ) — lower gain, wider bandwidth, less distortion"
+ },
+ {
+  "q": "Ideal op-amp",
+  "a": "infinite gain, R_in = ∞, R_out = 0, infinite bandwidth, CMRR = ∞"
+ },
+ {
+  "q": "Inverting amplifier gain",
+  "a": "−R_f/R₁"
+ },
+ {
+  "q": "Non-inverting amplifier gain",
+  "a": "1 + R_f/R₁"
+ },
+ {
+  "q": "Virtual ground",
+  "a": "inverting input at 0 V when the non-inverting input is grounded (negative feedback)"
+ },
+ {
+  "q": "CMRR",
+  "a": "A_d/A_cm — ability to reject common-mode signals"
+ },
+ {
+  "q": "Barkhausen criterion",
+  "a": "loop gain Aβ = 1 and total phase shift 0° (360°)"
+ },
+ {
+  "q": "RC phase-shift oscillator",
+  "a": "3 RC sections × 60°; f = 1/(2πRC√6); needs gain ≥ 29"
+ },
+ {
+  "q": "Wien-bridge oscillator",
+  "a": "f = 1/(2πRC); amplifier gain 3"
+ },
+ {
+  "q": "Crystal oscillator advantage",
+  "a": "very high frequency stability (high Q)"
+ }
+]

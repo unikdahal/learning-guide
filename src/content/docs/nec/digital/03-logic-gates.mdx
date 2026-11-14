@@ -56,6 +56,31 @@ A **buffer** (Y = A) is a NOT without the inversion — used to boost drive stre
 - Any unused AND/NAND input should be tied HIGH; unused OR/NOR inputs tied LOW (floating CMOS inputs misbehave).
 - **Bubbled gates:** a NAND is equivalent to an OR with inverted inputs; a NOR is equivalent to an AND with inverted inputs (De Morgan, next lesson).
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Why are NAND and NOR called universal gates? Realise NOT, AND and OR using NAND gates only.
+
+<details>
+<summary>Model answer</summary>
+
+A gate is **universal** if any Boolean function can be implemented using only that gate type. Since every function can be written with AND, OR and NOT, it is enough to build these three from NAND (or from NOR). This matters in practice: an IC family can be built from one gate type (NAND is cheapest in CMOS and TTL).
+
+**Using NAND only** (Y = (AB)'): *(draw each circuit)*
+1. **NOT:** tie both inputs together: (A·A)' = **A'**.
+2. **AND:** NAND followed by a NAND-inverter: ((AB)')' = **AB** — two gates.
+3. **OR:** invert each input with a NAND, then NAND them: (A'·B')' = A + B by De Morgan — **three gates**.
+
+**Using NOR only** (dual): NOT = (A + A)'; OR = NOR followed by an inverter; AND = NOR of the inverted inputs: (A' + B')' = AB.
+
+| Function | NAND gates needed | NOR gates needed |
+| --- | --- | --- |
+| NOT | 1 | 1 |
+| AND | 2 | 3 |
+| OR | 3 | 2 |
+| XOR | 4 | 5 |
+
+</details>
+
 ## Check yourself
 
 1. The minimum number of NOR gates needed to make an AND gate is:

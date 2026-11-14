@@ -1,0 +1,154 @@
+---
+title: "9b. State machines: analysing and designing sequential circuits"
+description: Synchronous sequential circuits as finite state machines — Mealy vs Moore, state tables and state diagrams, analysing a given circuit, designing a 101 sequence detector both ways with D flip-flops (verified by simulation), state reduction and state assignment.
+sidebar:
+  label: "9b. State machines"
+  order: 9.5
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DigitalDiagram from '@components/visuals/digital/DigitalDiagram.astro';
+
+**Goal:** turn a sequential circuit into a state table and diagram, and design a sequence detector from a word description — the general method behind the counter design in lesson 9.
+
+<Aside type="note" title="Where this scores for you">
+**Lok Sewa CE unit 2** names "sequential circuits, state tables" explicitly, and **unit 3** "sequential logic"; "design a sequence detector" and "Mealy vs Moore" are standard written questions. NEC 2.3 asks it only as MCQs. Counters (lesson 9) are the special case where the machine has **no input** besides the clock.
+</Aside>
+
+## 1. Finite state machines
+
+A synchronous sequential circuit = **flip-flops** (the state memory) + **combinational logic** that computes the **next state** and the **outputs**. With n flip-flops it has at most 2ⁿ states. Every clock edge, the state moves to the next state computed from the present state and inputs.
+
+| | **Moore machine** | **Mealy machine** |
+| --- | --- | --- |
+| Output depends on | present **state only** | present state **and present input** |
+| Output written | inside the state circle (S3/1) | on the transition arc (input/output, 1/1) |
+| Output changes | only at clock edges — synchronous, glitch-free | as soon as the input changes — can glitch |
+| Number of states | usually **more** | usually **fewer** for the same job |
+| Response | one clock later | in the same cycle |
+
+## 2. Analysing a given circuit
+
+**Procedure:** (1) write the flip-flop **input equations** and output equation from the logic; (2) get **next-state equations** (for D flip-flops, Q⁺ = D; for JK use Q⁺ = JQ' + K'Q; for T, Q⁺ = T ⊕ Q); (3) fill the **state table**; (4) draw the **state diagram**.
+
+**Example (Mano).** Two D flip-flops A and B, input x, output y:
+A⁺ = Ax + Bx · B⁺ = A'x · y = (A + B)x'
+
+| Present AB | Next AB (x = 0) | Next AB (x = 1) | y (x = 0) | y (x = 1) |
+| --- | --- | --- | --- | --- |
+| 00 | 00 | 01 | 0 | 0 |
+| 01 | 00 | 11 | 1 | 0 |
+| 10 | 00 | 10 | 1 | 0 |
+| 11 | 00 | 10 | 1 | 0 |
+
+The output depends on x, so this is a **Mealy** machine. Reading it: any 0 input sends the machine back to 00 and outputs 1 if it had seen at least one 1 since the last 0.
+
+## 3. Designing a sequence detector
+
+**Problem.** Output z = 1 whenever the last three input bits were **1 0 1** (overlapping allowed — the final 1 can start the next pattern).
+
+**Design procedure:** (1) state diagram from the word description; (2) state table; (3) state reduction; (4) **state assignment** (binary codes); (5) flip-flop excitations (D: D = Q⁺; JK/T: the excitation tables of lesson 8); (6) K-maps for each flip-flop input and the output; (7) draw the circuit.
+
+### Mealy version — three states
+
+S0 = nothing useful seen · S1 = seen "1" · S2 = seen "10".
+
+<Figure caption="Mealy 101 detector: arcs are labelled input/output; the 1/1 arc from S2 is the detection.">
+  <DigitalDiagram name="fsm-mealy" label="Mealy state diagram with states S0, S1, S2. S0 loops on 0/0 and goes to S1 on 1/0. S1 loops on 1/0 and goes to S2 on 0/0. S2 goes back to S1 on 1/1 (detection) and to S0 on 0/0." />
+</Figure>
+
+Assign S0 = 00, S1 = 01, S2 = 10 (Q₁Q₀); 11 is unused (don't care).
+
+| Present Q₁Q₀ | x | Next Q₁Q₀ | z |
+| --- | --- | --- | --- |
+| 00 | 0 | 00 | 0 |
+| 00 | 1 | 01 | 0 |
+| 01 | 0 | 10 | 0 |
+| 01 | 1 | 01 | 0 |
+| 10 | 0 | 00 | 0 |
+| 10 | 1 | 01 | **1** |
+
+With D flip-flops (D = next state) and K-maps using the don't-cares:
+**D₁ = Q₀x' · D₀ = x · z = Q₁x**
+
+### Moore version — four states
+
+The output must belong to a state, so add **S3 = "101 just seen"** with output 1.
+
+<Figure caption="Moore 101 detector: outputs are written inside the states; only S3 outputs 1.">
+  <DigitalDiagram name="fsm-moore" label="Moore state diagram with states S0/0, S1/0, S2/0, S3/1. S0 loops on 0 and goes to S1 on 1. S1 loops on 1 and goes to S2 on 0. S2 goes to S3 on 1 and back to S0 on 0. S3 goes to S1 on 1 and to S2 on 0." />
+</Figure>
+
+Assign S0 = 00, S1 = 01, S2 = 10, S3 = 11:
+
+| Present | Next (x = 0) | Next (x = 1) | z |
+| --- | --- | --- | --- |
+| S0 = 00 | 00 | 01 | 0 |
+| S1 = 01 | 10 | 01 | 0 |
+| S2 = 10 | 00 | 11 | 0 |
+| S3 = 11 | 10 | 01 | **1** |
+
+**D₁ = Q₀x' + Q₁Q₀'x · D₀ = x · z = Q₁Q₀**
+
+**Check by simulation** (both designs were simulated in code on the input 0110101101): the output is **0000101001** for both — a 1 exactly where the last three inputs were 101 (positions 5, 7 and 10; note the overlap at 7). The Mealy output appears in the same clock as the final 1; the Moore output appears once the machine has entered S3.
+
+## 4. State reduction and assignment
+
+**State reduction:** two states are **equivalent** if, for every input, they give the **same output** and go to the **same (or equivalent) next states**. Merge equivalent states — fewer states can mean fewer flip-flops (⌈log₂ states⌉) and simpler logic. Methods: **row matching** on the state table, or the **implication table** for harder cases.
+
+*Tiny example:* if states P and Q both output 0, both go to R on 0 and to S on 1, then P ≡ Q; replace every Q with P.
+
+**State assignment:** choosing binary codes affects the logic size. Options: sequential binary (as above), **Gray code** (adjacent states differ in one bit — fewer hazards), **one-hot** (one flip-flop per state — more flip-flops, very simple logic; common in FPGAs).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Differentiate Mealy and Moore machines. Design a Mealy-type sequence detector that outputs 1 when the sequence 101 is detected (overlapping allowed), using D flip-flops.
+
+<details>
+<summary>Model answer</summary>
+
+**Mealy vs Moore.** *(Present the comparison table from section 1.)* In a Moore machine the output is a function of the present state only (z = f(Q)); in a Mealy machine it is a function of the present state and present input (z = f(Q, x)). Mealy machines usually need fewer states and respond in the same clock cycle; Moore outputs are synchronous and glitch-free.
+
+**Design.**
+1. **States:** S0 — initial/no part of the sequence; S1 — "1" received; S2 — "10" received.
+2. **State diagram:** *(draw as in the lesson: S0 –0/0→ S0, S0 –1/0→ S1, S1 –1/0→ S1, S1 –0/0→ S2, S2 –1/1→ S1, S2 –0/0→ S0.)* After detection the machine goes to S1, because the final 1 begins a new sequence (overlap).
+3. **State assignment:** S0 = 00, S1 = 01, S2 = 10; 11 unused.
+4. **State table with D excitations:** *(the six-row table from the lesson; D inputs equal the next-state bits.)*
+5. **K-maps (Q₁, Q₀, x; 11 as don't care):** D₁ = Q₀x'; D₀ = x; z = Q₁x.
+6. **Circuit:** two D flip-flops on a common clock; D₁ from an AND gate of Q₀ and x'; D₀ connected directly to x; output z from an AND gate of Q₁ and x. *(Draw.)*
+
+**Verification:** input 0110101101 gives output 0000101001.
+
+</details>
+
+## Check yourself
+
+1. In a Moore machine, the output depends on:
+   (a) present input only (b) present state only (c) present state and input (d) next state
+
+<details><summary>Answer</summary>(b)</details>
+
+2. A Mealy machine's outputs are written:
+   (a) inside the states (b) on the transitions, as input/output (c) in the flip-flops (d) nowhere
+
+<details><summary>Answer</summary>(b)</details>
+
+3. A machine with 6 states needs at least how many flip-flops (binary encoding)?
+   (a) 2 (b) 3 (c) 6 (d) 4
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Two states are equivalent if they have:
+   (a) the same binary code (b) the same outputs and equivalent next states for every input (c) the same number of arcs (d) self-loops
+
+<details><summary>Answer</summary>(b)</details>
+
+5. One-hot state assignment uses:
+   (a) ⌈log₂ n⌉ flip-flops (b) one flip-flop per state (c) no flip-flops (d) Gray code only
+
+<details><summary>Answer</summary>(b)</details>
+
+6. For a D flip-flop, the excitation input equals:
+   (a) the present state (b) the next state (c) the output (d) the complement of the next state
+
+<details><summary>Answer</summary>(b)</details>

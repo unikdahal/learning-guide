@@ -1,0 +1,174 @@
+[
+ {
+  "q": "(25)₁₀ in binary, octal, hex",
+  "a": "11001, 31, 19"
+ },
+ {
+  "q": "8-bit two's complement range",
+  "a": "−128 to +127"
+ },
+ {
+  "q": "Two's complement of a number",
+  "a": "invert all bits, add 1"
+ },
+ {
+  "q": "Signed overflow occurs when…",
+  "a": "adding two same-sign numbers gives the opposite sign (carry-in to MSB ≠ carry-out)"
+ },
+ {
+  "q": "BCD of 59",
+  "a": "0101 1001"
+ },
+ {
+  "q": "Gray code property",
+  "a": "adjacent values differ in exactly one bit"
+ },
+ {
+  "q": "Universal gates",
+  "a": "NAND and NOR"
+ },
+ {
+  "q": "XOR output is 1 when…",
+  "a": "an odd number of inputs are 1"
+ },
+ {
+  "q": "De Morgan's theorems",
+  "a": "(AB)' = A' + B';  (A + B)' = A'B'"
+ },
+ {
+  "q": "Absorption",
+  "a": "A + AB = A;  A(A + B) = A"
+ },
+ {
+  "q": "A + A'B =",
+  "a": "A + B"
+ },
+ {
+  "q": "K-map group of 2ⁿ cells eliminates…",
+  "a": "n variables"
+ },
+ {
+  "q": "Half adder",
+  "a": "S = A ⊕ B, C = AB"
+ },
+ {
+  "q": "Full adder",
+  "a": "S = A ⊕ B ⊕ Cin, Cout = AB + Cin(A ⊕ B)"
+ },
+ {
+  "q": "Why carry-lookahead?",
+  "a": "computes carries in parallel — faster than ripple carry"
+ },
+ {
+  "q": "Select lines of an 8:1 MUX",
+  "a": "3"
+ },
+ {
+  "q": "Decoder with n inputs has…",
+  "a": "2ⁿ outputs"
+ },
+ {
+  "q": "SR latch invalid input (NOR)",
+  "a": "S = R = 1"
+ },
+ {
+  "q": "JK with J = K = 1",
+  "a": "toggles"
+ },
+ {
+  "q": "JK characteristic equation",
+  "a": "Q⁺ = JQ' + K'Q"
+ },
+ {
+  "q": "Race-around condition fixed by…",
+  "a": "master–slave or edge-triggered flip-flops"
+ },
+ {
+  "q": "Flip-flops for mod-10",
+  "a": "4"
+ },
+ {
+  "q": "Ring vs Johnson counter states (n flip-flops)",
+  "a": "n vs 2n"
+ },
+ {
+  "q": "Mealy vs Moore output",
+  "a": "Mealy: state + input; Moore: state only"
+ },
+ {
+  "q": "Fastest logic family / lowest power",
+  "a": "ECL / CMOS"
+ },
+ {
+  "q": "TTL noise margin",
+  "a": "0.4 V"
+ },
+ {
+  "q": "DRAM vs SRAM",
+  "a": "DRAM: capacitor, needs refresh, dense (main memory); SRAM: flip-flop, fast (cache)"
+ },
+ {
+  "q": "EPROM vs EEPROM erase",
+  "a": "UV light vs electrically"
+ },
+ {
+  "q": "Address lines for 4K × 8",
+  "a": "12"
+ },
+ {
+  "q": "Fastest ADC",
+  "a": "flash; SAR takes n clock cycles"
+ },
+ {
+  "q": "DAC resolution",
+  "a": "V_ref/2ⁿ"
+ },
+ {
+  "q": "8085: data bus, address bus, memory",
+  "a": "8-bit, 16-bit, 64 KB"
+ },
+ {
+  "q": "8085 flags",
+  "a": "S, Z, AC, P, CY"
+ },
+ {
+  "q": "8085 pin that demultiplexes AD0–AD7",
+  "a": "ALE"
+ },
+ {
+  "q": "T-states of LDA 2050H",
+  "a": "13 (4 + 3 + 3 + 3)"
+ },
+ {
+  "q": "8086: data bus, address bus, memory",
+  "a": "16-bit, 20-bit, 1 MB"
+ },
+ {
+  "q": "8086 physical address",
+  "a": "segment × 10H + offset"
+ },
+ {
+  "q": "8086 instruction queue",
+  "a": "6 bytes, in the BIU"
+ },
+ {
+  "q": "8255 control word: all ports output, mode 0",
+  "a": "80H"
+ },
+ {
+  "q": "8085 TRAP vector, priority, maskable?",
+  "a": "0024H, highest, non-maskable"
+ },
+ {
+  "q": "RST 7.5 / 6.5 / 5.5 vectors",
+  "a": "003CH / 0034H / 002CH"
+ },
+ {
+  "q": "8086 interrupt vector table",
+  "a": "00000H–003FFH; type n at 4n"
+ },
+ {
+  "q": "During DMA the CPU…",
+  "a": "gets HOLD, replies HLDA, tri-states its buses"
+ }
+]

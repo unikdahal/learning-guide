@@ -1,0 +1,162 @@
+[
+ {
+  "q": "Model for changing requirements / high risk",
+  "a": "Agile / spiral"
+ },
+ {
+  "q": "V-model pairs requirements with…",
+  "a": "acceptance testing"
+ },
+ {
+  "q": "Elicitation",
+  "a": "gathering requirements from stakeholders"
+ },
+ {
+  "q": "Functional vs non-functional",
+  "a": "what the system does vs how well (performance, security…)"
+ },
+ {
+  "q": "Good SRS",
+  "a": "correct, unambiguous, complete, consistent, verifiable, traceable"
+ },
+ {
+  "q": "JAD roles",
+  "a": "sponsor, facilitator, users, IT analysts, scribe"
+ },
+ {
+  "q": "Feasibility types (TELOS)",
+  "a": "technical, economic, legal, operational, schedule"
+ },
+ {
+  "q": "Context diagram contains…",
+  "a": "one process, external entities, no data stores"
+ },
+ {
+  "q": "DFD balancing",
+  "a": "child diagram's inputs/outputs = parent's"
+ },
+ {
+  "q": "«include» vs «extend»",
+  "a": "always used vs optional, conditional"
+ },
+ {
+  "q": "Best cohesion / worst coupling",
+  "a": "functional / content"
+ },
+ {
+  "q": "Reference architecture",
+  "a": "generic, idealised architecture for a domain"
+ },
+ {
+  "q": "Thin vs fat client",
+  "a": "processing on server vs on client"
+ },
+ {
+  "q": "Verification vs validation",
+  "a": "built right vs right product"
+ },
+ {
+  "q": "Top-down integration uses…",
+  "a": "stubs (bottom-up uses drivers)"
+ },
+ {
+  "q": "Alpha vs beta testing",
+  "a": "developer's site vs customer's site"
+ },
+ {
+  "q": "Cyclomatic complexity",
+  "a": "E − N + 2 = P + 1 = regions"
+ },
+ {
+  "q": "Basic COCOMO organic",
+  "a": "E = 2.4·KLOC^1.05, D = 2.5·E^0.38"
+ },
+ {
+  "q": "FP value adjustment factor",
+  "a": "VAF = 0.65 + 0.01·ΣFᵢ"
+ },
+ {
+  "q": "CMMI levels",
+  "a": "initial, managed, defined, quantitatively managed, optimising"
+ },
+ {
+  "q": "Maintenance types",
+  "a": "corrective, adaptive, perfective, preventive"
+ },
+ {
+  "q": "Brooks's law",
+  "a": "adding people to a late project makes it later"
+ },
+ {
+  "q": "-7 / 2 and -7 % 2 in C",
+  "a": "-3 and -1"
+ },
+ {
+  "q": "Static local variable default and lifetime",
+  "a": "0; whole program"
+ },
+ {
+  "q": "sizeof(\"abc\") vs strlen(\"abc\")",
+  "a": "4 vs 3"
+ },
+ {
+  "q": "Pointer size on 64-bit",
+  "a": "8 bytes, whatever it points to"
+ },
+ {
+  "q": "Struct vs union size",
+  "a": "≥ sum (plus padding) vs largest member"
+ },
+ {
+  "q": "File mode that truncates",
+  "a": "\"w\""
+ },
+ {
+  "q": "Class-only access specifier",
+  "a": "private"
+ },
+ {
+  "q": "Friend function declared…",
+  "a": "inside the class with friend; it is not a member"
+ },
+ {
+  "q": "Static member function lacks…",
+  "a": "this pointer"
+ },
+ {
+  "q": "Constructor/destructor order in inheritance",
+  "a": "base → derived; derived → base"
+ },
+ {
+  "q": "Diamond problem fix",
+  "a": "virtual base class"
+ },
+ {
+  "q": "Virtual function call resolved…",
+  "a": "at run time by the object type (vtable)"
+ },
+ {
+  "q": "Abstract class",
+  "a": "has a pure virtual function (= 0); can't be instantiated"
+ },
+ {
+  "q": "Operators that can't be overloaded",
+  "a": "::  .  .*  ?:  sizeof"
+ },
+ {
+  "q": "Uncaught exception",
+  "a": "std::terminate() → abort"
+ },
+ {
+  "q": "ifstream / ofstream",
+  "a": "read / write"
+ },
+ {
+  "q": "Composition vs inheritance",
+  "a": "has-a vs is-a"
+ },
+ {
+  "q": "Compiler vs interpreter",
+  "a": "whole program to object code vs line by line"
+ }
+]

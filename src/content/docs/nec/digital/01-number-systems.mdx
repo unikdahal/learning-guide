@@ -80,6 +80,29 @@ Some fractions never end (0.1₁₀ = 0.000110011…₂) — the reason `0.1 + 0
 - Group bits from the **binary point** outward.
 - Hex digits A–F = 10–15; "2FH" — the H means hexadecimal.
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Convert (156.625)₁₀ into binary, octal and hexadecimal, showing the method.
+
+<details>
+<summary>Model answer</summary>
+
+**Integer part — repeated division by 2** (remainders read bottom to top):
+156 ÷ 2 = 78 r0; 78 ÷ 2 = 39 r0; 39 ÷ 2 = 19 r1; 19 ÷ 2 = 9 r1; 9 ÷ 2 = 4 r1; 4 ÷ 2 = 2 r0; 2 ÷ 2 = 1 r0; 1 ÷ 2 = 0 r1 → **10011100**.
+
+**Fraction part — repeated multiplication by 2** (integer parts read top to bottom):
+0.625 × 2 = 1.25 → 1; 0.25 × 2 = 0.5 → 0; 0.5 × 2 = 1.0 → 1 → **.101**.
+
+**Binary:** (156.625)₁₀ = **(10011100.101)₂**.
+
+**Octal** — group bits in threes from the binary point: 010 011 100 . 101 → **(234.5)₈**.
+
+**Hexadecimal** — group in fours: 1001 1100 . 1010 → **(9C.A)₁₆**.
+
+**Check:** 9 × 16 + 12 + 10/16 = 144 + 12 + 0.625 = 156.625 ✓.
+
+</details>
+
 ## Check yourself
 
 1. 101101₂ in decimal is:

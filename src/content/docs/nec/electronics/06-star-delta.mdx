@@ -87,6 +87,29 @@ Three-phase power (lesson coming in Part 4) uses star and delta connections of g
 - Using the wrong pair in the delta → star numerator: it's the two resistors **touching** that terminal.
 - Forgetting the bridge balance check before doing a long conversion.
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Derive the formulas for converting a delta network into an equivalent star network.
+
+<details>
+<summary>Model answer</summary>
+
+Two networks are equivalent if the resistance measured between **any pair of terminals** (with the third open) is the same. *(Draw the delta Rab, Rbc, Rca and the star Ra, Rb, Rc between terminals a, b, c.)*
+
+Between a and b: star gives Ra + Rb; delta gives Rab in parallel with (Rbc + Rca). Let S = Rab + Rbc + Rca.
+
+1. Ra + Rb = Rab(Rbc + Rca) / S
+2. Rb + Rc = Rbc(Rca + Rab) / S
+3. Rc + Ra = Rca(Rab + Rbc) / S
+
+Add (1) and (3) and subtract (2): 2Ra = [Rab·Rbc + Rab·Rca + Rca·Rab + Rca·Rbc − Rbc·Rca − Rbc·Rab] / S = 2·Rab·Rca / S.
+
+**Ra = Rab·Rca / S**, and similarly **Rb = Rab·Rbc / S**, **Rc = Rbc·Rca / S** — each star arm is the product of the two delta resistors touching that terminal divided by the sum of all three. For equal resistors, R_star = R_delta / 3.
+
+(The reverse, star → delta: Rab = (RaRb + RbRc + RcRa) / Rc, etc.)
+
+</details>
+
 ## Check yourself
 
 1. Three 9 Ω resistors in delta are equivalent to a star of:

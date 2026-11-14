@@ -1,0 +1,201 @@
+---
+// Flashcard deck: one card at a time — think of the answer, reveal it, then mark "Knew it" or
+// "Again". Missed cards come back at the end of the round; progress is remembered in this
+// browser. The full list is also rendered below for printing or a quick scan.
+interface Card {
+  q: string;
+  a: string;
+}
+interface Props {
+  id: string;
+  cards: Card[];
+}
+const { id, cards } = Astro.props;
+---
+
+<qe-flash class="qe-lab qe-flash not-content" data-id={id} data-cards={JSON.stringify(cards)}>
+  <section class="qe-lab-part">
+    <div class="top">
+      <p class="qe-lab-h">Flashcards · {cards.length} cards</p>
+      <p class="prog" data-prog aria-live="polite"></p>
+    </div>
+    <div class="card" data-card>
+      <p class="side">Question</p>
+      <p class="q" data-q></p>
+      <div class="ans" data-ans hidden>
+        <p class="side">Answer</p>
+        <p class="a" data-a></p>
+      </div>
+    </div>
+    <div class="acts prose">
+      <button type="button" data-show>Show answer</button>
+      <button type="button" data-know hidden>Knew it ✓</button>
+      <button type="button" data-again hidden>Again ↻</button>
+    </div>
+    <div class="acts prose small">
+      <button type="button" data-shuffle>Shuffle</button>
+      <button type="button" data-reset>Start over</button>
+    </div>
+    <p class="qe-lab-note">Say the answer aloud (or write it) before revealing — recall, not recognition, is what sticks. Cards you miss come back at the end of the round. Progress is saved in this browser only.</p>
+  </section>
+</qe-flash>
+
+<details class="all">
+  <summary>All {cards.length} cards as a list</summary>
+  <ol>
+    {cards.map((c) => <li><strong>{c.q}</strong> — {c.a}</li>)}
+  </ol>
+</details>
+
+<script>
+  type Card = { q: string; a: string };
+  class QeFlash extends HTMLElement {
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const cards: Card[] = JSON.parse(this.dataset.cards || '[]');
+      const key = `qe-flash-${this.dataset.id}`;
+      let known = new Set<number>();
+      try {
+        known = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+      } catch {
+        /* storage unavailable */
+      }
+      const save = () => {
+        try {
+          localStorage.setItem(key, JSON.stringify([...known]));
+        } catch {
+          /* ignore */
+        }
+      };
+      let queue: number[] = [];
+      const fill = (shuffle: boolean) => {
+        queue = cards.map((_, i) => i).filter((i) => !known.has(i));
+        if (shuffle)
+          for (let i = queue.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [queue[i], queue[j]] = [queue[j], queue[i]];
+          }
+      };
+      const show = () => {
+        const ans = $('[data-ans]');
+        ans.hidden = true;
+        $('[data-show]').hidden = false;
+        $('[data-know]').hidden = true;
+        $('[data-again]').hidden = true;
+        $('[data-prog]').textContent = `${known.size} / ${cards.length} known · ${queue.length} left this round`;
+        if (!queue.length) {
+          $('[data-q]').textContent = known.size === cards.length ? 'Deck complete — every card known. Start over to review again.' : 'Round finished.';
+          $('[data-show]').hidden = true;
+          return;
+        }
+        $('[data-q]').textContent = cards[queue[0]].q;
+        $('[data-a]').textContent = cards[queue[0]].a;
+      };
+      $('[data-show]').addEventListener('click', () => {
+        $('[data-ans]').hidden = false;
+        $('[data-show]').hidden = true;
+        $('[data-know]').hidden = false;
+        $('[data-again]').hidden = false;
+        ($('[data-know]') as HTMLButtonElement).focus();
+      });
+      $('[data-know]').addEventListener('click', () => {
+        known.add(queue.shift()!);
+        save();
+        show();
+      });
+      $('[data-again]').addEventListener('click', () => {
+        queue.push(queue.shift()!);
+        show();
+      });
+      $('[data-shuffle]').addEventListener('click', () => {
+        fill(true);
+        show();
+      });
+      $('[data-reset]').addEventListener('click', () => {
+        known.clear();
+        save();
+        fill(false);
+        show();
+      });
+      fill(false);
+      show();
+    }
+  }
+  customElements.define('qe-flash', QeFlash);
+</script>
+
+<style>
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .prog {
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+    color: var(--sl-color-gray-2);
+    margin: 0;
+  }
+  .card {
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    min-height: 9rem;
+    background: var(--sl-color-gray-6);
+    margin: 0.8rem 0;
+  }
+  .side {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sl-color-gray-2);
+    margin: 0 0 0.3rem;
+  }
+  .q {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--sl-color-white);
+    margin: 0;
+  }
+  .ans {
+    border-top: 1px dashed var(--sl-color-gray-4);
+    margin-top: 0.9rem;
+    padding-top: 0.7rem;
+  }
+  .a {
+    color: var(--sl-color-white);
+    margin: 0;
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.4rem 0;
+  }
+  .acts button {
+    font: inherit;
+    font-weight: 700;
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: transparent;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .acts button[data-show],
+  .acts button[data-know] {
+    background: var(--sl-color-accent);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-black);
+  }
+  .acts.small button {
+    font-weight: 500;
+    font-size: 0.85rem;
+    padding: 0.3rem 0.8rem;
+  }
+  .all {
+    margin-top: 1rem;
+  }
+</style>

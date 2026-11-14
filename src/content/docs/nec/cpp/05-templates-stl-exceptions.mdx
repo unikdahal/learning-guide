@@ -116,6 +116,39 @@ std::cout << std::hex << 255 << std::dec;                        // ff
 - **Manipulators** (`<iomanip>` for those with arguments): `setw(n)` (width — applies to the **next** output only), `setfill(c)`, `setprecision(n)`, `fixed`, `scientific`, `left`/`right`, `hex`/`oct`/`dec`, `showpoint`, `showpos`, `endl` (newline + **flush**), `ws`.
 - **ios member functions/flags:** `cout.width(6)`, `cout.precision(3)`, `cout.fill('0')`, `cout.setf(ios::left, ios::adjustfield)`, `cout.unsetf(ios::fixed)`.
 
+## Lok Sewa: write it (5 marks · 8 minutes)
+
+**Question.** Explain exception handling in C++ with an example.
+
+<details>
+<summary>Model answer</summary>
+
+An **exception** is a run-time error or unusual condition (division by zero, invalid input, out of memory). **Exception handling** separates the error-handling code from normal code and transfers control to a handler when an error occurs. Keywords:
+- **try** — encloses code that may raise an exception.
+- **throw** — raises an exception (an object of any type).
+- **catch** — a handler for a specific exception type, placed right after the try block.
+
+```cpp
+double divide(double a, double b) {
+    if (b == 0) throw std::runtime_error("division by zero");
+    return a / b;
+}
+int main() {
+    try {
+        std::cout << divide(10, 2) << '\n';     // 5
+        std::cout << divide(1, 0) << '\n';      // throws
+    }
+    catch (const std::runtime_error& e) { std::cout << "Error: " << e.what() << '\n'; }
+    catch (...) { std::cout << "Unknown error\n"; }
+}
+```
+
+**Mechanism:** when `throw` executes, control leaves the try block; local objects are destroyed (**stack unwinding**); the first matching catch runs; execution continues after the handlers. **Multiple catch blocks** handle different types (derived before base); `catch (...)` catches everything; `throw;` inside a handler rethrows. If no handler matches, `std::terminate()` aborts the program.
+
+**Advantages:** separates error logic from normal logic, propagates errors up the call stack automatically, groups error types, and guarantees cleanup through destructors.
+
+</details>
+
 ## Check yourself
 
 1. `ifstream` is used for:

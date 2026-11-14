@@ -1,0 +1,166 @@
+---
+title: "6b. Distributed systems and clusters"
+description: What a distributed system is, goals and transparency, network vs distributed operating systems, architectures (client–server, peer-to-peer, clusters, grid, cloud), RPC in detail, clock synchronisation and Lamport clocks worked, distributed mutual exclusion, election algorithms, distributed file systems, and the CAP theorem.
+sidebar:
+  label: "6b. Distributed systems"
+  order: 6.5
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** define a distributed system and its transparencies, explain RPC step by step, compute Lamport timestamps, and compare clusters, grids and clouds.
+
+<Aside type="note" title="Where this scores for you">
+Not in NEC's syllabus, but named three times in Lok Sewa CE: **unit 1** "distributed systems, clusters", **unit 10** "distributed systems, RPC", and **unit 15** "parallel and distributed computing, distributed objects". Expect a 5- or 10-mark question; your day job (distributed query engines) gives you the intuition — this page gives the textbook names.
+</Aside>
+
+## 1. What a distributed system is
+
+A **distributed system** is a collection of **independent computers** that appears to its users as a **single coherent system** (Tanenbaum). The machines communicate only by **message passing** over a network — no shared memory or common clock.
+
+**Goals:** resource sharing, **openness** (standard interfaces), **scalability** (size, geography, administration), **fault tolerance and availability**, performance through parallelism.
+
+**Transparency** — hiding that the system is distributed:
+
+| Transparency | Hides |
+| --- | --- |
+| **Access** | differences in data representation and how a resource is accessed |
+| **Location** | where a resource is |
+| **Migration** | that a resource may move |
+| **Relocation** | that a resource moves while in use |
+| **Replication** | that copies exist |
+| **Concurrency** | that others share the resource |
+| **Failure** | failures and recovery |
+
+**Challenges:** no global clock, independent failures (partial failure), network latency and partitions, heterogeneity, security, consistency of replicated data.
+
+**Network OS vs distributed OS:** a **network operating system** runs separately on each machine; users know about the other machines and access them explicitly (remote login, file transfer). A **distributed operating system** manages all machines as one system — users don't know where processes run or files live (high transparency, e.g. Amoeba). **Middleware** (RPC, message queues, object brokers) gives distribution transparency on top of ordinary network OSes — the common real-world approach.
+
+## 2. Architectures
+
+- **Client–server** (two- and three-tier) — see [SE lesson 3](/learning-guide/nec/se/03-design/#3-architectural-design).
+- **Peer-to-peer** — every node both client and server; structured (distributed hash tables) or unstructured (flooding).
+- **Cluster computing** — a group of **tightly connected, usually identical** computers on a fast LAN, managed as one system: **high-availability clusters** (failover — a standby takes over), **load-balancing clusters** (web farms), **high-performance (HPC) clusters** (parallel jobs; Beowulf clusters of commodity PCs with MPI).
+- **Grid computing** — **loosely coupled, heterogeneous, geographically spread** resources from different organisations pooled for large tasks (scientific computing), coordinated by middleware.
+- **Cloud computing** — on-demand, elastic, metered resources over the Internet: IaaS, PaaS, SaaS; public, private, hybrid.
+
+| | Cluster | Grid | Cloud |
+| --- | --- | --- | --- |
+| Coupling | tight | loose | loose, virtualised |
+| Nodes | homogeneous, one site | heterogeneous, many organisations | provider data centres |
+| Ownership | one | many | provider; rented |
+| Use | HA, HPC, load balancing | large scientific jobs | general services, elastic scaling |
+
+## 3. Remote procedure call (RPC)
+
+**RPC** lets a program call a procedure on another machine **as if it were local**, hiding message passing.
+
+Steps for `result = add(2, 3)` on a remote server:
+1. The client calls the **client stub** like a normal procedure.
+2. The client stub **marshals** the parameters (packs them in a standard format) into a message and asks the OS to send it.
+3. The message travels over the network to the server's OS, which passes it to the **server stub**.
+4. The server stub **unmarshals** the parameters and calls the real procedure.
+5. The procedure returns its result to the server stub, which marshals it into a reply.
+6. The reply travels back; the client stub unmarshals it and returns the result to the caller.
+
+**Issues:** parameter passing (no shared address space — pointers must be copied, **call by copy/restore**); data representation (byte order — XDR, protobuf); **binding** (finding the server — a name/directory service or port mapper); **failure semantics** — **at-least-once** (retry until a reply; duplicates possible — safe only for **idempotent** operations), **at-most-once** (detect duplicates with request IDs), exactly-once (ideal, hard). **IDL** (interface definition language) generates the stubs. Modern descendants: Java RMI, gRPC, REST APIs; distributed objects via **ORBs** (CORBA, DCOM).
+
+## 4. Time and clocks
+
+There is no global clock, and physical clocks **drift**.
+
+- **Cristian's algorithm:** a client asks a time server; sets its clock to server time + round-trip/2.
+- **Berkeley algorithm:** a master polls all machines, averages, and tells each how much to adjust (no accurate time source needed).
+- **NTP:** hierarchical synchronisation across the Internet.
+
+**Lamport logical clocks** — order events without physical time. Rules: (1) increment the counter before each event; (2) send the counter with each message; (3) on receive, set counter = **max(own, received) + 1**. If event a **happened before** b (a → b), then C(a) < C(b) (the converse needn't hold; **vector clocks** capture causality exactly).
+
+**Worked.** P1: a = send m1 to P2, then b local. P2: c = receive m1, then d = send m2 to P3. P3: e local, then f = receive m2.
+- P1: a = **1** (m1 carries 1), b = **2**.
+- P2: c = max(0, 1) + 1 = **2**; d = **3** (m2 carries 3).
+- P3: e = **1**; f = max(1, 3) + 1 = **4**.
+
+## 5. Coordination
+
+**Distributed mutual exclusion:**
+
+| Algorithm | Idea | Messages per entry | Weakness |
+| --- | --- | --- | --- |
+| **Centralised** | a coordinator grants permission (request, grant, release) | 3 | coordinator is a single point of failure |
+| **Ricart–Agrawala** (distributed) | ask everyone; enter when all n − 1 reply (ties broken by Lamport timestamp) | 2(n − 1) | any crashed process blocks everyone |
+| **Token ring** | a token circulates; only its holder enters | 1 to ∞ | lost token must be detected and regenerated |
+
+**Election algorithms** (choose a new coordinator when it fails):
+- **Bully:** a process that notices the failure sends ELECTION to all higher-numbered processes; if none answers, it becomes coordinator and announces it; if one answers, that one takes over. The **highest-numbered live process wins**.
+- **Ring:** an ELECTION message circulates collecting live IDs; the highest becomes coordinator and a COORDINATOR message circulates.
+
+**Distributed file systems:** a file system spread over machines with location transparency — **NFS** (Sun; client–server, mounts remote directories; stateless server in v3), AFS (whole-file caching), HDFS/GFS (large blocks, replication across data nodes, a metadata master — the design your Spark/Iceberg stack sits on).
+
+**Replication and consistency:** replicas improve availability and read performance but must be kept consistent — strong vs **eventual** consistency. **CAP theorem:** under a network **partition**, a system must give up either **consistency** or **availability**. **Two-phase commit** coordinates atomic transactions across sites ([DBMS lesson 5](/learning-guide/nec/dbms/05-recovery-indexing/)).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is a distributed system? Explain its goals and types of transparency. Describe how a remote procedure call works.
+
+<details>
+<summary>Model answer</summary>
+
+**Distributed system.** A collection of autonomous computers, connected by a network and communicating only by message passing, coordinated by middleware so that it appears to users as a single coherent system. Examples: the web, cloud platforms, distributed databases, cluster file systems.
+
+**Goals.** (1) Resource sharing; (2) transparency; (3) openness — standard interfaces and protocols; (4) scalability in size, geography and administration; (5) fault tolerance and high availability; (6) performance through parallelism.
+
+**Transparency.** Access (uniform access to local and remote resources), location (no need to know where), migration and relocation (resources can move), replication (copies hidden), concurrency (sharing hidden), failure (faults masked).
+
+**Remote procedure call.** RPC allows a process to call a procedure located on another machine with the same syntax as a local call. *(Draw client, client stub, network, server stub, server with numbered arrows.)*
+1. The client calls the client stub locally.
+2. The client stub marshals the procedure ID and parameters into a message.
+3. The client OS sends the message to the server machine.
+4. The server OS passes it to the server stub, which unmarshals the parameters.
+5. The server stub calls the actual procedure, which executes.
+6. The result is marshalled by the server stub and sent back.
+7. The client stub unmarshals the result and returns it to the client.
+
+**Design issues:** binding to the server, parameter passing without shared memory (call by copy/restore), heterogeneous data representation (XDR), and failure semantics (at-least-once vs at-most-once; idempotent operations).
+
+</details>
+
+## Check yourself
+
+1. A distributed system's components communicate by:
+   (a) shared memory (b) message passing (c) a common clock (d) a common bus
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Hiding where a resource is physically located is:
+   (a) access transparency (b) location transparency (c) failure transparency (d) concurrency transparency
+
+<details><summary>Answer</summary>(b)</details>
+
+3. In RPC, the component that packs parameters into a message is the:
+   (a) server (b) stub (c) router (d) kernel scheduler
+
+<details><summary>Answer</summary>(b) marshalling.</details>
+
+4. With Lamport clocks, a message stamped 7 arrives at a process whose clock reads 4. The receive event gets:
+   (a) 5 (b) 7 (c) 8 (d) 11
+
+<details><summary>Answer</summary>(c) max(4, 7) + 1.</details>
+
+5. In the bully algorithm, the new coordinator is the:
+   (a) lowest-numbered process (b) highest-numbered live process (c) oldest process (d) first to notice the failure
+
+<details><summary>Answer</summary>(b)</details>
+
+6. A group of identical computers on a fast LAN acting as one system is a:
+   (a) grid (b) cluster (c) peer-to-peer network (d) WAN
+
+<details><summary>Answer</summary>(b)</details>
+
+7. At-least-once RPC semantics are safe only for:
+   (a) idempotent operations (b) all operations (c) write operations (d) none
+
+<details><summary>Answer</summary>(a)</details>
+
+8. Ricart–Agrawala needs how many messages per critical-section entry with n processes?
+   (a) 3 (b) n (c) 2(n − 1) (d) 1
+
+<details><summary>Answer</summary>(c)</details>
