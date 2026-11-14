@@ -1,0 +1,227 @@
+---
+// Static diagrams for the software-engineering course, all on one running example (an online
+// revenue payment system): context DFD, level-0 DFD, use case and sequence diagrams, plus a
+// control-flow graph for cyclomatic complexity.
+interface Props {
+  name: 'context-dfd' | 'level0-dfd' | 'usecase' | 'sequence' | 'cfg';
+  label: string;
+}
+const { name, label } = Astro.props;
+const id = `se-${name}`;
+const t = (x: number, y: number, s: string, cls = 'c') => `<text x="${x}" y="${y}" class="${cls}">${s}</text>`;
+const lines = (x: number, y: number, s: string, cls = 'c', gap = 14) =>
+  s.split('|').map((l, i, a) => t(x, y + 4.5 + (i - (a.length - 1) / 2) * gap, l, cls)).join('');
+const ext = (x: number, y: number, w: number, h: number, s: string) => `<rect class="ext" x="${x}" y="${y}" width="${w}" height="${h}"/>` + lines(x + w / 2, y + h / 2, s);
+const proc = (cx: number, cy: number, r: number, s: string) => `<circle class="proc" cx="${cx}" cy="${cy}" r="${r}"/>` + lines(cx, cy, s, 'c', 13);
+const store = (cx: number, cy: number, idt: string, s: string) =>
+  `<path class="st" d="M${cx - 70} ${cy - 15} H${cx + 70} M${cx - 70} ${cy + 15} H${cx + 70} M${cx - 70} ${cy - 15} V${cy + 15} M${cx - 42} ${cy - 15} V${cy + 15}"/>` +
+  t(cx - 56, cy + 4.5, idt, 'cb') + t(cx + 15, cy + 4.5, s);
+const arr = (d: string, cls = 'fl') => `<path class="${cls}" d="${d}" marker-end="url(#${id}-ah)"/>`;
+const lab = (x: number, y: number, s: string, cls = 'fl-l') => lines(x, y, s, cls, 12);
+const actor = (x: number, y: number, s: string) =>
+  `<circle class="act" cx="${x}" cy="${y}" r="9"/><path class="act" d="M${x} ${y + 9} V${y + 32} M${x - 14} ${y + 17} H${x + 14} M${x} ${y + 32} L${x - 11} ${y + 50} M${x} ${y + 32} L${x + 11} ${y + 50}"/>` +
+  lines(x, y + 66, s, 'c', 13);
+const uc = (cx: number, cy: number, s: string) => `<ellipse class="uc" cx="${cx}" cy="${cy}" rx="78" ry="20"/>` + lines(cx, cy, s, 'c', 12);
+
+let vb = '0 0 640 300';
+let body = '';
+
+if (name === 'context-dfd') {
+  vb = '0 0 660 300';
+  body =
+    ext(10, 125, 120, 50, 'Taxpayer') +
+    proc(330, 150, 78, '0|Online revenue|payment system') +
+    ext(530, 30, 120, 50, 'Bank / payment|gateway') +
+    ext(530, 220, 120, 50, 'Revenue officer') +
+    arr('M130 138 H252') + lab(190, 126, 'registration, tax return') +
+    arr('M252 162 H130') + lab(190, 180, 'tax due, e-receipt') +
+    arr('M392 104 L530 62') + lab(450, 66, 'payment request') +
+    arr('M530 74 L404 122') + lab(486, 112, 'confirmation') +
+    arr('M530 238 L400 186') + lab(500, 196, 'tax rates') +
+    arr('M392 196 L530 254') + lab(436, 248, 'revenue reports');
+} else if (name === 'level0-dfd') {
+  vb = '0 0 800 410';
+  body =
+    ext(10, 185, 100, 40, 'Taxpayer') +
+    proc(230, 70, 40, '1.0|Register') +
+    proc(230, 205, 40, '2.0|Assess tax') +
+    proc(610, 205, 40, '3.0|Process|payment') +
+    proc(230, 340, 40, '4.0|Issue|receipt') +
+    proc(610, 340, 40, '5.0|Generate|reports') +
+    store(425, 70, 'D1', 'Taxpayers') +
+    store(425, 205, 'D2', 'Assessments') +
+    store(425, 340, 'D3', 'Payments') +
+    ext(700, 185, 92, 40, 'Bank') +
+    ext(700, 320, 92, 40, 'Revenue|officer') +
+    arr('M45 185 V70 H190') + lab(110, 60, 'registration details') +
+    arr('M270 70 H355') + lab(312, 58, 'taxpayer record') +
+    arr('M110 205 H190') + lab(150, 196, 'tax return') +
+    arr('M390 85 L262 180') + lab(345, 128, 'profile') +
+    arr('M270 205 H355') + lab(312, 196, 'assessment') +
+    arr('M495 205 H570') + lab(532, 196, 'amount due') +
+    arr('M650 197 H700') + lab(675, 176, 'request') +
+    arr('M700 215 H650') + lab(675, 238, 'confirm') +
+    arr('M583 234 L478 323') + lab(560, 282, 'payment record') +
+    arr('M355 340 H270') + lab(312, 330, 'payment details') +
+    arr('M196 361 L60 225') + lab(96, 300, 'e-receipt') +
+    arr('M495 340 H570') + lab(532, 330, 'payments') +
+    arr('M650 340 H700') + lab(675, 312, 'reports');
+} else if (name === 'usecase') {
+  vb = '0 0 700 380';
+  body =
+    `<rect class="sys" x="150" y="12" width="400" height="356" rx="6"/>` + t(330, 32, 'Online revenue payment system', 'cb') +
+    actor(70, 120, 'Taxpayer') + actor(630, 70, 'Bank') + actor(630, 250, 'Revenue|officer') +
+    uc(320, 70, 'Register') + uc(320, 125, 'Log in') + uc(320, 180, 'File tax return') +
+    uc(320, 235, 'Pay tax') + uc(320, 290, 'Download receipt') + uc(320, 345, 'Generate reports') +
+    `<path class="as" d="M84 140 L242 72 M84 145 L242 125 M84 150 L242 178 M84 155 L242 232 M84 160 L242 287 M616 100 L398 233 M616 280 L398 343"/>` +
+    `<path class="dep" d="M398 178 C428 172 428 132 400 128" marker-end="url(#${id}-oh)"/>` + t(434, 158, '«include»', 'st2 l') +
+    `<path class="dep" d="M396 230 C530 214 530 128 402 124" marker-end="url(#${id}-oh)"/>` + t(498, 214, '«include»', 'st2 l');
+} else if (name === 'sequence') {
+  vb = '0 0 700 400';
+  const X = { tp: 65, ui: 190, pc: 335, bg: 490, db: 630 };
+  const L = [['Taxpayer', X.tp], [':PaymentUI', X.ui], [':PaymentController', X.pc], [':BankGateway', X.bg], [':PaymentDB', X.db]] as const;
+  body = L.map(([n, x]) => `<rect class="ll" x="${x - 58}" y="10" width="116" height="30" rx="4"/>` + t(x, 30, n, 'c') + `<path class="life" d="M${x} 40 V395"/>`).join('');
+  const msg = (y: number, a: number, b: number, s: string, ret = false) =>
+    `<path class="${ret ? 'ret' : 'fl'}" d="M${a} ${y} H${b}" marker-end="url(#${id}-${ret ? 'oh' : 'ah'})"/>` + t((a + b) / 2, y - 6, s, 'fl-l');
+  body +=
+    msg(70, X.tp, X.ui, '1: selectPay(id)') +
+    msg(105, X.ui, X.pc, '2: getAmountDue(id)') +
+    msg(140, X.pc, X.db, '3: findAssessment(id)') +
+    msg(175, X.db, X.pc, 'assessment', true) +
+    msg(210, X.pc, X.ui, 'amount due', true) +
+    msg(245, X.tp, X.ui, '4: confirm(card)') +
+    msg(280, X.ui, X.pc, '5: pay(id, card)') +
+    msg(315, X.pc, X.bg, '6: charge(amount, card)') +
+    msg(345, X.bg, X.pc, 'transactionId', true) +
+    msg(375, X.pc, X.db, '7: save(payment)') +
+    msg(392, X.ui, X.tp, 'e-receipt', true);
+} else {
+  vb = '0 0 380 385';
+  const N: Record<string, [number, number, string]> = {
+    '1': [150, 25, 'count = 0'], '2': [150, 85, 'i < n ?'], '3': [150, 150, 'a[i] > 0 ?'], '4': [70, 215, 'count++'],
+    '5': [230, 215, 'a[i] < 0 ?'], '6': [230, 280, 'count−−'], '7': [150, 335, 'i++'], '8': [320, 85, 'return'],
+  };
+  const e = (a: string, b: string, lbl = '') => {
+    const [x1, y1] = N[a], [x2, y2] = N[b];
+    const dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy);
+    return `<path class="fl" d="M${x1 + (dx / d) * 16} ${y1 + (dy / d) * 16} L${x2 - (dx / d) * 18} ${y2 - (dy / d) * 18}"/>`.replace('/>', ` marker-end="url(#${id}-ah)"/>`) +
+      (lbl ? t((x1 + x2) / 2 + (dx === 0 ? 10 : dy === 0 ? 0 : dx > 0 ? 10 : -10), (y1 + y2) / 2 + (dy === 0 ? -6 : 4), lbl, 'fl-l') : '');
+  };
+  body =
+    e('1', '2') + e('2', '3', 'T') + e('2', '8', 'F') + e('3', '4', 'T') + e('3', '5', 'F') + e('5', '6', 'T') + e('4', '7') + e('6', '7') +
+    `<path class="fl" d="M246 222 C300 250 290 320 166 335" marker-end="url(#${id}-ah)"/>` + t(306, 250, 'F', 'fl-l') +
+    `<path class="fl" d="M134 335 C20 330 20 100 134 87" marker-end="url(#${id}-ah)"/>` + t(40, 150, 'back', 'fl-l') +
+    Object.entries(N).map(([k, [x, y, s]]) => {
+      const pos: Record<string, [number, number, string]> = { '2': [x + 22, y - 12, 'code'], '7': [x, y + 34, 'code-c'], '8': [x, y + 32, 'code-c'] };
+      const [lx, ly, c] = pos[k] ?? [x + 22, y + 4.5, 'code'];
+      return `<circle class="nd" cx="${x}" cy="${y}" r="15"/>` + t(x, y + 4.5, k, 'cb') + t(lx, ly, s, c);
+    }).join('');
+}
+---
+
+<svg class="se" viewBox={vb} style={name === "cfg" ? "max-width: 400px" : undefined} role="img" aria-labelledby={`${id}-t`} xmlns="http://www.w3.org/2000/svg">
+  <title id={`${id}-t`}>{label}</title>
+  <defs>
+    <marker id={`${id}-ah`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah"></path></marker>
+    <marker id={`${id}-oh`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10" class="oh"></path></marker>
+  </defs>
+  <g set:html={body} />
+</svg>
+
+<style>
+  svg.se {
+    display: block;
+    width: 100%;
+    max-width: 760px;
+    height: auto;
+    margin-inline: auto;
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font);
+  }
+  svg.se :global(text) {
+    fill: currentColor;
+    font-size: 12px;
+    text-anchor: middle;
+  }
+  svg.se :global(.cb) {
+    font-weight: 700;
+  }
+  svg.se :global(.fl-l),
+  svg.se :global(.st2) {
+    font-size: 10.5px;
+    fill: var(--sl-color-gray-2);
+  }
+  svg.se :global(.st2) {
+    font-style: italic;
+  }
+  svg.se :global(.l) {
+    text-anchor: start;
+  }
+  svg.se :global(.code),
+  svg.se :global(.code-c) {
+    font-family: var(--sl-font-mono);
+    font-size: 11px;
+    fill: var(--sl-color-gray-2);
+  }
+  svg.se :global(.code) {
+    text-anchor: start;
+  }
+  svg.se :global(.ext),
+  svg.se :global(.ll) {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--qe-pipe-emit);
+    stroke-width: 1.8;
+  }
+  svg.se :global(.proc),
+  svg.se :global(.uc) {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--qe-pipe-build);
+    stroke-width: 1.8;
+  }
+  svg.se :global(.st) {
+    fill: none;
+    stroke: var(--qe-warn);
+    stroke-width: 1.8;
+  }
+  svg.se :global(.sys) {
+    fill: none;
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1.5;
+  }
+  svg.se :global(.act),
+  svg.se :global(.as) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+  }
+  svg.se :global(.fl) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+  }
+  svg.se :global(.ret),
+  svg.se :global(.dep) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.3;
+    stroke-dasharray: 5 4;
+  }
+  svg.se :global(.life) {
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.3;
+    stroke-dasharray: 4 4;
+  }
+  svg.se :global(.ah) {
+    fill: currentColor;
+  }
+  svg.se :global(.oh) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.3;
+  }
+  svg.se :global(.nd) {
+    fill: var(--sl-color-gray-6);
+    stroke: currentColor;
+    stroke-width: 1.8;
+  }
+</style>

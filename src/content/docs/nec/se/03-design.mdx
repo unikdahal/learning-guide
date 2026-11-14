@@ -1,0 +1,209 @@
+---
+title: "3. Software design"
+description: Design concepts (abstraction, modularity, information hiding, refinement), cohesion and coupling ranked, architectural styles and control styles, reference architectures, client–server tiers and distributed objects, real-time design, component-based software engineering, design for reuse and design for change, and design patterns (MVC, singleton, factory, observer) in C++.
+sidebar:
+  label: "3. Software design"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** rank the types of cohesion and coupling, name the right architecture for a scenario, and write "design for reuse and design for change" as a full answer.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 8.2** (design process and concepts, architectural design decisions, system organisation, decomposition styles, control styles, reference architectures, multiprocessor, client–server and distributed-object architectures, real-time design, CBSE); the model paper asks what a reference architecture is. **Lok Sewa CE unit 8** — "design for reuse and design for change" (reported CE 2078) — and **CE 6.5 patterns and frameworks**.
+</Aside>
+
+## 1. Design concepts
+
+- **Abstraction** — focus on essentials, hide detail (procedural, data, control abstraction).
+- **Modularity** — divide into separately named modules; cost per module falls but integration cost rises — aim for the sweet spot.
+- **Information hiding** (Parnas) — a module hides its design decisions (data structures, algorithms) behind an interface.
+- **Stepwise refinement** — elaborate top-down from a high-level statement.
+- **Separation of concerns**, **refactoring**, **functional independence** (= high cohesion + low coupling).
+
+**Design levels:** architectural design → interface design → component design → data design.
+
+## 2. Cohesion and coupling
+
+**Cohesion** — how strongly a module's elements belong together. **Aim high.** From worst to best:
+
+| Cohesion | Elements grouped because… |
+| --- | --- |
+| Coincidental (worst) | no reason ("Utils") |
+| Logical | they do similar kinds of things, selected by a flag |
+| Temporal | they run at the same time (initialisation) |
+| Procedural | they follow a sequence of steps |
+| Communicational | they use the same data |
+| Sequential | one's output is the next's input |
+| **Functional (best)** | they all contribute to **one** well-defined task |
+
+**Coupling** — how much modules depend on each other. **Aim low.** From best to worst:
+
+| Coupling | Modules share… |
+| --- | --- |
+| No coupling | nothing |
+| **Data (best)** | only elementary parameters |
+| Stamp | a whole data structure, using part of it |
+| Control | a flag that controls the other's logic |
+| External | an external format, device or protocol |
+| Common | global data |
+| **Content (worst)** | one modifies or jumps into the other's internals |
+
+Mnemonics — cohesion best → worst: **F**unctional, **S**equential, **C**ommunicational, **P**rocedural, **T**emporal, **L**ogical, **C**oincidental. Coupling best → worst: **D**ata, **S**tamp, **C**ontrol, **E**xternal, **C**ommon, **C**ontent.
+
+## 3. Architectural design
+
+**System organisation (structuring) styles:**
+- **Repository (shared data)** — subsystems share a central database (IDEs, CASE tools, a revenue system's central DB).
+- **Client–server** — services provided by servers over a network.
+- **Layered (abstract machine)** — each layer provides services to the one above (OSI, OS kernels).
+- **Pipe and filter** — data transformed through a chain of filters (compilers, Unix pipelines, ETL).
+- MVC, microservices, event-driven, peer-to-peer.
+
+**Modular decomposition:** **object-oriented** (loosely coupled objects with interfaces) or **function-oriented pipeline** (data-flow model).
+
+**Control styles:**
+- **Centralised** — one subsystem controls the others: **call–return** (top-down subroutine calls) or **manager model** (a controller starts and stops processes — concurrent systems).
+- **Event-based** — subsystems respond to external events: **broadcast** (events sent to all; interested ones handle them) or **interrupt-driven** (real-time; interrupt handlers).
+
+**Reference architecture** — an idealised, generic architecture for an **application domain** (not a specific system), used as a standard to compare and evaluate real designs and to communicate. Examples: the **OSI model**, the ECMA CASE reference model, a reference architecture for e-government portals.
+
+**Distributed architectures:**
+- **Multiprocessor** — processes allocated to processors (real-time control).
+- **Client–server.** **Two-tier:** **thin client** (all processing on the server; client only presents) vs **fat client** (application logic on the client). **Three-tier:** presentation (browser) — application logic (app server) — data (DB server); scales better, more secure. *n*-tier generalises it.
+- **Distributed objects** — objects anywhere on the network call each other through **middleware** (an object request broker — CORBA, Java RMI, DCOM; today REST/gRPC services).
+- **Inter-organisational computing** — peer-to-peer and **service-oriented architecture (SOA)**: services described and published (WSDL), invoked by standard protocols (SOAP/REST).
+
+**Real-time systems design:** must respond to stimuli within deadlines. Model as **stimulus–response** with **state machines**; architecture of **sensor → control processes → actuator**; periodic and aperiodic stimuli; an RTOS schedules processes by priority (rate-monotonic, EDF — see OS lesson 2). Monitoring and control systems, data acquisition systems.
+
+**Component-based software engineering (CBSE):** build systems by composing **independent components** with well-defined **interfaces** ("provides" and "requires"), deployed in a component model (EJB, .NET, CORBA components). Process: outline requirements → identify candidate components → modify requirements to match components → architectural design → compose. Benefits: reuse, faster delivery; risks: component trust, requirements compromise, versioning.
+
+## 4. Design for reuse and design for change
+
+**Design for reuse** — build components so they can be used in other systems:
+- **Generalise:** remove application-specific names and assumptions; parameterise (templates/generics, configuration).
+- **Well-defined, stable interfaces;** hide implementation (information hiding).
+- **High cohesion, low coupling;** few dependencies.
+- **Documentation** and **exception handling** suitable for unknown callers.
+- Package as **libraries, frameworks, components, services**; use **design patterns**; follow standards.
+- Levels of reuse: application system, component, object/function, **concept** (patterns, architectures).
+- Costs: extra effort now, finding and understanding components, maintenance of shared code.
+
+**Design for change** — make future modification cheap:
+- **Anticipate likely changes** and isolate each behind an interface (Parnas: hide each "design secret" in one module).
+- **Low coupling, high cohesion;** separation of concerns; layered architecture.
+- **Program to interfaces, not implementations**; **open–closed principle** (open for extension, closed for modification); dependency inversion.
+- **Externalise variability:** configuration files, rules tables, plug-ins.
+- Avoid hard-coded constants; keep **traceability** from requirements to design; automated **regression tests** so change is safe; refactoring.
+
+## 5. Design patterns (CE 6.5)
+
+A **design pattern** is a named, reusable solution to a common design problem in a context (Gang of Four: **creational, structural, behavioural**). A **framework** is a reusable, semi-complete application (with inversion of control — it calls your code).
+
+**MVC (model–view–controller)** — **model** (data and business rules), **view** (presentation), **controller** (handles input, updates the model and selects views). Decouples UI from logic; several views of one model. Used in web frameworks (Spring MVC, Django's MTV, Rails).
+
+```cpp
+// Singleton — exactly one instance, global access (e.g. configuration, logger)
+class Config {
+public:
+    static Config& instance() { static Config c; return c; }   // thread-safe since C++11
+    Config(const Config&) = delete;
+    Config& operator=(const Config&) = delete;
+private:
+    Config() = default;
+};
+
+// Factory — create objects without naming concrete classes
+struct Payment { virtual ~Payment() = default; virtual void pay(double amt) = 0; };
+struct CardPayment : Payment { void pay(double) override { /* charge card */ } };
+struct EBankingPayment : Payment { void pay(double) override { /* redirect to bank */ } };
+
+std::unique_ptr<Payment> makePayment(const std::string& kind) {
+    if (kind == "card") return std::make_unique<CardPayment>();
+    return std::make_unique<EBankingPayment>();
+}
+
+// Observer — subjects notify subscribers of changes (event systems, MVC views)
+struct Observer { virtual ~Observer() = default; virtual void update(double newAmount) = 0; };
+class Assessment {
+    std::vector<Observer*> observers;
+    double amount = 0;
+public:
+    void attach(Observer* o) { observers.push_back(o); }
+    void setAmount(double a) { amount = a; for (auto* o : observers) o->update(a); }
+};
+```
+
+Other common ones: **adapter** (convert one interface to another), **decorator** (add behaviour dynamically), **strategy** (swap algorithms), **facade** (simple interface to a subsystem), **proxy**, **composite**.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain design for reuse and design for change with suitable examples.
+
+<details>
+<summary>Model answer</summary>
+
+Software is rarely built once and left alone: parts of it should serve other systems (reuse), and the system itself will keep changing (maintenance). Both must be designed in from the start.
+
+**Design for reuse** means designing software artefacts so they can be used, unchanged or with minor adaptation, in other applications.
+- **Generality:** remove application-specific details and parameterise — e.g. a generic payment component taking currency and gateway as parameters rather than hard-coding "NPR" and one bank.
+- **Clear, stable interfaces with information hiding:** callers depend only on the interface.
+- **High cohesion and low coupling:** a component doing one thing with few dependencies can be lifted into another system.
+- **Robustness and documentation:** handle exceptions sensibly for unknown callers; document usage and constraints.
+- **Packaging:** libraries, frameworks, components, web services; design patterns for concept-level reuse.
+- *Example:* an authentication module designed for the revenue system reused for a land-records portal.
+- *Benefits:* lower cost, faster delivery, proven reliability, standards compliance. *Costs:* extra development effort, maintaining a shared library, finding and adapting components.
+
+**Design for change** means structuring software so that likely future changes affect as few modules as possible.
+- **Anticipate change** and encapsulate each changeable decision in one module (Parnas' information hiding) — e.g. tax rates and slabs kept in a rules table, not in code, because the Finance Act changes yearly.
+- **Low coupling, high cohesion, layered architecture** so a change in the database or UI layer doesn't ripple into business logic.
+- **Program to interfaces; open–closed principle:** add a new payment method by adding a class implementing `Payment`, without modifying existing code.
+- **Configuration over code; plug-ins.**
+- **Supporting practices:** traceability, version control, automated regression tests, refactoring.
+- *Benefits:* lower maintenance cost (maintenance is 60–80% of lifetime cost), longer system life, safer evolution.
+
+**Relationship.** Both rely on the same principles — abstraction, modularity, information hiding, low coupling and high cohesion; a component designed for change is usually easier to reuse, and vice versa.
+
+</details>
+
+## Check yourself
+
+1. The best type of cohesion is:
+   (a) logical (b) temporal (c) functional (d) coincidental
+
+<details><summary>Answer</summary>(c)</details>
+
+2. The worst type of coupling is:
+   (a) data (b) stamp (c) control (d) content
+
+<details><summary>Answer</summary>(d)</details>
+
+3. A reference architecture is:
+   (a) the architecture of one specific system (b) an idealised, generic architecture for a domain, used for comparison and guidance (c) a hardware block diagram (d) a database schema
+
+<details><summary>Answer</summary>(b)</details>
+
+4. In a thin-client model, application processing is done on the:
+   (a) client (b) server (c) both equally (d) network
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Passing a flag that decides which branch another module takes is:
+   (a) data coupling (b) control coupling (c) common coupling (d) content coupling
+
+<details><summary>Answer</summary>(b)</details>
+
+6. The pattern that guarantees a single instance is:
+   (a) factory (b) observer (c) singleton (d) adapter
+
+<details><summary>Answer</summary>(c)</details>
+
+7. A compiler's lexer → parser → code generator chain is a:
+   (a) repository architecture (b) pipe-and-filter architecture (c) peer-to-peer architecture (d) client–server architecture
+
+<details><summary>Answer</summary>(b)</details>
+
+8. The OO design principle "open for extension, closed for modification" supports:
+   (a) design for change and reuse (b) high coupling (c) the waterfall model (d) black-box testing
+
+<details><summary>Answer</summary>(a)</details>

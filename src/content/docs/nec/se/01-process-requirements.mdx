@@ -1,0 +1,154 @@
+---
+title: "1. Process models and requirements"
+description: Software characteristics and quality attributes, the generic process, waterfall, V-model, incremental, prototyping, spiral, RAD, Agile (Scrum, XP) and Big Bang models compared, CASE tools, requirement types, elicitation including JAD, the SRS, validation and management, and feasibility study.
+sidebar:
+  label: "1. Process, requirements"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** pick and justify a process model for a scenario, write the waterfall phases as a full answer, and distinguish requirement types, elicitation techniques and feasibility types.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 8.1** (software characteristics and quality attributes, process models, CASE, requirements, SRS, elicitation, validation, management); the model paper asks the name of requirements gathering and when Agile fits best. **Lok Sewa CE unit 8** — "phases of the waterfall model" (reported CE 2079) and **JAD roles** (reported CO 2083).
+</Aside>
+
+## 1. Software and its qualities
+
+**Software** = programs + documentation + configuration data. Unlike hardware it is **engineered, not manufactured**; it **doesn't wear out** but **deteriorates** through change (the "failure curve" rises with every change); most is still custom-built.
+
+**Quality attributes** (McCall / ISO 25010): correctness, **reliability**, **efficiency** (performance), **usability**, **maintainability**, portability, reusability, **security**, testability, interoperability, scalability.
+
+**Generic process framework activities:** communication, planning, modelling (analysis and design), construction (code and test), deployment. **Umbrella activities:** project tracking, risk management, SQA, technical reviews, measurement, configuration management, reusability management.
+
+## 2. Process models
+
+| Model | Shape | Use when | Weakness |
+| --- | --- | --- | --- |
+| **Waterfall** (classic life cycle) | sequential phases, each signed off | requirements **clear and stable**; small, well-understood projects | no working software until late; changes are expensive |
+| **V-model** | each development phase paired with a test phase | safety-critical, well-defined systems | rigid, like waterfall |
+| **Incremental** | deliver in increments, core first | early partial delivery is valuable | needs good up-front architecture |
+| **Prototyping** | build a quick throwaway model to clarify requirements | requirements **unclear** | customer may mistake the prototype for the product |
+| **Spiral** (Boehm) | loops of planning → **risk analysis** → engineering → evaluation | large, **high-risk** projects | needs risk expertise; costly |
+| **RAD** | component reuse, very short cycle (60–90 days) | modular systems, tight deadlines | needs skilled teams; not for high technical risk |
+| **Agile** | short iterations, working software, customer collaboration | **requirements change often**; small co-located teams | weak documentation; hard to scale or fix-price |
+| **Big Bang** | little planning; code and see | tiny, experimental, academic projects | very risky for anything real |
+
+**V-model pairs:** requirements ↔ **acceptance testing**; system design ↔ **system testing**; architectural design ↔ **integration testing**; module design ↔ **unit testing**; coding at the bottom of the V. Left side = **verification**, right side = **validation**.
+
+**Agile.** The Agile Manifesto values *individuals and interactions over processes and tools, working software over comprehensive documentation, customer collaboration over contract negotiation, responding to change over following a plan*.
+- **Scrum:** roles — **product owner** (owns the product backlog), **Scrum master** (removes impediments, coaches), development team; artefacts — product backlog, sprint backlog, increment; events — **sprint** (2–4 weeks), sprint planning, **daily stand-up**, sprint review, retrospective.
+- **XP (extreme programming):** pair programming, **test-first** development, continuous integration, refactoring, small releases, simple design, on-site customer.
+
+**CASE tools** (computer-aided software engineering): **upper CASE** (requirements, analysis, design — diagramming), **lower CASE** (code generation, testing, debugging), **integrated CASE** (both). Examples: UML modellers, version control, test automation, project management tools.
+
+## 3. Requirements
+
+**Requirements engineering** process: **feasibility study → elicitation and analysis → specification → validation**, with **requirements management** throughout.
+
+| Type | Meaning | Example (revenue system) |
+| --- | --- | --- |
+| **Functional** | what the system must do | "A taxpayer can pay tax online by card or e-banking." |
+| **Non-functional** | how well — constraints and qualities | "Payment confirmation within 3 seconds; data encrypted; available 99.5%." |
+| **Domain** | from the application domain | "Tax must be computed per the current Finance Act." |
+| **User requirements** | natural language + diagrams, for customers | |
+| **System requirements** | detailed, precise — the contract with developers | |
+
+Non-functional categories: **product** (performance, reliability, usability, security), **organisational** (standards, process, delivery), **external** (legal, ethical, interoperability).
+
+### Elicitation (requirements gathering)
+
+**Elicitation** = discovering requirements from stakeholders. Techniques: **interviews** (open/closed), questionnaires, **observation (ethnography)**, document analysis, **brainstorming**, **use cases and scenarios**, **prototyping**, and **JAD**.
+
+**JAD (joint application development):** a structured workshop where users, managers and developers define requirements together over a few intensive days.
+- **Roles:** **executive sponsor** (authority, commits resources), **facilitator / session leader** (neutral, runs the session), **users** (domain knowledge), **IT representatives / analysts** (technical feasibility), **scribe** (records decisions), **observers**.
+- **Benefits:** faster agreement, fewer misunderstandings, shared ownership. **Drawbacks:** expensive to gather people; dominant participants; needs a skilled facilitator.
+
+**Problems in elicitation:** stakeholders don't know what they want; use their own terms; conflicting requirements; political factors; requirements change.
+
+### SRS (software requirements specification)
+
+The official statement of what developers must build. Structure (IEEE 830): **1. Introduction** (purpose, scope, definitions, references, overview); **2. Overall description** (product perspective, functions, user characteristics, constraints, assumptions); **3. Specific requirements** (functional, external interfaces, performance, design constraints, quality attributes); appendices, index.
+
+**A good SRS is:** correct, **unambiguous**, complete, **consistent**, ranked for importance, **verifiable**, modifiable, **traceable**.
+
+**Interface specification:** procedural interfaces (APIs), data structures exchanged, data representations.
+
+**Validation** (are these the right requirements?): requirements **reviews**, **prototyping**, **test-case generation**; checks for validity, consistency, completeness, realism, verifiability. **Management:** requirements change — track them with IDs, **traceability** (source ↔ requirement ↔ design ↔ test) and a change-control process.
+
+## 4. Feasibility study
+
+Should we build it at all?
+- **Technical** — is the technology and expertise available?
+- **Economic** — do benefits exceed costs? (**cost–benefit analysis**, payback period, ROI, NPV)
+- **Operational** — will users and the organisation actually use it?
+- **Schedule** — can it be done in time?
+- **Legal** — contracts, regulation, data protection.
+
+(TELOS: Technical, Economic, Legal, Operational, Schedule.) Output: a feasibility report with a go/no-go recommendation.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the waterfall model with its phases. What are its advantages and disadvantages, and when is it appropriate?
+
+<details>
+<summary>Model answer</summary>
+
+**Waterfall model** (Royce, 1970; the classic life cycle) is a linear, sequential software process in which each phase must be completed and signed off before the next begins, and output flows downward like a waterfall. *(Draw the cascade of boxes with downward arrows and optional feedback arrows.)*
+
+**Phases.**
+1. **Requirements analysis and definition:** gather and document services, constraints and goals with users; output the SRS.
+2. **System and software design:** establish the overall architecture and partition requirements into hardware and software; define modules, interfaces and data structures.
+3. **Implementation and unit testing:** code the design as program units; test each unit against its specification.
+4. **Integration and system testing:** combine units, test the complete system against the requirements; deliver to the customer after acceptance.
+5. **Operation and maintenance:** install and use the system; correct errors (corrective), adapt to new environments (adaptive) and add enhancements (perfective) — usually the longest phase.
+
+**Advantages.** Simple and easy to understand and manage; clear milestones and deliverables; good documentation; works well when requirements are fixed.
+
+**Disadvantages.** Difficult to accommodate change once a phase is complete; working software appears only late; customer feedback comes late, so misunderstandings are costly; high risk for long or complex projects; testing starts late.
+
+**When to use.** Requirements are well understood and stable, technology is mature, the project is short or part of a larger engineered system (e.g. embedded), or contractual sign-offs are required.
+
+</details>
+
+## Check yourself
+
+1. The process of gathering requirements from stakeholders is:
+   (a) validation (b) elicitation (c) verification (d) specification
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The Agile model fits best when:
+   (a) requirements are fixed (b) requirements change frequently (c) the project is safety-critical with full documentation (d) there is no customer
+
+<details><summary>Answer</summary>(b)</details>
+
+3. The process model built around risk analysis is:
+   (a) waterfall (b) spiral (c) V-model (d) Big Bang
+
+<details><summary>Answer</summary>(b)</details>
+
+4. "The system shall respond within 2 seconds" is a:
+   (a) functional requirement (b) non-functional requirement (c) domain requirement (d) user story
+
+<details><summary>Answer</summary>(b)</details>
+
+5. In the V-model, requirements analysis is paired with:
+   (a) unit testing (b) integration testing (c) system testing (d) acceptance testing
+
+<details><summary>Answer</summary>(d)</details>
+
+6. In JAD, the neutral person who runs the session is the:
+   (a) executive sponsor (b) facilitator (c) scribe (d) user
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Prototyping is most useful when:
+   (a) requirements are unclear (b) the budget is unlimited (c) the system is tiny (d) requirements are frozen
+
+<details><summary>Answer</summary>(a)</details>
+
+8. Feasibility that asks "will people use it?" is:
+   (a) technical (b) economic (c) operational (d) schedule
+
+<details><summary>Answer</summary>(c)</details>

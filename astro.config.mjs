@@ -50,6 +50,7 @@ const necSidebar = [
           { label: 'DSA for the exam', items: [{ autogenerate: { directory: 'nec/dsa' } }] },
           { label: 'DBMS for the exam', items: [{ autogenerate: { directory: 'nec/dbms' } }] },
           { label: 'OS for the exam', items: [{ autogenerate: { directory: 'nec/os' } }] },
+          { label: 'Software engineering', items: [{ autogenerate: { directory: 'nec/se' } }] },
   { label: 'Chapters', items: [{ autogenerate: { directory: 'nec/chapters' } }] },
 ];
 

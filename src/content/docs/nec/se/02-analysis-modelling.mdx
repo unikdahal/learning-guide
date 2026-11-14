@@ -1,0 +1,159 @@
+---
+title: "2. Analysis modelling: DFD, use case and sequence diagrams"
+description: Structured analysis with data flow diagrams (symbols, levelling, balancing and rules) and the data dictionary, then UML — use case diagrams with include and extend, use case descriptions, sequence diagrams, and activity and state diagrams in brief — all on one running case study.
+sidebar:
+  label: "2. DFD, use case, sequence"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import SeDiagram from '@components/visuals/se/SeDiagram.astro';
+
+**Goal:** draw a correct context diagram and level-0 DFD, a use case diagram with include/extend, and a sequence diagram for a scenario — the four drawings in almost every Section D case study.
+
+<Aside type="note" title="Where this scores for you">
+**Lok Sewa CE unit 8 and Section D (20 marks)** — "school graduation DFD" (reported CE 2078); "online revenue payment: use case, sequence, ER" (reported CE 2079); "use case diagram for online shopping" (reported CO 2083). **NEC 8.4** asks which UML diagram shows user-level functions (use case) and what behaviour modelling is for.
+</Aside>
+
+## 1. Data flow diagrams (structured analysis)
+
+A DFD shows **how data moves** through a system — sources, processing, storage — **not control or timing** (no loops, decisions or sequence).
+
+**Symbols** (Gane–Sarson / Yourdon–DeMarco):
+
+| Element | Symbol | Naming |
+| --- | --- | --- |
+| **External entity** (source/sink) | rectangle | a noun — Taxpayer, Bank |
+| **Process** | circle (Yourdon) or rounded rectangle (Gane–Sarson), numbered | verb + object — "Assess tax" |
+| **Data store** | open-ended rectangle (two parallel lines), with an ID | plural noun — "D1 Taxpayers" |
+| **Data flow** | labelled arrow | the data — "tax return" |
+
+**Levels:**
+- **Context diagram (level 0 in some books):** the **whole system as one process**, with all external entities and the flows between them. **No data stores.**
+- **Level-0 (level-1 in others) DFD:** explodes the single process into the **main processes** (typically 3–9), with data stores.
+- **Level-1, 2 …:** explode an individual process further (process 3.0 → 3.1, 3.2, 3.3).
+
+<Figure caption="Context diagram: the whole revenue-payment system as one process, with its three external entities.">
+  <SeDiagram name="context-dfd" label="Context DFD. Process 0, Online revenue payment system, in the centre. Taxpayer sends registration and tax return, and receives tax due and e-receipt. Bank receives payment request and returns confirmation. Revenue officer sends tax rates and receives revenue reports." />
+</Figure>
+
+<Figure caption="Level-0 DFD: the system exploded into five processes and three data stores. Inputs and outputs balance with the context diagram.">
+  <SeDiagram name="level0-dfd" label="Level-0 DFD. Taxpayer sends registration details to 1.0 Register, which writes taxpayer records to D1 Taxpayers. Taxpayer sends a tax return to 2.0 Assess tax, which reads a profile from D1 and writes an assessment to D2 Assessments. 3.0 Process payment reads the amount due from D2, exchanges request and confirmation with the Bank, and writes a payment record to D3 Payments. 4.0 Issue receipt reads payment details from D3 and sends an e-receipt to the Taxpayer. 5.0 Generate reports reads payments from D3 and sends reports to the Revenue officer." />
+</Figure>
+
+**Rules examiners check:**
+- **Balancing:** a child diagram has exactly the same inputs and outputs as its parent process.
+- Every process has **at least one input and one output** (no "black holes" or "miracles"); a process output must be computable from its inputs ("grey hole" otherwise).
+- **Data can't flow directly** between two external entities, between two data stores, or between an entity and a store — **a process must sit in between**.
+- Data stores appear only at level 0 and below; a store used by only one process may stay hidden inside it.
+- Label every flow; number every process; don't show control (if/loop) logic.
+
+**Data dictionary:** defines every flow and store using notation `=` (is composed of), `+` (and), `[ | ]` (either/or), `{ }ⁿ` (repetition), `( )` (optional), `* *` (comment). Example: `tax return = PAN + fiscal year + income + deductions + (supporting documents)`. **Process specifications** describe each bottom-level process in structured English, decision tables or decision trees.
+
+## 2. UML use case diagrams
+
+A **use case** is a sequence of interactions that gives an **actor** a result of value. The **use case diagram** shows **user-level functions** — what the system offers to whom, not how.
+
+<Figure caption="Use case diagram: actors outside the system boundary, use cases inside; «include» points from the base use case to the included one.">
+  <SeDiagram name="usecase" label="Use case diagram. Inside a boundary labelled Online revenue payment system are use cases Register, Log in, File tax return, Pay tax, Download receipt and Generate reports. The Taxpayer actor on the left is associated with Register, Log in, File tax return, Pay tax and Download receipt. The Bank actor is associated with Pay tax; the Revenue officer with Generate reports. File tax return and Pay tax each have a dashed include arrow to Log in." />
+</Figure>
+
+- **Actor** — a role outside the system (person, organisation, another system); stick figure. **Primary** actors initiate; **secondary/supporting** actors help (the Bank).
+- **System boundary** — rectangle.
+- **Association** — a line between actor and use case.
+- **«include»** — the base use case **always** performs the included one (common steps factored out). Arrow **from base to included**: File tax return → Log in.
+- **«extend»** — the extending use case **optionally** adds behaviour at an extension point under a condition. Arrow **from the extension to the base**: "Pay penalty" → Pay tax (only if late).
+- **Generalisation** — between actors (Admin is a kind of User) or use cases.
+
+**Use case description** (fully dressed): name, actors, **preconditions**, **main success scenario** (numbered steps), **alternative flows / extensions**, **postconditions**.
+
+> **Pay tax.** Actor: Taxpayer (primary), Bank (secondary). Pre: taxpayer logged in, assessment exists. Main flow: 1. Taxpayer selects an assessment. 2. System shows the amount due. 3. Taxpayer enters card details and confirms. 4. System sends a charge request to the Bank. 5. Bank confirms. 6. System records the payment and issues an e-receipt. Extensions: 5a. Bank declines → system shows the reason; taxpayer may retry. Post: payment stored; receipt available.
+
+## 3. UML sequence diagrams
+
+Show **objects exchanging messages over time** for one scenario (usually one use case). Time runs **down**.
+
+<Figure caption="Sequence diagram for the Pay tax scenario: solid arrows are calls, dashed arrows are returns.">
+  <SeDiagram name="sequence" label="Sequence diagram with lifelines Taxpayer, PaymentUI, PaymentController, BankGateway and PaymentDB. 1 selectPay from Taxpayer to UI; 2 getAmountDue from UI to controller; 3 findAssessment from controller to DB; returns assessment and amount due. 4 confirm(card) from Taxpayer to UI; 5 pay from UI to controller; 6 charge from controller to BankGateway, returning transactionId; 7 save(payment) to PaymentDB; e-receipt returned to the Taxpayer." />
+</Figure>
+
+- **Lifeline** — object box (`:ClassName`) with a dashed line down. **Activation bar** — when it is executing.
+- **Synchronous message** — solid line, filled arrowhead. **Return** — dashed line, open arrowhead. **Asynchronous** — open arrowhead on a solid line. **Self-message** — loops back.
+- **Combined fragments:** `alt` (if/else), `opt` (optional), `loop`, `par`.
+- A **system sequence diagram (SSD)** treats the system as one black box — actor ↔ :System — to list system events (input to operation contracts).
+
+**Communication (collaboration) diagram** — the same interaction drawn as a graph with numbered messages; emphasises links rather than time.
+
+## 4. Other behaviour diagrams (brief)
+
+**Behaviour modelling** shows how the system **responds to events over time** — the purpose the model paper asks about.
+- **Activity diagram** — workflow: start ●, actions (rounded boxes), decisions ◇, fork/join bars (parallelism), **swimlanes** per actor, end ◉. Like a flowchart with concurrency.
+- **State machine diagram** — the states of one object and the **events** that trigger transitions: Assessment: *Created → Due → Paid* (or *Overdue → Paid with penalty*).
+- **Class diagram** (structure): classes with attributes and operations; associations with multiplicity (1, 0..1, *, 1..*); aggregation ◇ (whole–part, parts can exist alone), composition ◆ (parts die with the whole), generalisation ▷ (inheritance), dependency (dashed).
+
+UML has **structural** diagrams (class, object, component, deployment, package, composite structure) and **behavioural** diagrams (use case, activity, state machine, and the interaction diagrams: sequence, communication, timing, interaction overview).
+
+## 5. ER diagrams
+
+Drawn exactly as in [DBMS lesson 1](/learning-guide/nec/dbms/01-models-er/) and normalised as in [DBMS lesson 3](/learning-guide/nec/dbms/03-normalisation/). For the revenue system: **Taxpayer** (PAN, name, address, phone) 1 — N **Assessment** (assessment_id, fiscal_year, amount, status) 1 — N **Payment** (payment_id, date, amount, method, transaction_id); **Bank** 1 — N Payment. The full worked version is in [lesson 6](/learning-guide/nec/se/06-case-study/).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is a DFD? Explain its components and rules, and draw the context diagram and level-0 DFD for an online revenue payment system.
+
+<details>
+<summary>Model answer</summary>
+
+**DFD.** A data flow diagram is a graphical tool of structured analysis that shows how data enters a system, is transformed by processes, is stored, and leaves the system. It models the flow of data, not control.
+
+**Components.** External entity (rectangle — source or sink of data outside the system), process (circle — transforms data, named verb + object and numbered), data store (open rectangle — data at rest, named and numbered D1, D2 …), data flow (labelled arrow — data in motion).
+
+**Rules.** (1) Each process has at least one input and one output. (2) Data flows between entities, or between stores, or between an entity and a store, must pass through a process. (3) Child diagrams must balance with their parent (same inputs and outputs). (4) Every flow is labelled; processes are numbered hierarchically. (5) No control structures. (6) Context diagram has one process and no data stores.
+
+**Context diagram.** *(Draw as in the lesson.)* One process "0 Online revenue payment system"; external entities Taxpayer, Bank, Revenue officer; flows: registration and tax return in, tax due and e-receipt out; payment request out to the Bank and confirmation back; tax rates in from the officer and revenue reports out.
+
+**Level-0 DFD.** *(Draw as in the lesson.)* Processes 1.0 Register, 2.0 Assess tax, 3.0 Process payment, 4.0 Issue receipt, 5.0 Generate reports; stores D1 Taxpayers, D2 Assessments, D3 Payments; flows as shown, balanced with the context diagram.
+
+</details>
+
+## Check yourself
+
+1. The UML diagram that shows user-level functions of a system:
+   (a) class diagram (b) use case diagram (c) deployment diagram (d) activity diagram
+
+<details><summary>Answer</summary>(b)</details>
+
+2. In a DFD, a data store is shown as:
+   (a) a circle (b) a rectangle (c) an open-ended rectangle (d) a diamond
+
+<details><summary>Answer</summary>(c)</details>
+
+3. A context diagram contains:
+   (a) many processes and stores (b) one process, the external entities and no data stores (c) only data stores (d) control flows
+
+<details><summary>Answer</summary>(b)</details>
+
+4. «include» means the base use case:
+   (a) optionally adds behaviour (b) always uses the included use case (c) inherits from it (d) replaces it
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Behaviour modelling is used to:
+   (a) show the static structure of classes (b) show how the system responds to events over time (c) estimate cost (d) design the database
+
+<details><summary>Answer</summary>(b)</details>
+
+6. In a sequence diagram, time runs:
+   (a) left to right (b) right to left (c) top to bottom (d) bottom to top
+
+<details><summary>Answer</summary>(c)</details>
+
+7. Which flow is illegal in a DFD?
+   (a) entity → process (b) process → store (c) store → store directly (d) process → process
+
+<details><summary>Answer</summary>(c)</details>
+
+8. Composition (filled diamond) means:
+   (a) parts can exist without the whole (b) parts are destroyed with the whole (c) inheritance (d) a dependency
+
+<details><summary>Answer</summary>(b)</details>
