@@ -1,0 +1,159 @@
+---
+title: "4. Transactions and concurrency control"
+description: Transactions and ACID, transaction states, schedules, concurrency problems, conflict and view serializability with precedence graphs, recoverable and cascadeless schedules, lock-based protocols and two-phase locking, timestamp ordering, deadlock prevention (wait-die, wound-wait) and detection, and isolation levels.
+sidebar:
+  label: "4. Transactions, concurrency"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+import SerialLab from '@components/visuals/dbms/SerialLab.astro';
+
+**Goal:** explain ACID with an example, test a schedule for conflict serializability, and explain 2PL, timestamps and deadlock handling.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.4** (ACID, serializability, lock-based protocols, deadlock handling). **Lok Sewa CE unit 9** (transactions and concurrency) — "DBMS concurrency control" is reported for CO 2083.
+</Aside>
+
+## 1. Transactions and ACID
+
+A **transaction** is a logical unit of work — a sequence of reads and writes that must happen as a whole. Transfer Rs 500 from A to B: `read(A); A = A − 500; write(A); read(B); B = B + 500; write(B)`.
+
+| Property | Meaning | Ensured by |
+| --- | --- | --- |
+| **Atomicity** | all or nothing — a crash after write(A) must not lose Rs 500 | recovery system (undo log) |
+| **Consistency** | moves the database from one valid state to another (A + B unchanged) | programmer + integrity constraints |
+| **Isolation** | concurrent transactions behave as if run one after another | concurrency control |
+| **Durability** | once committed, changes survive crashes | recovery system (redo log, stable storage) |
+
+**States:** active → partially committed (last statement done) → **committed**; or active/partially committed → **failed** → **aborted** (rolled back; then restart or kill).
+
+## 2. Why concurrency control
+
+Interleaving improves throughput and response time, but uncontrolled interleaving causes:
+- **Lost update** — T1 and T2 both read X, both write; one update vanishes.
+- **Dirty read** (uncommitted dependency) — T2 reads X written by T1, then T1 aborts.
+- **Unrepeatable read** — T1 reads X twice and gets different values because T2 updated it in between.
+- **Phantom** — a re-run query sees new rows inserted by another transaction.
+
+## 3. Schedules and serializability
+
+A **schedule** is an interleaving of the operations of several transactions. **Serial** schedules are always correct; a schedule is **serializable** if it is equivalent to some serial schedule.
+
+**Conflict serializability:** two operations **conflict** if they are from different transactions, on the **same item**, and **at least one is a write**. A schedule is conflict serializable if swapping non-conflicting adjacent operations can turn it into a serial schedule. **Test:** build the **precedence graph** (Ti → Tj if an operation of Ti conflicts with a later operation of Tj); **acyclic ⇔ conflict serializable**, and any topological order is an equivalent serial schedule.
+
+<SerialLab />
+
+**View serializability** is weaker (allows more schedules, e.g. with **blind writes**); every conflict-serializable schedule is view serializable; testing it is NP-complete.
+
+**Recoverability:**
+- **Recoverable:** if T2 reads data written by T1, T1 commits before T2 commits.
+- **Cascadeless:** transactions read only **committed** data — no cascading rollback.
+- **Strict:** no read or write of an item until the last transaction that wrote it commits or aborts.
+
+## 4. Lock-based protocols
+
+- **Shared lock (S)** to read; **exclusive lock (X)** to write. Compatibility: S with S ✓; anything with X ✗.
+- **Two-phase locking (2PL):** a **growing phase** (acquire locks, release none) then a **shrinking phase** (release, acquire none). The **lock point** orders transactions. **2PL guarantees conflict serializability** — but not freedom from deadlock or cascading rollback.
+- **Strict 2PL:** hold all **X** locks until commit/abort → cascadeless, strict schedules. **Rigorous 2PL:** hold **all** locks until commit.
+- **Lock conversion:** upgrade S → X (growing phase), downgrade X → S (shrinking phase).
+- **Granularity:** database, table, page, row; **intention locks** (IS, IX, SIX) for multiple-granularity locking.
+
+## 5. Timestamp ordering
+
+Each transaction gets a timestamp TS(T) at start (older = smaller). For each item Q keep **W-TS(Q)** and **R-TS(Q)**.
+- **read(Q)** by T: if TS(T) < W-TS(Q) → a younger transaction already overwrote it → **roll back T**; else read and set R-TS(Q) = max(R-TS(Q), TS(T)).
+- **write(Q)** by T: if TS(T) < R-TS(Q) or TS(T) < W-TS(Q) → **roll back T**; else write and set W-TS(Q) = TS(T).
+- **Thomas write rule:** if TS(T) < W-TS(Q) on a write, just **ignore** the obsolete write instead of rolling back.
+
+Deadlock-free (no waiting) but may cause many rollbacks and starvation. **Optimistic (validation-based)** control: read, validate at commit, then write — good when conflicts are rare. **MVCC** (multiversion) lets readers see a snapshot without blocking writers (PostgreSQL, Oracle).
+
+## 6. Deadlock
+
+T1 holds X on A and waits for B; T2 holds X on B and waits for A.
+
+**Prevention with timestamps** (older = higher priority):
+
+| Scheme | Older Ti requests an item held by younger Tj | Younger Ti requests an item held by older Tj |
+| --- | --- | --- |
+| **Wait-die** (non-preemptive) | Ti **waits** | Ti **dies** (rolled back, restarts with the same timestamp) |
+| **Wound-wait** (preemptive) | Ti **wounds** Tj (Tj rolled back) | Ti **waits** |
+
+Other methods: lock all items in advance, order items and lock in that order, **timeout**. **Detection:** build a **wait-for graph** (Ti → Tj if Ti waits for Tj); a **cycle = deadlock**; recover by choosing a **victim** (least work done, fewest locks) and rolling it back — total or partial rollback; avoid starving the same victim.
+
+## 7. SQL isolation levels
+
+| Level | Dirty read | Unrepeatable read | Phantom |
+| --- | --- | --- | --- |
+| Read uncommitted | possible | possible | possible |
+| Read committed | ✗ | possible | possible |
+| Repeatable read | ✗ | ✗ | possible |
+| Serializable | ✗ | ✗ | ✗ |
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is concurrency control? Explain the problems of concurrent execution and the two-phase locking protocol.
+
+<details>
+<summary>Model answer</summary>
+
+**Concurrency control** is the DBMS mechanism that coordinates the simultaneous execution of transactions so that the result is equivalent to some serial execution (serializability), preserving isolation and consistency while still allowing interleaving for throughput.
+
+**Problems of uncontrolled concurrency.** *(Show a two-column timeline for each.)*
+1. **Lost update:** T1 and T2 read X = 100; T1 writes 150, T2 writes 80; T1's update is lost.
+2. **Dirty read (temporary update):** T2 reads a value written by T1; T1 then aborts, so T2 used a value that never existed.
+3. **Unrepeatable read / inconsistent analysis:** T1 reads X, T2 updates and commits X, T1 reads X again and sees a different value (or a sum mixes old and new values).
+4. **Phantom:** a repeated query returns rows inserted meanwhile by another transaction.
+
+**Two-phase locking (2PL).** Transactions use shared (read) and exclusive (write) locks; S is compatible with S, X is compatible with nothing. 2PL requires each transaction to lock in two phases:
+1. **Growing phase:** the transaction may obtain locks (or upgrade S → X) but may not release any.
+2. **Shrinking phase:** once it releases any lock, it may release but never obtain locks.
+
+*(Draw: number of locks held vs time rising to the lock point, then falling.)*
+
+**Property:** every schedule obeying 2PL is conflict serializable; transactions are serialized in the order of their lock points.
+
+**Limitations and variants:** basic 2PL can deadlock and can cause cascading rollbacks. **Strict 2PL** holds exclusive locks until commit/abort (no cascading rollback); **rigorous 2PL** holds all locks until commit. Deadlocks are handled by prevention (wait-die, wound-wait), timeouts, or detection with a wait-for graph and victim rollback.
+
+</details>
+
+## Check yourself
+
+1. "A transaction either completes fully or not at all" is:
+   (a) consistency (b) atomicity (c) isolation (d) durability
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Two operations conflict if they are from different transactions, on the same item, and:
+   (a) both are reads (b) at least one is a write (c) both commit (d) they are adjacent
+
+<details><summary>Answer</summary>(b)</details>
+
+3. A schedule is conflict serializable if its precedence graph:
+   (a) has a cycle (b) is acyclic (c) is complete (d) has one node
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Two-phase locking guarantees:
+   (a) freedom from deadlock (b) conflict serializability (c) no cascading rollback (d) no starvation
+
+<details><summary>Answer</summary>(b)</details>
+
+5. In wait-die, a younger transaction requesting a lock held by an older one:
+   (a) waits (b) dies (c) wounds the older (d) gets the lock
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Reading data written by an uncommitted transaction is a:
+   (a) lost update (b) dirty read (c) phantom (d) blind write
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Deadlock detection uses a:
+   (a) precedence graph (b) wait-for graph (c) B+ tree (d) log
+
+<details><summary>Answer</summary>(b)</details>
+
+8. Durability is ensured by:
+   (a) the concurrency control manager (b) the recovery manager (c) the query optimiser (d) the application
+
+<details><summary>Answer</summary>(b)</details>

@@ -1,0 +1,29 @@
+---
+title: "DBMS for the exam: start here"
+description: NEC 7.3–7.4 and Lok Sewa CE unit 9 — data models, ER design, relational algebra and SQL, functional dependencies and normalisation, transactions, concurrency, recovery and indexing, with worked examples and model answers.
+sidebar:
+  label: "0. Start here"
+  order: 0
+---
+import { Aside } from '@astrojs/starlight/components';
+
+This course covers **NEC 7.3–7.4** and **Lok Sewa Computer Engineer unit 9 (database management systems)**. For **Computer Officer**, DBMS is the single biggest Paper II topic (about **14%**) and comes with hand-written SQL — so this course is worth twice its time.
+
+<Aside type="note" title="Exam form, not production form">
+You work with query engines and table formats daily, so the concepts are familiar. The exam wants the **textbook vocabulary** (three-schema architecture, weak entity, BCNF, conflict serializability, write-ahead log), **hand procedures** (attribute closure, candidate keys, decomposition, precedence graphs, undo/redo lists) and **SQL written on paper** without a console to catch mistakes.
+</Aside>
+
+## The path
+
+| # | Lesson | Exam skill |
+| --- | --- | --- |
+| 1 | [Data models and ER design](/learning-guide/nec/dbms/01-models-er/) | three-schema architecture, independence, ER diagrams, mapping ER to tables |
+| 2 | [Relational model, algebra and SQL](/learning-guide/nec/dbms/02-relational-sql/) | keys and constraints, algebra expressions, SQL queries, views, triggers, GRANT |
+| 3 | [Functional dependencies and normalisation](/learning-guide/nec/dbms/03-normalisation/) | closures, candidate keys, 1NF → BCNF decomposition |
+| 4 | [Transactions and concurrency control](/learning-guide/nec/dbms/04-transactions/) | ACID, schedules, precedence graphs, 2PL, timestamps, deadlock |
+| 5 | [Recovery, indexing and query processing](/learning-guide/nec/dbms/05-recovery-indexing/) | log-based undo/redo, checkpoints, B+ tree and hash indexes, query optimisation, distributed and warehouse basics |
+| 6 | [Review test](/learning-guide/nec/dbms/06-review/) | 25 timed MCQs plus written practice |
+
+<Aside type="tip" title="Where it fits in your plan">
+Plan v2, **Wed 16 Dec** evening block (after DSA): lessons 1–6, about 3 hours. Normalisation (lesson 3) is on the plan's CE extras list. Computer Officer: write the SQL in lesson 2 by hand twice.
+</Aside>

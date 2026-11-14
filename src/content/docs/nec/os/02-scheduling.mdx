@@ -1,0 +1,162 @@
+---
+title: "2. CPU scheduling"
+description: Scheduling criteria, preemptive vs non-preemptive, FCFS, SJF, SRTF, round robin and priority scheduling worked with Gantt charts and average waiting and turnaround times, multilevel queues, and real-time scheduling.
+sidebar:
+  label: "2. CPU scheduling"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+import SchedLab from '@components/visuals/os/SchedLab.astro';
+
+**Goal:** draw a Gantt chart and compute average waiting and turnaround times for every algorithm, and state each algorithm's strengths and weaknesses.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.5** (process scheduling). **Lok Sewa CE unit 10** — "process scheduling algorithms" is a reported CE 2078 question. This numerical is almost guaranteed somewhere in your exams.
+</Aside>
+
+## 1. Criteria and definitions
+
+- **Arrival time (AT)**, **burst time (BT)** — CPU time needed.
+- **Completion time (CT)** — when it finishes.
+- **Turnaround time TAT = CT − AT.**
+- **Waiting time WT = TAT − BT** (time spent in the ready queue).
+- **Response time** = first time on the CPU − AT.
+
+Goals: **maximise** CPU utilisation and throughput (processes completed per time unit); **minimise** turnaround, waiting and response times.
+
+**Non-preemptive:** once running, a process keeps the CPU until it finishes or blocks. **Preemptive:** the OS can take the CPU away (on arrival of a better process or timer expiry). The **dispatcher** performs the switch; its delay is **dispatch latency**.
+
+## 2. Try it
+
+<SchedLab />
+
+## 3. The worked set
+
+| Process | Arrival | Burst |
+| --- | --- | --- |
+| P1 | 0 | 8 |
+| P2 | 1 | 4 |
+| P3 | 2 | 9 |
+| P4 | 3 | 5 |
+
+**FCFS** — in arrival order.
+Gantt: | P1 0–8 | P2 8–12 | P3 12–21 | P4 21–26 |
+WT: P1 0, P2 8 − 1 = 7, P3 12 − 2 = 10, P4 21 − 3 = 18 → **average 35/4 = 8.75**. Average TAT 15.25.
+
+**SJF (non-preemptive)** — at each completion, the shortest arrived job.
+Gantt: | P1 0–8 | P2 8–12 | P4 12–17 | P3 17–26 |
+WT: P1 0, P2 7, P4 9, P3 15 → **31/4 = 7.75**. Average TAT 14.25.
+
+**SRTF (preemptive SJF)** — re-evaluate at each arrival.
+- t = 0: P1 starts (remaining 8). t = 1: P2 arrives with 4 < 7 → **preempt**.
+- P2 runs 1–5. At t = 5: remaining P1 7, P3 9, P4 5 → P4 runs 5–10, then P1 10–17, P3 17–26.
+
+Gantt: | P1 0–1 | P2 1–5 | P4 5–10 | P1 10–17 | P3 17–26 |
+WT: P1 (17 − 0 − 8) = 9, P2 0, P4 2, P3 15 → **26/4 = 6.5** — the lowest.
+
+**Round robin, quantum 4** (a process arriving during a slice joins the queue before the preempted one):
+Gantt: | P1 0–4 | P2 4–8 | P3 8–12 | P4 12–16 | P1 16–20 | P3 20–24 | P4 24–25 | P3 25–26 |
+CT: P1 20, P2 8, P3 26, P4 25 → WT: P1 12, P2 3, P3 15, P4 17 → **47/4 = 11.75**. Worse average waiting here, but every process gets the CPU within 12 units — better **response time**.
+
+**Priority (non-preemptive)**, all arriving at 0, smaller number = higher priority:
+
+| Process | Burst | Priority |
+| --- | --- | --- |
+| P1 | 10 | 3 |
+| P2 | 1 | 1 |
+| P3 | 2 | 4 |
+| P4 | 1 | 5 |
+| P5 | 5 | 2 |
+
+Gantt: | P2 0–1 | P5 1–6 | P1 6–16 | P3 16–18 | P4 18–19 |
+WT: P2 0, P5 1, P1 6, P3 16, P4 18 → **41/5 = 8.2**.
+
+## 4. The algorithms compared
+
+| Algorithm | Preemptive? | Strength | Weakness |
+| --- | --- | --- | --- |
+| **FCFS** | no | simple, no starvation | **convoy effect** — short jobs stuck behind a long one |
+| **SJF** | no | **optimal** average waiting time (non-preemptive) | needs burst estimates; long jobs can **starve** |
+| **SRTF** | yes | optimal average waiting overall | many context switches; starvation |
+| **Round robin** | yes | fair; good response; for time-sharing | depends on the quantum: too big → FCFS, too small → overhead (rule of thumb: 80% of bursts shorter than the quantum) |
+| **Priority** | either | expresses importance | **starvation** → fix with **aging** (raise waiting processes' priority over time) |
+| **Multilevel queue** | — | separate queues (system, interactive, batch) each with its own algorithm | rigid — processes can't move |
+| **Multilevel feedback queue** | yes | processes move between queues by behaviour (CPU-heavy ones sink) — approximates SJF without estimates | complex to tune |
+
+**Predicting the next burst** (for SJF): exponential averaging τₙ₊₁ = α·tₙ + (1 − α)·τₙ. With α = 0.5, τ₀ = 10, actual t₀ = 6 → τ₁ = 8.
+
+**Multiprocessor scheduling:** asymmetric vs **SMP**; **processor affinity** (keep a process on the CPU whose cache holds its data); **load balancing** (push/pull migration).
+
+**Real-time scheduling:** **rate-monotonic** (static priority — shorter period = higher priority; schedulable if utilisation ≤ n(2^(1/n) − 1), about 69% for many tasks) and **earliest deadline first** (dynamic; up to 100% utilisation).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** For processes P1 (0, 8), P2 (1, 4), P3 (2, 9), P4 (3, 5) — arrival, burst — draw Gantt charts and find the average waiting time under FCFS, SJF (non-preemptive), SRTF and round robin with quantum 4. Which is best?
+
+<details>
+<summary>Model answer</summary>
+
+Formulas: TAT = CT − AT; WT = TAT − BT.
+
+**FCFS.** Gantt: P1 (0–8), P2 (8–12), P3 (12–21), P4 (21–26). WT = 0, 7, 10, 18 → average **8.75**.
+
+**SJF non-preemptive.** Gantt: P1 (0–8), P2 (8–12), P4 (12–17), P3 (17–26). WT = 0, 7, 15, 9 → average **7.75**.
+
+**SRTF.** Gantt: P1 (0–1), P2 (1–5), P4 (5–10), P1 (10–17), P3 (17–26). WT: P1 = 17 − 0 − 8 = 9, P2 = 0, P3 = 26 − 2 − 9 = 15, P4 = 10 − 3 − 5 = 2 → average **6.5**.
+
+**Round robin (q = 4).** Gantt: P1 (0–4), P2 (4–8), P3 (8–12), P4 (12–16), P1 (16–20), P3 (20–24), P4 (24–25), P3 (25–26). WT = 12, 3, 15, 17 → average **11.75**.
+
+*(Present a table per algorithm: process, AT, BT, CT, TAT, WT.)*
+
+| Algorithm | Average WT |
+| --- | --- |
+| FCFS | 8.75 |
+| SJF | 7.75 |
+| SRTF | **6.5** |
+| RR (q = 4) | 11.75 |
+
+**Conclusion.** SRTF gives the minimum average waiting time, as theory predicts (preemptive SJF is optimal), but it needs burst-time knowledge, causes more context switches and may starve long processes. Round robin has the worst average here but the best response time and fairness, which is why time-sharing systems use it.
+
+</details>
+
+## Check yourself
+
+1. Which algorithm gives the minimum average waiting time?
+   (a) FCFS (b) SJF/SRTF (c) RR (d) priority
+
+<details><summary>Answer</summary>(b)</details>
+
+2. The convoy effect occurs in:
+   (a) RR (b) FCFS (c) SRTF (d) multilevel feedback
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Starvation in priority scheduling is solved by:
+   (a) aging (b) paging (c) swapping (d) spooling
+
+<details><summary>Answer</summary>(a)</details>
+
+4. Round robin with a very large quantum behaves like:
+   (a) SJF (b) FCFS (c) priority (d) SRTF
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Turnaround time is:
+   (a) CT − AT (b) CT − BT (c) TAT − BT (d) AT + BT
+
+<details><summary>Answer</summary>(a)</details>
+
+6. Three processes arrive at 0 with bursts 24, 3, 3 and run FCFS in that order. Average waiting time:
+   (a) 3 (b) 17 (c) 27 (d) 10
+
+<details><summary>Answer</summary>(b) (0 + 24 + 27) / 3.</details>
+
+7. The same processes under SJF:
+   (a) 3 (b) 17 (c) 6 (d) 9
+
+<details><summary>Answer</summary>(a) (0 + 3 + 6) / 3.</details>
+
+8. Which is preemptive?
+   (a) FCFS (b) non-preemptive SJF (c) SRTF (d) none
+
+<details><summary>Answer</summary>(c)</details>

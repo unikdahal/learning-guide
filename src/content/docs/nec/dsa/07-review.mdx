@@ -1,0 +1,151 @@
+---
+title: "7. Review: 25 mixed questions"
+description: A timed mixed test across the DSA course — complexity, stacks and queues, lists, trees, AVL, heaps, sorting, hashing, graphs and algorithm design — plus written practice.
+sidebar:
+  label: "7. Review test"
+  order: 7
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** 25 minutes, paper and pen. This is your strong area — aim for 24/25 and treat every miss as a trap to remember.
+
+<Aside type="tip" title="How to use this">
+Each answer names the lesson. Then write one of the long answers at the end against the clock.
+</Aside>
+
+## Questions
+
+1. 2n³ + 100n² + 7 is:
+   (a) O(n²) (b) Θ(n³) (c) Ω(n⁴) (d) O(n)
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+2. T(n) = T(n/2) + 1 solves to:
+   (a) Θ(n) (b) Θ(log n) (c) Θ(n log n) (d) Θ(1)
+
+<details><summary>Answer</summary>(b) Lesson 1.</details>
+
+3. Postfix of (A + B) * (C − D):
+   (a) A B C D + − * (b) A B + C D − * (c) + A B − C D * (d) A B + * C D −
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+4. Value of postfix 8 2 / 3 * 4 +:
+   (a) 16 (b) 12 (c) 20 (d) 8
+
+<details><summary>Answer</summary>(a) 4 × 3 + 4. Lesson 2.</details>
+
+5. Elements are inserted at the rear and removed from the front in a:
+   (a) stack (b) queue (c) tree (d) heap
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+6. Deleting a node, given only a pointer to it, is O(1) in a:
+   (a) singly linked list (b) doubly linked list (c) array (d) BST
+
+<details><summary>Answer</summary>(b) Lesson 2.</details>
+
+7. Preorder A B D E C F, inorder D B E A F C. Postorder:
+   (a) D E B F C A (b) D B E F C A (c) E D B F C A (d) A B C D E F
+
+<details><summary>Answer</summary>(a) Lesson 3.</details>
+
+8. A complete binary tree with 31 nodes has height (root at 0):
+   (a) 4 (b) 5 (c) 3 (d) 30
+
+<details><summary>Answer</summary>(a) 2⁵ − 1 = 31. Lesson 3.</details>
+
+9. The worst-case search time in a BST with n nodes is:
+   (a) O(1) (b) O(log n) (c) O(n) (d) O(n log n)
+
+<details><summary>Answer</summary>(c) skewed tree. Lesson 3.</details>
+
+10. The balance factor of an AVL node must be in:
+    (a) 0 … 1 (b) −1 … 1 (c) −2 … 2 (d) any
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+11. The root of a max-heap holds:
+    (a) the minimum (b) the maximum (c) the median (d) the last inserted key
+
+<details><summary>Answer</summary>(b) Lesson 3.</details>
+
+12. All leaves at the same level is a property of:
+    (a) BST (b) AVL (c) B-tree (d) splay tree
+
+<details><summary>Answer</summary>(c) Lesson 3.</details>
+
+13. Which has O(n log n) worst case?
+    (a) quick sort (b) heap sort (c) insertion sort (d) bubble sort
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+14. Best case of insertion sort (already sorted input):
+    (a) O(1) (b) O(n) (c) O(n log n) (d) O(n²)
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+15. Number of swaps selection sort makes on n elements (at most):
+    (a) n − 1 (b) n² (c) n log n (d) n(n − 1)/2
+
+<details><summary>Answer</summary>(a) Lesson 4.</details>
+
+16. Binary search requires:
+    (a) a linked list (b) sorted data with random access (c) a hash table (d) a heap
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+17. h(k) = k mod 7 with linear probing; insert 15, 22, 8 into an empty table of size 7. Key 8 lands in slot:
+    (a) 1 (b) 2 (c) 3 (d) 4
+
+<details><summary>Answer</summary>(c) 15 → 1, 22 → 1 → 2, 8 → 1 → 2 → 3. Lesson 4.</details>
+
+18. Secondary clustering occurs in:
+    (a) linear probing (b) quadratic probing (c) chaining (d) double hashing
+
+<details><summary>Answer</summary>(b) Lesson 4.</details>
+
+19. DFS uses a:
+    (a) queue (b) stack (c) priority queue (d) hash table
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+20. Shortest paths in an unweighted graph are found by:
+    (a) DFS (b) BFS (c) Kruskal (d) Warshall
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+21. Prim's algorithm is:
+    (a) divide and conquer (b) greedy (c) dynamic programming (d) backtracking
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+22. A complete undirected graph on 6 vertices has how many edges?
+    (a) 12 (b) 15 (c) 30 (d) 36
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+23. Floyd–Warshall's time complexity:
+    (a) O(V²) (b) O(V³) (c) O(E log V) (d) O(VE)
+
+<details><summary>Answer</summary>(b) Lesson 5.</details>
+
+24. 0/1 knapsack is solved optimally by:
+    (a) greedy by ratio (b) dynamic programming (c) BFS (d) binary search
+
+<details><summary>Answer</summary>(b) Lesson 6.</details>
+
+25. Huffman coding is a:
+    (a) greedy algorithm (b) dynamic programming algorithm (c) divide and conquer algorithm (d) sorting algorithm
+
+<details><summary>Answer</summary>(a) Lessons 3 and 6.</details>
+
+## Lok Sewa written practice (no notes, timed)
+
+1. **(10 marks · 16 min)** Infix → postfix algorithm with a full stack trace. → [Lesson 2](/learning-guide/nec/dsa/02-linear-structures/)
+2. **(10 marks · 16 min)** Tree traversals with examples; rebuild a tree from preorder and inorder. → [Lesson 3](/learning-guide/nec/dsa/03-trees/) (reported CO 2083)
+3. **(10 marks · 16 min)** AVL insertion of 10, 20, 30, 40, 50, 25. → [Lesson 3](/learning-guide/nec/dsa/03-trees/)
+4. **(10 marks · 16 min)** Quick sort with a trace and complexity. → [Lesson 4](/learning-guide/nec/dsa/04-sorting-searching-hashing/)
+5. **(10 marks · 16 min)** Prim and Kruskal on a given graph. → [Lesson 5](/learning-guide/nec/dsa/05-graphs/)
+
+Short notes (5 marks each): asymptotic notations · hashing and collision resolution · B+ tree · greedy vs DP · circular queue.

@@ -47,6 +47,9 @@ const necSidebar = [
   { label: 'Digital from zero', items: [{ autogenerate: { directory: 'nec/digital' } }] },
           { label: 'Organisation from zero', items: [{ autogenerate: { directory: 'nec/organization' } }] },
           { label: 'Networks from zero', items: [{ autogenerate: { directory: 'nec/networks' } }] },
+          { label: 'DSA for the exam', items: [{ autogenerate: { directory: 'nec/dsa' } }] },
+          { label: 'DBMS for the exam', items: [{ autogenerate: { directory: 'nec/dbms' } }] },
+          { label: 'OS for the exam', items: [{ autogenerate: { directory: 'nec/os' } }] },
   { label: 'Chapters', items: [{ autogenerate: { directory: 'nec/chapters' } }] },
 ];
 

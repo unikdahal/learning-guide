@@ -1,0 +1,201 @@
+---
+title: "3. Trees"
+description: Tree terminology, binary tree properties and traversals, rebuilding a tree from traversals, expression trees, binary search trees with deletion, AVL trees and all four rotations worked, heaps and heap building, B-trees and B+ trees, red-black, 2-3 and splay trees, and Huffman coding.
+sidebar:
+  label: "3. Trees"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DsaDiagram from '@components/visuals/dsa/DsaDiagram.astro';
+
+**Goal:** write all traversals of a given tree, rebuild a tree from two traversals, delete from a BST, insert into an AVL tree with the right rotations, and build a heap.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.1** (binary tree operations, traversals, height/level/depth, AVL balanced trees). **Lok Sewa CE unit 7** (trees including BST, AVL, 2-3, red-black, splay) — "tree traversal with examples" is reported for CO 2083; AVL insertion is a common 10-marker.
+</Aside>
+
+## 1. Terminology
+
+Root, parent, child, siblings, **leaf** (no children), internal node, **degree** (number of children), **level** (root = 0), **depth** of a node (edges from the root), **height** of a node (edges on the longest path down to a leaf; a tree's height = the root's height), subtree, ancestor, descendant.
+
+Conventions vary — some books count levels from 1 or height in nodes. In an MCQ, check which one the options assume.
+
+**Binary tree:** each node has at most two children (left, right).
+- Max nodes at level i = **2ⁱ**; max nodes in a tree of height h = **2^(h+1) − 1**.
+- Minimum height with n nodes = ⌈log₂(n + 1)⌉ − 1.
+- In any binary tree, **leaves = (nodes with two children) + 1**.
+- **Full (strict)** — every node has 0 or 2 children. **Complete** — every level full except possibly the last, filled left to right (heaps; stored in an array: children of i at 2i + 1 and 2i + 2). **Perfect** — all levels full. **Skewed** — every node has one child (degenerates into a list).
+
+## 2. Traversals
+
+<Figure caption="The tree used for every traversal below.">
+  <DsaDiagram name="tree" label="Binary tree: root A with left child B and right child C. B has children D (left) and E (right). E has a left child G. C has a right child F." />
+</Figure>
+
+| Traversal | Order | Result |
+| --- | --- | --- |
+| **Preorder** | root, left, right | **A B D E G C F** |
+| **Inorder** | left, root, right | **D B G E A C F** |
+| **Postorder** | left, right, root | **D G E B F C A** |
+| **Level order** (BFS, uses a queue) | level by level | **A B C D E F G** |
+
+```cpp
+struct TNode { char v; TNode *l = nullptr, *r = nullptr; };
+void preorder(TNode* t)  { if (!t) return; std::cout << t->v; preorder(t->l); preorder(t->r); }
+void inorder(TNode* t)   { if (!t) return; inorder(t->l); std::cout << t->v; inorder(t->r); }
+void postorder(TNode* t) { if (!t) return; postorder(t->l); postorder(t->r); std::cout << t->v; }
+```
+
+### Rebuilding a tree from traversals
+
+Inorder **plus** preorder (or postorder) fixes a unique tree; preorder + postorder alone does not (unless the tree is full).
+
+Given preorder **A B D E G C F** and inorder **D B G E A C F**:
+1. Preorder's first element **A** is the root. In the inorder, left of A = [D B G E], right = [C F].
+2. Next in preorder, **B**, is the left subtree's root; inorder splits it into [D] | B | [G E].
+3. **D** is a leaf; then **E** roots [G E]: G is its left child.
+4. Right subtree: **C** is next; inorder [C F] → F is C's right child.
+
+That rebuilds the tree in the figure.
+
+**Expression tree:** operators inside, operands at the leaves. Its preorder is the prefix expression, inorder (with brackets) the infix, postorder the postfix.
+
+## 3. Binary search tree (BST)
+
+Every key in the left subtree < node < every key in the right subtree. **Inorder traversal gives sorted order.** Search, insert, delete: O(h) — **O(log n)** if balanced, **O(n)** if skewed (insert sorted data).
+
+**Insert 50, 30, 70, 20, 40, 60, 80:** 50 root; 30 left; 70 right; 20 under 30's left; 40 under 30's right; 60 under 70's left; 80 under 70's right.
+
+**Delete:**
+1. **Leaf** → just remove it.
+2. **One child** → replace the node by its child.
+3. **Two children** → replace its key with its **inorder successor** (the smallest in the right subtree) — or inorder predecessor — then delete that node (which has at most one child).
+
+Delete 50 above → successor **60** moves to the root; 70's left becomes empty.
+
+## 4. AVL trees
+
+A self-balancing BST: for every node, **balance factor = height(left) − height(right) ∈ −1, 0, +1**. Height stays O(log n), so every operation is O(log n).
+
+After an insertion, walk up to the first unbalanced node and rotate, according to the path from it to the new key:
+
+| Case | Inserted into | Fix |
+| --- | --- | --- |
+| **LL** | left child's left subtree | single **right** rotation |
+| **RR** | right child's right subtree | single **left** rotation |
+| **LR** | left child's right subtree | left rotation at the child, then right rotation at the node |
+| **RL** | right child's left subtree | right rotation at the child, then left rotation at the node |
+
+**Worked: insert 10, 20, 30, 40, 50, 25**
+1. 10, 20, 30 → 10 has BF −2 (RR) → **left rotate at 10** → root 20 (10, 30).
+2. 40 → under 30's right. 50 → node 30 has BF −2 (RR) → **left rotate at 30** → 20 (10, 40 (30, 50)).
+3. 25 → goes 20 → 40 → 30 → left of 30. Now 20 has BF 1 − 3 = **−2**; path right (40) then left (30) → **RL**.
+
+<Figure caption="The RL case: rotate right at 40, then left at 20; 30 becomes the root.">
+  <DsaDiagram name="avl-rl" label="Before: root 20 (balance −2) with left child 10 and right child 40; 40 has children 30 and 50; 30 has left child 25. After the RL double rotation: root 30 with left child 20 (children 10 and 25) and right child 40 (right child 50)." />
+</Figure>
+
+Result: **30 (20 (10, 25), 40 (—, 50))** — all balance factors in −1 … 1.
+
+## 5. Heaps
+
+A **complete** binary tree with the heap property: **max-heap** — every parent ≥ its children (root = maximum); min-heap — the reverse. Stored in an array.
+
+- **Insert:** add at the end, **sift up** — O(log n).
+- **Delete max:** move the last element to the root, **sift down** (heapify) — O(log n).
+- **Build heap** bottom-up: heapify each internal node from the last one (index n/2 − 1) down to the root — **O(n)** total.
+
+**Build a max-heap from [4, 10, 3, 5, 1]:** heapify index 1 (10: children 5, 1 — fine); heapify index 0 (4: children 10, 3 → swap with 10 → 4 at index 1, children 5, 1 → swap with 5) → **[10, 5, 3, 4, 1]**.
+
+Uses: priority queues, heap sort (lesson 4), Dijkstra and Prim with a heap.
+
+## 6. Multiway and other balanced trees
+
+**B-tree of order m** (for disks — one node = one disk block):
+- Every node has at most m children; every internal node except the root at least ⌈m/2⌉; the root at least 2 (unless it's a leaf).
+- A node with k children holds k − 1 sorted keys. **All leaves are at the same level.**
+- Insert into a leaf; if it overflows (m keys), **split** around the median and push the median up — the tree grows from the root.
+
+**B+ tree** (used by almost every database index):
+- **All data pointers are in the leaves**; internal nodes hold only keys for routing (so more keys fit per node → shallower tree).
+- Leaves are **linked**, so range scans walk the leaf chain.
+- Keys may repeat in internal nodes and leaves.
+
+**2-3 tree:** a B-tree of order 3 — each node has 2 or 3 children; perfectly balanced.
+
+**Red-black tree:** a BST with node colours: root black; no red node has a red child; every root-to-null path has the same number of black nodes. Height ≤ 2 log₂(n + 1). Fewer rotations on update than AVL (AVL is more strictly balanced → faster lookups). Used in std::map, Java TreeMap, Linux schedulers.
+
+**Splay tree:** after each access, the node is rotated to the root ("splayed" with zig, zig-zig, zig-zag steps). No balance info stored; **amortised O(log n)**; recently used keys are fast to reach (caches).
+
+## 7. Huffman coding
+
+Greedy optimal **prefix code** — frequent characters get short codes.
+1. Make a leaf per character with its frequency; put all in a min-priority queue.
+2. Repeatedly remove the two smallest, join them under a new node with the sum of their frequencies, insert it back.
+3. Label left edges 0, right edges 1; each character's code is its root-to-leaf path.
+
+Example: a:5, b:9, c:12, d:13, e:16, f:45 → codes f = 0, c = 100, d = 101, a = 1100, b = 1101, e = 111 (one valid tie-breaking). Cost = Σ freq × length = 45 + 36 + 39 + 20 + 36 + 48 = **224 bits** vs 300 with a fixed 3-bit code.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** What is an AVL tree? Construct an AVL tree by inserting 10, 20, 30, 40, 50, 25, showing every rotation.
+
+<details>
+<summary>Model answer</summary>
+
+**AVL tree.** A height-balanced binary search tree (Adelson-Velsky and Landis, 1962) in which, for every node, the heights of the left and right subtrees differ by at most 1. Balance factor BF = height(left) − height(right) ∈ −1, 0, +1. When an insertion or deletion makes some |BF| = 2, the tree is rebalanced by rotations (LL → right rotation, RR → left rotation, LR → left-right double rotation, RL → right-left double rotation). Height stays O(log n), so search, insert and delete are O(log n).
+
+**Construction.** *(Draw the tree after every step with balance factors.)*
+1. Insert 10: root.
+2. Insert 20: 10 → right 20. BF(10) = −1.
+3. Insert 30: BF(10) = −2, inserted in right subtree of right child → **RR case** → left rotation at 10. Tree: 20 (10, 30).
+4. Insert 40: right of 30. BF(20) = −1, BF(30) = −1. Balanced.
+5. Insert 50: right of 40. BF(30) = −2 → **RR case** → left rotation at 30. Tree: 20 (10, 40 (30, 50)).
+6. Insert 25: 25 < 40, < 30 → left of 30. BF(30) = +1, BF(40) = +1, BF(20) = 1 − 3 = −2. Insertion went to the right child's (40) left subtree → **RL case**: right rotation at 40 (30 moves up, 40 becomes its right child), then left rotation at 20.
+
+**Final tree:** 30 is the root; left child 20 with children 10 and 25; right child 40 with right child 50. All balance factors are 0 or ±1.
+
+</details>
+
+## Check yourself
+
+1. Inorder traversal of a BST gives:
+   (a) random order (b) sorted order (c) reverse level order (d) preorder
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Maximum nodes in a binary tree of height 3 (root at height 0):
+   (a) 7 (b) 8 (c) 15 (d) 16
+
+<details><summary>Answer</summary>(c)</details>
+
+3. A binary tree has 10 nodes with two children. Its number of leaves is:
+   (a) 9 (b) 10 (c) 11 (d) 20
+
+<details><summary>Answer</summary>(c)</details>
+
+4. Inserting a key into the left subtree of the left child of an unbalanced AVL node needs:
+   (a) a left rotation (b) a right rotation (c) LR (d) RL
+
+<details><summary>Answer</summary>(b) LL case.</details>
+
+5. Building a heap bottom-up from n elements takes:
+   (a) O(n) (b) O(n log n) (c) O(log n) (d) O(n²)
+
+<details><summary>Answer</summary>(a)</details>
+
+6. In a B+ tree, data pointers are stored in:
+   (a) the root only (b) internal nodes only (c) leaves only (d) every node
+
+<details><summary>Answer</summary>(c)</details>
+
+7. Postorder of the expression tree for (A + B) * C:
+   (a) * + A B C (b) A B + C * (c) A + B * C (d) A B C + *
+
+<details><summary>Answer</summary>(b)</details>
+
+8. Deleting a BST node with two children replaces it with its:
+   (a) parent (b) left child (c) inorder successor (d) root
+
+<details><summary>Answer</summary>(c) or inorder predecessor.</details>

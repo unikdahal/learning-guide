@@ -1,0 +1,194 @@
+---
+// Page-replacement lab: a reference string, a number of frames and FIFO, LRU or optimal;
+// shows the frame contents after every reference with faults marked, and the fault count.
+---
+
+<qe-page class="qe-lab qe-page not-content">
+  <section class="qe-lab-part">
+    <p class="qe-lab-h">Page replacement lab</p>
+    <div class="qe-lab-chips prose" role="group" aria-label="Replacement algorithm">
+      <button type="button" data-a="fifo" aria-pressed="true">FIFO</button>
+      <button type="button" data-a="lru" aria-pressed="false">LRU</button>
+      <button type="button" data-a="opt" aria-pressed="false">Optimal</button>
+    </div>
+    <div class="ctl">
+      <label>Reference string
+        <input type="text" data-r spellcheck="false" value="7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1" />
+      </label>
+      <label><span>Frames: <output data-fo>3</output></span>
+        <input type="range" min="1" max="7" value="3" data-f aria-label="Number of frames" />
+      </label>
+    </div>
+    <div class="qe-lab-chips prose" role="group" aria-label="Example strings">
+      <button type="button" data-ex="7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1" aria-pressed="true">Textbook string</button>
+      <button type="button" data-ex="1 2 3 4 1 2 5 1 2 3 4 5" aria-pressed="false">Belady's anomaly</button>
+    </div>
+    <div class="tbl-wrap"><table class="pg" data-t></table></div>
+    <p class="sum" data-s aria-live="polite"></p>
+    <p class="qe-lab-note" data-note></p>
+  </section>
+</qe-page>
+
+<script>
+  class QePage extends HTMLElement {
+    alg = 'fifo';
+    connectedCallback() {
+      const $ = (s: string) => this.querySelector(s) as HTMLElement;
+      const rIn = $('[data-r]') as HTMLInputElement;
+      const fIn = $('[data-f]') as HTMLInputElement;
+      const sim = (ref: number[], n: number, alg: string) => {
+        const fr: number[] = [];
+        const last = new Map<number, number>();
+        let fifoPtr = 0;
+        const cols: { fr: (number | null)[]; fault: boolean; victim: number | null }[] = [];
+        let faults = 0;
+        ref.forEach((x, i) => {
+          let fault = false;
+          let victim: number | null = null;
+          if (!fr.includes(x)) {
+            fault = true;
+            faults++;
+            if (fr.length < n) fr.push(x);
+            else {
+              let vi: number;
+              if (alg === 'fifo') { vi = fifoPtr; fifoPtr = (fifoPtr + 1) % n; }
+              else if (alg === 'lru') { vi = fr.reduce((m, y, k) => (last.get(y)! < last.get(fr[m])! ? k : m), 0); }
+              else {
+                const fut = ref.slice(i + 1);
+                vi = fr.reduce((m, y, k) => {
+                  const a = fut.indexOf(y), b = fut.indexOf(fr[m]);
+                  const da = a < 0 ? Infinity : a, db = b < 0 ? Infinity : b;
+                  return da > db ? k : m;
+                }, 0);
+              }
+              victim = fr[vi];
+              fr[vi] = x;
+            }
+          }
+          last.set(x, i);
+          cols.push({ fr: Array.from({ length: n }, (_, k) => (k < fr.length ? fr[k] : null)), fault, victim });
+        });
+        return { cols, faults };
+      };
+      const draw = () => {
+        const ref = rIn.value.split(/[\s,]+/).filter(Boolean).map(Number).filter((x) => !isNaN(x)).slice(0, 30);
+        const n = +fIn.value;
+        ($('[data-fo]') as HTMLOutputElement).value = fIn.value;
+        const { cols, faults } = sim(ref, n, this.alg);
+        let h = '<thead><tr><th scope="row">Ref</th>' + ref.map((r) => `<th scope="col">${r}</th>`).join('') + '</tr></thead><tbody>';
+        for (let k = 0; k < n; k++) h += `<tr><th scope="row">F${k + 1}</th>` + cols.map((c) => `<td class="${c.fault && c.fr[k] === ref[cols.indexOf(c)] ? 'in' : ''}">${c.fr[k] ?? ''}</td>`).join('') + '</tr>';
+        h += '<tr><th scope="row">Fault</th>' + cols.map((c) => `<td class="f">${c.fault ? '✗' : '✓'}</td>`).join('') + '</tr></tbody>';
+        $('[data-t]').innerHTML = h;
+        const hits = ref.length - faults;
+        let extra = '';
+        if (this.alg === 'fifo' && n > 1) {
+          const prev = sim(ref, n - 1, 'fifo').faults;
+          if (faults > prev) extra = ` Belady's anomaly: with ${n - 1} frames FIFO had only ${prev} faults — more frames gave more faults.`;
+        }
+        $('[data-s]').textContent = `Page faults = ${faults} · hits = ${hits} · fault rate = ${faults}/${ref.length} = ${((faults / Math.max(1, ref.length)) * 100).toFixed(0)}%.${extra}`;
+        const notes: Record<string, string> = {
+          fifo: 'FIFO replaces the page that has been in memory longest (a queue). Simple, but it may evict a heavily used page, and it suffers from Belady’s anomaly.',
+          lru: 'LRU replaces the page not used for the longest time — it uses the recent past to predict the near future. Good in practice; needs counters or a stack to track recency. A stack algorithm, so no Belady’s anomaly.',
+          opt: 'Optimal (Belady’s MIN) replaces the page that will not be used for the longest time in the future. Fewest possible faults, but it needs future knowledge — used as the benchmark.',
+        };
+        $('[data-note]').textContent = notes[this.alg];
+      };
+      this.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) =>
+        b.addEventListener('click', () => {
+          this.alg = b.dataset.a!;
+          this.querySelectorAll('[data-a]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          draw();
+        }),
+      );
+      this.querySelectorAll<HTMLButtonElement>('[data-ex]').forEach((b) =>
+        b.addEventListener('click', () => {
+          rIn.value = b.dataset.ex!;
+          this.querySelectorAll('[data-ex]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          if (b.dataset.ex!.startsWith('1 2 3 4')) fIn.value = '4';
+          draw();
+        }),
+      );
+      rIn.addEventListener('input', draw);
+      fIn.addEventListener('input', draw);
+      draw();
+    }
+  }
+  customElements.define('qe-page', QePage);
+</script>
+
+<style>
+  .ctl {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 0.8rem 1.5rem;
+    margin: 0.9rem 0;
+    align-items: end;
+  }
+  @media (max-width: 40rem) {
+    .ctl {
+      grid-template-columns: 1fr;
+    }
+  }
+  .ctl label {
+    display: grid;
+    gap: 0.3rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-1);
+  }
+  .ctl input[type='text'] {
+    font: inherit;
+    font-family: var(--sl-font-mono);
+    font-weight: 400;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--sl-color-gray-4);
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+  }
+  .ctl output {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+  }
+  .ctl input[type='range'] {
+    width: 100%;
+    accent-color: var(--sl-color-accent);
+  }
+  .tbl-wrap {
+    overflow-x: auto;
+    margin-top: 0.6rem;
+  }
+  .pg {
+    border-collapse: collapse;
+    font-family: var(--sl-font-mono);
+    font-size: 0.8rem;
+  }
+  :global(.qe-page .pg th),
+  :global(.qe-page .pg td) {
+    border: 1px solid var(--sl-color-gray-5);
+    padding: 0.2rem 0.35rem;
+    text-align: center;
+    min-width: 1.6rem;
+    color: var(--sl-color-white);
+  }
+  :global(.qe-page .pg th) {
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font);
+  }
+  :global(.qe-page .pg thead th) {
+    color: var(--sl-color-white);
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+  }
+  :global(.qe-page .pg td.in) {
+    background: color-mix(in srgb, var(--qe-warn) 30%, transparent);
+    font-weight: 700;
+  }
+  :global(.qe-page .pg td.f) {
+    color: var(--sl-color-gray-1);
+  }
+  .sum {
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

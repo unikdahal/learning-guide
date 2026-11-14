@@ -1,0 +1,153 @@
+---
+title: "4. Deadlock"
+description: Deadlock definition and the four Coffman conditions, resource-allocation graphs, prevention by breaking each condition, avoidance with the Banker's algorithm worked step by step, detection, and recovery.
+sidebar:
+  label: "4. Deadlock"
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** define deadlock and its four necessary conditions, read a resource-allocation graph, run the Banker's safety algorithm, and list the recovery options.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.5** (deadlock appears with concurrency). **Lok Sewa CE unit 10** — "define deadlock and its necessary conditions" is a reported CE 2078 question and your Sun 20 Dec 10-mark writing task; the Banker's algorithm is the usual numerical.
+</Aside>
+
+## 1. What deadlock is
+
+A set of processes is **deadlocked** when each is waiting for an event (usually a resource release) that only another process in the set can cause — so none ever proceeds. Example: P1 holds the printer and wants the scanner; P2 holds the scanner and wants the printer.
+
+**The four necessary conditions (Coffman, 1971)** — deadlock can occur only if **all four hold at once**:
+1. **Mutual exclusion** — at least one resource is non-shareable.
+2. **Hold and wait** — a process holds at least one resource while waiting for another.
+3. **No preemption** — resources can't be forcibly taken; only released voluntarily.
+4. **Circular wait** — a cycle P1 → P2 → … → Pn → P1 where each waits for a resource held by the next.
+
+**Deadlock vs starvation:** in deadlock, nobody progresses and it doesn't fix itself; in starvation, a process waits indefinitely while others progress (fixed by aging).
+
+## 2. Resource-allocation graph
+
+Process nodes (circles), resource nodes (rectangles, with dots for instances). **Request edge** P → R; **assignment edge** R → P.
+- **No cycle → no deadlock.**
+- **Cycle with single-instance resources → deadlock.**
+- **Cycle with multi-instance resources → possibly** deadlock (check whether some process can finish and release).
+
+For single-instance resources, collapse it into a **wait-for graph** (P → Q if P waits for a resource Q holds); a cycle means deadlock.
+
+## 3. Handling deadlock
+
+Four strategies: **prevent**, **avoid**, **detect and recover**, or **ignore** it (the "ostrich algorithm" — what general-purpose OSes like Linux and Windows largely do, leaving it to applications).
+
+### Prevention — make one condition impossible
+
+| Condition | How to break it | Cost |
+| --- | --- | --- |
+| Mutual exclusion | make resources shareable (read-only files, spooling a printer) | impossible for many resources |
+| Hold and wait | request **all** resources at once, or release everything before requesting more | low utilisation, starvation |
+| No preemption | if a request fails, release what you hold (or let the OS preempt) | only for state that can be saved — CPU, memory |
+| **Circular wait** | number resource types; request only in **increasing order** | the most practical — lock ordering |
+
+### Avoidance — the Banker's algorithm
+
+Each process declares its **maximum** need in advance. The OS grants a request only if the resulting state is **safe** — some order exists (a **safe sequence**) in which every process can get its remaining need and finish. Unsafe ≠ deadlocked, but may lead to it.
+
+Data (n processes, m resource types): **Available**[m], **Max**[n][m], **Allocation**[n][m], **Need = Max − Allocation**.
+
+**Safety algorithm:** Work = Available; repeatedly find an unfinished Pi with **Need_i ≤ Work**; pretend it finishes: **Work = Work + Allocation_i**. If all finish, the state is safe.
+
+### Worked (Silberschatz)
+
+Resources A = 10, B = 5, C = 7. Available = (3, 3, 2).
+
+| Process | Allocation | Max | Need = Max − Alloc |
+| --- | --- | --- | --- |
+| P0 | 0 1 0 | 7 5 3 | 7 4 3 |
+| P1 | 2 0 0 | 3 2 2 | 1 2 2 |
+| P2 | 3 0 2 | 9 0 2 | 6 0 0 |
+| P3 | 2 1 1 | 2 2 2 | 0 1 1 |
+| P4 | 0 0 2 | 4 3 3 | 4 3 1 |
+
+Safety check (scan P0 … P4 each round):
+
+| Step | Pick (Need ≤ Work) | Work after it finishes |
+| --- | --- | --- |
+| start | | 3 3 2 |
+| 1 | P1 (1 2 2 ≤ 3 3 2) | 5 3 2 |
+| 2 | P3 (0 1 1 ≤ 5 3 2) | 7 4 3 |
+| 3 | P0 (7 4 3 ≤ 7 4 3) | 7 5 3 |
+| 4 | P2 (6 0 0 ≤ 7 5 3) | 10 5 5 |
+| 5 | P4 (4 3 1 ≤ 10 5 5) | 10 5 7 |
+
+All finish → **safe**; safe sequence **⟨P1, P3, P0, P2, P4⟩** (others exist, e.g. ⟨P1, P3, P4, P2, P0⟩).
+
+**Resource-request algorithm:** for a request Request_i: (1) Request ≤ Need (else error), (2) Request ≤ Available (else wait), (3) pretend to allocate (Available −= Request, Allocation += Request, Need −= Request) and run the safety check; grant only if safe.
+
+Example: P1 requests (1, 0, 2). ≤ Need (1, 2, 2) ✓, ≤ Available (3, 3, 2) ✓. New Available = (2, 3, 0), P1 Allocation (3, 0, 2), Need (0, 2, 0). Safety: P1 → Work (5, 3, 2), P3 → (7, 4, 3), P4 → (7, 4, 5), P0 → (7, 5, 5), P2 → (10, 5, 7) → safe → **grant**.
+
+### Detection and recovery
+
+Allow deadlocks, detect them periodically (wait-for graph cycle for single instances; a Banker-like detection algorithm using the current **requests** for multiple instances), then **recover**:
+- **Process termination** — abort all deadlocked processes, or one at a time until the cycle breaks (choose by priority, work done, resources held).
+- **Resource preemption** — take resources from a **victim**, **roll it back** to a safe state, and avoid **starving** the same victim (count rollbacks in the cost).
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Define deadlock. Explain the necessary conditions for deadlock and the methods for handling it.
+
+<details>
+<summary>Model answer</summary>
+
+**Deadlock.** A situation in which a set of processes are permanently blocked because each process holds a resource and waits for another resource held by some other process in the set. Example: P1 holds R1 and requests R2, while P2 holds R2 and requests R1. *(Draw the resource-allocation graph with the cycle.)*
+
+**Necessary conditions** (all four must hold simultaneously):
+1. **Mutual exclusion:** at least one resource is held in a non-shareable mode.
+2. **Hold and wait:** a process holding resources may request additional resources held by others.
+3. **No preemption:** a resource can be released only voluntarily by the process holding it.
+4. **Circular wait:** there is a circular chain of processes, each waiting for a resource held by the next.
+
+**Methods for handling deadlock.**
+1. **Prevention:** ensure at least one condition can never hold — make resources shareable; require processes to request all resources at once (no hold and wait); allow preemption; impose a total ordering on resource types and request them in increasing order (no circular wait).
+2. **Avoidance:** use advance information about maximum needs and grant a request only if the system stays in a safe state — Banker's algorithm (multiple instances) or the resource-allocation-graph algorithm with claim edges (single instances).
+3. **Detection and recovery:** let deadlocks happen, detect them with a wait-for graph or detection algorithm, and recover by terminating processes or preempting resources with rollback.
+4. **Ignoring the problem:** assume deadlocks are rare (ostrich algorithm), used by most general-purpose operating systems.
+
+*(Optionally add the Banker's worked example to show avoidance.)*
+
+</details>
+
+## Check yourself
+
+1. Which is **not** a necessary condition for deadlock?
+   (a) mutual exclusion (b) hold and wait (c) preemption (d) circular wait
+
+<details><summary>Answer</summary>(c) it is *no* preemption.</details>
+
+2. Ordering resources and requesting them in increasing order prevents:
+   (a) mutual exclusion (b) hold and wait (c) no preemption (d) circular wait
+
+<details><summary>Answer</summary>(d)</details>
+
+3. The Banker's algorithm is used for deadlock:
+   (a) prevention (b) avoidance (c) detection (d) recovery
+
+<details><summary>Answer</summary>(b)</details>
+
+4. A cycle in a resource-allocation graph where every resource has one instance means:
+   (a) no deadlock (b) deadlock (c) possible deadlock (d) starvation
+
+<details><summary>Answer</summary>(b)</details>
+
+5. In the Banker's algorithm, Need equals:
+   (a) Max + Allocation (b) Max − Allocation (c) Available − Allocation (d) Allocation − Max
+
+<details><summary>Answer</summary>(b)</details>
+
+6. An unsafe state:
+   (a) is always deadlocked (b) may lead to deadlock (c) can never deadlock (d) means a process crashed
+
+<details><summary>Answer</summary>(b)</details>
+
+7. Three processes each need 2 units of a resource. The minimum number of units that guarantees no deadlock:
+   (a) 3 (b) 4 (c) 5 (d) 6
+
+<details><summary>Answer</summary>(b) n(k − 1) + 1 = 3 × 1 + 1.</details>

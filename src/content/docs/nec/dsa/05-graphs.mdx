@@ -1,0 +1,192 @@
+---
+title: "5. Graphs"
+description: Graph terminology and representations, BFS and DFS with traces, topological sort, transitive closure by Warshall's algorithm, minimum spanning trees by Prim, Kruskal and the round-robin method, and shortest paths.
+sidebar:
+  label: "5. Graphs"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+import DsaDiagram from '@components/visuals/dsa/DsaDiagram.astro';
+
+**Goal:** represent a graph both ways, trace BFS and DFS, topologically sort a DAG, run Warshall, and build an MST with Prim and Kruskal as tables.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.2** (representations, transitive closure, Warshall, DFS/BFS, topological sort, MST — Prim, Kruskal, round-robin — and shortest paths). **Lok Sewa CE unit 7** (graphs). Prim/Kruskal tables are reliable 5–10 mark numericals.
+</Aside>
+
+## 1. Terminology
+
+Vertices V, edges E; **directed** (digraph) or undirected; **weighted** or not. **Degree** (in-degree and out-degree for digraphs); Σ degrees = 2|E|. **Path**, **cycle**, **connected** (a path between every pair), **strongly connected** (digraph, both directions), **complete graph** (n(n − 1)/2 edges), **DAG** (directed acyclic graph), **tree** = connected acyclic graph with n − 1 edges, **spanning tree** = a tree containing every vertex.
+
+## 2. Representations
+
+| | Adjacency matrix | Adjacency list |
+| --- | --- | --- |
+| Space | O(V²) | O(V + E) |
+| Edge (u, v) check | O(1) | O(degree) |
+| List neighbours | O(V) | O(degree) |
+| Best for | dense graphs, Warshall/Floyd | sparse graphs (most real ones), BFS/DFS |
+
+Also: incidence matrix (V × E), edge list (Kruskal).
+
+```cpp
+int V = 6;
+std::vector<std::vector<std::pair<int,int>>> adj(V);   // (neighbour, weight)
+auto addEdge = [&](int u, int v, int w) { adj[u].push_back({v, w}); adj[v].push_back({u, w}); };
+```
+
+## 3. The example graph
+
+<Figure caption="Weighted undirected graph used for BFS, DFS, Prim and Kruskal. The thick edges form its minimum spanning tree (total weight 13).">
+  <DsaDiagram name="graph" label="Six vertices A to F. Edges with weights: A–B 4, A–C 2, B–C 1, B–D 5, C–D 8, C–E 10, D–E 2, D–F 6, E–F 3. Highlighted MST edges: A–C, B–C, B–D, D–E, E–F." />
+</Figure>
+
+## 4. BFS and DFS
+
+**BFS** (breadth-first) — visit by distance from the source using a **queue**. Finds shortest paths in **unweighted** graphs; O(V + E).
+
+From A (neighbours in alphabetical order):
+
+| Dequeue | Enqueue | Queue after | Visited order |
+| --- | --- | --- | --- |
+| A | B, C | B C | A |
+| B | D | C D | A B |
+| C | E | D E | A B C |
+| D | F | E F | A B C D |
+| E | — | F | A B C D E |
+| F | — | | A B C D E F |
+
+**DFS** (depth-first) — go as deep as possible, backtrack; uses a **stack** (or recursion); O(V + E). From A: A → B → C (B's first unvisited neighbour) → D → E → F. Order **A B C D E F**. Uses: cycle detection, topological sort, connected and strongly connected components, maze solving.
+
+```cpp
+void dfs(int u, std::vector<bool>& seen, const auto& adj) {
+    seen[u] = true;
+    for (auto [v, w] : adj[u]) if (!seen[v]) dfs(v, seen, adj);
+}
+```
+
+## 5. Topological sort
+
+A linear order of a **DAG**'s vertices such that every edge u → v has u before v (task scheduling, build systems, course prerequisites). Impossible if there is a cycle.
+
+**Kahn's algorithm:** repeatedly output a vertex of in-degree 0 and delete its edges. DAG A → C, B → C, B → D, C → E, D → E: in-degrees A 0, B 0, C 2, D 1, E 2 → output A (C becomes 1), B (C 0, D 0), C (E 1), D (E 0), E → **A B C D E**. Alternatively: the reverse of the DFS finishing order.
+
+## 6. Transitive closure — Warshall's algorithm
+
+Reachability matrix R: R[i][j] = 1 if there is any path from i to j. Warshall allows each vertex k in turn as an intermediate:
+
+`R[i][j] = R[i][j] OR (R[i][k] AND R[k][j])` for k = 1 … n — **O(n³)**.
+
+Example: edges 1 → 2, 2 → 3, 3 → 4.
+- k = 2 adds 1 → 3. k = 3 adds 1 → 4 and 2 → 4.
+- Closure: 1 reaches 2, 3, 4; 2 reaches 3, 4; 3 reaches 4; 4 reaches none.
+
+(**Floyd–Warshall** is the same triple loop with `min(d[i][j], d[i][k] + d[k][j])` — all-pairs shortest paths.)
+
+## 7. Minimum spanning trees
+
+A spanning tree of minimum total weight in a connected, weighted, undirected graph (cheapest network that connects every site). V − 1 edges.
+
+**Prim's algorithm** — grow one tree from a start vertex, always adding the cheapest edge leaving the tree. O(E log V) with a heap.
+
+| Step | Tree so far | Cheapest edge leaving it | Added |
+| --- | --- | --- | --- |
+| 1 | A | A–C (2) | C |
+| 2 | A C | C–B (1) | B |
+| 3 | A B C | B–D (5) | D |
+| 4 | A B C D | D–E (2) | E |
+| 5 | A B C D E | E–F (3) | F |
+
+Total = 2 + 1 + 5 + 2 + 3 = **13**.
+
+**Kruskal's algorithm** — sort all edges by weight; add each edge unless it forms a cycle (checked with **union–find**). O(E log E).
+
+| Edge (sorted) | Weight | Decision |
+| --- | --- | --- |
+| B–C | 1 | accept |
+| A–C | 2 | accept |
+| D–E | 2 | accept |
+| E–F | 3 | accept |
+| A–B | 4 | reject (A–C–B already connected) |
+| B–D | 5 | accept — 5 edges, done |
+
+Same MST, total **13**. (Prim suits dense graphs; Kruskal suits sparse graphs.)
+
+**Round-robin algorithm** (Cheriton–Tarjan, Borůvka-style): keep the partial trees (components) in a queue; take the front component, add its cheapest outgoing edge, merge the two components and put the result at the back; repeat until one component remains.
+
+## 8. Shortest paths
+
+- **Dijkstra** — single source, **non-negative** weights; greedy; O((V + E) log V) with a heap. Worked as a table in [Networks lesson 5](/learning-guide/nec/networks/05-network-layer-routing/#6-link-state-dijkstras-algorithm).
+- **Bellman–Ford** — single source, handles **negative** edges and detects negative cycles; O(VE).
+- **Floyd–Warshall** — all pairs, O(V³).
+- Unweighted graphs: plain BFS.
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Find the minimum spanning tree of the graph above using Kruskal's algorithm and Prim's algorithm. Compare the two.
+
+<details>
+<summary>Model answer</summary>
+
+**MST.** A spanning tree of a connected, weighted, undirected graph whose total edge weight is minimum. It has V − 1 edges.
+
+**Kruskal.** Sort edges in non-decreasing order of weight and add each one unless it creates a cycle (detected with disjoint sets). *(Draw the graph; show the sorted-edge table above with accept/reject.)* Accepted: B–C 1, A–C 2, D–E 2, E–F 3, B–D 5. Rejected A–B 4 (cycle). Total = **13**.
+
+**Prim.** Start from A; at each step add the minimum-weight edge connecting a tree vertex to a non-tree vertex. *(Show the step table.)* Order: A–C 2, C–B 1, B–D 5, D–E 2, E–F 3. Total = **13**. *(Draw the final MST.)*
+
+**Comparison.**
+
+| Prim | Kruskal |
+| --- | --- |
+| Grows a single tree from a start vertex | Builds a forest that merges into one tree |
+| Chooses the cheapest edge leaving the tree | Chooses the globally cheapest edge that forms no cycle |
+| Uses a priority queue | Uses sorting plus union–find |
+| O(E log V) with a binary heap; O(V²) with a matrix | O(E log E) |
+| Better for dense graphs | Better for sparse graphs |
+
+Both are greedy and give the same total weight (the MST is unique when all weights are distinct).
+
+</details>
+
+## Check yourself
+
+1. BFS uses a:
+   (a) stack (b) queue (c) heap (d) tree
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Topological sort is possible only for:
+   (a) undirected graphs (b) DAGs (c) complete graphs (d) weighted graphs
+
+<details><summary>Answer</summary>(b)</details>
+
+3. Warshall's algorithm computes:
+   (a) MST (b) transitive closure (c) single-source shortest paths (d) topological order
+
+<details><summary>Answer</summary>(b)</details>
+
+4. The number of edges in a spanning tree of a graph with 10 vertices:
+   (a) 10 (b) 9 (c) 45 (d) 11
+
+<details><summary>Answer</summary>(b)</details>
+
+5. Dijkstra's algorithm fails with:
+   (a) cycles (b) negative edge weights (c) undirected graphs (d) disconnected graphs
+
+<details><summary>Answer</summary>(b)</details>
+
+6. Space for an adjacency matrix of V vertices:
+   (a) O(V) (b) O(E) (c) O(V²) (d) O(V + E)
+
+<details><summary>Answer</summary>(c)</details>
+
+7. Kruskal's algorithm detects cycles using:
+   (a) a stack (b) union–find (disjoint sets) (c) BFS only (d) a heap
+
+<details><summary>Answer</summary>(b)</details>
+
+8. The sum of degrees in an undirected graph with 12 edges:
+   (a) 12 (b) 24 (c) 6 (d) 144
+
+<details><summary>Answer</summary>(b)</details>

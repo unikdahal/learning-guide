@@ -1,0 +1,153 @@
+---
+title: "1. Data models and ER design"
+description: File systems vs DBMS, data abstraction and the three-schema architecture, data independence, schema and instance, data models, DBMS users and languages, the ER model (entities, attributes, relationships, cardinality, participation, weak entities, specialisation), and mapping an ER diagram to tables.
+sidebar:
+  label: "1. Data models, ER"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** explain the three-schema architecture and data independence, draw an ER diagram for a word problem with correct notation, and convert it to tables.
+
+<Aside type="note" title="Where this scores for you">
+**NEC 7.3** (data abstraction and independence, schema and instance, E-R model, strong and weak entity sets, attributes and keys, E-R diagram). **Lok Sewa CE unit 9** (relational and ER models). "Draw an ER diagram for a library/hospital/bank" is a recurring Computer Officer question.
+</Aside>
+
+## 1. Why a DBMS
+
+A **database** is an organised collection of related data; a **DBMS** is the software that defines, stores, queries and protects it (MySQL, PostgreSQL, Oracle, SQL Server).
+
+Problems of the **file-processing** approach a DBMS fixes: **redundancy and inconsistency**, difficult access (a new program per query), data isolation (scattered formats), **integrity** constraints buried in code, **atomicity** of updates, **concurrent-access** anomalies, and **security**.
+
+## 2. Data abstraction — the three-schema (ANSI/SPARC) architecture
+
+| Level | Describes | Who sees it |
+| --- | --- | --- |
+| **External (view)** | the part of the database a user/application needs | end users; many views |
+| **Conceptual (logical)** | **what** data is stored and the relationships — the whole database | DBA, designers; one |
+| **Internal (physical)** | **how** data is stored — files, indexes, blocks | DBMS; one |
+
+Mappings connect the levels. They give **data independence** — changing one level without rewriting the level above:
+- **Physical data independence:** change storage (add an index, move files) without changing the conceptual schema. Easy and common.
+- **Logical data independence:** change the conceptual schema (add a column or table) without changing external views/applications. Harder.
+
+**Schema vs instance:** the schema is the **design** (table definitions — changes rarely); an instance (state) is the **data at a moment** (changes constantly). Like a class vs an object.
+
+## 3. Data models
+
+- **Hierarchical** (tree, IMS), **network** (graph of records, CODASYL) — historical.
+- **Relational** (tables — Codd, 1970) — dominant.
+- **Entity–relationship** — conceptual design.
+- **Object-oriented / object-relational** — objects, inheritance, complex types.
+- **Semi-structured / NoSQL** — JSON documents, key–value, column-family, graph.
+
+**DBMS languages:** **DDL** (CREATE, ALTER, DROP, TRUNCATE — defines schema), **DML** (SELECT, INSERT, UPDATE, DELETE), **DCL** (GRANT, REVOKE), **TCL** (COMMIT, ROLLBACK, SAVEPOINT). The **data dictionary** (catalogue) stores metadata.
+
+**Users:** naive users (forms), application programmers, sophisticated users (ad hoc queries), **DBA** (schema definition, storage structure, authorisation, backup and recovery, performance tuning).
+
+## 4. The ER model
+
+**Notation (Chen):**
+
+| Concept | Symbol |
+| --- | --- |
+| Strong entity set | rectangle |
+| **Weak entity set** | **double rectangle** |
+| Attribute | ellipse |
+| Key attribute | ellipse with **underlined** name |
+| **Partial key** (discriminator) of a weak entity | **dashed** underline |
+| Multivalued attribute | double ellipse |
+| Derived attribute | dashed ellipse |
+| Composite attribute | ellipse with child ellipses |
+| Relationship set | diamond |
+| **Identifying relationship** | **double diamond** |
+| **Total participation** | **double line** |
+
+**Cardinality ratios:** 1:1, 1:N, M:1, M:N — written on the lines (or with crow's-foot notation). **Participation:** total (every entity must take part — double line) or partial.
+
+**Weak entity:** has no key of its own; identified by its **owner** entity's key + its **partial key**, through an identifying relationship, with total participation. Example: **Dependent** (name) of **Employee** — a dependent "Sita" is identified only as Sita *of employee 101*. (The model paper asks this.)
+
+**Keys:** **super key** (any attribute set that identifies a tuple uniquely) ⊇ **candidate key** (a minimal super key) → **primary key** (the chosen candidate); **alternate keys** (the other candidates); **foreign key** (references another table's primary key); **composite key** (more than one attribute).
+
+**Extended ER:** **specialisation** (top-down: Employee → Engineer, Manager), **generalisation** (bottom-up), **aggregation** (treat a relationship as an entity to relate it further). Constraints: disjoint/overlapping, total/partial.
+
+## 5. Mapping ER to tables
+
+1. **Strong entity** → table with its attributes; key → primary key. Composite attributes → their parts; derived → omit.
+2. **Weak entity** → table with its attributes **+ the owner's primary key** (as a foreign key); primary key = owner key + partial key.
+3. **1:1** → put a foreign key in either table (prefer the total-participation side).
+4. **1:N** → put the **"1" side's key as a foreign key in the "N" side**.
+5. **M:N** → a **new table** with both keys (together the primary key) plus the relationship's attributes.
+6. **Multivalued attribute** → its own table (owner key + value).
+7. Specialisation → a table per subclass with the superclass key (or one table with a type column).
+
+**Example — library.** Member (member_id, name, phone), Book (isbn, title, author), Copy (weak: copy_no of Book), Borrows (M:N between Member and Copy, with issue_date, due_date):
+- Member(**member_id**, name, phone)
+- Book(**isbn**, title, author)
+- Copy(**isbn, copy_no**, shelf) — isbn is a foreign key to Book
+- Borrows(**member_id, isbn, copy_no, issue_date**, due_date, return_date)
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Explain the three-schema architecture of a DBMS. What is data independence? Differentiate logical and physical data independence.
+
+<details>
+<summary>Model answer</summary>
+
+**Three-schema architecture (ANSI/SPARC).** Separates users' views of data from the way it is physically stored, through three levels of abstraction. *(Draw: several external views at the top → external/conceptual mapping → conceptual schema → conceptual/internal mapping → internal schema → stored database.)*
+
+1. **External level (view level):** describes the part of the database relevant to a particular user group and hides the rest. There can be many external schemas (e.g. a student's view of results, the accounts section's view of fees).
+2. **Conceptual level (logical level):** describes the whole database for the community of users — entities, attributes, relationships, constraints — independent of storage. There is one conceptual schema, designed by the DBA.
+3. **Internal level (physical level):** describes how data is physically stored — record structures, file organisation, indexes, access paths, compression.
+
+Mappings between the levels translate requests and results between them.
+
+**Data independence** is the capacity to change the schema at one level without changing the schema at the next higher level.
+
+| Logical data independence | Physical data independence |
+| --- | --- |
+| Change in the conceptual schema without changing external schemas or application programs | Change in the internal schema without changing the conceptual schema |
+| e.g. adding an attribute or a new table, splitting a table | e.g. adding an index, changing file organisation, moving to new storage devices |
+| Achieved by the external/conceptual mapping | Achieved by the conceptual/internal mapping |
+| Harder to achieve | Easier to achieve |
+
+**Benefit:** applications are insulated from changes, reducing maintenance cost.
+
+</details>
+
+## Check yourself
+
+1. A weak entity set is shown in an ER diagram by a:
+   (a) double ellipse (b) double rectangle (c) dashed ellipse (d) diamond
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Changing the storage structure without affecting the conceptual schema is:
+   (a) logical data independence (b) physical data independence (c) normalisation (d) abstraction
+
+<details><summary>Answer</summary>(b)</details>
+
+3. A minimal super key is a:
+   (a) foreign key (b) candidate key (c) composite key (d) alternate key
+
+<details><summary>Answer</summary>(b)</details>
+
+4. An M:N relationship is mapped to:
+   (a) a foreign key in one table (b) a separate table with both keys (c) a multivalued attribute (d) nothing
+
+<details><summary>Answer</summary>(b)</details>
+
+5. The overall design of a database is its:
+   (a) instance (b) schema (c) view (d) record
+
+<details><summary>Answer</summary>(b)</details>
+
+6. GRANT and REVOKE are:
+   (a) DDL (b) DML (c) DCL (d) TCL
+
+<details><summary>Answer</summary>(c)</details>
+
+7. A derived attribute (e.g. age from date of birth) is drawn as a:
+   (a) double ellipse (b) dashed ellipse (c) underlined ellipse (d) rectangle
+
+<details><summary>Answer</summary>(b)</details>

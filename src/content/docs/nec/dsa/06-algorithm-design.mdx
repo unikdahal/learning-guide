@@ -1,0 +1,138 @@
+---
+title: "6. Algorithm design: greedy, divide and conquer, dynamic programming"
+description: The three main design paradigms compared, greedy algorithms (activity selection, fractional knapsack, Huffman), divide and conquer, dynamic programming with 0/1 knapsack and LCS tables, backtracking and branch and bound, and an introduction to P and NP.
+sidebar:
+  label: "6. Algorithm design"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+
+**Goal:** name the paradigm behind an algorithm, fill the 0/1 knapsack and LCS tables by hand, and explain why greedy fails for 0/1 knapsack.
+
+<Aside type="note" title="Where this scores for you">
+**Lok Sewa CE unit 7** (greedy, divide and conquer, dynamic programming, recursion) — beyond NEC's syllabus, but a likely Paper II question and on your plan's CE extras for Wed 16 Dec. NEC asks it only indirectly (merge sort, Dijkstra, Prim).
+</Aside>
+
+## 1. The paradigms
+
+| | Divide and conquer | Greedy | Dynamic programming |
+| --- | --- | --- | --- |
+| Idea | split into **independent** subproblems, solve, combine | make the locally best choice, never reconsider | solve **overlapping** subproblems once, store results |
+| Needs | — | greedy-choice property + optimal substructure | optimal substructure + overlapping subproblems |
+| Optimal? | yes (exact) | only for some problems | yes |
+| Examples | merge sort, quick sort, binary search, Strassen | Prim, Kruskal, Dijkstra, Huffman, fractional knapsack, activity selection | 0/1 knapsack, LCS, matrix-chain, Floyd–Warshall, Bellman–Ford |
+
+**Memoisation** (top-down: recursion + cache) vs **tabulation** (bottom-up: fill a table) are the two ways to implement DP.
+
+## 2. Greedy examples
+
+**Activity selection:** choose the most non-overlapping activities — sort by **finish time**, pick each activity that starts after the last chosen one finishes. Optimal.
+
+**Fractional knapsack:** items may be split — sort by **value/weight** and take greedily. Capacity 50; items (weight, value) (10, 60), (20, 100), (30, 120); ratios 6, 5, 4 → take 10 and 20 fully (160), then 20/30 of the third (80) → **240**. Optimal.
+
+Greedy **fails for 0/1 knapsack** (no splitting): the same greedy gives 60 + 100 = 160, but the best is 100 + 120 = **220**.
+
+## 3. Dynamic programming: 0/1 knapsack
+
+K[i][c] = best value using the first i items with capacity c:
+- K[i][c] = K[i − 1][c] if wᵢ > c
+- otherwise **K[i][c] = max(K[i − 1][c], vᵢ + K[i − 1][c − wᵢ])**
+
+**Worked:** capacity W = 5; items (w, v): 1 = (2, 3), 2 = (3, 4), 3 = (4, 5), 4 = (5, 6).
+
+| i \ c | 0 | 1 | 2 | 3 | 4 | 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 (2, 3) | 0 | 0 | 3 | 3 | 3 | 3 |
+| 2 (3, 4) | 0 | 0 | 3 | 4 | 4 | **7** |
+| 3 (4, 5) | 0 | 0 | 3 | 4 | 5 | 7 |
+| 4 (5, 6) | 0 | 0 | 3 | 4 | 5 | **7** |
+
+Answer **7** — items 1 and 2 (weight 5). Trace back: K[4][5] = K[3][5] = K[2][5] = 7 ≠ K[1][5] = 3, so item 2 is in; remaining capacity 2 → K[1][2] = 3 ≠ 0, so item 1 is in. **O(nW)** time (pseudo-polynomial).
+
+```cpp
+int knapsack(int W, const std::vector<int>& w, const std::vector<int>& v) {
+    std::vector<int> K(W + 1, 0);
+    for (size_t i = 0; i < w.size(); i++)
+        for (int c = W; c >= w[i]; c--)          // backwards so each item is used once
+            K[c] = std::max(K[c], v[i] + K[c - w[i]]);
+    return K[W];
+}
+```
+
+## 4. Dynamic programming: longest common subsequence
+
+L[i][j] = LCS length of X[1..i] and Y[1..j]:
+- if X[i] = Y[j]: L[i][j] = L[i − 1][j − 1] + 1
+- else L[i][j] = max(L[i − 1][j], L[i][j − 1])
+
+X = ABCBDAB, Y = BDCABA → LCS length **4** (e.g. **BCBA**, BDAB or BCAB). O(mn). (Used in diff tools and DNA comparison.)
+
+**Matrix-chain multiplication:** choose the bracketing that minimises scalar multiplications: m[i][j] = min over k of m[i][k] + m[k + 1][j] + pᵢ₋₁·pₖ·pⱼ. For A (10 × 30), B (30 × 5), C (5 × 60): (AB)C = 1500 + 3000 = **4500**; A(BC) = 9000 + 18000 = 27000.
+
+## 5. Backtracking and branch and bound
+
+- **Backtracking:** build a solution step by step and abandon a partial solution as soon as it can't succeed (DFS of the state space). **N-queens**, sudoku, subset sum, graph colouring.
+- **Branch and bound:** explore the state space keeping the best solution so far and a **bound** on each branch, pruning branches that can't beat it — optimisation problems (0/1 knapsack, travelling salesman).
+
+## 6. P and NP (one paragraph)
+
+**P:** problems solvable in polynomial time. **NP:** problems whose solutions can be **verified** in polynomial time. **NP-complete:** the hardest problems in NP (SAT, 0/1 knapsack decision version, travelling salesman decision, graph colouring, Hamiltonian cycle) — a polynomial algorithm for one would give one for all. **NP-hard:** at least as hard, not necessarily in NP. Whether P = NP is open. (More in the Theory of Computation chapter.)
+
+## Lok Sewa: write it (10 marks · 16 minutes)
+
+**Question.** Differentiate greedy and dynamic programming approaches. Solve the 0/1 knapsack problem with W = 5 and items (2, 3), (3, 4), (4, 5), (5, 6) using dynamic programming.
+
+<details>
+<summary>Model answer</summary>
+
+**Greedy vs dynamic programming.**
+
+| Greedy | Dynamic programming |
+| --- | --- |
+| Makes the locally optimal choice at each step | Considers all subproblem choices and combines their stored solutions |
+| Never revises a choice | Effectively examines alternatives through the table |
+| Needs the greedy-choice property | Needs optimal substructure and overlapping subproblems |
+| May not give the optimal solution (e.g. 0/1 knapsack) | Always optimal when applicable |
+| Usually faster, less memory | More time and memory (table) |
+| Examples: fractional knapsack, Prim, Kruskal, Huffman | 0/1 knapsack, LCS, Floyd–Warshall, matrix chain |
+
+**0/1 knapsack.** Recurrence: K[i][c] = K[i − 1][c] if wᵢ > c, else max(K[i − 1][c], vᵢ + K[i − 1][c − wᵢ]); K[0][c] = K[i][0] = 0.
+
+*(Fill the 5 × 6 table exactly as in the lesson.)*
+
+Maximum value = K[4][5] = **7**. Traceback: K[4][5] = K[3][5] → item 4 not taken; K[3][5] = K[2][5] → item 3 not taken; K[2][5] = 7 ≠ K[1][5] = 3 → item 2 taken, remaining capacity 5 − 3 = 2; K[1][2] = 3 ≠ K[0][2] = 0 → item 1 taken. **Selected: items 1 and 2** (total weight 5, value 7). Time complexity O(nW).
+
+</details>
+
+## Check yourself
+
+1. Which uses dynamic programming?
+   (a) Prim (b) Floyd–Warshall (c) merge sort (d) Kruskal
+
+<details><summary>Answer</summary>(b)</details>
+
+2. Fractional knapsack is solved optimally by:
+   (a) greedy (b) backtracking only (c) brute force only (d) it cannot be solved
+
+<details><summary>Answer</summary>(a)</details>
+
+3. Dynamic programming needs:
+   (a) independent subproblems (b) overlapping subproblems and optimal substructure (c) the greedy-choice property (d) sorted input
+
+<details><summary>Answer</summary>(b)</details>
+
+4. Merge sort follows:
+   (a) greedy (b) dynamic programming (c) divide and conquer (d) backtracking
+
+<details><summary>Answer</summary>(c)</details>
+
+5. The LCS of "ABCD" and "ACBD" has length:
+   (a) 2 (b) 3 (c) 4 (d) 1
+
+<details><summary>Answer</summary>(b) e.g. ABD or ACD.</details>
+
+6. N-queens is typically solved by:
+   (a) greedy (b) backtracking (c) hashing (d) BFS only
+
+<details><summary>Answer</summary>(b)</details>
