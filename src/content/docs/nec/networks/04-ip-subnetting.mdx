@@ -11,7 +11,7 @@ import SubnetLab from '@components/visuals/networks/SubnetLab.astro';
 **Goal:** subnet any block into n subnets, find a host's network, broadcast and range, design a VLSM plan, and do it all in under four minutes.
 
 <Aside type="note" title="Where this scores for you">
-**NEC 5.3** (Internet and classful addressing, subnetting). **Lok Sewa CE unit 1** — "subnet 200.168.10.0/24 into 7 subnets and find a host's network, broadcast and range" is a reported CE 2078 question; it is worked in full below. Expect at least 1–2 NEC MCQs from this lesson.
+**NEC 5.3** (Internet and classful addressing, subnetting). **Lok Sewa CE unit 1** — a CE 2078 third-party transcription asks a similar problem with host **.177**. The **.75** examples below are adapted practice, not the source question. See the [source register](/learning-guide/lok-sewa/preparation/source-register/) and the [transcribed-question workshop](/learning-guide/lok-sewa/preparation/written-answer-workshop/) for provenance and the .177 solution. No question count is guaranteed for a future paper.
 </Aside>
 
 ## 1. IPv4 addresses
@@ -48,7 +48,7 @@ Borrow host bits to make subnets.
 
 <SubnetLab />
 
-### Worked (reported CE 2078): 200.168.10.0/24 into 7 subnets; host 200.168.10.75
+### Adapted practice: 200.168.10.0/24 into 7 subnets; host 200.168.10.75
 
 1. 7 subnets → s = ⌈log₂ 7⌉ = **3** bits → **/27**, mask **255.255.255.224** (11100000 = 224).
 2. Block size = 256 − 224 = **32**; hosts per subnet = 2⁵ − 2 = **30**; 2³ = 8 subnets (one spare).

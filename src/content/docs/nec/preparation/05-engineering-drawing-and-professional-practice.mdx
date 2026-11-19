@@ -1,0 +1,343 @@
+---
+title: "Drawing, project management, ethics & the NEC Act: worked cases"
+description: Original cases for NEC 10.1 drawing, 10.4 project management, 10.5 professional practice and 10.6 NEC Act and Regulations, with section-and-page citations to the official texts.
+sidebar:
+  label: "Drawing, practice & NEC Act"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Syllabus mapping:** NEC AALL10, sections **10.1** (AALL1001), **10.4** (AALL1004), **10.5** (AALL1005) and **10.6** (AALL1006), as listed on page 6 of the [official ACtE syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf). Sections 10.2 and 10.3 are worked in the [economics and critical-path lab](/learning-guide/nec/preparation/04-project-economics-and-cpm/). The [Chapter 10 checklist](/learning-guide/nec/chapters/10-project-planning/) holds the short facts. This page works through cases.
+
+**Lok Sewa overlap (Computer Engineer):** only §2 overlaps. Both the [Paper I](https://psc.gov.np/site_uploads/course/20231110070747654dd6c388682.pdf) and [Paper II](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf) syllabi list **8.2 software project management**, which includes risk management (page 4 of Paper I, page 2 of Paper II), and **15.11 software project management** (page 6 of Paper I, page 4 of Paper II). Paper II Section D (page 5) asks for technical proposals and case studies. There, the risk register and the contract choice are useful supporting material. Neither syllabus names engineering drawing, professional ethics, NEA or the NEC Act, so §1, §3 and §4 are NEC-only.
+
+All cases and numbers below are original and hypothetical. None is a past-year question, and no claim is made about how often a topic is asked.
+
+<Aside type="caution" title="Legal text: study guide, not legal advice">
+Statutory facts cite the NEC's own English consolidations: the **Act as amended to the First Amendment 2079** (in force 20 September 2022) and the **Regulations as amended to the Third Amendment 2080** (in force 16 May 2023). The NEC site also lists a Nepali **Fourth Amendment Regulations, 2082** (approved २०८२/०२/२५ BS). Its changes are summarised in §4.6 from our reading of the Nepali scan. We checked to 17 November 2026. A later amendment, or a fee change, would not appear here. The English texts are translations: for anything that matters, read the Nepali text on the [NEC Acts page](https://nec.gov.np/page/act-regulations). Below, "s" means a section of the Act and "r" a rule of the Regulations. PDF page ranges are listed under [Sources and limits](#sources-and-limits).
+</Aside>
+
+## 1. Engineering drawing (10.1)
+
+### 1.1 Scale is a ratio of drawn length to true length
+
+A scale of $1:n$ means $L_{\text{drawn}} = L_{\text{true}} / n$. Reducing scales such as 1:50 shrink the object; enlarging scales such as 5:1 magnify it. Whatever the scale, **the dimension text always states the true size**.
+
+**Case.** You must draw the floor plan of a server room, 6.0 m × 4.2 m, with a row of racks.
+
+| Scale | Drawn size | Smallest sheet that fits, leaving room for border and title block |
+| --- | --- | --- |
+| 1:20 | $6000/20 = 300$ mm by $4200/20 = 210$ mm | A3 (420 × 297). It already exceeds A4 (297 × 210) before any border |
+| 1:50 | $6000/50 = 120$ mm by $4200/50 = 84$ mm | A4, with space for a rack-elevation detail |
+| 1:100 | 60 mm by 42 mm | A4. A 600 mm rack shrinks to 6 mm, too small to label |
+
+Choose the largest standard scale that still fits the paper with margins. That keeps details readable.
+
+<Figure caption="Original example. The room drawn at 1:50: 2 px stands for 1 mm of paper, so the 6000 mm wall is 120 mm on paper. Dimension values are true sizes in millimetres. A scale bar stays correct even when the sheet is photocopied larger or smaller.">
+  <svg viewBox="0 0 360 270" width="360" class="qe-diagram" role="img" aria-label="A rectangle labelled 6000 by 4200 millimetres, drawn at scale 1 to 50, with dimension lines and a scale bar from 0 to 3 metres where each metre is 20 millimetres on paper.">
+    <rect x="60" y="40" width="240" height="168" fill="none" stroke="currentColor" stroke-width="2.5" />
+    <rect x="80" y="60" width="120" height="24" class="qe-node" />
+    <g fill="none" stroke="currentColor" stroke-width="1"><path d="M60 34 V18 M300 34 V18 M60 24 H300 M54 40 H38 M54 208 H38 M44 40 V208" /></g>
+    <text x="180" y="18" text-anchor="middle">6000</text>
+    <text x="30" y="128" text-anchor="middle" transform="rotate(-90 30 128)">4200</text>
+    <text x="140" y="77" text-anchor="middle" class="qe-muted">racks</text>
+    <text x="180" y="140" text-anchor="middle" class="qe-muted">SERVER ROOM</text>
+    <g stroke="currentColor"><rect x="60" y="232" width="40" height="8" fill="currentColor" /><rect x="100" y="232" width="40" height="8" fill="none" /><rect x="140" y="232" width="40" height="8" fill="currentColor" /></g>
+    <text x="60" y="258" text-anchor="middle">0</text><text x="100" y="258" text-anchor="middle">1</text><text x="140" y="258" text-anchor="middle">2</text><text x="180" y="258" text-anchor="middle">3 m</text>
+    <text x="300" y="258" text-anchor="end" class="qe-muted">Scale 1:50 · mm</text>
+  </svg>
+</Figure>
+
+**Case: the photocopied drawing.** An A3 sheet at 1:50 is reduced to A4 for a site file. Each A-size is the next size up halved, so the side ratio is $\sqrt{2}$ and the linear factor is $1/\sqrt{2} \approx 0.707$. A true 1 m that was 20 mm on paper is now about 14.1 mm, so the copy is roughly $1:(50/0.707) \approx 1:71$ while its title block still says 1:50. Measuring the copy with a ruler gives every length about 29% short. The dimension figures and the drawn scale bar remain trustworthy, which is why you shouldn't scale lengths off a print when a dimension exists.
+
+### 1.2 First- and third-angle placement
+
+Both methods draw the same views. They differ only in **where each view is placed on the sheet**:
+
+- **First angle:** the object sits between you and the projection plane. Each view lands on the far side. The top view goes **below** the front view, and the view seen from the left goes on the **right**.
+- **Third angle:** the plane sits between you and the object. Each view lands on the near side. The top view goes **above** the front view, and the view seen from the right goes on the **right**.
+
+<Figure caption="Original diagram. Upper boxes show where views go; lower drawings are the truncated-cone symbols. In both symbols the two solid circles show the cone's small end. First angle: the trapezoid's short side faces away from the circles. Third angle: it faces toward them.">
+  <svg viewBox="0 0 370 210" width="370" class="qe-diagram" role="img" aria-label="First angle: front view top left, top view below it, left-side view to its right. Third angle: top view above front view, right-side view to the right of the front view. Below each, the projection symbol: in first angle a trapezoid with its narrow end away from two concentric circles placed on its right; in third angle two concentric circles on the left with the trapezoid's narrow end facing them.">
+    <text x="85" y="14" text-anchor="middle">First angle</text>
+    <g><rect x="15" y="24" width="64" height="34" class="qe-node" /><rect x="15" y="68" width="64" height="34" class="qe-node" /><rect x="95" y="24" width="64" height="34" class="qe-node" /></g>
+    <text x="47" y="46" text-anchor="middle">Front</text><text x="47" y="90" text-anchor="middle">Top</text><text x="127" y="46" text-anchor="middle">Left</text>
+    <g fill="none" stroke="currentColor" stroke-width="2"><path d="M30 155 L80 140 L80 190 L30 175 Z" /><circle cx="125" cy="165" r="24" /><circle cx="125" cy="165" r="10" /></g>
+    <g transform="translate(195 0)">
+      <text x="85" y="14" text-anchor="middle">Third angle</text>
+      <g><rect x="15" y="24" width="64" height="34" class="qe-node" /><rect x="15" y="68" width="64" height="34" class="qe-node" /><rect x="95" y="68" width="64" height="34" class="qe-node" /></g>
+      <text x="47" y="46" text-anchor="middle">Top</text><text x="47" y="90" text-anchor="middle">Front</text><text x="127" y="90" text-anchor="middle">Right</text>
+      <g fill="none" stroke="currentColor" stroke-width="2"><circle cx="40" cy="165" r="24" /><circle cx="40" cy="165" r="10" /><path d="M85 155 L135 140 L135 190 L85 175 Z" /></g>
+    </g>
+  </svg>
+</Figure>
+
+**Derive the symbol rather than memorise a picture.**
+
+1. The symbol shows a truncated cone in two views: a trapezoid, and an end view of two concentric circles.
+2. Both circles are solid, so the end view looks at the **small** end. From the large end, the small circle would be hidden and drawn dashed.
+3. In the first-angle symbol the circles sit to the right of the trapezoid. First angle puts the view seen from the left on the right, so the small end must face left, away from the circles.
+4. In the third-angle symbol the circles sit on the left. Third angle puts the view seen from the left on the left, so the small end faces the circles.
+
+If a sheet's symbol and its view layout disagree, query the drawing before using it.
+
+### 1.3 Isometric projection, isometric drawing, sections
+
+In an isometric view the three axes appear 120° apart. One axis is vertical; the other two are drawn at 30° to the horizontal. Edges parallel to the axes are foreshortened by the factor $\sqrt{2/3} \approx 0.816$:
+
+- An **isometric projection** of a 50 mm edge is drawn $50 \times 0.816 \approx 40.8$ mm long, using an isometric scale.
+- An **isometric drawing (view)** draws it at the full 50 mm. That's quicker and has the same shape, but it comes out about 22% larger, since $1/0.816 \approx 1.22$.
+
+A circle on any isometric face becomes an ellipse. Isometric is a pictorial view: give dimensions on the orthographic views.
+
+**Sectional views.** A cutting-plane line (thin chain, thick at the ends and at changes of direction) shows where the object is cut. Arrows show the viewing direction, and letters such as A–A name the section. Cut solid material is hatched with thin lines, commonly at 45°. By common textbook convention, shafts, bolts, keys and thin ribs cut along their length are left unhatched, so solid parts aren't mistaken for hollow ones. Types include full, half, offset, revolved and removed sections. The line-type table is on the [chapter checklist](/learning-guide/nec/chapters/10-project-planning/).
+
+## 2. Project management (10.4)
+
+The running case for §2 is a **hypothetical municipality procuring a citizen-records system**: software, servers, migration of 15 years of paper records, and training.
+
+### 2.1 Information system: decide the decisions first
+
+A project management information system (PMIS) is useful only if each report leads to an action. Design it backward from the decisions:
+
+| Decision | Data needed | Owner and frequency |
+| --- | --- | --- |
+| Is the schedule slipping? | Planned value, earned value, critical-path float ([lab](/learning-guide/nec/preparation/04-project-economics-and-cpm/)) | Project manager, weekly |
+| Is cost overrunning? | Actual cost and earned value, giving the CPI | Finance, monthly |
+| Must a risk response start? | Risk-register triggers, below | Risk owner, at each trigger |
+| Can a payment be released? | Measured or accepted deliverables, retention, approved variations | Engineer, at each bill |
+
+A dashboard that reports per cent complete with no earned value or trigger leads to no decision. It only records history.
+
+### 2.2 Risk analysis: expected monetary value
+
+Expected monetary value is $\text{EMV} = p \times I$, where $p$ is the probability and $I$ the cost impact if the risk occurs. Risk registers with hypothetical values:
+
+| Risk | $p$ | Impact (Rs) | EMV (Rs) | Planned response |
+| --- | --- | --- | --- | --- |
+| R1: paper records illegible, migration overruns | 0.30 | 800,000 | 240,000 | **Mitigate:** pilot-scan one ward first |
+| R2: server delivery delayed by customs | 0.20 | 300,000 | 60,000 | **Transfer:** penalty clause in the supply contract |
+| R3: key vendor staff leave | 0.10 | 500,000 | 50,000 | **Accept:** contingency reserve |
+| R4: citizen data breach | 0.05 | very high, partly non-monetary | not meaningful | **Avoid** some exposure: keep data on premises; access logging |
+
+Is the R1 pilot worth it? It costs Rs 100,000 and cuts $p$ to 0.10. The new EMV is $0.10 \times 800{,}000 = 80{,}000$. Net benefit is $240{,}000 - 80{,}000 - 100{,}000 = 60{,}000$. That's positive, so do it.
+
+EMV is an average over many projects, so don't rely on it alone. R4 shows why: a rare, catastrophic or reputational impact justifies a response even if a small EMV is calculated for it.
+
+### 2.3 Project financing and capital structure
+
+Suppose the project costs Rs 50 million, financed by a Rs 30 million loan at 10% and Rs 20 million of equity. The **capital structure** is $30/50 = 60\%$ debt and 40% equity, a debt–equity ratio of $30/20 = 1.5$. First-year interest is $0.10 \times 30 = 3$ million rupees, due **whatever the revenue**. That fixed obligation is financial risk.
+
+If equity holders expect 14%, a simple pre-tax weighted cost of capital is $0.6 \times 10\% + 0.4 \times 14\% = 11.6\%$. This is one way to set the MARR used in the lab. Our case ignores the tax deductibility of interest and any Nepal tax-rate detail. Other sources include government budget, grants, bonds, and PPP arrangements such as BOT, where a private party finances and operates the asset for a concession period.
+
+### 2.4 Tender to contract: a generic workflow
+
+<Figure caption="Generic public tender sequence for teaching. It shows the order of stages and the two securities. Nepal's procurement law (Public Procurement Act, 2063, and its Regulations) sets the actual methods, thresholds, percentages and time limits. Those were not verified for this page and are deliberately not stated.">
+  <svg viewBox="0 0 360 300" width="360" class="qe-diagram" role="img" aria-label="Ten stages in two columns. Left, top to bottom: need and cost estimate; bid documents and specifications; public invitation; bids submitted with bid security; public bid opening. Right, top to bottom: evaluation report; notice of intent and acceptance; performance security and agreement; contract management with variations, claims and payments; completion and defects period.">
+    <defs><marker id="pp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor" /></marker></defs>
+    <g>
+      <rect x="5" y="5" width="165" height="40" rx="6" class="qe-node" /><rect x="5" y="64" width="165" height="40" rx="6" class="qe-node" /><rect x="5" y="123" width="165" height="40" rx="6" class="qe-node" /><rect x="5" y="182" width="165" height="40" rx="6" class="qe-node" /><rect x="5" y="241" width="165" height="40" rx="6" class="qe-node" />
+      <rect x="190" y="241" width="165" height="40" rx="6" class="qe-node" /><rect x="190" y="182" width="165" height="40" rx="6" class="qe-node" /><rect x="190" y="123" width="165" height="40" rx="6" class="qe-node" /><rect x="190" y="64" width="165" height="40" rx="6" class="qe-node" /><rect x="190" y="5" width="165" height="40" rx="6" class="qe-node" />
+    </g>
+    <g class="qe-edge"><path d="M87 45 V62" marker-end="url(#pp-arrow)" /><path d="M87 104 V121" marker-end="url(#pp-arrow)" /><path d="M87 163 V180" marker-end="url(#pp-arrow)" /><path d="M87 222 V239" marker-end="url(#pp-arrow)" /><path d="M170 261 H188" marker-end="url(#pp-arrow)" /><path d="M272 241 V224" marker-end="url(#pp-arrow)" /><path d="M272 182 V165" marker-end="url(#pp-arrow)" /><path d="M272 123 V106" marker-end="url(#pp-arrow)" /><path d="M272 64 V47" marker-end="url(#pp-arrow)" /></g>
+    <g text-anchor="middle">
+      <text x="87" y="30">1 Need + estimate</text><text x="87" y="89">2 Bid documents</text><text x="87" y="148">3 Public invitation</text><text x="87" y="207">4 Bids + security</text><text x="87" y="266">5 Public opening</text>
+      <text x="272" y="266">6 Evaluation report</text><text x="272" y="207">7 Intent, acceptance</text><text x="272" y="148">8 Security, contract</text><text x="272" y="89">9 Variations, claims</text><text x="272" y="30">10 Handover, defects</text>
+    </g>
+  </svg>
+</Figure>
+
+The **bid security** keeps a bidder from withdrawing or refusing to sign. The **performance security** keeps the winning contractor to the contract. Evaluation compares responsive, qualified bids on the criteria announced in the documents. Changing the criteria after opening is unfair to bidders who relied on the published ones.
+
+**Choosing the contract type is choosing who carries which risk.** For the records system:
+
+| Type | Who bears quantity or scope risk | Suits | Trap |
+| --- | --- | --- | --- |
+| Lump sum | Contractor, for the defined scope | Well-specified software and hardware supply | Vague scope creates variation claims |
+| Item rate (unit rate) | Owner (quantities); contractor (rates) | Records migration billed per 1,000 pages scanned | Quantities must be measured honestly |
+| Cost-plus (percentage, fixed fee, incentive) | Owner | Emergency recovery where scope is unknown | A percentage fee rewards higher cost. Needs audit rights and a ceiling or target |
+| Turnkey or design–build | Contractor (design and build) | Complete data-centre handover | The owner must specify performance well |
+
+**Contract management case.** In month 5 the municipality adds an online payment module. That is a **variation**. It needs a written instruction, agreed pricing (contract rates, or new rates if none apply) and, if the critical path moves, an **extension of time**. A contractor who builds it on a verbal request risks an unpaid claim. An owner who allows that risks a dispute. If negotiation fails, escalate through the dispute route the contract defines.
+
+## 3. Professional practice (10.5)
+
+### 3.1 A decision procedure for ethical cases
+
+1. **State the facts**, separating what you know from what you are told.
+2. **Identify who could be harmed:** public safety first, then client, employer and colleagues.
+3. **Find the governing duty.** For a registered engineer in Nepal that means Act s29A and Regulations r18, plus contract terms and the organisation's policy.
+4. **List the options**, including "refuse in writing" and "escalate".
+5. **Act, and document** what was decided and why.
+
+The duties cited below are paraphrased from the code of conduct in r18(1)(a)–(k) and the shorter list in s29A. In outline, a registered engineer must:
+
+- practise with discipline and honesty
+- keep client information confidential, though lawful disclosure to the relevant authority isn't barred
+- not discriminate
+- **work only within their own field and refer other work to an expert**
+- avoid improper conduct harmful to the profession
+- take **personal responsibility**
+- **put their name, position and registration number on signed drawings, designs, specifications and estimates**
+- avoid unduly influencing advertising
+- not act with ill intent or negligence
+- **not prepare false or fabricated reports during an examination or test**
+
+**Case A: the outside-field signature.** A contractor asks you, a registered computer engineer, to sign the structural drawings of a server-room extension "just as a formality". Signing breaches the duty to work within your field (r18(1)(d)). You would also carry personal responsibility for a design you can't check (r18(1)(f)). Your registration number on the sheet (r18(1)(g)) would tell the authority you vouch for it. Refuse, and recommend a registered civil or structural engineer.
+
+**Case B: the acceptance test.** User acceptance testing of the records system leaves two defects open, one of them a failure in access control. The vendor's manager asks you to report "passed, minor issues". A report that differs from the facts during an examination or test is barred by s29A(c) and r18(1)(k). Report the actual result. You may add a *conditional* acceptance plan with dates, provided the open defects are listed.
+
+**Case C: the data request.** A journalist asks for a list of citizens' records. Later, a police officer brings a written request citing an investigation. Confidentiality (r18(1)(b)) bars the first. The proviso to r18(1)(b) allows lawful disclosure to authorities, but whether *this* request is lawful depends on other laws not covered here. Route it to the client's legal officer. Don't decide it yourself.
+
+**Case D: the gift during evaluation.** A bidder sends an expensive phone to an evaluation-committee member. The NEC texts we read have no clause titled "conflict of interest", so treat this as a general ethical principle and organisational procurement rule, not a quoted NEC rule. If the committee member is a registered engineer, the English text of r18(1)(e) appears to bar improper gains beyond the agreed remuneration. That seems relevant, but check the wording in the Nepali text. Decline the gift, disclose it in writing, and step out of the evaluation if impartiality could reasonably be doubted.
+
+### 3.2 Environment, society, safety and contemporary issues
+
+**Environment and society.** Replacing 300 office computers produces e-waste: lead, other heavy metals and stored data. A responsible plan covers certified data wiping, refurbishment or donation, and authorised recycling. It also asks the social questions: who loses counter jobs to the online service, and whether citizens without internet access can still be served. Nepal's IEE/EIA screening applies to listed project types under environmental law. Those thresholds aren't verified here.
+
+**Occupational health and safety.** Installing the server room involves lifting UPS batteries of 30 kg or more, live electrical work, and ceiling cable trays. Apply the general **hierarchy of controls** in order:
+
+1. **Eliminate:** have the batteries delivered to the floor where they're needed.
+2. **Substitute:** choose lighter modular battery units.
+3. **Engineering controls:** use a trolley and a lifting aid; lock out and tag out the electrical supply.
+4. **Administrative controls:** a permit to work, a two-person rule and a toolbox talk.
+5. **PPE:** gloves, safety shoes and insulated tools.
+
+PPE comes last because it protects only the wearer, and only when worn correctly. Report and investigate near misses, not only injuries. Nepal's labour-law OHS duties aren't covered here.
+
+**Contemporary issues visible in the statute itself:**
+
+- The 2022 amendment made registration through an examination the gateway: s9(c), s14 and s15.
+- The Council can act against unrecognised colleges: s21A, s21B, s30(2A) and r16(4)–(5). A student from such an institution may not sit the registration examination (r16(5)).
+- The 2082 amendment allows exceptions for foreign engineers on public projects and adds quality assurance (§4.6).
+
+### 3.3 NEA versus NEC
+
+| | Nepal Engineers' Association (NEA) | Nepal Engineering Council (NEC) |
+| --- | --- | --- |
+| Nature | Its site says: a nonprofit professional association founded in 1962 and registered under the Social Service Act | A statutory autonomous body created by the Act (s3, s4) |
+| Purpose | Its site says: fellowship among Nepali engineers, safeguarding their rights and interests, promoting science and technology, CPD, and coordinating subject societies (including computer engineers) | Registration, recognition of institutions and degrees, code of conduct and discipline (s9) |
+| Statutory link | Its chairperson sits on the Council (s5(1)(d)). It elects five members (s5(1)(e)) and nominates them until an election is held (s5(3)). A representative sits on each investigation committee (r20(2)) | Licenses practice: no practice without registration (s11) |
+
+Acronym trap: on the web, `nea.org.np` is the Nepal **Electricity** Authority. The Engineers' Association is `neanepal.org.np`.
+
+## 4. NEC Act and Regulations (10.6)
+
+### 4.1 Composition and meetings
+
+Section 5(1) lists the Council's members clause by clause:
+
+| Clause | Who | Number |
+| --- | --- | --- |
+| (a) | Chairperson: GoN nominee with at least 15 years' experience after a bachelor's in engineering | 1 |
+| (b) | Vice-Chairperson: GoN nominee with at least 10 years' experience | 1 |
+| (c) | GoN nominees with at least 7 years' experience, at least three of them women, with each province represented | 7 |
+| (d) | Chairperson of NEA | 1 |
+| (e) | Engineers elected by NEA | 5 |
+| (f) | A campus chief of an engineering college, nominated by GoN | 1 |
+| (g) | Representative of the Institute of Engineering, TU | 1 |
+| (g1) | A GoN nominee from universities teaching engineering | 1 |
+| (h) | Council nominees with at least 7 years' experience, at least one a woman | 2 |
+| (i) | Registrar, as Member-Secretary | 1 |
+
+The clauses add up to **21**. That total is our count; the Act itself states no number. Nominations and elections under (c) and (e) are made subject-wise (s5(2)).
+
+- **Tenure:** members serve **four years** and may be re-nominated or re-elected. A vacancy is filled for the rest of the term (s6).
+- **Disqualifications** include non-citizenship, removal from the register, bankruptcy, specified criminal convictions, and foreign permanent residence (s7).
+- **Membership also ends** on resignation, death, or **three consecutive absences without prior notice** (s8).
+- **Meetings:** generally **four a year**. Quorum is **more than 50%** of members. The presiding person has a casting vote on a tie, and the Member-Secretary authenticates decisions (s10).
+
+### 4.2 Registrar, fund and audit
+
+Three different people or bodies touch the audit, and exam questions can turn on telling them apart:
+
+- **Registrar.** Appointed by **GoN** through **open competition** from engineers with at least **10 years'** experience after a bachelor's in engineering (s27(1)). The tenure is **four years** (s27(1A)). That clause was added by the First Amendment, so older notes may lack it. GoN may remove the Registrar for incapacity, misconduct or dishonest performance, after giving a chance to clarify (s27(1B)). Duties include administration, the annual programme, income and expenditure statements, and **arranging internal and final audit** (s27(2)(f)).
+- **Auditor.** The **Council appoints an accredited auditor** under prevailing law; r31 provides for the accounts to be audited **within three months after the end of the financial year**. A copy of the audit report goes to GoN (r31). The financial year runs from 1 Shrawan to the end of Ashadh (r2(j)).
+- **GoN.** It may examine the books itself (s29(3)). It must give prior approval for any foreign loan, grant or gift (s28(3)). It receives the annual report, due **within Ashoj** (s37A).
+
+### 4.3 Registration and examinations
+
+- **No practice without registration** (s11). Practising unregistered is an offence: a fine **up to Rs 10,000**, imprisonment **up to three months**, or both (s30(1)–(2)). Any other violation of the Act or Rules carries a fine **up to Rs 25,000** (s30(3)).
+- **Categories:** general registered engineer, professional engineer, non-Nepali registered engineer (r3).
+- **Examinations:** an examination committee runs them **at least twice a year**. It has a Council member designated by the Council as coordinator, three Council members including one woman, and the Registrar as member-secretary (s14). A general registered engineer sits a **written** examination. A professional engineer sits a written examination, a skill evaluation and an interview (r3A(1)). A professional engineer holds a master's degree or master's diploma (r2(d)). The professional-engineer application form asks for a general-registration number and two recommenders (Schedule 2A).
+- **Deadlines:** the notice gives at least **21 days** to apply (r3A(4)). A late application within **7 days** after that costs **double** the examination fee (r3A(6)).
+- **Fees as printed in the 2080 consolidation:** Rs 5,000 to register as a general registered engineer (r8(2)), Rs 20,000 as a professional engineer (r9(2)). Fees can change, so check the current schedule.
+- **Non-Nepali engineers:** must have at least **10 years'** experience and an employer's recommendation. Registration lasts **two years** at first, then is renewable **up to one year at a time**. It ends automatically when the employment ends (r10).
+- **Duty to notify:** an engineer must tell the Council within **35 days** of leaving practice or changing address (r33).
+
+### 4.4 Discipline: from complaint to re-registration
+
+<Figure caption="Original flow summarising the disciplinary route in the Act and Regulations. Timings are minimums or maximums as the text states them; see the cited rule for its conditions.">
+  <svg viewBox="0 0 360 352" width="360" class="qe-diagram" role="img" aria-label="Complaint by any interested party, rule 19. Three-member investigation committee, rule 20. Thirty days to clarify, rule 22. Optional suspension, normally up to two months plus at most one month, rule 23. A further opportunity of at least thirty days, rule 24. Report with reasons and evidence, rule 25. Council decision; removal needs a two-thirds majority, section 18. Person and employer informed, rule 27. Appeal to High Court within 35 days, section 30A. Re-registration application after at least one year, section 20.">
+    <g>
+      <rect x="5" y="2" width="350" height="28" rx="6" class="qe-node" /><rect x="5" y="37" width="350" height="28" rx="6" class="qe-node" /><rect x="5" y="72" width="350" height="28" rx="6" class="qe-node" /><rect x="5" y="107" width="350" height="28" rx="6" class="qe-node" /><rect x="5" y="142" width="350" height="28" rx="6" class="qe-node" />
+      <rect x="5" y="177" width="350" height="28" rx="6" class="qe-node" /><rect x="5" y="212" width="350" height="28" rx="6" class="qe-node" /><rect x="5" y="247" width="350" height="28" rx="6" class="qe-node" /><rect x="5" y="282" width="350" height="28" rx="6" class="qe-node" /><rect x="5" y="317" width="350" height="28" rx="6" class="qe-node" />
+    </g>
+    <g text-anchor="start">
+      <text x="14" y="21">Complaint by any interested party · r19</text>
+      <text x="14" y="56">Committee: member + lawyer + NEA rep · r20</text>
+      <text x="14" y="91">30 days to clarify the charge · r22</text>
+      <text x="14" y="126" class="qe-muted">Optional suspension ≤ 2 months (+1) · r23</text>
+      <text x="14" y="161">Further explanation ≥ 30 days · r24</text>
+      <text x="14" y="196">Report: opinion, reasons, evidence · r25</text>
+      <text x="14" y="231">Council decides; removal needs 2/3 · s18</text>
+      <text x="14" y="266">Person and employer informed · r27</text>
+      <text x="14" y="301">Appeal to High Court ≤ 35 days · s30A</text>
+      <text x="14" y="336">Re-apply after ≥ 1 year · s20</text>
+    </g>
+  </svg>
+</Figure>
+
+- **Suspension during an inquiry** (r23). It is ordinarily used only if the engineer might tamper with or destroy evidence, or keep doing harm while practising. It lasts normally at most **two months**, extendable by at most **one more month** with Council approval. The employer is told so it can suspend the engineer from work too.
+- **Sanctions** (s30(4)). Graded: **caution** ("alert" in the English text), **suspension** of the certificate for a set period, or **removal** from the register. Each comes after a chance to clarify. An engineer removed under clause (c) can still be prosecuted under other law (s30(5)).
+- **Removal** (s18(1)). Only on three grounds: disqualification under s7; breach of the code, which needs a **two-thirds** majority on a motion; or registration obtained by deception or error. An inquiry committee must report first (s18(2)). The Registrar then cancels the certificate after giving a chance to clarify (s19).
+
+### 4.5 Institutions and the Council's powers
+
+- **Recognition:** an engineering college must be recognised by the Council **before** it starts teaching (s21A). Recognition starts as temporary and must become **permanent within five years**, or the Council recommends cancelling it (r15(4)–(6)).
+- **Revocation:** the Council may recommend that GoN or the province revoke recognition (s21B). First it should take steps such as stopping new admissions, to protect current students (r16(3)).
+- **Inspection:** inspectors may observe a college's examinations but must not interfere with them (s23).
+- **Rules and dissolution:** the Council's Rules take effect only after **GoN approval** (s37(2)). GoN may dissolve a Council that fails or abuses its powers. A new Council is then formed, generally within **three months** (s31).
+
+### 4.6 What the Fourth Amendment Regulations, 2082 add
+
+This summary is our reading of the Nepali scan on the NEC site. The scan shows an approval date of २०८२/०२/२५ BS, with the amendment effective from GoN approval.
+
+1. **Rule 2** gains a definition of **public body**. It covers constitutional bodies, courts, ministries and other government offices. It also covers institutions owned or controlled by government; state-funded universities and research centres; local levels; bodies run on government loans or grants; and bodies notified in the Gazette.
+2. **Rule 10 (non-Nepali engineers)** gains sub-rule (8). For projects run by GoN or a public body, lacking 10 years' experience is not a bar to registration if that body writes to request it. This applies to non-Nepali engineers. It is not a general change to experience rules.
+3. **Rule 15** gains sub-rules (7)–(8). The Council will carry out **quality assurance and accreditation** of recognised institutions, using standards that help Nepal's programmes gain international recognition.
+
+## 5. Practice: retrieve before opening
+
+<details><summary>1. (10.1) An A3 drawing at 1:50 is photocopied down to A4. What is the effective scale, and what can still be trusted?</summary><p>The linear factor is 1/√2 ≈ 0.707, so the copy is about 1:71 (50 ÷ 0.707). Ruler measurements now come out about 29% short. Dimension values and the drawn scale bar remain correct, because the bar shrank with the drawing. Source: §1.1. ISO 216 halving ratio.</p></details>
+
+<details><summary>2. (10.1) A sheet puts the top view above the front view, and its symbol shows the trapezoid's narrow end facing the circles. Which method, and is the sheet consistent?</summary><p>Third angle: the top view is above the front view, and the narrow end faces the circles. The two cues agree, so the sheet is consistent. If the layout said first angle (top view below) while the symbol said third, query the drawing before using it. Source: §1.2. Symbol cross-checked against the ISO 5456-2 description.</p></details>
+
+<details><summary>3. (10.1) A 60 mm cube is drawn as an isometric projection and as an isometric drawing. How long is a vertical edge in each?</summary><p>Projection: 60 × 0.816 ≈ 49 mm, using the isometric scale. Drawing: 60 mm, true length. The shapes are identical, but the drawing is about 22% larger. Source: §1.3. The factor is √(2/3).</p></details>
+
+<details><summary>4. (10.4) A risk has p = 0.25 and impact Rs 400,000. Training costing Rs 70,000 cuts p to 0.05. Is the training justified on EMV alone? What else should you consider?</summary><p>EMV falls from 100,000 to 20,000, a reduction of 80,000. Subtracting the 70,000 cost leaves a net benefit of Rs 10,000, which is marginally positive. Also weigh non-monetary impact (safety, reputation), confidence in the estimates, and whether a cheaper response exists. Source: §2.2.</p></details>
+
+<details><summary>5. (10.4) After a flood, a data centre must be recovered urgently and its scope is unknown. Why is a lump sum poor here, and what must accompany a cost-plus contract?</summary><p>A lump sum needs a defined scope: bidders would add large contingencies or later claim variations. Cost-plus pays verified cost plus a fee, so the owner carries scope risk. To control that, use a fixed fee or incentive fee rather than a percentage, audit rights, a ceiling or target cost, and frequent scope reviews. Source: §2.4. General contract practice; Nepal procurement rules for emergencies were not verified.</p></details>
+
+<details><summary>6. (10.5) The vendor asks you to certify "UAT passed" while an access-control defect is open. What do you do, and which provisions apply?</summary><p>Report the actual result, listing the open defects. You may propose conditional acceptance with dates. A report different from the facts is barred by Act s29A(c) and Regulations r18(1)(k); signing also engages personal responsibility under r18(1)(f). Keep a written record. Source: §3.1, Case B.</p></details>
+
+<details><summary>7. (10.6) Who appoints the Registrar, and on what conditions? Who appoints the Council's auditor, and when? What is the Registrar's audit duty?</summary><p>GoN appoints the Registrar by open competition from engineers with at least 10 years' post-bachelor experience, for four years (s27(1), (1A)). The Council appoints an accredited auditor, and r31 requires the accounts to be audited within three months after the financial year ends; a report copy goes to GoN. The Registrar arranges internal and final audit (s27(2)(f)). Source: §4.2.</p></details>
+
+<details><summary>8. (10.6) The Council removes an engineer's name for breaching the code of conduct. Which majority was needed, how long does the engineer have to appeal and where, and when can they apply to re-register?</summary><p>Removal needs a two-thirds majority on the motion, after an inquiry committee's report (s18(1)(b), (2)). The engineer may appeal to the concerned High Court within 35 days of learning of the decision (s30A). They may apply for re-registration at least one year after the decision, giving justifiable reasons (s20(1)). Source: §4.4.</p></details>
+
+## Sources and limits
+
+- [NEC ACtE syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf), page 6: AALL1001–AALL1006 scope.
+- [NEC Act, 2055, English consolidation to the First Amendment 2079](https://nec.gov.np/uploads/root/1763715733799_The%20Nepal%20Engineering%20Council%20Act,%202055%20(1999).pdf): s5–s10 (pp. 4–9); s11–s20 (pp. 9–13); s21–s24 (pp. 14–16); s27–s29 (pp. 17–19); s29A–s31 (pp. 20–22); s37–s37A (pp. 23–24). Key sections cross-checked against the Nepali consolidation on the [NEC Acts page](https://nec.gov.np/page/act-regulations).
+- [NEC Regulations, 2057, English consolidation to the Third Amendment 2080](https://nec.gov.np/uploads/root/1763715677170_Nepal%20Engineering%20Council%20Regulations,%202057%20(2001)%20with%20third%20amendment%202080%20(2023).pdf): r2–r3A (pp. 1–5); r8–r10 (pp. 7–9); r15–r16 (pp. 11–14); r18–r28 (pp. 16–22); r31–r33 (p. 23).
+- Fourth Amendment Regulations, 2082: the Nepali scan linked from the [NEC Acts page](https://nec.gov.np/page/act-regulations), pp. 1–2.
+- [Nepal Engineers' Association: About](https://neanepal.org.np/about): NEA's own description of itself.
+- Standards named but not reproduced: ISO 216 (sheet sizes), ISO 5456-2 (projection methods and symbol), ISO 128 (lines), ISO 5455 (scales).
+
+**Not covered and not verified:**
+
+- Public Procurement Act and Regulations: thresholds, security percentages, time limits.
+- Environmental-assessment thresholds.
+- Labour-law OHS duties.
+- NEC's CPD and capacity-building bylaws.

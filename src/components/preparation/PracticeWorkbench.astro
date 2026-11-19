@@ -1,0 +1,56 @@
+---
+import { practiceQuestions, practiceTopics, practiceSections } from '../../data/preparation-practice';
+import './workbench.css';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<nec-practice class="practice not-content" data-base={base}>
+  <div class="practice-intro">
+    <span class="practice-eyebrow">RECALL → REASON → REVIEW</span>
+    <h2>Make the next answer count.</h2>
+    <p>{practiceQuestions.length} original questions. Every NEC section. Learn the reasoning, then return to what needs work.</p>
+    <div class="practice-pills"><span>Original practice · not PYQs</span><span>Progress stays on this device</span></div>
+  </div>
+  <div data-interactive hidden>
+    <div class="practice-controls">
+      <label>Subject<select data-subject><option value="all">All subjects · {practiceQuestions.length} questions</option>{practiceTopics.map(([id, title]) => <option value={id}>{title}</option>)}</select></label>
+      <label>NEC section<select data-section><option value="all">All sections</option>{practiceSections.map(section => <option value={section}>NEC {section}</option>)}</select></label>
+      <label>Search questions<input data-search type="search" placeholder="Question text or section, e.g. 10.6" maxlength="200" /></label>
+      <label>Question set<select data-review><option value="all">All questions</option><option value="unanswered">Not yet answered</option><option value="mistakes">Review latest mistakes</option><option value="bookmarks">Bookmarked</option></select></label>
+      <label>Practice timing<select data-timing><option value="0">Untimed · learn at your pace</option><option value="5">5-minute practice</option><option value="10">10-minute practice</option><option value="20">20-minute practice</option></select></label>
+    </div>
+    <p class="practice-note">Timing is a personal practice limit, not an official exam simulation. Filters start a new round; your answer history and bookmarks stay saved.</p>
+    <div class="practice-toolbar"><button type="button" data-restart>Restart round</button><span data-clock role="timer" aria-label="Practice time remaining">Untimed</span></div>
+    <p data-status class="practice-status" role="status" aria-atomic="true"></p>
+    <div class="practice-card" data-card>
+      <div class="practice-meta"><span data-position></span><button type="button" data-bookmark aria-pressed="false">Bookmark</button></div>
+      <p class="practice-tag" data-tag></p>
+      <form data-form>
+        <fieldset><legend data-prompt tabindex="-1"></legend><div class="practice-options" data-options></div></fieldset>
+        <button class="practice-primary" type="submit" data-check>Check answer</button>
+      </form>
+      <div data-feedback class="practice-feedback" role="status" aria-atomic="true" hidden></div>
+      <a data-study class="practice-study">Revisit this chapter →</a>
+      <div class="practice-navigation"><button type="button" data-previous>← Previous</button><span data-round-score></span><button type="button" data-next>Next →</button></div>
+    </div>
+    <div data-empty class="practice-empty" hidden><h3>No questions in this set yet.</h3><p>Answer a question to build your review list, bookmark one to save it, or change your subject, section, or search.</p><button type="button" data-show-all>Show all questions</button></div>
+    <section class="practice-performance" aria-labelledby="practice-performance-title">
+      <div class="practice-section-heading"><h3 id="practice-performance-title">Your topic signals</h3><span data-total></span></div>
+      <p>Correct submissions / all submissions, including retries. Bars reflect only your local answers, not exam readiness. “Seen” counts distinct questions answered.</p>
+      <ul data-performance></ul>
+    </section>
+    <p class="practice-note" data-storage role="status"></p>
+  </div>
+  <section data-static class="practice-static">
+    <h3>Read, answer, then reveal</h3>
+    <p>This complete question bank works without JavaScript. Choose an answer mentally, then open its explanation. Interactive filtering, timing, and local progress become available when JavaScript loads.</p>
+    {practiceQuestions.map((q, index) => <article>
+      <p class="practice-tag">{practiceTopics.find(t => t[0] === q.topic)?.[1]} · NEC {q.section}</p>
+      <h4>{index + 1}. {q.prompt}</h4>
+      <ol type="A">{q.options.map(option => <li>{option}</li>)}</ol>
+      <details><summary>Reveal answer and reasoning</summary><p><strong>Answer {String.fromCharCode(65 + q.answer)}: {q.options[q.answer]}</strong></p><p>{q.explanation}</p><a href={`${base}/nec/chapters/${practiceTopics.find(t => t[0] === q.topic)?.[3]}/`}>Study this chapter</a></details>
+    </article>)}
+  </section>
+</nec-practice>
+<script>
+  import './workbench';
+</script>

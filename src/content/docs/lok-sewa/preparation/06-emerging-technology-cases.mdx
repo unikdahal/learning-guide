@@ -1,0 +1,382 @@
+---
+title: Emerging technology cases
+description: "Deeper original worked cases for federal PSC Computer Engineer unit 15 breadth: parallel speedup and logical clocks, RPC versus CORBA ORB versus DCOM, GIS raster/vector and GPS, image, speech and multimedia numericals, e-commerce security architecture, and software architecture choice."
+sidebar:
+  label: Emerging technology cases
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Goal:** go one level below the [unit 15 summary table](/learning-guide/lok-sewa/preparation/ce-gap-units/#other-unit-15-electives-at-5-mark-depth). Each case is original, gives a numerical or design trace, and states its assumptions. Flynn's taxonomy, PCM at 64 kbit/s and the four-satellite rule are not repeated here; see that table.
+
+<Aside type="note" title="Scope and evidence">
+**Official scope:** the federal PSC Computer Engineer [Paper II syllabus, page 4](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf), unit 15 in Section C. The tags below use its exact sub-unit numbers: **CE 15.2, 15.6, 15.7, 15.8, 15.10, 15.13, 15.14 and 15.16**. RPC itself is printed under **CE 10.5** (Distributed Systems), and clusters under **CE 1.6**; those are cross-references, not unit 15 items.
+
+**Computer Officer overlap** is noted only where the CO Paper II syllabus prints the topic: CO 5.5 (parallel and distributed processing), CO 10 (e-commerce), CO 11.1 (client–server) and CO 11.7 (multimedia).
+
+**NEC overlap is partial.** ACtE0401 touches pipelining and parallel processing, ACtE0505 sockets and the application-server concept, ACtE0506 SSL and digital signatures, and ACtE0802 client–server and distributed-object architectures. The NEC ACtE syllabus does not list GIS, remote sensing, GPS, image, speech, multimedia, e-commerce, ORB or DCOM. NEC preparation alone does not cover these items.
+
+All cases and questions are **original practice**: not past papers, not predictions, and with no claim about how often a topic appears.
+</Aside>
+
+**Running scenario (fictional):** a hill-district produce cooperative builds a platform. Satellite images map crop fields. Farmers sell online. A voice line takes orders, and back-end services call each other over the network. Every case below is one part of that system.
+
+## Case 1 · CE 15.2: how much do more processors help?
+
+Crop-map processing takes 100 s on one processor. Of that time, **90 s is parallelisable** (per-tile filtering) and 10 s is serial (loading and the final mosaic).
+
+**Assumptions:** fixed problem size, perfect load balance, and no communication cost unless stated. Here *f* is the parallel fraction of the **one-processor** run.
+
+$$S(p) = \frac{1}{(1-f) + f/p}, \qquad E(p) = \frac{S(p)}{p}$$
+
+- With *p* = 8: $S = 1/(0.1 + 0.1125) = 80/17 \approx 4.71$, so efficiency $E \approx 0.588$.
+- The limit as *p* grows is $1/(1-f) = 10$. The serial 10 s caps the speedup, whatever the hardware.
+- Speedup 5 needs $0.1 + 0.9/p = 0.2$, so *p* = **9**.
+
+**Add an overhead (stated model):** suppose coordination costs 0.01 of the original time per extra processor, so $T(p) = 0.1 + 0.9/p + 0.01(p-1)$. Then S(4) ≈ 2.82, S(8) ≈ 3.54 and S(16) ≈ 3.27. The best values are at *p* = 9 and 10, both $25/7 \approx 3.57$. Past that point, adding processors makes the job slower.
+
+**Gustafson's view (scaled problem):** suppose the cooperative uses 8 processors to map 8 times more area in the same wall time. If the serial part is **10% of the 8-processor run**, the scaled speedup is $s + p(1-s) = 0.1 + 8 \times 0.9 = 7.3$. This *s* is measured on a different base from Amdahl's (1 − f). Mixing the two bases is the classic error. Neither law contradicts the other; they answer different questions.
+
+### Ordering events without a global clock
+
+Three services exchange messages: P1 (orders), P2 (stock) and P3 (dispatch). Two clocks are applied:
+
+- **Lamport clock:** add 1 before each event. A send carries its timestamp, and a receive sets the clock to max(local, message) + 1.
+- **Vector clock:** each process increments its own entry, and a receive takes the element-wise maximum before incrementing.
+
+| Event | What happens | Lamport | Vector |
+| --- | --- | --- | --- |
+| a | P1 local | 1 | (1,0,0) |
+| b | P1 sends m1 to P2 | 2 | (2,0,0) |
+| e | P3 local | 1 | (0,0,1) |
+| c | P2 receives m1 | 3 | (2,1,0) |
+| d | P2 sends m2 to P3 | 4 | (2,2,0) |
+| f | P3 receives m2 | 5 | (2,2,2) |
+| g | P3 sends m3 to P1 | 6 | (2,2,3) |
+| h | P1 receives m3 | 7 | (3,2,3) |
+
+If x → y, then L(x) is less than L(y). **The converse fails.** L(e) = 1 is less than L(c) = 3, yet e and c are **concurrent**: (0,0,1) and (2,1,0) are incomparable. Vector clocks detect this concurrency; Lamport clocks cannot. Ties in Lamport values are broken by process id when a total order is needed.
+
+## Case 2 · CE 15.7 (with CE 10.5): RPC, CORBA ORB and DCOM
+
+The stock service on P2 exposes `reserve(itemId, district)`. Three middleware families can carry the same call. All three use the same mechanism:
+
+1. A client **stub** (proxy) marshals the arguments.
+2. A transport carries the bytes.
+3. A server **skeleton** (stub) unmarshals them and calls the implementation.
+
+<Figure wide caption="Remote invocation path common to RPC, CORBA and DCOM. The interface definition generates both stubs. The parts that differ are which object is addressed and how its lifetime is managed.">
+<svg viewBox="0 0 760 230" role="img" aria-label="Left to right: client code, client stub or proxy that marshals arguments, transport carrying request bytes and reply bytes, server skeleton or stub that unmarshals, and the servant object or procedure. Above, an interface definition file generates both stubs. Below, labels: ONC RPC uses program, version and procedure numbers with XDR; CORBA uses an object reference with CDR over GIOP through the ORB; DCOM uses an interface pointer with reference counting and pinging." style="width:100%;height:auto;font-family:var(--sl-font);font-size:12px">
+  <defs><marker id="emt-ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--sl-color-gray-2)" /></marker></defs>
+  <rect x="290" y="8" width="180" height="32" rx="4" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <g style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-3);stroke-width:1.3">
+    <rect x="10" y="80" width="110" height="50" rx="4" /><rect x="150" y="80" width="120" height="50" rx="4" />
+    <rect x="490" y="80" width="120" height="50" rx="4" /><rect x="640" y="80" width="110" height="50" rx="4" />
+  </g>
+  <rect x="300" y="72" width="160" height="66" rx="6" style="fill:none;stroke:var(--sl-color-accent);stroke-dasharray:5 4" />
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="380" y="29">Interface definition (IDL)</text>
+    <text x="65" y="102">Client code</text><text x="65" y="118" style="fill:var(--sl-color-gray-2)">calls reserve()</text>
+    <text x="210" y="102">Client stub / proxy</text><text x="210" y="118" style="fill:var(--sl-color-gray-2)">marshal</text>
+    <text x="380" y="98">Transport / ORB</text><text x="380" y="116" style="fill:var(--sl-color-gray-2)">request bytes</text><text x="380" y="131" style="fill:var(--sl-color-gray-2)">reply bytes</text>
+    <text x="550" y="102">Skeleton / stub</text><text x="550" y="118" style="fill:var(--sl-color-gray-2)">unmarshal</text>
+    <text x="695" y="102">Servant</text><text x="695" y="118" style="fill:var(--sl-color-gray-2)">does the work</text>
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-2);stroke-width:1.3">
+    <path d="M120 98 H148" marker-end="url(#emt-ah1)" /><path d="M270 98 H298" marker-end="url(#emt-ah1)" /><path d="M462 98 H488" marker-end="url(#emt-ah1)" /><path d="M610 98 H638" marker-end="url(#emt-ah1)" />
+    <path d="M638 118 H612" marker-end="url(#emt-ah1)" /><path d="M488 118 H462" marker-end="url(#emt-ah1)" /><path d="M298 118 H272" marker-end="url(#emt-ah1)" /><path d="M148 118 H122" marker-end="url(#emt-ah1)" />
+    <path d="M330 40 L215 78" marker-end="url(#emt-ah1)" /><path d="M430 40 L545 78" marker-end="url(#emt-ah1)" />
+  </g>
+  <g style="fill:var(--sl-color-gray-2);font-size:11px">
+    <text x="10" y="170">ONC RPC: program, version, procedure numbers · XDR, always big-endian</text>
+    <text x="10" y="190">CORBA: object reference (IOR) · CDR over GIOP/IIOP · sender's byte order, flagged</text>
+    <text x="10" y="210">DCOM: interface pointer on an object exporter · reference counts kept alive by pinging</text>
+  </g>
+</svg>
+</Figure>
+
+| Aspect | Sun/ONC RPC | CORBA (ORB) | DCOM |
+| --- | --- | --- | --- |
+| Unit of call | a procedure | a method on an object | a method on a COM interface |
+| Addressing | program, version and procedure numbers | object reference (IOR) | interface identifier on an object, reached through an object exporter |
+| Interface language | RPC language over XDR | OMG IDL, language-neutral | Microsoft IDL; interfaces derive from IUnknown |
+| Wire data | XDR, always big-endian | CDR: sender's byte order, flagged; natural alignment | carried as RPC calls |
+| Object lifetime | no remote object references; any server state is application-managed | servant lifecycle set by server policy | reference counts per interface, with keep-alive **pinging** |
+| Platform | many systems | many languages and vendors | Windows-centred |
+
+**Lifetime is the deepest difference.** The RPC protocol has no object references, so it has no lifetime mechanism; a server that keeps state must manage it itself. Distributed objects make remote references first-class, so something must decide when they die. DCOM attaches reference counts to each interface. Because a client machine can crash without releasing its references, the server also expects periodic pings, and it reclaims objects whose pings stop. This is distributed garbage collection.
+
+**Byte-level trace (XDR, RFC 4506).** Arguments `(42, "Kathmandu")`: an int is 4 bytes, and a string is a 4-byte length, the bytes, then zero-padding to a multiple of 4.
+
+```text
+00 00 00 2a | 00 00 00 09 | 4b 61 74 68 6d 61 6e 64 75 | 00 00 00
+  int 42      length 9      "Kathmandu" (9 bytes)        3 pad bytes  = 20 bytes
+```
+
+The ONC RPC call header (RFC 5531 §9) holds xid, message type, RPC version, program, version and procedure (6 × 4 = 24 bytes). Credential and verifier with AUTH_NONE are each a flavour word plus a zero length (8 + 8). That gives **40 + 20 = 60 bytes**. Over TCP, the record mark (§11) adds 4 bytes: `80 00 00 3c` (last-fragment bit plus length 60), so **64 bytes**. IP and TCP headers are excluded.
+
+**Failure semantics (RFC 5531 §5).** Over an unreliable transport with retries, a reply proves the call ran **at least once**. No reply proves nothing. A server that remembers transaction ids (xid) and refuses duplicates gets closer to **at most once**. For a non-idempotent call such as `reserve`, a blind retry could reserve stock twice. Either make the operation idempotent or deduplicate on a request id.
+
+## Case 3 · CE 15.16: GIS, remote sensing and GPS
+
+<Figure wide caption="The same field boundary, track and well as vector geometry (left) and as a raster (right). Vector y grows north; raster rows grow downward from the top-left corner.">
+<svg viewBox="0 0 760 270" role="img" aria-label="Left panel, vector model: axes labelled easting to the right and northing upward with origin at bottom left; a five-vertex polygon field, a polyline track and a point well. Right panel, raster model: an 8 column by 6 row grid; the origin cell row 0 column 0 is at the top left; arrows show column index increasing right and row index increasing downward; cells inside the field are shaded, track cells use a second shade, and one cell holds the well." style="width:100%;height:auto;font-family:var(--sl-font);font-size:12px">
+  <defs><marker id="emt-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--sl-color-gray-2)" /></marker></defs>
+  <text x="20" y="20" style="fill:var(--sl-color-white)">Vector: coordinates (E, N)</text>
+  <g style="fill:none;stroke:var(--sl-color-gray-2);stroke-width:1.3"><path d="M40 240 H330" marker-end="url(#emt-ah2)" /><path d="M40 240 V34" marker-end="url(#emt-ah2)" /></g>
+  <g style="fill:var(--sl-color-gray-2);font-size:11px"><text x="300" y="258">easting</text><text x="46" y="44">northing</text><text x="28" y="256">origin</text></g>
+  <polygon points="90,200 120,80 230,70 280,150 200,215" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent);stroke-width:1.5" />
+  <polyline points="60,120 150,140 300,110" style="fill:none;stroke:var(--sl-color-gray-1);stroke-width:2;stroke-dasharray:6 3" />
+  <circle cx="170" cy="160" r="5" style="fill:var(--sl-color-white)" />
+  <g style="fill:var(--sl-color-gray-2);font-size:11px"><text x="178" y="176">well (point)</text><text x="236" y="102">track (line)</text><text x="100" y="196">field (polygon)</text></g>
+  <text x="420" y="20" style="fill:var(--sl-color-white)">Raster: cells (row, col)</text>
+  <g style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)">
+    <rect x="440" y="40" width="280" height="210" />
+  </g>
+  <g style="fill:var(--sl-color-accent-low)">
+    <rect x="510" y="75" width="105" height="35" /><rect x="475" y="110" width="210" height="35" /><rect x="475" y="145" width="175" height="35" /><rect x="510" y="180" width="105" height="35" />
+  </g>
+  <g style="fill:var(--sl-color-gray-4)"><rect x="440" y="110" width="35" height="35" /><rect x="685" y="75" width="35" height="35" /><rect x="650" y="110" width="35" height="35" /></g>
+  <rect x="545" y="145" width="35" height="35" style="fill:var(--sl-color-white)" />
+  <g style="stroke:var(--sl-color-gray-4);fill:none">
+    <path d="M475 40 V250 M510 40 V250 M545 40 V250 M580 40 V250 M615 40 V250 M650 40 V250 M685 40 V250" />
+    <path d="M440 75 H720 M440 110 H720 M440 145 H720 M440 180 H720 M440 215 H720" />
+  </g>
+  <rect x="440" y="40" width="35" height="35" style="fill:none;stroke:var(--sl-color-accent);stroke-width:2.5" />
+  <g style="fill:none;stroke:var(--sl-color-accent);stroke-width:1.3"><path d="M480 32 H560" marker-end="url(#emt-ah2)" /><path d="M432 80 V160" marker-end="url(#emt-ah2)" /></g>
+  <g style="fill:var(--sl-color-gray-2);font-size:11px"><text x="566" y="35">col +</text><text x="396" y="176">row +</text><text x="384" y="54">(0,0) is</text><text x="384" y="68">top-left</text></g>
+</svg>
+</Figure>
+
+| Model | Stores | Good at | Weak at |
+| --- | --- | --- | --- |
+| **Vector** | points, lines and polygons with attributes | boundaries, networks, topology, precise area | continuous surfaces |
+| **Raster** | a grid of cells, one value per band | imagery, elevation, overlay algebra | exact boundaries; size grows with resolution |
+
+**The four resolutions of remote sensing:**
+- **Spatial:** ground size of one cell, e.g. 10 m.
+- **Spectral:** number and width of bands.
+- **Radiometric:** bits per value; 12 bits gives $2^{12} = 4096$ levels.
+- **Temporal:** revisit interval.
+
+Sensors are **passive** (they record reflected sunlight or emitted heat) or **active** (they send their own pulse, as radar and lidar do).
+
+**Raster storage.** The scene is 30 km × 20 km at 10 m, giving 3000 columns × 2000 rows = 6,000,000 cells. It has 4 bands of 12-bit data stored in 16-bit containers, so the size is 6,000,000 × 4 × 2 = **48,000,000 bytes (48 MB, decimal)** before compression. At 5 m the cell count quadruples to **192 MB**. Halving the cell size multiplies storage by four.
+
+**Pixel ↔ map coordinates.** Assume a north-up grid in a metric projected system with the top-left **corner** at (E₀, N₀) = (500000, 3100000) and 10 m cells, so N **decreases** as the row index grows. Rows and columns are zero-based.
+
+$$E = E_0 + (c + 0.5)\,d, \qquad N = N_0 - (r + 0.5)\,d$$
+
+The centre of (row 120, col 250) is E = 502505, N = 3098795. In reverse, the point (503012, 3097333) lies in col $\lfloor 3012/10 \rfloor = 301$ and row $\lfloor 2667/10 \rfloor = 266$.
+
+**Order trap:** GeoJSON (RFC 7946 §3.1.1) writes positions as **longitude, latitude** (easting, northing). Arrays are often indexed as (row, col), which puts the y-like index first. Always state the convention.
+
+**GPS ranging, one level deeper.** In a flat 2-D toy, anchors sit at A(0,0), B(10,0) and C(0,10), with ranges 5, √65 and √45. Subtracting the circle equations removes the squares:
+
+$$x = \frac{r_A^2 - r_B^2 + 100}{20} = 3, \qquad y = \frac{r_A^2 - r_C^2 + 100}{20} = 4$$
+
+A real receiver solves the 3-D version with a fourth unknown: its own clock offset δt. Each measured pseudorange is true range + c·δt. A 1 µs clock error alone equals 299.79 m of range, which is why the bias must be solved rather than ignored.
+
+## Case 4 · CE 15.13, 15.8 and 15.14: media numericals
+
+**Units:** decimal (1 MB = 10⁶ bytes, 1 Mbit/s = 10⁶ bit/s). Protocol overhead is ignored. Compression ratio = original : compressed.
+
+**Image size and transfer (15.13).** A 1920 × 1080 RGB photo at 8 bits per channel is 1920 × 1080 × 3 = **6,220,800 bytes**. Over 10 Mbit/s it takes 49,766,400 / 10⁷ ≈ **4.98 s**. If a lossy encoder produced 622,080 bytes, the ratio would be 10:1 and the transfer would take about 0.50 s. The ratio depends on the content and the chosen quality, not on the format alone.
+
+**Histogram equalisation (3-bit, L = 8).** The 4 × 4 image uses only levels 2–5:
+
+```text
+2 3 3 2
+3 4 4 3
+2 4 5 4
+3 4 5 2
+```
+
+Map each level by $s_k = \operatorname{round}\big((L-1)\,\mathrm{CDF}(r_k)\big)$, rounding to nearest. This example was chosen to avoid .5 ties.
+
+| r | count | cumulative | 7 × CDF | s |
+| --- | --- | --- | --- | --- |
+| 2 | 4 | 4 | 1.75 | 2 |
+| 3 | 5 | 9 | 3.9375 | 4 |
+| 4 | 5 | 14 | 6.125 | 6 |
+| 5 | 2 | 16 | 7 | 7 |
+
+The range 2–5 stretches to 2–7, so row 3 becomes `2 6 7 6`. With floor instead of rounding, level 2 would map to 1. The rule must be stated.
+
+**Mean versus median filter.** The 3 × 3 neighbourhood 10, 12, 11, 13, **255**, 12, 11, 10, 12 has a salt-noise centre. The mean is 346/9 ≈ 38.4, so the noise smears into the result. The median is **12**, which removes the impulse while keeping edges sharper.
+
+**Speech framing (15.8).** At 16 kHz, a 25 ms window is 400 samples and a 10 ms hop is 160. One second with no padding gives ⌊(16000 − 400)/160⌋ + 1 = **98 frames**. A padding convention changes the count. Raw 16-bit mono runs at 256 kbit/s. For the frame 3, 1, −2, −4, −1, 2, 3, −1:
+- **Short-time energy** = Σx² = **45**.
+- **Zero crossings** = **3** (sign changes between neighbours, with 0 counted as non-negative).
+
+Voiced sounds tend to show high energy and few crossings; unvoiced fricatives, the reverse. This is a heuristic, not a classifier.
+
+**Multimedia rates (15.14).**
+- **CD-format audio:** 44,100 × 16 × 2 = **1,411,200 bit/s**, so 3 minutes is 31,752,000 bytes.
+- **Raw 1280 × 720 video:** at 24 bits and 25 frames/s it needs 552,960,000 bit/s (≈ 553 Mbit/s). Compression is therefore unavoidable.
+- **Frame order:** a B-frame is predicted from a later anchor, so the display order I1 B2 B3 P4 B5 B6 P7 is transmitted and decoded as **I1 P4 B2 B3 P7 B5 B6**.
+
+## Case 5 · CE 15.10 (with CE 15.9): e-commerce architecture and security
+
+<Figure wide caption="Three-tier shop with trust boundaries (dashed). Nothing from the browser is trusted; card data goes to the payment provider, not to the shop.">
+<svg viewBox="0 0 760 250" role="img" aria-label="Left: browser, untrusted. Dashed trust boundary. Middle: web and API tier handling TLS termination, sessions and input validation, then application tier with catalogue, cart and order services, then data tier with database holding products, orders and payment status but no card numbers. Right, beyond a second dashed boundary: external payment provider. Arrows: browser redirected to payment provider; provider sends a signed callback to the order service; order service recomputes prices from the database." style="width:100%;height:auto;font-family:var(--sl-font);font-size:12px">
+  <defs><marker id="emt-ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--sl-color-gray-2)" /></marker></defs>
+  <g style="fill:none;stroke:var(--sl-color-accent);stroke-dasharray:6 4;stroke-width:1.5"><path d="M140 10 V240" /><path d="M600 10 V240" /></g>
+  <g style="fill:var(--sl-color-accent);font-size:11px"><text x="146" y="236">trust boundary</text><text x="606" y="236">trust boundary</text></g>
+  <g style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-3);stroke-width:1.3">
+    <rect x="10" y="90" width="110" height="56" rx="4" />
+    <rect x="160" y="40" width="130" height="150" rx="4" /><rect x="310" y="40" width="130" height="150" rx="4" /><rect x="460" y="40" width="120" height="150" rx="4" />
+    <rect x="620" y="90" width="130" height="56" rx="4" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="65" y="114">Browser</text><text x="65" y="132" style="fill:var(--sl-color-gray-2)">untrusted</text>
+    <text x="225" y="62">Web / API tier</text><text x="375" y="62">Application tier</text><text x="520" y="62">Data tier</text>
+    <text x="685" y="114">Payment</text><text x="685" y="132">provider</text>
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:11px">
+    <text x="225" y="92">TLS termination</text><text x="225" y="110">session cookie</text><text x="225" y="128">CSRF token check</text><text x="225" y="146">input validation</text>
+    <text x="375" y="92">catalogue</text><text x="375" y="110">cart</text><text x="375" y="128">order service:</text><text x="375" y="146">recompute total</text><text x="375" y="164">idempotency key</text>
+    <text x="520" y="92">products, prices</text><text x="520" y="110">orders</text><text x="520" y="128">payment status</text><text x="520" y="146">no card numbers</text>
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-2);stroke-width:1.3">
+    <path d="M120 112 H158" marker-end="url(#emt-ah3)" /><path d="M290 112 H308" marker-end="url(#emt-ah3)" /><path d="M440 112 H458" marker-end="url(#emt-ah3)" />
+    <path d="M65 146 V214 H685 V148" marker-end="url(#emt-ah3)" /><path d="M685 90 V24 H375 V38" marker-end="url(#emt-ah3)" />
+  </g>
+  <g style="fill:var(--sl-color-gray-2);font-size:11px"><text x="300" y="208">redirect to pay (card entered at provider)</text><text x="420" y="18">signed callback (verify before marking paid)</text></g>
+</svg>
+</Figure>
+
+**Case: price tampering.** The cart holds 2 × Rs 450, 1 × Rs 1200 and 3 × Rs 80. A modified browser posts `total=1650`. The order service ignores client totals and recomputes from database prices: 900 + 1200 + 240 = **Rs 2340**. With a hypothetical 10% tax, the total is Rs 2574. The rule: the server is the only authority for price, quantity limits and discounts.
+
+**Case: double charge on retry.** The browser times out and resends "pay". This is the RPC at-least-once problem again. The fix is an **idempotency key**: one random id per checkout, stored with a unique constraint, so a repeated request returns the first result. HTTP itself marks PUT and DELETE as idempotent (RFC 9110 §9.2.2), but POST is not.
+
+| Threat | Control (concept level) |
+| --- | --- |
+| Eavesdropping, tampering in transit | TLS for every page carrying a session or personal data |
+| Forged payment confirmation | verify the provider's signature or MAC (e.g. HMAC, RFC 2104) on the callback, and confirm the amount and order id |
+| SQL injection | parameterised queries; least-privilege DB account |
+| Cross-site scripting | context-aware output encoding; avoid inserting raw HTML |
+| Cross-site request forgery | per-session token and same-site cookies |
+| Stolen card data | never store card numbers: use the provider's hosted page or token |
+
+The CO overlap is real here (CO 10.3 security issues, 10.5 business models, 10.6 payment). This case adds the architecture view; the [CO page](/learning-guide/lok-sewa/preparation/co-non-overlap/#e-commerce-and-mis-unit-10-and-11) has the business models.
+
+## Case 6 · CE 15.6: choosing an architecture
+
+**Decision:** how to structure the cooperative's platform. The team is small (four developers). Traffic is a harvest-season burst, and the image pipeline is heavy.
+
+| Option | Availability | Modifiability | Performance | Operating cost |
+| --- | --- | --- | --- | --- |
+| Layered modular monolith | moderate; replicate whole app | good if module boundaries enforced | good; in-process calls | low |
+| Microservices | can isolate failures | high per service, costly across services | network hops on every call | high: many deployables, tracing |
+| Event-driven + pipe-and-filter for imagery | good for back-pressure | easy to add filters | high throughput, eventual consistency | moderate |
+
+**A reasonable answer:**
+- Use a **layered modular monolith** for shop, orders and voice-order intake.
+- Run a separate **pipe-and-filter** worker for imagery (Case 1), fed by a queue.
+- The deciding attributes are team size and the burst, not fashion.
+
+Each quality attribute becomes a scenario, e.g. "on harvest day the order page responds within 2 s at 10× normal load". The options are then judged against these scenarios, as in ATAM. No style is best in general.
+
+**Availability check.** Assume independent failures and a serial chain of web 0.999, application 0.999 and database 0.995. The chain's availability is 0.999 × 0.999 × 0.995 ≈ **0.99301**, about 61 h down per year. Replacing the database with a redundant pair gives 1 − 0.005² = 0.999975 for that tier and ≈ **0.99798** overall (≈ 18 h). Improve the weakest serial element first. Correlated failures, such as shared power, break the independence assumption.
+
+## Original practice
+
+Learning-aid marks only. Solve before opening each answer.
+
+**Q1 · CE 15.2 (5).** A job is 80% parallelisable. Find the Amdahl speedup on 4 processors and its limit. Then find the Gustafson scaled speedup on 4 processors when the serial part is 20% of the 4-processor run.
+
+<details>
+<summary>Answer: 2.5, limit 5, scaled 3.4</summary>
+
+S = 1/(0.2 + 0.8/4) = 1/0.4 = 2.5, and the limit is 1/0.2 = 5. Gustafson gives 0.2 + 4 × 0.8 = 3.4. The two serial fractions come from different runs, so the answers differ without any contradiction.
+</details>
+
+**Q2 · CE 15.2 / 10.5 (5).** Using the Case 1 trace, list every event concurrent with e, and explain why Lamport values alone cannot show it.
+
+<details>
+<summary>Answer: a, b, c and d</summary>
+
+Vector (0,0,1) is incomparable with (1,0,0), (2,0,0), (2,1,0) and (2,2,0), but it is less than f's (2,2,2). Lamport only guarantees that a → b implies L(a) is less than L(b). A smaller value does not imply causality, so concurrent events look ordered.
+</details>
+
+**Q3 · CE 15.7 / 10.5 (5).** Encode the XDR arguments `(7, "Pokhara")` and count the bytes for the arguments, the full ONC RPC call (AUTH_NONE) and the call over TCP.
+
+<details>
+<summary>Answer: 16, 56, 60 bytes</summary>
+
+`00 00 00 07 | 00 00 00 07 | 50 6f 6b 68 61 72 61 | 00`: 4 + 4 + 7 + 1 pad = 16 bytes. Adding the 40-byte header gives 56, and the 4-byte record mark gives 60. IP and TCP headers are excluded.
+</details>
+
+**Q4 · CE 15.7 / 10.5 (5).** The cooperative's `transfer(amount)` RPC runs over UDP with client retries. What can the client conclude from a reply, and from no reply? Propose two fixes.
+
+<details>
+<summary>Answer: at least once versus unknown</summary>
+
+A reply means the call executed at least once. With no reply, the number of executions is unknown, possibly zero or several. Two fixes: (1) a server-side duplicate-request cache keyed on the transaction id, which gives at-most-once behaviour while the cache holds the entry; (2) a redesign that makes the call idempotent, e.g. `setBalanceAfter(txId, …)` with a unique transaction id. Neither achieves exactly-once on its own through a server crash; that needs durable state.
+</details>
+
+**Q5 · CE 15.7 (10).** Compare a CORBA ORB with DCOM on interface language, object reference, data representation and object lifetime. Draw the stub/skeleton path.
+
+<details>
+<summary>Answer outline</summary>
+
+- **Interface language:** OMG IDL vs Microsoft IDL with IUnknown-derived interfaces.
+- **Object reference:** an IOR vs an interface pointer resolved through an object exporter.
+- **Data representation:** CDR in the sender's byte order with a flag vs data carried as RPC calls.
+- **Lifetime:** server-side servant policy vs per-interface reference counts plus pinging-based garbage collection.
+
+Then draw the Case 2 figure. Close with one point of judgement: both hide distribution behind a local-looking call, and that hides latency and partial failure.
+</details>
+
+**Q6 · CE 15.16 (5).** A 15 km × 12 km area is imaged at 30 m with 7 bands of 8-bit data. Find the raw size, then the size at 15 m.
+
+<details>
+<summary>Answer: 1.4 MB, then 5.6 MB</summary>
+
+500 × 400 = 200,000 cells, × 7 bands × 1 byte = 1,400,000 bytes. Halving the cell size quadruples the cells: 5,600,000 bytes. Decimal MB, no compression.
+</details>
+
+**Q7 · CE 15.16 (5).** With the Case 3 grid (corner origin 500000, 3100000, 10 m cells, north-up), find the cell holding (501234, 3099876) and that cell's centre. Write the matching GeoJSON position for a WGS 84 point at latitude 27.7, longitude 85.3.
+
+<details>
+<summary>Answer: row 12, col 123; centre (501235, 3099875); [85.3, 27.7]</summary>
+
+col = ⌊1234/10⌋ = 123 and row = ⌊124/10⌋ = 12. The centre is (500000 + 1235, 3100000 − 125). GeoJSON puts longitude first, so `[85.3, 27.7]`.
+</details>
+
+**Q8 · CE 15.13 (5).** Apply a 3 × 3 mean filter and a median filter at the centre of the neighbourhood 0, 52, 50, 49, 255, 51, 50, 48, 53. Which suits salt-and-pepper noise?
+
+<details>
+<summary>Answer: mean ≈ 67.6, median 50</summary>
+
+Sorted: 0, 48, 49, 50, 50, 51, 52, 53, 255. The median is 50. The mean is 608/9 ≈ 67.6, pulled by both impulses. The median filter suits impulse noise; the mean suits mild Gaussian-like noise but blurs edges.
+</details>
+
+**Q9 · CE 15.8 / 15.14 (5).** Speech is sampled at 8 kHz with 8-bit samples. How many 20 ms frames with a 10 ms hop fit in 2 s with no padding? What is the raw bitrate?
+
+<details>
+<summary>Answer: 199 frames, 64 kbit/s</summary>
+
+The window is 160 samples and the hop 80. ⌊(16000 − 160)/80⌋ + 1 = 199. The bitrate is 8000 × 8 = 64,000 bit/s.
+</details>
+
+**Q10 · CE 15.10 / 15.6 (10).** Sketch a three-tier e-commerce design with trust boundaries for the cooperative, and list four controls. Compute the availability of two parallel application servers (0.99 each) in series with one database (0.995), assuming independent failures.
+
+<details>
+<summary>Answer outline: ≈ 0.99490</summary>
+
+Use the Case 5 figure. Good controls include server-side price recomputation, a verified payment callback, parameterised queries, output encoding and CSRF tokens. For availability: (1 − 0.01²) × 0.995 = 0.9999 × 0.995 = 0.9949005. The database now dominates, so it is the next element to replicate.
+</details>
+
+## Sources
+
+- [PSC Computer Engineer Paper II syllabus (official PDF)](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf): units 1.6, 10.5 and 15. [PSC Computer Officer Paper II syllabus](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad73731.pdf): units 5.5, 10 and 11. [NEC ACtE syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf): ACtE0401, 0505, 0506 and 0802.
+- [RFC 5531](https://www.rfc-editor.org/rfc/rfc5531) ONC RPC v2 (§5 semantics, §9 message, §11 record marking); [RFC 4506](https://www.rfc-editor.org/rfc/rfc4506) XDR (§4.1 integer, §4.11 string); [RFC 7946](https://www.rfc-editor.org/rfc/rfc7946) GeoJSON (§3.1.1 position order); [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) §9.2.2 idempotent methods; [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104) HMAC.
+- [OMG CORBA 3.3, Part 2: Interoperability](https://www.omg.org/spec/CORBA/3.3/Interoperability/PDF): CDR byte-order flag and natural alignment. [MS-DCOM: Reference Counts](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dcom/69771298-e621-4b37-85fe-f97f8dad4974) and [Object Resolver Service](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dcom/3df23440-54ed-40f5-ba86-4a848918202f).
+- **Standard academic references for the methods (not fetched in full):**
+  - Amdahl (1967), AFIPS; Gustafson, "Reevaluating Amdahl's law", *CACM* 31(5), 1988.
+  - Lamport, "Time, clocks, and the ordering of events", *CACM* 21(7), 1978; Birrell and Nelson, "Implementing remote procedure calls", *ACM TOCS* 2(1), 1984.
+  - Gonzalez and Woods, *Digital Image Processing*; Rabiner and Schafer, *Digital Processing of Speech Signals*.
+  - Bass, Clements and Kazman, *Software Architecture in Practice*; Shaw and Garlan, *Software Architecture*.
+  - Barth, Jackson and Mitchell, "Robust defenses for cross-site request forgery", ACM CCS 2008.

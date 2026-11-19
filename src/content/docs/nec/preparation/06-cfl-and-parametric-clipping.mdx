@@ -1,0 +1,212 @@
+---
+title: "Context-free languages & parametric clipping: formal proofs & traces"
+description: Rigorous treatment of the CFL pumping lemma, closure properties, decision algorithms, and Liang-Barsky parametric line clipping with edge cases for NEC ACtE06 and Lok Sewa CE.
+sidebar:
+  label: "CFLs & parametric clipping"
+  order: 6
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Syllabus mapping:** NEC ACtE Chapter 6 (ACtE06: sub-chapters 6.2 and 6.5) · Lok Sewa Computer Engineer Unit 12 (Theory of Computation) and Unit 14 (Computer Graphics), Section C.
+
+This lesson directly supplements the foundation established in [Automata & graphics traces](/learning-guide/nec/preparation/01-automata-and-graphics-traces/) and the [Chapter 6 checklist](/learning-guide/nec/chapters/06-toc-graphics/). While basic finite automata, Chomsky hierarchy classifications, and Cohen–Sutherland line clipping were resolved there, this lesson works the two remaining core topics: formal proofs with the Context-Free Language (CFL) Pumping Lemma and the Liang–Barsky parametric clipping algorithm.
+
+---
+
+## 6.2 Context-Free Languages: Pumping Lemma & Closure
+
+### 1. The CFL Pumping Lemma & Quantifier Ordering
+
+The Pumping Lemma for Context-Free Languages is a necessary property of all context-free languages. It is used as a tool to prove that a given language is **not** context-free via proof by contradiction.
+
+**Formal Statement:**
+If $L$ is a context-free language, then there exists an integer $p \ge 1$ (the pumping length) such that every string $s \in L$ with length $|s| \ge p$ can be partitioned into five substrings:
+$$s = uvwxy$$
+satisfying the following three conditions:
+1. $|vx| \ge 1$ (at least one of $v$ or $x$ is non-empty; $|v| + |x| > 0$)
+2. $|vwx| \le p$ (the sub-segment $vwx$ has length at most $p$)
+3. $\forall i \ge 0, \ uv^i w x^i y \in L$ (the pieces $v$ and $x$ can be pumped in tandem for all non-negative integers $i$)
+
+**Adversarial Quantifier Game:**
+To prove that a language $L$ is **not** context-free, the quantifiers define an adversarial game where you must defeat an opponent:
+1. **Opponent chooses** the pumping length $p \ge 1$ (you do not know $p$, so it must remain an arbitrary variable).
+2. **You choose** a specific string $s \in L$ such that $|s| \ge p$ (the string must be expressed in terms of $p$).
+3. **Opponent chooses** the decomposition $s = uvwxy$ subject only to $|vx| \ge 1$ and $|vwx| \le p$.
+4. **You defeat the opponent** by selecting a specific pumping exponent $i \ge 0$ such that $uv^i w x^i y \notin L$, establishing a contradiction.
+
+<Aside type="caution" title="Quantifier ordering trap">
+You cannot pick the decomposition $s = uvwxy$. The opponent picks the decomposition. Your proof must show that **every** valid decomposition satisfying $|vx| \ge 1$ and $|vwx| \le p$ fails the membership test for your chosen $i$.
+</Aside>
+
+### 2. Worked Proof: $L = \{a^n b^n c^n \mid n \ge 0\}$ is Not Context-Free
+
+- **Hypothesis:** Assume for contradiction that $L$ is context-free.
+- **Pumping length:** Let $p \ge 1$ be the pumping length supplied by the lemma.
+- **String selection:** Pick $s = a^p b^p c^p$. Note that $s \in L$ and $|s| = 3p \ge p$.
+- **Adversary partition:** $s = uvwxy$ where $|vx| \ge 1$ and $|vwx| \le p$.
+- **Analysis of $vwx$:** Because $|vwx| \le p$, the substring $vwx$ cannot span across all three distinct symbol blocks ($a$'s, $b$'s, and $c$'s). Any contiguous substring containing both an $a$ and a $c$ must contain all $p$ intervening $b$ symbols plus at least one $a$ and one $c$, so its length is at least $p+2$. Thus $vwx$ can contain at most two symbol types in this chosen string:
+  - *Case 1: $vwx$ consists entirely of a single symbol* (only $a$'s, only $b$'s, or only $c$'s). Then $vx$ contains only that symbol.
+  - *Case 2: $vwx$ spans two adjacent symbol types* (it contains $a$'s and $b$'s, or $b$'s and $c$'s, but never both $a$'s and $c$'s).
+- **Contradiction:** Select $i = 2$ (pumping up) or $i = 0$ (pumping down). When $s' = uv^2 w x^2 y$ is formed, the counts of at most two symbol types increase by $|vx| \ge 1$, while the count of the third symbol type remains exactly $p$. Consequently, the numbers of $a$'s, $b$'s, and $c$'s in $s'$ are unequal. Therefore, $s' \notin L$.
+- **Conclusion:** By contradiction, $L = \{a^n b^n c^n \mid n \ge 0\}$ is not context-free.
+
+### 3. CFL Closure Properties & Decision Algorithms
+
+| Operation | CFL Closed? | Counterexample / Mechanism |
+| :--- | :--- | :--- |
+| **Union ($L_1 \cup L_2$)** | **Yes** | Add new start symbol $S \to S_1 \mid S_2$ |
+| **Concatenation ($L_1 L_2$)** | **Yes** | Add new start symbol $S \to S_1 S_2$ |
+| **Kleene Star ($L^*$)** | **Yes** | Add new start symbol $S \to S_1 S \mid \varepsilon$ |
+| **Intersection ($L_1 \cap L_2$)** | **No** | $L_1 = \{a^n b^n c^m\}, L_2 = \{a^m b^n c^n\} \implies L_1 \cap L_2 = \{a^n b^n c^n\}$ |
+| **Complement ($\overline{L}$)** | **No** | If closed under complement, $L_1 \cap L_2 = \overline{\overline{L_1} \cup \overline{L_2}}$ would be CFL |
+| **Intersection with Regular** | **Yes** | Product construction of PDA $\times$ DFA preserves single stack |
+
+**Decidability Summary for CFGs:**
+- **Decidable:** Emptiness ($L(G) = \emptyset$), Finiteness ($|L(G)| < \infty$), and Membership ($w \in L(G)$ via CYK algorithm in $O(n^3)$ time).
+- **Undecidable:** Universality ($L(G) = \Sigma^*$), Equivalence ($L(G_1) = L(G_2)$), Inclusion ($L(G_1) \subseteq L(G_2)$), and Ambiguity (determining whether an arbitrary CFG is ambiguous).
+
+---
+
+## 6.5 Liang–Barsky Parametric Line Clipping
+
+### 1. Parametric Representation & Boundary Inequalities
+
+The Liang–Barsky algorithm clips a 2D line segment against a rectangular clipping window $[x_{wmin}, x_{wmax}] \times [y_{wmin}, y_{wmax}]$ using the parametric line equation:
+$$x(u) = x_1 + u \Delta x, \quad y(u) = y_1 + u \Delta y \quad (0 \le u \le 1)$$
+where $\Delta x = x_2 - x_1$ and $\Delta y = y_2 - y_1$. A point on the line is inside the window if:
+$$x_{wmin} \le x_1 + u \Delta x \le x_{wmax} \quad \text{and} \quad y_{wmin} \le y_1 + u \Delta y \le y_{wmax}$$
+
+These four inequalities are expressed compactly as:
+$$u \cdot p_k \le q_k \quad \text{for } k \in \{1, 2, 3, 4\}$$
+
+| Index $k$ | Boundary Clipped | Direction Parameter $p_k$ | Position Offset $q_k$ |
+| :--- | :--- | :--- | :--- |
+| **1** | Left ($x = x_{wmin}$) | $p_1 = -\Delta x$ | $q_1 = x_1 - x_{wmin}$ |
+| **2** | Right ($x = x_{wmax}$) | $p_2 = \Delta x$ | $q_2 = x_{wmax} - x_1$ |
+| **3** | Bottom ($y = y_{wmin}$) | $p_3 = -\Delta y$ | $q_3 = y_1 - y_{wmin}$ |
+| **4** | Top ($y = y_{wmax}$) | $p_4 = \Delta y$ | $q_4 = y_{wmax} - y_1$ |
+
+### 2. Parameter Updates & Explicit Edge Cases
+
+The algorithm tracks two parameters: $u_1$ (the maximum entry parameter, initialized to $0$) and $u_2$ (the minimum exit parameter, initialized to $1$).
+
+```text
+Algorithm Liang-Barsky:
+  u1 = 0, u2 = 1
+  for k = 1 to 4:
+    if p_k == 0:
+      if q_k < 0: return REJECT (line is parallel and strictly outside boundary k)
+      // if q_k >= 0: line is parallel and inside the boundary strip; ignore boundary k
+    else:
+      r_k = q_k / p_k
+      if p_k < 0: u1 = max(u1, r_k)  // entering boundary
+      if p_k > 0: u2 = min(u2, r_k)  // exiting boundary
+    if u1 > u2: return REJECT       // segment lies completely outside
+  return ACCEPT with clipped endpoints P(u1) and P(u2)
+```
+
+<Figure caption="Liang-Barsky parametric clipping of line segment P1(-10, 10) to P2(70, 50) across window [10, 50] x [10, 50], clipping at u1 = 0.25 and u2 = 0.75.">
+  <svg class="qe-diagram" width="340" viewBox="0 0 340 220" role="img" aria-label="Liang-Barsky clipping diagram showing clipping window from x=10 to 50 and y=10 to 50, with a line segment entering at (10, 20) and exiting at (50, 40).">
+    {/* Coordinate grid lines */}
+    <path class="qe-edge" d="M40,20 V180 M280,20 V180 M20,160 H320 M20,40 H320" stroke-dasharray="4 3" />
+    {/* Clipping window */}
+    <rect class="qe-node qe-highlight" x="70" y="40" width="180" height="120" rx="2" fill="none" stroke="var(--sl-color-accent)" stroke-width="2" />
+    <text x="160" y="105" text-anchor="middle" font-size="12" fill="var(--sl-color-gray-2)">Window [10, 50] x [10, 50]</text>
+    {/* Unclipped outside line segments */}
+    <line x1="20" y1="160" x2="70" y2="130" stroke="var(--sl-color-gray-4)" stroke-width="2" stroke-dasharray="4 4" />
+    <line x1="250" y1="70" x2="310" y2="40" stroke="var(--sl-color-gray-4)" stroke-width="2" stroke-dasharray="4 4" />
+    {/* Clipped visible line segment */}
+    <line x1="70" y1="130" x2="250" y2="70" stroke="var(--sl-color-green-high, #10b981)" stroke-width="3" />
+    {/* Endpoints and intersections */}
+    <circle cx="20" cy="160" r="4" fill="var(--sl-color-gray-4)" />
+    <text x="20" y="180" font-size="11" text-anchor="middle">P1(-10, 10)</text>
+    <circle cx="70" cy="130" r="4" fill="var(--sl-color-green-high, #10b981)" />
+    <text x="75" y="148" font-size="11" fill="var(--sl-color-green-high, #10b981)">P(u1)=(10, 20)</text>
+    <circle cx="250" cy="70" r="4" fill="var(--sl-color-green-high, #10b981)" />
+    <text x="245" y="60" font-size="11" text-anchor="end" fill="var(--sl-color-green-high, #10b981)">P(u2)=(50, 40)</text>
+    <circle cx="310" cy="40" r="4" fill="var(--sl-color-gray-4)" />
+    <text x="310" y="32" font-size="11" text-anchor="middle">P2(70, 50)</text>
+  </svg>
+</Figure>
+
+### 3. Worked Numerical Traces
+
+**Trace 1: General Oblique Segment**
+- **Window:** $x_{wmin} = 10, x_{wmax} = 50, y_{wmin} = 10, y_{wmax} = 50$.
+- **Line Segment:** $P_1(-10, 10)$ to $P_2(70, 50)$.
+- **Direction vectors:** $\Delta x = 70 - (-10) = 80$, $\Delta y = 50 - 10 = 40$.
+- **Initial parameters:** $u_1 = 0.0, u_2 = 1.0$.
+
+| $k$ | Boundary | $p_k$ | $q_k$ | $r_k = q_k / p_k$ | Action | Updated Interval $[u_1, u_2]$ |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1** | Left | $-80$ | $-10 - 10 = -20$ | $0.25$ | $p_1 < 0 \implies u_1 = \max(0, 0.25)$ | $[0.25, 1.0]$ |
+| **2** | Right | $80$ | $50 - (-10) = 60$ | $0.75$ | $p_2 > 0 \implies u_2 = \min(1, 0.75)$ | $[0.25, 0.75]$ |
+| **3** | Bottom | $-40$ | $10 - 10 = 0$ | $0.0$ | $p_3 < 0 \implies u_1 = \max(0.25, 0)$ | $[0.25, 0.75]$ |
+| **4** | Top | $40$ | $50 - 10 = 40$ | $1.0$ | $p_4 > 0 \implies u_2 = \min(0.75, 1)$ | $[0.25, 0.75]$ |
+
+Since $u_1 = 0.25 \le u_2 = 0.75$, the line intersects the visible window:
+- Entry point: $P(u_1) = (-10 + 0.25(80), 10 + 0.25(40)) = (10, 20)$
+- Exit point: $P(u_2) = (-10 + 0.75(80), 10 + 0.75(40)) = (50, 40)$
+
+**Trace 2: Edge Cases with $p_k = 0$ (Parallel Lines)**
+- **Vertical Line Outside Window:** $P_1(5, 0)$ to $P_2(5, 60)$ with window $x \in [10, 50]$. Here $\Delta x = 0$, so $p_1 = 0$. $q_1 = 5 - 10 = -5 < 0$. Since $p_1 = 0$ and $q_1 < 0$, the algorithm immediately discards the segment without division.
+- **Horizontal Line Inside Window:** $P_1(0, 30)$ to $P_2(60, 30)$ with window $y \in [10, 50]$. Here $\Delta y = 0$, so $p_3 = p_4 = 0$. Offsets are $q_3 = 30 - 10 = 20 \ge 0$ and $q_4 = 50 - 30 = 20 \ge 0$. The algorithm skips updating on $k=3,4$ and clips solely against left/right boundaries.
+
+---
+
+## Original Practice Questions
+
+*The following original practice items test precise quantifier mechanics, boundary conditions, and algorithmic decisions.*
+
+1. **In the Context-Free Language Pumping Lemma, what is the exact restriction on the subsegment $vwx$ in $s = uvwxy$?**
+   - (a) $|vwx| \ge p$
+   - (b) $|vwx| \le p$
+   - (c) $|vw| \le p$
+   - (d) $|wx| \le p$
+   *Answer:* **(b)**. By condition 2 of the lemma, $|vwx| \le p$. The condition bounds the window length. In the specially chosen string $a^p b^p c^p$, a window of this length cannot touch all three blocks, because doing so needs at least $p+2$ symbols. It is not a general bound on how many symbol groups a window can contain.
+
+2. **If $L_1$ is a context-free language and $L_2$ is a regular language, the language $L_1 \cap L_2$ is:**
+   - (a) Always regular
+   - (b) Guaranteed to be context-free
+   - (c) Context-sensitive but never context-free
+   - (d) Recursively enumerable but undecidable
+   *Answer:* **(b)**. CFLs are closed under intersection with regular languages. A pushdown automaton for $L_1$ and a DFA for $L_2$ can be combined into a product PDA whose stack simulates $L_1$ while its finite control tracks both states.
+
+3. **Which decision problem is decidable for an arbitrary Context-Free Grammar $G$?**
+   - (a) Deciding whether $L(G) = \Sigma^*$
+   - (b) Deciding whether $L(G) = \emptyset$
+   - (c) Deciding whether $G$ is ambiguous
+   - (d) Deciding whether $L(G_1) = L(G_2)$
+   *Answer:* **(b)**. Emptiness ($L(G) = \emptyset$) is decidable by checking whether any terminal string can be generated from the start symbol. Universality, ambiguity, and language equivalence are all undecidable for CFGs.
+
+4. **In the Liang–Barsky algorithm, if $p_2 = 0$ and $q_2 = -8$, what is the geometric situation and algorithmic action?**
+   - (a) The segment is vertical and accepted
+   - (b) The segment is parallel to the right boundary, lies completely outside, and is rejected
+   - (c) The segment enters through the top boundary
+   - (d) The exit parameter $u_2$ is set to zero
+   *Answer:* **(b)**. For $k=2$, $p_2 = \Delta x = 0$ means the segment is vertical (parallel to the right edge). $q_2 = x_{wmax} - x_1 = -8 < 0$ implies $x_1 > x_{wmax}$, meaning the segment lies entirely to the right of the window. The algorithm rejects it immediately.
+
+5. **In Liang–Barsky clipping against window $[0, 100] \times [0, 100]$, a segment runs from $P_1(20, -20)$ to $P_2(60, 60)$. What is the entering parameter $u_1$?**
+   - (a) $0.00$
+   - (b) $0.25$
+   - (c) $0.50$
+   - (d) $0.75$
+   *Answer:* **(b)**. $\Delta y = 60 - (-20) = 80$. For bottom boundary ($k=3$): $p_3 = -\Delta y = -80 < 0$ (entering), $q_3 = y_1 - y_{wmin} = -20 - 0 = -20$. Thus $r_3 = -20 / (-80) = 0.25$. Left boundary ($k=1$): $p_1 = -40 < 0$, $q_1 = 20 - 0 = 20 \implies r_1 = -0.50$. Updating $u_1 = \max(0, -0.50, 0.25) = 0.25$.
+
+6. **Why does Liang–Barsky typically achieve higher computational efficiency than Cohen–Sutherland for lines requiring clipping?**
+   - (a) Liang–Barsky avoids all floating-point calculations
+   - (b) Liang–Barsky computes coordinate intersections at most twice using parametric bounds rather than repeatedly intersecting window boundaries
+   - (c) Liang–Barsky converts all line coordinates to homogeneous integers
+   - (d) Liang–Barsky evaluates 16 outcode regions in parallel
+   *Answer:* **(b)**. Cohen–Sutherland clips repeatedly against boundaries, potentially calculating multiple intermediate intersection points for segments ultimately rejected. Liang–Barsky tests line parameters $u_1$ and $u_2$ with simple divisions and evaluates Cartesian intersection coordinates $(x, y)$ at most twice (at $u_1$ and $u_2$).
+
+---
+
+## Primary References & Sources
+
+- Sipser, M., *Introduction to the Theory of Computation*, 3rd ed., Cengage Learning (Context-Free Languages and Pumping Lemma).
+- Hopcroft, J. E., Motwani, R., & Ullman, J. D., *Introduction to Automata Theory, Languages, and Computation*, 3rd ed., Pearson.
+- Liang, Y. D., & Barsky, B. A., "A New Concept and Method for Line Clipping", *ACM Transactions on Graphics*, 1984.
+- Hearn, D., Baker, M. P., & Carithers, W., *Computer Graphics with OpenGL*, 4th ed., Pearson.
+- Official Syllabus: [Nepal Engineering Council Computer Engineering Syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf), Section ACtE06.

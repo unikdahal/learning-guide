@@ -1,0 +1,82 @@
+---
+import { recallCards } from '../../lib/revision-state';
+import { writtenPrompts } from '../../data/written-practice';
+import { studyChapters } from '../../data/study-map';
+import { url } from '../../lib/site';
+import './revision.css';
+const base=import.meta.env.BASE_URL.replace(/\/$/,'');
+---
+<revision-studio class="revision not-content" data-base={base}>
+  <div class="revision-hero">
+    <p class="eyebrow">Retrieve · solve · write · return</p>
+    <h2>A study session with a next step</h2>
+    <p>Use your checklist, actual question history and self-rated recall to plan your next block. Keep written drafts and preparation backups in the same place.</p>
+  </div>
+  <div hidden data-live>
+    <div class="revision-settings">
+      <label>Preparation path <select data-target><option value="combined">NEC + Lok Sewa</option><option value="nec">NEC licence</option><option value="ce">Computer Engineer overlap</option><option value="co">Computer Officer overlap</option></select></label>
+      <label>Session minutes <input data-minutes type="number" min="20" max="180" step="1" value="90" /></label>
+      <label>Your next exam date (optional) <input data-exam-date type="date" min="2000-01-01" max="2100-12-31" /></label>
+    </div>
+    <p class="revision-note" data-date-note></p>
+    <p class="revision-note" role="status" data-notice>Progress stays in this browser. Use a backup before changing devices.</p>
+    <div class="revision-metrics" data-metrics aria-live="polite"></div>
+    <section class="revision-panel" aria-labelledby="session-title">
+      <h3 id="session-title">Your next session</h3>
+      <p>These blocks are planning suggestions, not an exam timetable or readiness score. PSC-only requirements still need separate study.</p>
+      <ol class="session-blocks" data-blocks></ol>
+      <div class="next-topic" data-priority></div>
+      <nav class="revision-links" aria-label="Session resources"><a href={url('nec/study-hub/')}>Update the syllabus checklist</a><a href={url('nec/practice/')}>Practise fresh questions</a><a href={url('lok-sewa/preparation/')}>Study PSC additions</a></nav>
+    </section>
+    <section class="revision-panel" aria-labelledby="recall-title">
+      <h3 id="recall-title">Closed-book recall cards</h3>
+      <p>One original question per NEC sub-section. Say or write an answer before revealing it. Self-ratings affect this recall queue only; they do not change quiz scores or checklist confidence.</p>
+      <div class="revision-filters">
+        <label>Chapter <select data-card-chapter><option value="all">All chapters</option>{studyChapters.map(c=><option value={c.id}>{c.id}. {c.title}</option>)}</select></label>
+        <label>Cards <select data-card-mode><option value="due">Unseen or due</option><option value="all">All matching cards</option></select></label>
+      </div>
+      <p data-card-count role="status"></p>
+      <div class="recall-card" data-card>
+        <p class="eyebrow" data-card-tag></p>
+        <h4 data-card-prompt tabindex="-1"></h4>
+        <button type="button" data-reveal>Reveal answer</button>
+        <div hidden data-recall-answer><strong data-card-answer></strong><p data-card-explanation></p><a data-card-lesson>Review the lesson</a></div>
+        <fieldset data-grades hidden><legend>How was your recall? These are self-ratings.</legend><div class="revision-actions"><button type="button" data-grade="again">Review tomorrow</button><button type="button" data-grade="building">Review in 3 days</button><button type="button" data-grade="ready">Recall ready · 7 days</button></div></fieldset>
+        <button type="button" data-skip>Skip this card</button>
+      </div>
+      <p hidden data-card-empty>No cards match this view. Select all matching cards or another chapter. Due cards return after the stated 1/3/7-day interval.</p>
+    </section>
+    <section class="revision-panel" aria-labelledby="writing-title">
+      <h3 id="writing-title">Written-answer practice</h3>
+      <p>{writtenPrompts.length} original prompts with checkable outlines. The mark labels, suggested minutes and checklists are learning aids, not official PSC questions or marking rubrics.</p>
+      <label>Choose a prompt <select data-prompt-select></select></label>
+      <p class="eyebrow" data-writing-tag></p>
+      <p id="writing-question" data-writing-question></p>
+      <div class="revision-actions"><button type="button" data-timer-start>Start writing practice</button><button type="button" data-timer-pause disabled>Pause timer</button><span data-writing-clock role="timer" aria-label="Writing practice time remaining">Not started</span></div>
+      <p class="revision-note">The timer is optional and resets when you change prompts or leave this page. Expiry never deletes or locks your draft.</p>
+      <label>Your draft <textarea data-draft rows="12" maxlength="8000" aria-describedby="writing-question" placeholder="Outline first, then answer. Diagrams can be drawn on paper and described here."></textarea></label>
+      <p class="revision-note" data-word-count>0 words · 0 / 8000 characters</p>
+      <details data-writing-guide><summary>Reveal answer outline and self-checks</summary><p data-writing-outline></p><div class="writing-checks" data-checks></div><p class="revision-note">Check a point only after comparing your reasoning. These ticks are a self-check count, not a predicted mark.</p></details>
+      <p data-writing-progress></p>
+      <div class="revision-actions"><a data-writing-lesson>Study the worked method</a><button type="button" data-clear-draft>Clear this draft</button></div>
+    </section>
+    <section class="revision-panel" aria-labelledby="backup-title">
+      <h3 id="backup-title">One preparation backup</h3>
+      <p>Export checklist confidence, practice answers/bookmarks, recall ratings, written drafts, PSC work records, mistake notes, the current mock session/report and these settings. Reading progress in the separate article tracker is outside this backup.</p>
+      <div class="revision-actions"><button type="button" data-backup-export>Export preparation backup</button><label>Import preparation backup <input type="file" accept="application/json,.json" data-backup-import /></label></div>
+      <p class="revision-note">Import replaces included preparation stores after showing record counts for confirmation. Older backups without a notebook leave that notebook intact; older backups without a mock clear the current mock to avoid mixing it with different answer history. Restoring a past mock deadline does not pause or extend it. Unknown or invalid records are discarded. Keep your previous export. Backups contain notes and drafts in plain text; store them where you intend.</p>
+    </section>
+  </div>
+  <section data-static>
+    <h3>Recall without JavaScript</h3>
+    <p>The original recall questions and written prompts below remain usable without JavaScript. Personal queues, timers, drafts and backups require JavaScript.</p>
+    <details><summary>Open {recallCards.length} original recall cards</summary>
+      {recallCards.map(card=><article class="static-recall"><h4>NEC {card.section}: {card.title}</h4><p>{card.question.prompt}</p><details><summary>Reveal answer and reasoning</summary><p><strong>{card.question.options[card.question.answer]}</strong></p><p>{card.question.explanation}</p><a href={url(card.lesson)}>Study this section</a></details></article>)}
+    </details>
+    <h3>Original written prompts and outlines</h3>
+    {writtenPrompts.map(prompt=><details class="static-prompt"><summary>{prompt.title} · {prompt.marks}-mark practice</summary><p>{prompt.scope}</p><p>{prompt.question}</p><details><summary>Reveal outline and self-checks</summary><p>{prompt.outline}</p><ul>{prompt.checks.map(check=><li>{check}</li>)}</ul></details><a href={url(prompt.lesson)}>Study the worked method</a></details>)}
+  </section>
+</revision-studio>
+<script>
+  import './revision-studio';
+</script>

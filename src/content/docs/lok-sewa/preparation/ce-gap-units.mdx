@@ -1,0 +1,319 @@
+---
+title: CE gap units
+description: The Computer Engineer syllabus units that NEC prep does not teach — electronic communications (unit 5), compiler design (unit 13), modelling and simulation with random-number tests (15.1), theory-of-computation extras (pigeonhole, closure, homomorphism), AI planning, and the other unit 15 electives — with checked worked numericals and original practice.
+sidebar:
+  label: CE gap units
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Goal:** cover the Computer Engineer syllabus items that no NEC lesson teaches, to the depth a 5- or 10-mark answer needs, with a numerical you can do without a calculator.
+
+<Aside type="note" title="Where this scores for you">
+**Official syllabus:** unit 5 *Principles of Electronic Communications* (Section A, with units 1–4 = 25% of Paper II and 34% of Paper I Part II); unit 13 *Compiler design* and unit 15 *Emerging technology and electives* (Section C, with 11, 12 and 14 = 20% of Paper II and 30% of Paper I Part II). Compiler design is also **Computer Officer unit 9** (2% of Paper I Part II). The only past-paper evidence is the **transcribed** CE 2078 paper, which asked about *pseudo-random numbers and the gap test (2 + 8)* and the *pigeonhole principle (5)*.
+</Aside>
+
+## Unit 5: Principles of electronic communications
+
+Official sub-units: 5.1 block diagram of analog/digital communication systems · 5.2 analog and digital modulation · 5.3 error detection and correction · 5.4 performance: SNR and BER.
+
+### 5.1 Block diagram
+
+<Figure wide caption="Digital communication system. In an analog system the source coder and channel coder are absent, and the modulator acts directly on the message signal.">
+<svg viewBox="0 0 760 200" role="img" aria-label="Block diagram, transmitter row left to right: information source, source encoder, channel encoder, modulator, then channel with noise added. Receiver row right to left: demodulator, channel decoder, source decoder, destination." style="width:100%;height:auto;font-family:var(--sl-font);font-size:12px">
+  <defs><marker id="com-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--sl-color-gray-2)" /></marker></defs>
+  <g style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-3);stroke-width:1.3">
+    <rect x="10" y="20" width="110" height="44" /><rect x="150" y="20" width="110" height="44" /><rect x="290" y="20" width="110" height="44" /><rect x="430" y="20" width="110" height="44" />
+    <rect x="10" y="136" width="110" height="44" /><rect x="150" y="136" width="110" height="44" /><rect x="290" y="136" width="110" height="44" /><rect x="430" y="136" width="110" height="44" />
+  </g>
+  <rect x="590" y="64" width="150" height="72" rx="6" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="65" y="46">Source</text><text x="205" y="46">Source encoder</text><text x="345" y="46">Channel encoder</text><text x="485" y="46">Modulator</text>
+    <text x="65" y="162">Destination</text><text x="205" y="162">Source decoder</text><text x="345" y="162">Channel decoder</text><text x="485" y="162">Demodulator</text>
+    <text x="665" y="96">Channel</text><text x="665" y="114" style="fill:var(--sl-color-gray-2)">+ noise n(t)</text>
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-2);stroke-width:1.3">
+    <path d="M120 42 H148" marker-end="url(#com-ah)" /><path d="M260 42 H288" marker-end="url(#com-ah)" /><path d="M400 42 H428" marker-end="url(#com-ah)" />
+    <path d="M540 42 H665 V62" marker-end="url(#com-ah)" /><path d="M665 136 V158 H542" marker-end="url(#com-ah)" />
+    <path d="M430 158 H402" marker-end="url(#com-ah)" /><path d="M290 158 H262" marker-end="url(#com-ah)" /><path d="M150 158 H122" marker-end="url(#com-ah)" />
+  </g>
+  <g style="fill:var(--sl-color-gray-2);font-size:11px" text-anchor="middle">
+    <text x="205" y="80">PCM, Huffman</text><text x="345" y="80">CRC, Hamming</text><text x="485" y="80">ASK/FSK/PSK/QAM</text>
+  </g>
+</svg>
+</Figure>
+
+### 5.2 Modulation: what to know cold
+
+| Scheme | What varies | Bandwidth | Note |
+| --- | --- | --- | --- |
+| **AM** (DSB-FC) | carrier amplitude | 2 f<sub>m</sub> | simple envelope detector; power wasted in carrier |
+| **DSB-SC / SSB** | carrier suppressed / one sideband | 2 f<sub>m</sub> / f<sub>m</sub> | SSB halves the bandwidth |
+| **FM** | instantaneous frequency | Carson: 2(Δf + f<sub>m</sub>) | noise-immune; capture effect |
+| **PM** | phase | similar to FM | FM = PM of the integrated message |
+| **ASK / OOK** | amplitude between levels | ≈ 2 R<sub>b</sub> | noise-sensitive |
+| **FSK** | frequency between f₁, f₂ | wider | robust, used in early modems |
+| **BPSK / QPSK** | phase (2 or 4 states) | QPSK carries 2 bits/symbol | QPSK doubles BPSK's rate in the same bandwidth |
+| **M-QAM** | amplitude and phase | log₂M bits/symbol | 16-QAM = 4 bits/symbol; used in Wi-Fi, DSL, LTE |
+
+**Sampling theorem:** a band-limited signal of maximum frequency f<sub>m</sub> is recoverable from samples taken at f<sub>s</sub> > 2 f<sub>m</sub> (the ideal Nyquist-rate boundary is 2 f<sub>m</sub>; equality needs endpoint assumptions, and practical filters need a guard band). **PCM** = sample → quantise → encode. For telephone voice, f<sub>s</sub> = 8 kHz with 8 bits per sample gives **64 kbit/s**, the DS0 rate. Each extra bit adds about 6 dB of signal-to-quantisation-noise ratio.
+
+**Worked: AM power (Original practice).** *A 100 W carrier is amplitude-modulated with m = 0.8. Find the total power, the sideband power and the transmission efficiency.*
+- P<sub>t</sub> = P<sub>c</sub>(1 + m²/2) = 100 (1 + 0.64/2) = 100 × 1.32 = **132 W**.
+- Sideband power = P<sub>c</sub> m²/2 = **32 W** (16 W each).
+- Efficiency η = (m²/2)/(1 + m²/2) = 0.32/1.32 ≈ **24.2%**. Even at m = 1 it is only 33%, which is why SSB exists.
+
+**Worked: FM bandwidth (Original practice).** Broadcast FM, Δf = 75 kHz, f<sub>m</sub> = 15 kHz. Carson's rule gives B ≈ 2(75 + 15) = **180 kHz**, which fits in the 200 kHz channel spacing. Modulation index β = Δf / f<sub>m</sub> = 5.
+
+### 5.3 Error detection and correction
+
+- **Parity:** detects any odd number of bit errors; misses even ones. **Checksum:** ones'-complement sum (IP, TCP, UDP).
+- **CRC:** treat the bits as a polynomial and divide (mod 2) by a generator; the remainder is sent. For a standard nontrivial generator with constant term 1, it detects all single-bit errors and every burst up to its degree. Detection of all double-bit errors depends on the polynomial and protected length; it is not universal. If (x + 1) divides the generator, every odd-count error is detected.
+- **Hamming code:** parity bits at positions 1, 2, 4, …; the syndrome gives the position of a single-bit error. With d<sub>min</sub> = 3 it corrects 1 error or detects 2. In general, to detect d errors you need d<sub>min</sub> = d + 1, and to correct t errors you need d<sub>min</sub> = 2t + 1.
+- **FEC vs ARQ:** forward error correction fixes errors at the receiver; ARQ retransmits (stop-and-wait, go-back-N, selective repeat).
+
+**Worked: CRC (Original practice, classic textbook data).** Data 1101011011, generator x⁴ + x + 1 = 10011. Append four 0s and divide mod 2: the remainder is **1110**, so the frame sent is **1101011011 1110**. Dividing the received frame by 10011 gives remainder 0000, so no error is detected.
+
+**Worked: Hamming (7,4), even parity (Original practice).** Data 1011 goes in positions 3, 5, 6, 7.
+- p₁ covers 1, 3, 5, 7: 1 ⊕ 0 ⊕ 1 = 0.
+- p₂ covers 2, 3, 6, 7: 1 ⊕ 1 ⊕ 1 = 1.
+- p₄ covers 4, 5, 6, 7: 0 ⊕ 1 ⊕ 1 = 0.
+
+So the codeword is **0110011**. If bit 6 flips, the receiver gets 0110001. Recomputing gives syndrome s₄s₂s₁ = 110 = **6**, so it flips bit 6 back.
+
+### 5.4 Performance: SNR, BER, capacity
+
+- **SNR** = P<sub>signal</sub>/P<sub>noise</sub>; in dB, 10 log₁₀(SNR). So 30 dB = 1000, 20 dB = 100, and 3 dB ≈ 2.
+- **BER** = bit errors ÷ bits sent. Example: 5 errors in 10⁶ bits gives BER = 5 × 10⁻⁶. Under a fixed modulation, channel and receiver model, BER generally falls as E<sub>b</sub>/N₀ rises. Comparisons between BPSK, FSK and ASK require detector and signalling assumptions; denser constellations typically trade noise tolerance for spectral efficiency.
+- **Shannon capacity:** C = B log₂(1 + SNR). **Worked (Original practice):** a phone channel with B = 3100 Hz and SNR = 30 dB = 1000 gives log₂(1001) ≈ 10 (since 2¹⁰ = 1024), so C ≈ 3100 × 10 ≈ **31 kbit/s** (exactly 30.9 kbit/s).
+- **Nyquist (noiseless):** C = 2B log₂ M for M signal levels.
+
+## Unit 13: Compiler design
+
+Official sub-units: 13.1 structure of a compiler · 13.2 lexical analyser · 13.3 top-down / bottom-up parsing · 13.4 syntax-directed translation · 13.5 types and type checking · 13.6 run-time storage · 13.7 intermediate code · 13.8 data-flow analysis and optimisation · 13.9 architecture and recent developments. Computer Officer unit 9 covers the same ground, plus *compiler generation tools*.
+
+<Figure wide caption="Phases of a compiler. Analysis (front end) builds the meaning; synthesis (back end) builds the target. Every phase reads and writes the symbol table and reports to the error handler.">
+<svg viewBox="0 0 760 210" role="img" aria-label="Pipeline: source program, lexical analyser producing tokens, syntax analyser producing a parse tree, semantic analyser producing an annotated tree, intermediate code generator producing three-address code, code optimiser, code generator producing target code. Below all phases: symbol table manager and error handler connected to every phase." style="width:100%;height:auto;font-family:var(--sl-font);font-size:12px">
+  <defs><marker id="cmp-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--sl-color-gray-2)" /></marker></defs>
+  <g style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent);stroke-width:1.3">
+    <rect x="10" y="40" width="96" height="50" rx="4" /><rect x="134" y="40" width="96" height="50" rx="4" /><rect x="258" y="40" width="96" height="50" rx="4" />
+  </g>
+  <g style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-3);stroke-width:1.3">
+    <rect x="382" y="40" width="110" height="50" rx="4" /><rect x="520" y="40" width="96" height="50" rx="4" /><rect x="644" y="40" width="106" height="50" rx="4" />
+    <rect x="130" y="150" width="200" height="40" rx="4" /><rect x="430" y="150" width="200" height="40" rx="4" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="58" y="62">Lexical</text><text x="58" y="78">analyser</text>
+    <text x="182" y="62">Syntax</text><text x="182" y="78">analyser</text>
+    <text x="306" y="62">Semantic</text><text x="306" y="78">analyser</text>
+    <text x="437" y="62">Intermediate</text><text x="437" y="78">code gen.</text>
+    <text x="568" y="62">Code</text><text x="568" y="78">optimiser</text>
+    <text x="697" y="62">Code</text><text x="697" y="78">generator</text>
+    <text x="230" y="175">Symbol table manager</text><text x="530" y="175">Error handler</text>
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-2);stroke-width:1.3">
+    <path d="M106 65 H132" marker-end="url(#cmp-ah)" /><path d="M230 65 H256" marker-end="url(#cmp-ah)" /><path d="M354 65 H380" marker-end="url(#cmp-ah)" />
+    <path d="M492 65 H518" marker-end="url(#cmp-ah)" /><path d="M616 65 H642" marker-end="url(#cmp-ah)" />
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-4);stroke-dasharray:3 3">
+    <path d="M58 90 V150 H130" /><path d="M182 90 V150" /><path d="M306 90 V150" /><path d="M437 90 V150" /><path d="M568 90 V150" /><path d="M697 90 V170 H630" />
+  </g>
+  <g style="fill:var(--sl-color-gray-2);font-size:11px" text-anchor="middle">
+    <text x="119" y="34">tokens</text><text x="243" y="34">parse tree</text><text x="367" y="34">annotated</text><text x="505" y="34">3-address</text>
+    <text x="180" y="18" style="fill:var(--sl-color-accent)">front end (analysis)</text><text x="600" y="18">back end (synthesis)</text>
+  </g>
+</svg>
+</Figure>
+
+**Compiler vs interpreter, pass, cross-compiler, bootstrapping:** know a one-line definition of each. A **compiler** translates the whole program before execution; an **interpreter** executes statement by statement. A **pass** is one read of the source or intermediate form. A **cross-compiler** runs on one machine and generates code for another. **Bootstrapping** writes a compiler in its own language.
+
+### Lexical analysis
+
+The lexer reads characters and produces **tokens**: a token is the class (`id`, `num`, `relop`), a **lexeme** is the actual text (`count`, `42`, `<=`), and a **pattern** is the rule, usually a regular expression. Regular expression → NFA (Thompson) → DFA (subset construction) → minimised DFA. Input buffering uses two buffer halves with sentinels. **Lex/Flex** generates lexers; **Yacc/Bison** generates LALR(1) parsers. These are the "compiler generation tools" of CO 9.5.
+
+### Parsing: the LL(1) worked example
+
+Grammar (expression grammar with left recursion removed):
+
+```text
+E  → T E'
+E' → + T E' | ε
+T  → F T'
+T' → * F T' | ε
+F  → ( E ) | id
+```
+
+FIRST and FOLLOW sets (checked by script):
+
+| Non-terminal | FIRST | FOLLOW |
+| --- | --- | --- |
+| E | `( id` | `) $` |
+| E' | `+ ε` | `) $` |
+| T | `( id` | `+ ) $` |
+| T' | `* ε` | `+ ) $` |
+| F | `( id` | `* + ) $` |
+
+LL(1) parsing table (blank = error):
+
+| | id | + | * | ( | ) | $ |
+| --- | --- | --- | --- | --- | --- | --- |
+| **E** | E → T E' | | | E → T E' | | |
+| **E'** | | E' → + T E' | | | E' → ε | E' → ε |
+| **T** | T → F T' | | | T → F T' | | |
+| **T'** | | T' → ε | T' → * F T' | | T' → ε | T' → ε |
+| **F** | F → id | | | F → ( E ) | | |
+
+No cell has two entries, so the grammar is **LL(1)**. **Rules to quote:** for A → α, put the production under every terminal in FIRST(α); if ε ∈ FIRST(α), also put it under every terminal in FOLLOW(A). For ordinary productive grammars, left recursion prevents predictive LL(1) parsing; left factoring often removes shared-prefix conflicts. The decisive check is whether the parsing table has conflicting entries.
+
+**Bottom-up:** shift-reduce parsing finds **handles**. LR parsers are, from weakest to strongest: **LR(0) ⊂ SLR(1) ⊂ LALR(1) ⊂ CLR(1)**. SLR uses FOLLOW sets for reduce actions; CLR carries a look-ahead in each item; LALR merges CLR states with the same core (Yacc). Conflicts are shift/reduce or reduce/reduce.
+
+### Syntax-directed translation, types, run-time storage
+
+- **SDD:** grammar plus semantic rules. **Synthesised** attributes come from the children (S-attributed, evaluated bottom-up). **Inherited** attributes come from the parent or siblings (L-attributed allows left siblings only, so it can be evaluated in one depth-first pass).
+- **Type checking:** static vs dynamic; strong vs weak; type expressions; **coercion** (implicit int → float) vs **casting**; structural vs name equivalence.
+- **Run-time storage:** code, static data, **stack** (activation records), **heap**. An **activation record** holds the return value, actual parameters, control link, access link, saved machine status, local data and temporaries. Parameter passing is by value, reference, copy-restore or name.
+
+### Intermediate code: worked three-address code
+
+For `a = b * -c + b * -c`:
+
+```text
+Three-address code        Quadruples (op, arg1, arg2, result)
+t1 = minus c              (minus, c,  -,  t1)
+t2 = b * t1               (*,     b,  t1, t2)
+t3 = minus c              (minus, c,  -,  t3)
+t4 = b * t3               (*,     b,  t3, t4)
+t5 = t2 + t4              (+,     t2, t4, t5)
+a  = t5                   (=,     t5, -,  a)
+```
+
+**Triples** drop the result field and refer to instructions by position: (0) minus c; (1) * b (0); …. After **common-subexpression elimination** (t3 = t1, t4 = t2) this becomes t1 = minus c; t2 = b * t1; a = t2 + t2. A **DAG** of the expression shows the shared node directly.
+
+### Optimisation and data-flow analysis
+
+**Basic block leaders:** the first instruction; any target of a jump; any instruction right after a jump. Blocks and the jumps between them form the **flow graph**.
+
+| Optimisation | Before | After |
+| --- | --- | --- |
+| Constant folding / propagation | `x = 4 * 2; y = x + 1` | `x = 8; y = 9` |
+| Common subexpression elimination | `a = b + c; d = b + c` | `a = b + c; d = a` |
+| Dead-code elimination | `if (false) …` or an unused assignment | removed |
+| Loop-invariant code motion | `for … { t = n * 4; … }` | `t = n * 4; for … { … }` |
+| Strength reduction | `i * 4` in a loop | add 4 each iteration |
+| Peephole | `MOV R0, a; MOV a, R0` | first instruction only |
+
+**Data-flow analyses:** *reaching definitions* (forward, union), *live variables* (backward, union; used for register allocation and dead code), *available expressions* (forward, intersection; used for CSE). The equations are out[B] = gen[B] ∪ (in[B] − kill[B]) for forward problems.
+
+**13.9 Recent developments (one paragraph is enough):** **JIT** compilation (JVM HotSpot, .NET, V8); **LLVM** as a reusable back end with **SSA**-form IR; profile-guided and link-time optimisation; compilers for GPUs and ML (CUDA, MLIR); WebAssembly as a portable target.
+
+## 15.1 Simulation: random numbers and the gap test
+
+*(The transcribed CE 2078 paper asked: "What do you mean by pseudo random numbers? Explain Gap test algorithm with example. (2 + 8)".)*
+
+**Pseudo-random numbers** are produced by a deterministic algorithm from a seed. They are not truly random, but they are designed to pass statistical tests of **uniformity** and **independence**. Their advantages are speed, reproducibility (same seed, same stream, which helps debugging and comparing alternatives) and no special hardware. Desired properties: uniform, independent, long period, fast, portable, reproducible.
+
+**Linear congruential generator (LCG):** X<sub>i+1</sub> = (a X<sub>i</sub> + c) mod m, and R<sub>i</sub> = X<sub>i</sub>/m.
+
+*Worked (Original practice):* a = 5, c = 3, m = 16, X₀ = 7 gives 6, 1, 8, 11, 10, 5, 12, 15, 14, 9, 0, 3, 2, 13, 4, 7, …, a **full period of 16** (checked by script). Full period holds because c and m are coprime, a − 1 = 4 is divisible by every prime factor of m (2) and by 4 since 4 divides m (the Hull–Dobell conditions).
+
+**Tests:** frequency tests check uniformity (Kolmogorov–Smirnov, chi-square). Independence tests include runs (up/down, above/below mean), autocorrelation, **gap** and poker.
+
+**Gap test algorithm:**
+1. Choose a sub-interval [α, β) of [0, 1); let p = β − α. (For digit streams, the classic choice is one digit, so p = 0.1.)
+2. Scan the sequence and mark each number that falls in [α, β).
+3. A **gap** is the count of numbers between two successive marked numbers. Record every gap length.
+4. If the numbers are independent, gap length x follows a geometric law: P(gap = x) = p(1 − p)<sup>x</sup>, with cumulative F(x) = 1 − (1 − p)<sup>x + 1</sup>.
+5. Compare the empirical cumulative gap counts with the geometric model. A valid significance test needs a calibration for this **discrete** null distribution. Use a discrete exact/simulation-based procedure, or a grouped chi-square test with sufficiently large expected counts. Ordinary continuous K–S critical values must not be applied unchanged.
+
+**Worked example (Original practice; checked by script):** 20 numbers, interval [0, 0.3), so p = 0.3.
+
+```text
+i : 1    2    3    4    5    6    7    8    9    10   11   12   13   14   15   16   17   18   19   20
+R : 0.32 0.81 0.15 0.47 0.06 0.92 0.38 0.64 0.21 0.73 0.11 0.55 0.89 0.27 0.44 0.70 0.03 0.96 0.58 0.19
+in [0,0.3)?     ✓         ✓                   ✓         ✓              ✓              ✓              ✓
+```
+
+The marked positions are 3, 5, 9, 11, 14, 17 and 20, so the gaps are **1, 3, 1, 2, 2, 2** (N = 6).
+
+| x | Gaps ≤ x | S<sub>N</sub>(x) | F(x) = 1 − 0.7<sup>x+1</sup> | \|S − F\| |
+| --- | --- | --- | --- | --- |
+| 0 | 0 | 0.000 | 0.300 | **0.300** |
+| 1 | 2 | 0.333 | 0.510 | 0.177 |
+| 2 | 5 | 0.833 | 0.657 | 0.176 |
+| 3 | 6 | 1.000 | 0.760 | 0.240 |
+
+The largest displayed CDF difference is **D = 0.300**. This is a descriptive calculation only. Six gaps provide little evidence, and the geometric distribution is discrete: comparing 0.300 with an ordinary continuous K–S table would not be a valid calibration for the stated test. Do not conclude that the stream is independent or random. With a much longer sample, specify and calibrate a suitable discrete gap-distribution test; passing one test still does not establish all properties of randomness. See [NIST’s K–S limitations](https://www.itl.nist.gov/div898/handbook/eda/section3/eda35g.htm).
+
+
+| Rubric (learning aid, 2 + 8) | Marks |
+| --- | --- |
+| Definition of pseudo-random numbers + why "pseudo" | 2 |
+| Steps of the gap test, with the geometric F(x) | 3 |
+| Worked example: gaps found correctly | 2 |
+| Valid test choice and cautious interpretation | 2 |
+| Remark on sample size / which property the test checks | 1 |
+
+**Other 15.1 points:** system, model, discrete-event vs continuous simulation; Monte Carlo; queueing notation (Kendall A/B/c/N/K); the steps of a simulation study; verification (is the model built right?) vs validation (is it the right model?).
+
+## Theory of computation extras
+
+*(Transcription: CE 2078 asked "Briefly discuss the pigeonhole principle in computation (5)".)* The rest of unit 12 is in [NEC chapter 6](/learning-guide/nec/chapters/06-toc-graphics/).
+
+**Pigeonhole principle:** if n + 1 or more objects are placed in n boxes, some box holds at least two. Generalised: N objects in k boxes put at least ⌈N/k⌉ in some box.
+
+**Why it matters in computation (the 5-mark core):**
+1. **Pumping lemma for regular languages.** A DFA with n states reading a string of length ≥ n passes through n + 1 states, so some state repeats. The loop between the two visits is the "pumpable" y in w = xyz, which gives |xy| ≤ n and |y| ≥ 1.
+2. **Non-regularity:** for aⁿbⁿ, a DFA with k states must confuse a<sup>i</sup> and a<sup>j</sup> (i ≠ j, both ≤ k) by pigeonhole, then accepts a<sup>i</sup>b<sup>j</sup>, which is a contradiction.
+3. **Hashing:** mapping more keys than slots guarantees collisions.
+4. **Lossless compression:** no algorithm can shorten every input, because there are fewer short strings than long ones.
+
+**Closure and homomorphism (12.3):** regular languages are closed under union, concatenation, Kleene star, complement, intersection, reversal, **homomorphism** (replace each symbol by a string) and inverse homomorphism. Context-free languages are closed under union, concatenation, star and homomorphism, but **not** under intersection or complement. To prove a language is not regular, map it with closure properties onto a known non-regular one.
+
+## AI planning (11.6)
+
+NEC chapter 9 covers search, knowledge representation, learning and expert systems; **planning** is the gap.
+- **Planning** finds a sequence of actions from an initial state to a goal state.
+- **STRIPS representation:** states are sets of facts. An action has **preconditions**, an **add list** and a **delete list**. Example: `Move(b, x, y)` has precondition `On(b,x), Clear(b), Clear(y)`, adds `On(b,y), Clear(x)`, and deletes `On(b,x), Clear(y)`.
+- **Forward (progression) vs backward (regression) state-space search**; **partial-order planning** (commit to orderings only when needed); **hierarchical task network** planning; the **Sussman anomaly** (why naive goal-stacking fails in the blocks world).
+
+## Other unit 15 electives at 5-mark depth
+
+| Item | The 5-mark core |
+| --- | --- |
+| 15.2 Parallel and distributed computing | Flynn's taxonomy (SISD, SIMD, MISD, MIMD); shared vs distributed memory; Amdahl's law S = 1/((1 − f) + f/p); clusters, grids, cloud |
+| 15.3 High-speed networks | Gigabit/10G Ethernet, optical fibre and DWDM, MPLS, ATM (53-byte cells) in history, 4G/5G basics; QoS (IntServ, DiffServ) |
+| 15.4 ANN and computer vision | perceptron, back-propagation in [NEC ch. 9](/learning-guide/nec/chapters/09-ai-neural-networks/); CNN (convolution, pooling), image classification, object detection |
+| 15.5 Adaptive web | sites that personalise content and navigation from a **user model** (interests, behaviour); recommender systems (content-based, collaborative filtering); privacy trade-off |
+| 15.6 Software architecture | styles: layered, client–server, pipe-and-filter, MVC, event-driven, microservices; quality attributes drive the choice |
+| 15.7 Distributed objects (ORB, DCOM) | an **ORB** (CORBA) lets objects call remote objects through IDL-defined interfaces, with stubs and skeletons, and locates and marshals transparently; **DCOM** is Microsoft's distributed COM over RPC; Java RMI is the Java equivalent |
+| 15.8 Speech processing | sampling, framing and windowing, MFCC features, recognition (HMM, now neural networks), text-to-speech |
+| 15.10 E-commerce | B2B, B2C, C2C, G2C; payment gateways; security (TLS, digital signatures); see the [CO page](/learning-guide/lok-sewa/preparation/co-non-overlap/#e-commerce-and-mis-unit-10-and-11) |
+| 15.11 Software project management | COCOMO, function points, PERT/CPM in [NEC SE lesson 5](/learning-guide/nec/se/05-management-quality/) |
+| 15.12 Embedded systems | in [NEC ch. 4](/learning-guide/nec/chapters/04-computer-organization-embedded/) |
+| 15.13 Image processing | pixel and neighbourhood operations; histogram equalisation; spatial filters (mean, median, Sobel edge); frequency domain (FFT); segmentation (thresholding); compression (JPEG = DCT + quantisation + entropy coding) |
+| 15.14 Multimedia | text, image, audio and video data types; lossy vs lossless compression; MPEG frame types I, P, B; streaming and the jitter buffer |
+| 15.15 Expert systems | knowledge base + inference engine (forward/backward chaining) + explanation facility; in [NEC ch. 9](/learning-guide/nec/chapters/09-ai-neural-networks/) |
+| 15.16 GIS / remote sensing / GPS | **GIS** captures, stores, analyses and displays spatial data (vector vs raster layers); **remote sensing** acquires data by satellite or aerial sensors (passive vs active, spectral bands); **GPS** finds position by trilateration from at least 4 satellites (3 for position + 1 for the clock bias) |
+
+## Original practice
+
+All **Original practice**, in PSC style:
+
+1. **(5 · 8 min)** Draw and explain the block diagram of a digital communication system.
+2. **(2 + 8 · 16 min)** Define modulation. Compare AM and FM on bandwidth, noise immunity, power efficiency and circuit complexity; find the total power when a 50 W carrier is modulated to m = 0.6 (answer: 59 W).
+3. **(10 · 16 min)** Compute the CRC for data 101110 with generator 1001 (answer: remainder 011), and show how the receiver detects a single-bit error.
+4. **(10 · 16 min)** For the grammar S → aSb | ε, compute FIRST and FOLLOW, build the LL(1) table, and parse `aabb` with a stack trace.
+5. **(5 + 5 · 16 min)** Explain the phases of a compiler with a diagram. Generate three-address code and quadruples for `x = (a + b) * (a + b) - c / d`.
+6. **(2 + 8 · 16 min)** What is a linear congruential generator? Generate 8 numbers with a = 3, c = 5, m = 16, X₀ = 1, and state whether the period is full.
+7. **(5 · 8 min)** Use the pigeonhole principle to show that the language aⁿbⁿ (n ≥ 0) is not regular.
+
+## Sources
+
+- [PSC Computer Engineer syllabus, Paper II (official PDF)](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf): units 5, 12, 13, 15
+- [PSC Computer Officer syllabus, Paper II (official PDF)](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad73731.pdf): unit 9 compiler design
+- [Transcribed CE 2078 paper](https://nextgenacademyyy.blogspot.com/p/subject-computer-engineer-subjective.html) (third-party; see the [register](/learning-guide/lok-sewa/preparation/source-register/))
+- Standard texts for the methods: Aho, Lam, Sethi and Ullman, *Compilers* (FIRST/FOLLOW, three-address code); Banks, Carson, Nelson and Nicol, *Discrete-Event System Simulation* (LCG, gap test with K–S); Lathi, *Modern Digital and Analog Communication Systems*; Tanenbaum, *Computer Networks* (CRC example)
+
+- [RFC 3385](https://www.rfc-editor.org/rfc/rfc3385): CRC error detection depends on the polynomial, length and error model.
+- [NIST K–S handbook](https://www.itl.nist.gov/div898/handbook/eda/section3/eda35g.htm): continuous-distribution calibration and its limitations.

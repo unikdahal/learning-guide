@@ -1,0 +1,50 @@
+---
+import { url } from '../../lib/site';
+import './mock.css';
+---
+<mock-centre class="mock not-content">
+  <div data-live hidden>
+    <button type="button" data-save-active hidden>Retry saving</button>
+    <p role="status" data-notice>Rounds are saved in this browser. Keep this tab open if browser storage is unavailable.</p>
+    <form data-setup>
+      <h2>Configure a technical training round</h2>
+      <div class="mock-settings">
+        <label>Questions <select name="count"><option>20</option><option>60</option><option>100</option></select></label>
+        <label>Personal duration (minutes) <input name="minutes" type="number" min="1" max="240" step="1" value="30" required /></label>
+        <label>Shuffle seed <input name="seed" maxlength="100" value="nec-training-1" required /></label>
+        <label>Scoring <select name="penalty"><option value="0">+1 correct / 0 wrong / 0 blank</option><option value="0.2">+1 correct / −0.2 wrong / 0 blank</option></select></label>
+      </div>
+      <p>20 questions: two per chapter. 60 or 100: every one of the 60 NEC sections, with equal chapter quotas. The same seed and size reproduce the question order. Retry rounds contain only previously wrong answers.</p>
+      <button type="submit">Start round</button>
+    </form>
+    <section data-round hidden aria-labelledby="mock-round-title">
+      <h2 id="mock-round-title">Technical training round</h2>
+      <p data-meta></p>
+      <p><span role="timer" aria-label="Time remaining" data-clock></span> · Answers and explanations unlock after submission or expiry.</p>
+      <p data-progress></p>
+      <nav aria-label="Question navigator" data-navigator></nav>
+      <div data-question></div>
+      <div class="mock-actions"><button data-prev type="button">Previous question</button><button data-next type="button">Next question</button><button data-submit type="button">Submit round</button></div>
+      <div data-confirm hidden role="group" aria-labelledby="mock-confirm-title">
+        <h3 id="mock-confirm-title" tabindex="-1">Finish this round?</h3>
+        <p data-confirm-count></p><p>Submission locks your answers and records answered questions in your practice history.</p>
+        <button data-finish type="button">Confirm submission</button> <button data-cancel type="button">Keep answering</button>
+      </div>
+    </section>
+    <section data-results hidden aria-labelledby="mock-result-title">
+      <h2 id="mock-result-title" tabindex="-1">Round report</h2>
+      <p data-summary></p><p data-saved></p>
+      <p>This training score is not evidence of exam readiness. Reusing this small bank can reflect recall of these questions.</p>
+      <div class="mock-table" tabindex="0" role="region" aria-label="Chapter breakdown scroll area"><table><caption>Chapter breakdown</caption><thead><tr><th scope="col">Chapter</th><th scope="col">Correct</th><th scope="col">Wrong</th><th scope="col">Blank</th><th scope="col">Score</th></tr></thead><tbody data-breakdown></tbody></table></div>
+      <div class="mock-actions"><button data-retry type="button">Retry wrong answers</button><button data-new type="button">Configure another round</button><button data-save-again type="button" hidden>Retry saving history</button></div>
+      <p>Retry uses the same personal duration and scoring as this round. It does not guarantee section or chapter coverage.</p>
+      <div data-review></div>
+    </section>
+  </div>
+  <div data-fallback>
+    <h2>Static study resources</h2>
+    <p>The timed Mock Centre needs JavaScript. The complete original question bank, answers and explanations remain available without JavaScript:</p>
+    <ul><li><a href={url('nec/practice/')}>Read all 120 original practice questions</a></li><li><a href={url('nec/study-hub/')}>Explore all 60 NEC sections</a></li><li><a href={url('lok-sewa/preparation/')}>Study PSC additions separately</a></li></ul>
+  </div>
+</mock-centre>
+<script>import './mock-centre';</script>

@@ -1,0 +1,325 @@
+---
+title: "Paper I: reasoning and awareness"
+description: "Original worked reasoning practice, accessible spatial diagrams, and a source-led general-awareness checklist for federal PSC Computer Engineer Paper I Part I."
+---
+
+## Start here: two separate targets
+
+The federal PSC Computer Engineer [official syllabus, pages 1–2](https://psc.gov.np/site_uploads/course/20231110070747654dd6c388682.pdf) assigns **50 marks to Paper I Part I**: awareness **25** and reasoning **25**. Reasoning comprises logical **9**, numerical **8**, and spatial **8** marks, each question worth one mark. Awareness is a separate preparation task; reasoning alone does not cover Part I.
+
+Page 1 gives **90 minutes for the whole 100-mark Paper I**, including Part II technical questions. It prohibits calculators for MCQs and deducts 20% of a question's mark for a wrong answer; an unanswered question earns zero without a deduction. No separate reasoning time allocation is printed. These claims concern the linked CE syllabus, not every PSC post or later notice.
+
+**Everything numbered Q1–Q15 below is original practice**, not a past paper, official sample, or prediction. Solve on paper before opening the answers. The awareness checklist closes the other half of Part I without freezing changing facts into a lesson.
+
+## A reusable solving routine
+
+1. Translate the wording: record units, quantifiers, direction of implication, and any assumptions.
+2. Build the smallest model: a table, coordinate pair, fraction, set diagram, or labelled face.
+3. Solve before inspecting the options; then use options to check units and plausibility.
+4. Record the error as a rule: “changed denominator”, “reversed implication”, or “rotated instead of reflected”.
+
+**Learning-aid timings, not official allocations:** first work untimed; later try Q1–Q5 in 8 minutes, Q6–Q11 in 12 minutes, and Q12–Q15 in 8 minutes. Reserve another 15 minutes for explanations and re-solving misses. This 43-minute learning session is not a proposed exam section limit. Practise the full paper separately to discover your own pacing.
+
+### Scope map and methods
+
+Page 2, §§2.1–2.3, covers verbal/symbolic logic, quantitative reasoning, and visual transformations. The following is a study map rather than a quotation of every syllabus label.
+
+| Family | Tools to practise beyond the worked questions |
+| --- | --- |
+| Words, analogy, classification | State one precise relationship; test every option against it. For a word odd-one-out, make the defining property explicit. |
+| Symbol sequences and coding | Separate letter and number channels; write alphabet positions; apply only the declared encoding rule. |
+| Ordering, routes, deductions | Draw ranks, signed coordinates, and set inclusion; distinguish “all”, “some”, and “none”. |
+| Assertion/reason, input/output | Judge each claim first, then whether the reason explains it; simulate the exact stated operation order. |
+| Quantities and tables | Use a common base, consistent units, totals and bounds; distinguish enough information from a computable-looking statement. |
+| Visual series, analogy, classification, matrices | Track orientation, count, position, shading, and reflection independently; reject a rule that fails an earlier cell. |
+| Completion, embedded shapes, image analysis | Trace the requested edges; state whether scaling or rotation is allowed. |
+| Solids, reflections, folds/cuts | Label faces and fold axes; track adjacency and reverse folds in reverse order. |
+
+A finite pattern may admit many invented continuations. Our pattern questions state their rule or restrict the candidate family so that the answer is determinate. In a test, prefer the simplest consistent rule, but never treat one unexplained guess as a proof.
+
+## Logical reasoning: Q1–Q5
+
+### Q1 · Inference, converse, and a Venn model
+
+Premises: every auditor is trained; no trained person is unregistered. Which conclusion **must** follow?
+
+**A.** Every registered person is an auditor. **B.** No auditor is unregistered. **C.** At least one auditor exists. **D.** Every trained person is an auditor.
+
+<details>
+<summary>Answer B · implication has a direction</summary>
+
+Auditors lie inside the trained set, and the trained set has no overlap with the unregistered set. Thus auditors cannot be unregistered. This remains true even if there are no auditors.
+
+A and D reverse an inclusion: “auditor implies trained” does not imply “trained implies auditor”. C invents existence from an “all” statement. A countermodel is a population with one trained, registered non-auditor and no auditors: all premises hold, but A, C and D fail.
+
+For verbal analogies, use the same discipline: a relationship and its reverse are different. For assertion/reason items, two true sentences need not explain each other; verify the causal or deductive link separately.
+
+</details>
+
+### Q2 · Alphanumeric series and coding
+
+Continue **A2, C4, E8, G16, ?**, under this rule: move two alphabet positions forward and double the number. Encode the missing term by advancing its letter one more place and adding 3 to its number. What is the encoded result?
+
+**A.** I32 **B.** J35 **C.** H19 **D.** J32
+
+<details>
+<summary>Answer B · keep the two operations separate</summary>
+
+The uncoded next term is I32: positions 1, 3, 5, 7, 9 and values 2, 4, 8, 16, 32. The encoding then gives J35.
+
+A omits encoding; C applies the coding rule directly to G16 without continuing the series; D encodes only the letter. In input/output questions, write a row after each stage so that a later operation cannot silently replace an earlier one.
+
+Classification extension: among 2, 4, 8, 12, which is not a power of two? It is 12. The explicit property matters more than a vague resemblance.
+
+</details>
+
+### Q3 · Ranking without double-counting
+
+In a line with no tied ranks, Mira is 7th from the front and 12th from the back. After exactly three people ahead of her leave and nobody else moves relative to the others, what are the new line length and her new front rank?
+
+**A.** 16 and 4 **B.** 15 and 7 **C.** 15 and 4 **D.** 18 and 4
+
+<details>
+<summary>Answer C · count the shared person once</summary>
+
+Original length = 7 + 12 − 1 = 18. Removing three gives 15, and her front rank becomes 7 − 3 = 4. Her back rank stays 12; check 4 + 12 − 1 = 15.
+
+A forgets the overlap subtraction; B preserves a rank that must change; D changes her rank but ignores the departures in the total. The rank identity requires one line, unique ranks, and both counts including Mira.
+
+</details>
+
+### Q4 · Distance and directions
+
+On level ground, take east as positive x and north as positive y. A walker goes 6 km east, 4 km north, then 3 km west. What is the straight-line distance and direction from the start?
+
+**A.** 13 km, northeast **B.** 5 km, northwest **C.** 7 km, northeast **D.** 5 km, northeast
+
+<details>
+<summary>Answer D · displacement differs from path length</summary>
+
+The endpoint is (3, 4) km, so distance = √(3² + 4²) = 5 km. Both coordinates are positive, placing it northeast of the start. “Northeast” here means the quadrant, not an exact 45° bearing.
+
+A adds the entire route; B gives the wrong sign for east; C adds the two displacement components instead of using their perpendicular geometry. If a question gives turns rather than compass legs, track the facing direction after each turn first.
+
+</details>
+
+### Q5 · Analytical order and input/output
+
+A machine sorts three distinct numbers from smallest to largest, then swaps positions 1 and 2. Its input is **9, 2, 5**. Which output is correct?
+
+**A.** 2, 5, 9 **B.** 5, 2, 9 **C.** 2, 9, 5 **D.** 9, 5, 2
+
+<details>
+<summary>Answer B · follow the stated sequence</summary>
+
+Sorting produces 2, 5, 9. Swapping the first two positions then produces 5, 2, 9. A stops after sorting; C swaps the original input's first two positions; D sorts in descending order.
+
+Do not infer extra machine rules from familiar puzzle formats. Here the rule is fully stated. For a rule inferred from examples, verify every intermediate step against every supplied example before predicting another output.
+
+</details>
+
+## Numerical reasoning: Q6–Q11
+
+### Q6 · Percentages and profit/loss
+
+An item costs Rs 800. A seller marks it 25% above cost, then discounts the marked price by 10%. What is the profit percentage on cost? Ignore tax and all other charges.
+
+**A.** 15% **B.** 10% **C.** 12.5% **D.** 25%
+
+<details>
+<summary>Answer C · identify each percentage base</summary>
+
+Marked price = 800 × 1.25 = 1,000; selling price = 1,000 × 0.90 = 900. Profit = 100, so profit on cost = 100/800 × 100% = 12.5%.
+
+A subtracts percentages with different bases; B confuses the discount rate with profit; D ignores the discount. A multiplier check is 1.25 × 0.90 = 1.125, giving a 12.5% increase on the original base.
+
+</details>
+
+### Q7 · Time and work with a change of workforce
+
+At constant independent rates, A completes one job in 12 days and B in 18 days. They work together for 3 days, then A leaves. How many **additional** days does B need? Assume no interference or partial-day restrictions.
+
+**A.** 10.5 **B.** 7.2 **C.** 13.5 **D.** 15
+
+<details>
+<summary>Answer A · add rates, not completion times</summary>
+
+Together they complete 1/12 + 1/18 = 5/36 of the job per day. In 3 days they finish 5/12, leaving 7/12. B needs (7/12) ÷ (1/18) = 10.5 more days; total elapsed time is 13.5 days.
+
+B is the time if both stayed throughout; C reports total elapsed time instead of additional time; D comes from subtracting three days from B's solo time, ignoring A's contribution. Check that the completed fractions sum to one.
+
+</details>
+
+### Q8 · Ratio, average, interpretation, verification
+
+A practice log records: morning **12 correct, 8 wrong**; evening **18 correct, 2 wrong**. Every attempt is counted exactly once. Which report passes all three checks: overall accuracy, correct-to-wrong ratio, and mean correct answers per session?
+
+**A.** 80%, 3:1, 15 **B.** 75%, 3:1, 15 **C.** 75%, 2:1, 15 **D.** 75%, 3:1, 30
+
+<details>
+<summary>Answer B · reconstruct totals before percentages</summary>
+
+Correct = 30, wrong = 10, attempts = 40. Accuracy = 30/40 = 3/4 = 75%; ratio = 30:10 = 3:1; mean correct = 30/2 = 15. The row totals both equal 20, and 30 + 10 = 40 verifies the aggregation.
+
+A has a wrong percentage; C has a wrong ratio; D substitutes the total for the mean. Averaging session accuracies works here because the session sizes are equal; unequal sizes require a weighted average using attempt counts.
+
+</details>
+
+### Q9 · Data sufficiency is about uniqueness
+
+A rectangle has positive side lengths. Can its area be uniquely determined?
+
+- Statement I: its perimeter is 28 cm.
+- Statement II: its length is twice its width.
+
+**A.** I alone suffices. **B.** II alone suffices. **C.** Both together suffice, neither alone does. **D.** Even together they do not suffice.
+
+<details>
+<summary>Answer C · test each statement independently first</summary>
+
+I gives length + width = 14: sides 10 and 4 give area 40, while 8 and 6 give 48. II fixes a ratio but permits any positive scale: sides 2 and 1 give area 2, while 4 and 2 give 8.
+
+Together, 3 × width = 14, so width = 14/3 and length = 28/3 cm. Area = 392/9 cm², uniquely. A and B each miss a free variable; D overlooks that the pair fixes both scale and ratio. Integer side lengths were not stipulated and must not be invented.
+
+</details>
+
+### Q10 · Calendar arithmetic with explicit assumptions
+
+Use the **Gregorian calendar**. For this exercise, assume 1 January 2024 was Monday. What weekday was 1 March 2024? Count elapsed days, not both endpoints inclusively.
+
+**A.** Thursday **B.** Friday **C.** Saturday **D.** Monday
+
+<details>
+<summary>Answer B · separate leap-year and endpoint decisions</summary>
+
+Gregorian leap years are divisible by 4, except century years unless divisible by 400. Thus 2024 has 29 February days. From 1 January to 1 March, 31 + 29 = 60 days elapse. Since 60 leaves remainder 4 on division by 7, Monday advances four days to Friday.
+
+A treats February as 28 days; C adds an extra endpoint day; D ignores the nonzero remainder. Gregorian rules do not establish a Bikram Sambat month's length: if a BS problem lacks the needed calendar information, request or use a verified calendar instead of assuming Gregorian month lengths.
+
+</details>
+
+### Q11 · Arithmetic series and a numerical analogy
+
+Define T(n) as the sum of the first n positive integers. Under the analogy **4 : T(4) = 10**, find the value paired with 7 by the same rule.
+
+**A.** 14 **B.** 21 **C.** 49 **D.** 28
+
+<details>
+<summary>Answer D · derive the stated relationship</summary>
+
+T(7) = 1 + 2 + 3 + 4 + 5 + 6 + 7 = 7 × 8 / 2 = 28. Pairing the first and last terms gives the general formula n(n + 1)/2. It also yields T(4) = 10 as required.
+
+A doubles 7; B stops at T(6); C squares 7. Without the defined T rule, a single input/output pair would not uniquely specify an analogy. Always check whether the question actually fixes the relationship you are using.
+
+</details>
+
+## Spatial reasoning: Q12–Q15
+
+### Q12 · Cube net: opposite is not adjacent
+
+Fold this net outward into a cube; letters identify entire faces. Which face is opposite **C**? **A.** B **B.** D **C.** F **D.** A
+
+<svg viewBox="0 0 360 245" role="img" aria-labelledby="p1-net-title p1-net-desc" style="width:100%;max-width:360px;height:auto;color:var(--sl-color-text)">
+  <title id="p1-net-title">Labelled six-square cube net</title>
+  <desc id="p1-net-desc">Four equal squares in a horizontal row, A B C D from left to right. E is directly above B and F directly below B. All shared edges are full square edges.</desc>
+  <g fill="none" stroke="currentColor" stroke-width="2">
+    <rect x="20" y="85" width="70" height="70" /><rect x="90" y="85" width="70" height="70" /><rect x="160" y="85" width="70" height="70" /><rect x="230" y="85" width="70" height="70" />
+    <rect x="90" y="15" width="70" height="70" /><rect x="90" y="155" width="70" height="70" />
+  </g>
+  <g fill="currentColor" text-anchor="middle" font-size="24" font-family="sans-serif">
+    <text x="55" y="128">A</text><text x="125" y="128">B</text><text x="195" y="128">C</text><text x="265" y="128">D</text><text x="125" y="58">E</text><text x="125" y="198">F</text>
+  </g>
+</svg>
+
+<details>
+<summary>Answer D · A and C fold onto opposite sides</summary>
+
+Hold B as the front face. A folds to the left, C to the right, E to the top, and F to the bottom; D, attached to C, closes the back. The opposite pairs are A/C, B/D, and E/F. Thus C is opposite A.
+
+Options A (B), B (D), and C (F) are all adjacent to C after folding. Separation on the flat page is not enough to establish opposition. Dice questions use the same face-adjacency logic; never assume opposite numbers sum to seven unless the die's convention is specified.
+
+</details>
+
+### Q13 · Mirror image: state the reflecting line
+
+Reflect the filled triangle across the dashed **vertical line x = 100**. Which vertex set is the image? Coordinates are SVG coordinates: x increases rightward, y downward.
+
+**A.** (180,30), (140,30), (180,70) **B.** (20,70), (60,70), (20,30) **C.** (120,30), (160,30), (120,70) **D.** (180,170), (140,170), (180,130)
+
+<svg viewBox="0 0 220 110" role="img" aria-labelledby="p1-mirror-title p1-mirror-desc" style="width:100%;max-width:440px;height:auto;color:var(--sl-color-text)">
+  <title id="p1-mirror-title">Triangle beside a vertical mirror line</title>
+  <desc id="p1-mirror-desc">Source triangle vertices are (20,30), (60,30), (20,70). The dashed mirror line runs vertically at x equals 100. Only the source is drawn; image choices are written as exact coordinates.</desc>
+  <polygon points="20,30 60,30 20,70" fill="currentColor" />
+  <path d="M100 5 V95" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="5 4" />
+  <text x="108" y="20" fill="currentColor" font-size="12">x = 100</text>
+</svg>
+
+<details>
+<summary>Answer A · equal perpendicular distances</summary>
+
+Reflection sends (x, y) to (200 − x, y). The vertices become (180,30), (140,30), (180,70). The point at x = 20 is 80 units left of the line, so its image is 80 units right of it.
+
+B reflects across horizontal y = 50, a water-image operation; C merely translates 100 units right; D also reflects y across 100. A mirror is a reflection, not a rotation. Coordinate descriptions remove dependence on a tiny or visually ambiguous drawing.
+
+</details>
+
+### Q14 · Figure matrix and pattern completion
+
+In a 2 × 2 matrix, the top row is **↑ then →**; the bottom row is **↓ then ?**. In each row, the second arrow is a 90° clockwise rotation of the first, as seen on the page. Choose the missing arrow.
+
+**A.** ↑ **B.** → **C.** ↓ **D.** ←
+
+<details>
+<summary>Answer D · use the same transformation in both rows</summary>
+
+A clockwise quarter-turn maps up to right and down to left. A is a half-turn from down; B is a counterclockwise quarter-turn; C leaves the figure unchanged. This is also a figure analogy: up is to right as down is to left.
+
+For classification under a declared rotation-only rule, reflected asymmetric shapes belong to another class. For embedded images, first identify connected edges and then test allowed rotations; resemblance alone is insufficient.
+
+</details>
+
+### Q15 · Paper folding and cutting
+
+An ideal thin square occupies coordinates 0 to 8 on each axis. Fold its left half onto its right along x = 4, then its lower-coordinate y half onto the upper-coordinate y half along y = 4. Punch a tiny circular hole through all layers at **(6, 5)**, away from folds and edges. How many holes and where after unfolding?
+
+**A.** Two: (6,5), (2,5). **B.** Four: (6,5), (2,5), (6,3), (2,3). **C.** Four: (6,5), (4,5), (6,4), (4,4). **D.** One: (6,5).
+
+<details>
+<summary>Answer B · undo folds in reverse order</summary>
+
+Undo the y fold: reflect y = 5 to 8 − 5 = 3, yielding (6,5) and (6,3). Undo the x fold: reflect x = 6 to 8 − 6 = 2, yielding four distinct holes. Each reflection preserves the distance from its fold line.
+
+A undoes only one fold; C places extra holes on fold lines instead of reflecting distances; D ignores stacked layers. A punch on a fold could merge positions, which is why this question explicitly excludes folds and edges.
+
+</details>
+
+## Awareness: a 16-item source-filling checklist
+
+These compact headings map **one-to-one to official page 2, §§1.1–1.16**, in order. They are revision prompts, not a fact bank. Open the source publisher's site, locate the relevant publication, and record its exact page/table or section; a homepage alone is not evidence.
+
+| Done | Official topic, condensed | Primary source to locate and fill |
+| --- | --- | --- |
+| ☐ 1 | Nepal physical/social/economic geography and demography | National Statistics Office census tables and official maps; record date and unit. |
+| ☐ 2 | Natural resources | Responsible ministry/department inventories; distinguish stock from annual use. |
+| ☐ 3 | Climate, diversity, livelihoods | Hydrology/meteorology publications and census reports; connect region to evidence. |
+| ☐ 4 | Modern Nepal history | Government archives and primary documents; connect events, people, and social/cultural/economic conditions. |
+| ☐ 5 | Current national plan | National Planning Commission's applicable plan; record period, goals, indicators. |
+| ☐ 6 | Sustainability, pollution, climate change, biodiversity, science/technology | Official national reports and UN publications; define terms before indicators. |
+| ☐ 7 | Foreign relations; UN, SAARC, BIMSTEC | Foreign ministry and each organisation's founding documents and dated notices. |
+| ☐ 8 | Constitution: Parts 1–5, schedules | Nepal Law Commission text; index the assigned parts and schedules. |
+| ☐ 9 | Three levels of government | Constitution and official institutional publications; compare assigned roles. |
+| ☐ 10 | Civil-service structure, recruitment, conduct | Applicable official act/rules; tabulate the syllabus's specified provisions. |
+| ☐ 11 | Public-service functions | Agency mandates and official service descriptions; list purpose and recipient. |
+| ☐ 12 | Citizen/service charter | An agency's published charter; extract service, process, time, fee, complaint route. |
+| ☐ 13 | Public-policy basics | Official policy documents; separate objective, instrument, and intended outcome. |
+| ☐ 14 | Management fundamentals | Public-administration training publications; illustrate each listed function. |
+| ☐ 15 | Public planning, budgets, accounts | Planning Commission, Finance Ministry and FCGO manuals/reports; map the cycle. |
+| ☐ 16 | National/international current events | Dated notices from the responsible institution; confirm event and publication dates. |
+
+**Fill method:** for each row, make cards with question → short answer → official document title/URL → page or section → publication date → checked date. Separate a stable definition from a changing number, plan, or appointment. Compare primary documents if dates conflict; leave unresolved items marked “verify” rather than supplying a plausible answer. Avoid undated officeholder lists.
+
+For row 10, include service constitution/organisation, posts, vacancy filling and conduct. For row 14, include planning, organising, directing, controlling, coordinating, deciding, motivation and leadership. Page 1 note 7 specifies the law/policy version cutoff as **three months before the examination date**; calculate the applicable cutoff from your exam notice and check official amendments. This is a syllabus version-check task, not legal advice.
+
+## Close the loop
+
+Score Q1–Q15 for learning, then re-solve every miss without options. Keep an error log with the false step, a corrected rule, and a next-day retry. These 15 examples introduce methods; they do not exhaust every verbal or spatial subtype, simulate the official 9/8/8 distribution, or supply all awareness facts. Use the scope map to rotate new drills and use the checklist to build a dated source notebook alongside technical preparation.

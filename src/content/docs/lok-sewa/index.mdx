@@ -12,10 +12,18 @@ import SectionLanding from '@components/SectionLanding.astro';
 <SectionLanding
   title="Lok Sewa"
   lede="Computer Engineer is the target, Computer Officer the backup. Each syllabus is mapped against NEC prep, so you can see what's covered and what's left."
-  actions={[{ label: 'See the roadmap', href: 'lok-sewa/roadmap/', primary: true }, { label: 'All guides', href: 'guides/' }]}
+  actions={[{ label: 'Combined preparation desk', href: 'nec/study-hub/', primary: true }, { label: 'See the roadmap', href: 'lok-sewa/roadmap/' }, { label: 'Practise questions', href: 'nec/practice/' }]}
   cardsTitle="Two posts"
   cardsNote="Full syllabus, weights, and what NEC prep already covers."
   cards={[
+    { label: 'Daily workspace', title: 'PSC workstreams and mistake notebook', text: 'Track 36 outputs, corrected reasoning, practical drills and dated source references.', href: 'lok-sewa/preparation/notebook/' },
+    { label: 'Worked cases', title: 'Emerging technologies', text: 'Distributed computing, RPC, GIS, image and speech processing, e-commerce and architecture.', href: 'lok-sewa/preparation/06-emerging-technology-cases/' },
+    { label: 'Daily workspace', title: 'Recall and writing studio', text: 'Write, self-check and save original answers; plan a study session and back up preparation progress.', href: 'nec/revision-studio/' },
+    { label: 'Paper I', title: 'Reasoning and awareness', text: 'Worked logical, numerical and spatial questions with a syllabus-led awareness checklist.', href: 'lok-sewa/preparation/05-paper-one-reasoning/' },
+    { label: 'Verified scheme', title: 'Preparation hub', text: 'Official exam scheme, separate preparation outputs and a source-led route through both posts.', href: 'lok-sewa/preparation/' },
+    { label: 'Past questions', title: 'Evidence register', text: 'Official samples, reported historical questions and original practice, with their verification limits.', href: 'lok-sewa/preparation/source-register/' },
+    { label: 'Written practice', title: 'Answer workshop', text: 'Worked trees, heaps, SQL, subnetting, DFDs and scenario answers with learning rubrics.', href: 'lok-sewa/preparation/written-answer-workshop/' },
+    { label: 'Beyond NEC', title: 'CE gap units', text: 'Communications, compilers, simulation and other PSC additions, mapped to the federal syllabus.', href: 'lok-sewa/preparation/ce-gap-units/' },
     { label: 'Primary target', title: 'Computer Engineer', text: 'Lok Sewa written papers for Computer Engineer.', href: 'lok-sewa/computer-engineer/', note: 'Syllabus mapped to NEC' },
     { label: 'Backup', title: 'Computer Officer', text: 'Lok Sewa written papers for Computer Officer.', href: 'lok-sewa/computer-officer/', note: 'Syllabus mapped to NEC' },
   ]}

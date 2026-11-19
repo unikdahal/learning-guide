@@ -1,0 +1,197 @@
+---
+import { studyChapters } from '../../data/study-map';
+import { url } from '../../lib/site';
+---
+<exam-study class="not-content">
+  <div class="study-intro">
+    <p class="eyebrow">One syllabus map · three preparation paths</p>
+    <h2>Turn the syllabus into a study queue</h2>
+    <p>Mark what you can retrieve without notes. A “ready” mark is your self-assessment, not a test score. Written practice is tracked separately.</p>
+  </div>
+  <div class="study-controls" hidden data-interactive>
+    <label>Preparation path
+      <select data-path><option value="all">NEC + Computer Engineer</option><option value="nec">NEC licence</option><option value="ce">Computer Engineer overlap</option><option value="co">Computer Officer overlap</option></select>
+    </label>
+    <label>Find a sub-section <input type="search" data-search placeholder="Try subnetting, memory, 7.3…" /></label>
+    <label>Show <select data-view><option value="all">All matching sections</option><option value="due">Due for revision</option><option value="weak">Needs work</option><option value="writing">Written practice pending</option></select></label>
+  </div>
+  <div class="study-summary" aria-live="polite" data-summary>60 NEC sub-sections. Choose confidence levels with JavaScript enabled to save a personal revision queue.</div>
+  <div class="queue" hidden data-interactive>
+    <h3>Your next three blocks</h3>
+    <p>Priority: overdue review → weak topics → unseen topics, with a small preference for shared subjects. Refresh your confidence after a closed-book check.</p>
+    <ol data-queue></ol>
+  </div>
+  <div class="chapter-list">
+    {studyChapters.map(chapter => <details open class="chapter" data-chapter>
+      <summary><span>{chapter.id}. {chapter.title}</span><span class="chapter-count" data-count>0 / 6 ready</span></summary>
+      <meter min="0" max="6" value="0" aria-label={`${chapter.title}: sections self-assessed ready`}></meter>
+      <ul>{chapter.topics.map(topic => <li data-topic={topic.id} data-ce={topic.ce ?? ''} data-co={topic.co ?? ''}>
+        <div class="topic-copy">
+          <a href={url(topic.lesson)}><strong>{topic.id}</strong> {topic.title}</a>
+          <span class="scope">NEC {topic.id}{topic.ce ? ` · CE unit ${topic.ce}` : ''}{topic.co ? ` · CO unit ${topic.co}` : ''}</span>
+          <span class="review-tag" data-due></span>
+        </div>
+        <div class="topic-inputs" hidden data-interactive>
+          <label><span class="sr-only">Confidence for {topic.id}: {topic.title}</span><select data-confidence><option value="unseen">Not studied</option><option value="learning">Learning</option><option value="review">Needs review</option><option value="ready">Recall ready</option></select></label>
+          <label class="written"><input type="checkbox" data-written /> Written answer checked <span class="sr-only">for {topic.id}</span></label>
+          <button type="button" data-reviewed>Reviewed now<span class="sr-only"> for {topic.id}</span></button>
+        </div>
+      </li>)}</ul>
+    </details>)}
+  </div>
+  <p hidden data-empty>No sections match. Broaden the path or status filter to see more of the syllabus.</p>
+  <div class="save-controls" hidden data-interactive>
+    <button type="button" data-export>Export progress</button>
+    <label class="import-label">Import progress <input type="file" data-import accept="application/json,.json" /></label>
+    <button type="button" data-reset>Reset checklist</button>
+  </div>
+  <p role="status" data-storage>Saved on this browser only when available. Export a backup before changing devices. This checklist does not sync with the reading-progress tracker or practice results.</p>
+  <noscript><p>The complete syllabus and lesson links are available above. Enable JavaScript for personal tracking, filtering and backup.</p></noscript>
+</exam-study>
+
+<script>
+  import { STUDY_KEY, parseStudy, emptyStudy, priority, reviewDue, type Confidence, type StudyState } from '../../lib/study-state';
+  class ExamStudy extends HTMLElement {
+    connectedCallback() {
+      if (this.dataset.ready) return;
+      this.dataset.ready = 'true';
+      const rows = Array.from(this.querySelectorAll<HTMLElement>('[data-topic]'));
+      const ids = rows.map(row => row.dataset.topic!);
+      const status = this.querySelector<HTMLElement>('[data-storage]')!;
+      let state: StudyState = emptyStudy();
+      try { state = parseStudy(localStorage.getItem(STUDY_KEY), ids); }
+      catch { status.textContent = 'Browser storage is unavailable. Tracking works for this visit; export to keep a backup.'; }
+      const path = this.querySelector<HTMLSelectElement>('[data-path]')!;
+      const view = this.querySelector<HTMLSelectElement>('[data-view]')!;
+      const search = this.querySelector<HTMLInputElement>('[data-search]')!;
+      const queue = this.querySelector<HTMLOListElement>('[data-queue]')!;
+      const save = () => {
+        try { localStorage.setItem(STUDY_KEY, JSON.stringify(state)); status.textContent = 'Checklist saved in this browser. Export progress to move it to another device.'; }
+        catch { status.textContent = 'Could not save in this browser. Your changes still work here; export a backup.'; }
+      };
+      const render = () => {
+        const now = Date.now();
+        const visible: HTMLElement[] = [];
+        for (const row of rows) {
+          const id = row.dataset.topic!;
+          const p = state.topics[id];
+          row.querySelector<HTMLSelectElement>('[data-confidence]')!.value = p?.confidence ?? 'unseen';
+          row.querySelector<HTMLInputElement>('[data-written]')!.checked = p?.written ?? false;
+          const due = reviewDue(p, now);
+          row.querySelector<HTMLElement>('[data-due]')!.textContent = due ? 'Revision due' : '';
+          const pathMatch = path.value === 'ce' ? !!row.dataset.ce : path.value === 'co' ? !!row.dataset.co : true;
+          const statusMatch = view.value === 'due' ? due : view.value === 'weak' ? p?.confidence !== 'ready' : view.value === 'writing' ? !p?.written : true;
+          const textMatch = row.querySelector('.topic-copy')!.textContent!.toLowerCase().includes(search.value.trim().toLowerCase());
+          row.hidden = !(pathMatch && statusMatch && textMatch);
+          if (!row.hidden) visible.push(row);
+        }
+        for (const chapter of this.querySelectorAll<HTMLElement>('[data-chapter]')) {
+          const chapterRows = Array.from(chapter.querySelectorAll<HTMLElement>('[data-topic]'));
+          const ready = chapterRows.filter(r => state.topics[r.dataset.topic!]?.confidence === 'ready').length;
+          chapter.querySelector('meter')!.value = ready;
+          chapter.querySelector('[data-count]')!.textContent = `${ready} / 6 ready`;
+          chapter.hidden = chapterRows.every(r => r.hidden);
+        }
+        const ready = visible.filter(r => state.topics[r.dataset.topic!]?.confidence === 'ready').length;
+        const written = visible.filter(r => state.topics[r.dataset.topic!]?.written).length;
+        this.querySelector('[data-summary]')!.textContent = `${visible.length} matching sections · ${ready} recall ready · ${written} written answers checked. Chapter bars always show all six sections.`;
+        this.querySelector<HTMLElement>('[data-empty]')!.hidden = visible.length !== 0;
+        queue.replaceChildren();
+        const next = [...visible].sort((a, b) => priority(state.topics[b.dataset.topic!], !!b.dataset.ce, now) - priority(state.topics[a.dataset.topic!], !!a.dataset.ce, now));
+        for (const row of next.slice(0, 3)) {
+          const item = document.createElement('li');
+          const link = row.querySelector('a')!.cloneNode(true);
+          item.append(link);
+          const note = document.createElement('span');
+          const p = state.topics[row.dataset.topic!];
+          note.textContent = ` — ${reviewDue(p, now) ? 'review due' : p?.confidence === 'ready' ? 'maintenance recall' : 'learn, then test without notes'}`;
+          item.append(note); queue.append(item);
+        }
+        if (!next.length) { const item = document.createElement('li'); item.textContent = 'No topics in this view. Change a filter to plan another block.'; queue.append(item); }
+      };
+      this.querySelectorAll<HTMLElement>('[data-interactive]').forEach(el => el.hidden = false);
+      for (const control of [path, view, search]) control.addEventListener('input', render);
+      for (const row of rows) row.addEventListener('change', () => {
+        const id = row.dataset.topic!;
+        const confidence = row.querySelector<HTMLSelectElement>('[data-confidence]')!.value as Confidence;
+        const written = row.querySelector<HTMLInputElement>('[data-written]')!.checked;
+        const old = state.topics[id];
+        state.topics[id] = {confidence, written, updated: old?.confidence === confidence ? old.updated : Date.now()};
+        save(); render();
+      });
+      for (const row of rows) row.querySelector('[data-reviewed]')!.addEventListener('click', () => {
+        const id = row.dataset.topic!;
+        const previous = state.topics[id];
+        if (!previous || previous.confidence === 'unseen') { status.textContent = 'Choose a confidence level after a closed-book check, then record the review.'; return; }
+        state.topics[id] = {...previous, updated: Date.now()}; save(); render();
+      });
+      this.querySelector('[data-export]')!.addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+        const href = URL.createObjectURL(blob); const link = document.createElement('a');
+        link.href = href; link.download = 'nec-loksewa-checklist.json'; link.click(); setTimeout(() => URL.revokeObjectURL(href), 1000);
+      });
+      this.querySelector<HTMLInputElement>('[data-import]')!.addEventListener('change', async event => {
+        const input = event.target as HTMLInputElement; const file = input.files?.[0]; if (!file) return;
+        try {
+          if (file.size > 100_000) throw new Error('File too large');
+          const raw = await file.text();
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.version !== 1 || !parsed.topics || typeof parsed.topics !== 'object' || Array.isArray(parsed.topics)) throw new Error('Wrong backup format');
+          const imported = parseStudy(raw, ids);
+          if (Object.keys(parsed.topics).length && !Object.keys(imported.topics).length) throw new Error('No valid sections');
+          if (!confirm('Replace this checklist with the imported backup?')) return;
+          state = imported; save(); render();
+        } catch { status.textContent = 'Import failed. Choose a valid checklist export under 100 KB. Your current progress is unchanged.'; }
+        finally { input.value = ''; }
+      });
+      this.querySelector('[data-reset]')!.addEventListener('click', () => {
+        if (!confirm('Reset all 60 checklist entries? Export first if you need a backup.')) return;
+        state = emptyStudy(); save(); render();
+      });
+      const sync = (event: StorageEvent) => { if (event.key === STUDY_KEY || event.key === null) { state = parseStudy(event.key === null ? null : event.newValue, ids); render(); } };
+      window.addEventListener('storage', sync);
+      this.cleanup = () => window.removeEventListener('storage', sync);
+      render();
+    }
+    cleanup?: () => void;
+    disconnectedCallback() { this.cleanup?.(); }
+  }
+  if (!customElements.get('exam-study')) customElements.define('exam-study', ExamStudy);
+</script>
+
+<style>
+  exam-study { display:block; font-family:var(--sl-font); }
+  .study-intro { border-top:4px solid var(--sl-color-accent); padding:1.4rem; background:var(--sl-color-gray-6); border-radius:8px; }
+  .eyebrow { font-size:.8rem; text-transform:uppercase; letter-spacing:.07em; color:var(--sl-color-accent-high); font-weight:700; }
+  h2 { margin:.4rem 0; font-size:1.8rem; line-height:1.15; color:var(--sl-color-white); }
+  h3 { margin:0; font-size:1.1rem; }
+  p { line-height:1.6; }
+  .study-controls { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.8rem; margin:1.4rem 0; }
+  label { display:grid; gap:.3rem; font-size:.85rem; }
+  input, select, button { font:inherit; color:var(--sl-color-white); background:var(--sl-color-bg); border:1px solid var(--sl-color-gray-4); border-radius:5px; padding:.6rem; min-height:44px; max-width:100%; }
+  button, select { cursor:pointer; }
+  :is(input,select,button,a):focus-visible { outline:2px solid var(--sl-color-accent); outline-offset:3px; }
+  .study-summary { font-weight:650; padding:.8rem 0; }
+  .queue { border:1px solid var(--sl-color-accent); border-radius:8px; padding:1rem; margin-bottom:1.5rem; }
+  .queue p { margin:.4rem 0; font-size:.85rem; }
+  .queue li { padding:.35rem 0; }
+  .chapter { border:1px solid var(--sl-color-gray-5); border-radius:8px; margin:.8rem 0; padding:1rem; }
+  summary { cursor:pointer; font-weight:700; color:var(--sl-color-white); }
+  .chapter-count { display:block; padding-left:1rem; font-size:.8rem; color:var(--sl-color-gray-2); font-weight:400; }
+  meter { width:100%; height:.65rem; margin-top:.5rem; accent-color:var(--sl-color-accent); }
+  ul { list-style:none; padding:0; margin:0; }
+  .chapter li { display:grid; grid-template-columns:minmax(0,1fr) 14rem; gap:1rem; padding:.9rem 0; border-top:1px solid var(--sl-color-gray-5); }
+  .topic-copy { display:grid; align-content:start; gap:.3rem; }
+  .scope { font-size:.75rem; color:var(--sl-color-gray-2); }
+  .review-tag { font-size:.75rem; font-weight:700; color:var(--sl-color-accent-high); }
+  .topic-inputs { display:grid; gap:.4rem; }
+  .written { display:flex; align-items:center; gap:.4rem; font-size:.75rem; }
+  .written input { width:1.1rem; min-height:1.1rem; accent-color:var(--sl-color-accent); }
+  .save-controls { display:flex; flex-wrap:wrap; gap:.7rem; align-items:end; margin-top:1rem; }
+  .import-label { max-width:18rem; }
+  [data-storage] { font-size:.8rem; color:var(--sl-color-gray-2); }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  [hidden] { display:none !important; }
+  @media(max-width:42rem) { .study-controls { grid-template-columns:1fr; } .chapter li { grid-template-columns:1fr; } .topic-inputs { grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; } }
+  @media print { .study-controls, .topic-inputs, .save-controls, .queue { display:none!important; } .chapter { break-inside:avoid; } }
+</style>

@@ -1,0 +1,161 @@
+---
+title: Preparation hub
+description: The verified Lok Sewa exam scheme for Computer Engineer and Computer Officer (read from the official PSC syllabus PDFs), how NEC licence prep feeds it, and the evidence labels used across these pages.
+sidebar:
+  label: Preparation hub
+  order: 0
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Goal:** know exactly what the two exams look like, from PSC's own syllabus PDFs, and how each hour of NEC licence study feeds them.
+
+<Aside type="note" title="What changed after checking the official PDFs (17 Nov 2026)">
+- **Computer Engineer Paper I, Part II is MCQ**: 50 questions × 1 mark. (The CE syllabus page flagged this as "verify".)
+- **Every wrong MCQ answer costs 20% of that question's mark**; a blank costs nothing. No calculator in MCQ papers.
+- **CE Paper II** is 2 × 5 + 7 × 10 + 1 × 20 marks in 3 hours, with a **separate answer book for each section**.
+- **All Computer Officer unit weights are printed in the official PDF**, so the "†" ones on the CO page are confirmed, and so are the CO Paper II section marks (30 / 20 / 20 / 30).
+- **Laws and policies are examined as in force three months before the exam date.**
+- **No Computer Engineer or Computer Officer past paper was found in the checked PSC question-bank index**: that search covered 89 listed papers on 17 Nov 2026. This does not establish absence from every official archive. See the [source register](/learning-guide/lok-sewa/preparation/source-register/).
+</Aside>
+
+## The two exams, side by side
+
+Both posts are Nepal Miscellaneous Service, Gazetted Third Class, open competition. Both syllabi took effect on **2080/07/20 BS** and repealed the earlier ones.
+
+| | Computer Engineer | Computer Officer |
+| --- | --- | --- |
+| Paper I (100, pass 40) | Part I general awareness and reasoning, 50 MCQ × 1 · Part II general technical, 50 MCQ × 1 · **1 h 30 min for the whole paper** | same format |
+| Paper I Part II weights | Section A 34%, B 36%, C 30% (units 1–15) | 12 units with printed weights (DBMS 14%, most others 10%) |
+| Paper II (100, pass 40, 3 h) | 2 × 5 + 7 × 10 + 1 × 20; Sections A 25%, B 25%, C 20%, D 30% | 10 × 10; Sections A 30, B 20, C 20, D 30 |
+| Section D / special | 16.1 technical writing (1 × 10) + 16.2 case study (1 × 20) | none; networking + six smaller units share Section D |
+| Practical test | — | **50 marks, pass 25, 1 h 30 min, 5 × 10** (OS 1, DBMS 2, programming 1, networking 1) |
+| Group test | leaderless group discussion, 10 marks, 30 min | same |
+| Interview | board, 30 marks | same |
+| Total | 200 written + 40 | 200 written + 90 |
+
+For Computer Officer, **only candidates who pass the practical** go on the final merit list, even though the merit order uses the combined total.
+
+<Figure caption="The two selection pipelines. Only candidates who qualify in stage 1 sit stage 2. The Computer Officer practical is a pass/fail gate as well as 50 marks.">
+<svg viewBox="0 0 720 300" role="img" aria-label="Pipeline diagram. Computer Engineer: Paper I MCQ 100 marks and Paper II written 100 marks, then group discussion 10 and interview 30. Computer Officer: Paper I MCQ 100 and Paper II written 100, then practical 50 with pass mark 25, group discussion 10 and interview 30. Final merit list for Computer Officer includes only those who pass the practical." style="width:100%;height:auto;font-family:var(--sl-font);font-size:13px">
+  <defs>
+    <marker id="prep-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--sl-color-gray-3)" /></marker>
+  </defs>
+  <text x="10" y="24" style="fill:var(--sl-color-white);font-weight:700">Computer Engineer</text>
+  <rect x="10" y="38" width="150" height="70" rx="6" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+  <text x="85" y="62" text-anchor="middle" style="fill:var(--sl-color-white)">Paper I · 100</text>
+  <text x="85" y="80" text-anchor="middle" style="fill:var(--sl-color-gray-2)">50 + 50 MCQ</text>
+  <text x="85" y="97" text-anchor="middle" style="fill:var(--sl-color-gray-2)">1 h 30 min · −20%</text>
+  <rect x="180" y="38" width="150" height="70" rx="6" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+  <text x="255" y="62" text-anchor="middle" style="fill:var(--sl-color-white)">Paper II · 100</text>
+  <text x="255" y="80" text-anchor="middle" style="fill:var(--sl-color-gray-2)">2×5 + 7×10 + 1×20</text>
+  <text x="255" y="97" text-anchor="middle" style="fill:var(--sl-color-gray-2)">3 h · A B C D books</text>
+  <path d="M332 73 H392" style="stroke:var(--sl-color-gray-3);stroke-width:1.5" marker-end="url(#prep-ah)" />
+  <text x="362" y="66" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">qualify</text>
+  <rect x="396" y="38" width="140" height="70" rx="6" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <text x="466" y="66" text-anchor="middle" style="fill:var(--sl-color-white)">Group discussion</text>
+  <text x="466" y="86" text-anchor="middle" style="fill:var(--sl-color-gray-2)">10 · 30 min</text>
+  <rect x="556" y="38" width="150" height="70" rx="6" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <text x="631" y="66" text-anchor="middle" style="fill:var(--sl-color-white)">Board interview</text>
+  <text x="631" y="86" text-anchor="middle" style="fill:var(--sl-color-gray-2)">30</text>
+  <text x="10" y="160" style="fill:var(--sl-color-white);font-weight:700">Computer Officer</text>
+  <rect x="10" y="174" width="150" height="70" rx="6" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+  <text x="85" y="198" text-anchor="middle" style="fill:var(--sl-color-white)">Paper I · 100</text>
+  <text x="85" y="216" text-anchor="middle" style="fill:var(--sl-color-gray-2)">50 + 50 MCQ</text>
+  <text x="85" y="233" text-anchor="middle" style="fill:var(--sl-color-gray-2)">same as CE format</text>
+  <rect x="180" y="174" width="150" height="70" rx="6" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+  <text x="255" y="198" text-anchor="middle" style="fill:var(--sl-color-white)">Paper II · 100</text>
+  <text x="255" y="216" text-anchor="middle" style="fill:var(--sl-color-gray-2)">10 × 10</text>
+  <text x="255" y="233" text-anchor="middle" style="fill:var(--sl-color-gray-2)">3 h · A30 B20 C20 D30</text>
+  <path d="M332 209 H362" style="stroke:var(--sl-color-gray-3);stroke-width:1.5" marker-end="url(#prep-ah)" />
+  <rect x="366" y="174" width="120" height="70" rx="6" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent);stroke-width:2" />
+  <text x="426" y="198" text-anchor="middle" style="fill:var(--sl-color-white)">Practical · 50</text>
+  <text x="426" y="216" text-anchor="middle" style="fill:var(--sl-color-gray-2)">pass 25 · 1 h 30</text>
+  <text x="426" y="233" text-anchor="middle" style="fill:var(--sl-color-gray-2)">OS·DB·DB·Prog·Net</text>
+  <rect x="500" y="174" width="100" height="70" rx="6" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <text x="550" y="204" text-anchor="middle" style="fill:var(--sl-color-white)">Group</text>
+  <text x="550" y="222" text-anchor="middle" style="fill:var(--sl-color-gray-2)">10</text>
+  <rect x="612" y="174" width="94" height="70" rx="6" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <text x="659" y="204" text-anchor="middle" style="fill:var(--sl-color-white)">Interview</text>
+  <text x="659" y="222" text-anchor="middle" style="fill:var(--sl-color-gray-2)">30</text>
+  <text x="366" y="272" style="fill:var(--sl-color-gray-2);font-size:12px">Fail the practical → not on the final list, whatever the total.</text>
+</svg>
+</Figure>
+
+## What the rules mean for how you answer
+
+- **MCQ maths.** With four options and a 20% penalty, a pure guess is worth 0.25 × 1 − 0.75 × 0.2 = **+0.10 marks**. Once you can rule out one option, a guess is worth 0.333 − 0.133 = **+0.20**. Under these assumptions a guess has positive expected marks, including a blind guess. That is an expectation, not a guaranteed gain. More generally, an attempt has positive expectation when your probability of being right exceeds 1/6. Check the actual number of options and penalty in the paper instructions.
+- **No calculator** in Paper I. Practise the [number-system](/learning-guide/nec/digital/01-number-systems/) and [subnetting](/learning-guide/nec/networks/04-ip-subnetting/) shortcuts by hand.
+- **Paper II answer books are per section.** An answer written in the wrong section's book may not be marked. Before writing, check which section the question is in.
+- **"Two or more parts" is official.** A 10-mark question can be 2 + 8 or 5 + 5, or two short notes. Mirror the split in your answer: one heading per part, and length in proportion to the marks.
+- **Laws are those in force three months before the exam.** For Computer Officer unit 12 (IT in Nepal) and any Computer Engineer technical-writing answer that cites policy, use the text current at that cut-off.
+
+## Time budget for Paper II
+
+Three hours for 100 marks is **1.8 minutes per mark**. Keep about 15 minutes in reserve for reading, planning and checking, which leaves about **1.6 minutes per mark**. That gives the time tags used in every review page: 5 marks · 8 min, 10 marks · 16 min, 20 marks · 32 min.
+
+| Computer Engineer Paper II block | Marks | Minutes |
+| --- | --- | --- |
+| Read the whole paper; tick the questions you know best | — | 8 |
+| 2 short (5-mark) answers | 10 | 16 |
+| 6 long (10-mark) answers in Sections A–C | 60 | 96 |
+| Section D technical writing (10) | 10 | 16 |
+| Section D case study (20) | 20 | 32 |
+| Check diagrams, labels, units | — | 12 |
+| **Total** | 100 | 180 |
+
+PSC does not say how the 10 questions split across Sections A, B and C. Only Section D's 10 + 20 is fixed. One split consistent with the 25/25/20 weights is 5 + 10 + 10, 5 + 10 + 10 and 10 + 10, but this is an inference, not a rule.
+
+## How NEC licence prep feeds Lok Sewa
+
+The NEC licence exam (100 MCQ) and Lok Sewa Paper I Part II reward the same thing: quick recall of definitions and facts. Paper II and the practical additionally require: **written, structured answers and hands-on work**. So:
+
+| NEC course | Feeds CE units | Feeds CO units | Extra Lok Sewa work |
+| --- | --- | --- | --- |
+| [Networks from zero](/learning-guide/nec/networks/00-start-here/) | 1, 15.3, 15.9 | 7 (+ practical) | WAN/remote access, disaster recovery, NAS/SAN, troubleshooting (CO) |
+| [Organisation from zero](/learning-guide/nec/organization/00-start-here/) | 2 | 8 | MIPS ISA, single vs multi-cycle datapath (CO 8) |
+| [Digital from zero](/learning-guide/nec/digital/00-start-here/) | 3, 2.8 | — | — |
+| [Electronics from zero](/learning-guide/nec/electronics/00-start-here/) | 4 | — | — |
+| [C and C++](/learning-guide/nec/cpp/00-start-here/) | 6 | 6 (+ practical) | Java basics, language-design issues (CO) |
+| [DSA](/learning-guide/nec/dsa/00-start-here/) | 7 | 2 | suffix trees, backtracking (CO) |
+| [Software engineering](/learning-guide/nec/se/00-start-here/) | 8, Section D | 3 (SAD) | JAD in PSC's wording (CO) |
+| [DBMS](/learning-guide/nec/dbms/00-start-here/) | 9 | 5 (+ 2 practical questions) | SQL functions, views, set operators, 4NF/5NF/DKNF (CO) |
+| [OS](/learning-guide/nec/os/00-start-here/) | 10 | 4 (+ practical) | Windows/Linux administration (CO) |
+| NEC chapters [6](/learning-guide/nec/chapters/06-toc-graphics/), [9](/learning-guide/nec/chapters/09-ai-neural-networks/) | 11, 12, 14 | — | AI planning, closure/homomorphism |
+| — | **5, 13, parts of 15** | **1, 9–12** | [CE gap units](/learning-guide/lok-sewa/preparation/ce-gap-units/) · [CO non-overlap](/learning-guide/lok-sewa/preparation/co-non-overlap/) |
+
+## Evidence labels
+
+Every question or exam claim in these pages carries one of these labels. The [source register](/learning-guide/lok-sewa/preparation/source-register/) records the URLs and verification limits behind them. A longer editorial evidence log is retained with the project source.
+
+| Label | Meaning | Use it for |
+| --- | --- | --- |
+| **Official** | read directly in a PSC or NEC document | marks, timings, rules, syllabus wording |
+| **Official sample** | sample question printed inside the PSC syllabus | the best guide to question style; not a past paper |
+| **Transcription** | typed copy on a third-party site, no scan or provenance | practice and topic hints; wording may differ from the real paper |
+| **Reported (unverified)** | earlier notes in this guide, no source found | practice only |
+| **Original practice** | written for this guide | practice only |
+
+## The pages in this section
+
+For the daily workflow, use the [recall and writing studio](/learning-guide/nec/revision-studio/) for original writing prompts, saved drafts, optional timers, recall cards and preparation backups. The [Paper I reasoning lesson](/learning-guide/lok-sewa/preparation/05-paper-one-reasoning/) works through logical, numerical and spatial drills and provides the awareness source checklist.
+
+1. [Source register](/learning-guide/lok-sewa/preparation/source-register/): every known paper and question, graded by trust.
+2. [Written-answer workshop](/learning-guide/lok-sewa/preparation/written-answer-workshop/): answer anatomy, worked answers to the official samples and transcribed questions, and rubrics to check yourself against.
+3. [CE gap units](/learning-guide/lok-sewa/preparation/ce-gap-units/): electronic communications, compiler design, simulation, and the rest of unit 15 that NEC leaves out.
+4. [CO non-overlap and practical](/learning-guide/lok-sewa/preparation/co-non-overlap/): the Computer Officer units with no NEC equivalent, drills for the practical test, and the group discussion.
+
+## Sources
+
+- [PSC Computer Engineer syllabus: scheme and Paper I (official PDF)](https://psc.gov.np/site_uploads/course/20231110070747654dd6c388682.pdf)
+- [PSC Computer Engineer syllabus: Paper II (official PDF)](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf)
+- [PSC Computer Officer syllabus: scheme and Paper I (official PDF)](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad7373.pdf)
+- [PSC Computer Officer syllabus: Paper II and sample questions (official PDF)](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad73731.pdf)
+- [PSC question bank](https://psc.gov.np/category/question-bank) (checked 17 Nov 2026)
+
+## Continue your preparation
+
+- [Timed technical mock centre](/learning-guide/nec/mock-centre/): resumable original-question rounds and explained reports.
+- [Visual subnet lab](/learning-guide/nec/subnet-lab/): binary boundaries, address ranges and worked splits.
+- [PSC workstreams and mistake notebook](/learning-guide/lok-sewa/preparation/notebook/): outputs, corrected reasoning and dated references.
+- [Emerging-technology cases](/learning-guide/lok-sewa/preparation/06-emerging-technology-cases/): syllabus-tagged distributed systems, GIS, multimedia and architecture examples.

@@ -1,0 +1,56 @@
+---
+title: Official model-paper study register
+description: Traceable references into NEC’s official ACtE model, ambiguity notes, and a method for separating model questions from verified past-year papers.
+sidebar:
+  label: Official model-paper register
+---
+import { Aside } from '@astrojs/starlight/components';
+
+## Start with the actual document
+
+Open the [official NEC Computer Engineering model PDF](https://nec.gov.np/uploads/Model%20Question%20Registration/1763714765897_Model%20question%20of%20Computer%20Engineering.pdf). It contains Q1–100 and is headed **100 × 1 = 100**. It is a model paper, not a dated previous sitting. Page references below mean the **PDF viewer’s page number**; the document’s printed page numbering restarts partway through.
+
+| Model reference | PDF page | Skill to revise |
+| --- | --- | --- |
+| Q7 | 1 | Two’s complement |
+| Q14 | 2 | Pointer representation |
+| Q20 | 3 | Cache replacement |
+| Q31–33 | 4–5 | Automata memory models |
+| Q35–36 | 5 | Transformations |
+| Q38–40 | 5–6 | Hashing, normalisation, logging |
+| Q50 | 7 | Search guarantees |
+| Q55–57 | 8 | Drawing, depreciation, scheduling |
+| Q74–76 | 10 | Pipelines, cache, DMA |
+| Q89–91 | 12 | Sorting, exclusion, paging |
+
+These are topic pointers, not an official answer key or predictions of future weighting. The worked exercises in this guide are labelled separately as original practice.
+
+## Do not memorise an ambiguous stem as a universal rule
+
+In the same model, **Q2** leaves the quantity being measured unclear, **Q21** offers more than one questionable DMA-mode label, and **Q29** combines mail submission and retrieval. Treat these as prompts to state assumptions, not reasons to invent a definitive official key.
+
+For studying the underlying concepts:
+
+- Maximum-power transfer and efficiency are different quantities. For a resistive Thevenin source, `Pload = Vth² RL / (Rth + RL)²` is largest at `RL = Rth`. At that point the series source resistance dissipates equal power, so the **efficiency of this resistive model** is 50%. That is not a general statement that only half of any source’s possible output is transferable.
+- DMA transfers can use burst, cycle-stealing or transparent access arrangements. Interrupts may announce completion; that does not make every interrupt-related label a distinct standard transfer mode. Always check the stated processor/controller terminology.
+- SMTP handles mail transfer/submission; POP3 and IMAP support mailbox retrieval/access. A question spanning both operations needs more precise wording than a question about just one operation.
+
+<Aside type="tip" title="Your answer log needs two columns">
+Record **what the source actually asks** separately from **the principle you can defend**. If a teacher or unofficial key disagrees, compare assumptions and derivations first. Do not label an editorial answer as NEC’s answer key.
+</Aside>
+
+## A source-led study session
+
+1. Attempt a small block from the PDF without notes. Mark confidence before checking any answer.
+2. Write down the question number and PDF page, your reasoning and any missing assumptions.
+3. Use the [syllabus checklist](/learning-guide/nec/study-hub/) to find the matching sub-section.
+4. Relearn the concept, then attempt a fresh [original question](/learning-guide/nec/practice/). A remembered letter is not evidence that you can transfer the idea.
+5. For PSC overlap, write the same concept as a short explanation, diagram or numerical trace. Consult the [Computer Engineer map](/learning-guide/lok-sewa/computer-engineer/) for the actual written scope.
+
+## What counts as a verified past-year question?
+
+At minimum, retain the authority, exact post and level, year/session, paper, scan page and question number. Prefer the issuing authority’s archive. A third-party scan may still be useful, but record its host and whether the exam header, date and complete pages were inspected.
+
+An undated typed list is a **practice collection**. A candidate’s memory is a **recall**. An authority’s sample is a **model**. A dated paper from a completed sitting is a **past paper**, with verification strength depending on the source. Keep these categories separate before counting repeats or comparing years.
+
+No verified multi-year NEC historical corpus is bundled here. This register establishes a traceable starting point; it does not turn the original workbench into a PYQ database.

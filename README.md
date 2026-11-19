@@ -48,11 +48,24 @@ cargo run --release -p m00-orientation --example query_stages
 
 ## Develop
 
+Use Node **22.23.4 or newer**, as required by the installed Astro version.
+
 ```sh
 npm ci
 npm run dev      # regenerates from the syllabus, then serves at localhost:4321/learning-guide/
 npm run build    # production build into dist/
 ```
+
+NEC and Lok Sewa preparation now includes a combined 60-section checklist with local backups,
+an original 120-question practice workbench, worked visual lessons, an economics/CPM lab, and
+source registers. Start at `/learning-guide/nec/study-hub/`. The original bank is labelled as
+practice; official models, historical papers and unverified recalls keep separate provenance.
+Research and remaining coverage gaps are recorded in `docs/research/`.
+
+The recall and writing studio at `/learning-guide/nec/revision-studio/` adds 60 recall cards,
+13 original written prompts with saved drafts and self-checks, optional writing timers, personal
+session planning and one portable backup of the three preparation stores. Recall self-ratings,
+quiz results and syllabus confidence remain distinct; the studio does not infer exam readiness.
 
 ## Write an article
 
@@ -89,3 +102,5 @@ The full syllabus is a blueprint; the site derives available/planned counts from
 Planned/draft pages remain reachable in the roadmap but are excluded from reading-oriented search
 and carry noindex. See [capstone acceptance](docs/CAPSTONE.md), [benchmark evidence](benchmarks/README.md)
 and [review implementation status](docs/IMPROVEMENTS.md) for remaining milestones and owner decisions.
+
+Preparation tools include a resumable technical mock centre (20/60/100 original questions), a visual IPv4 subnet lab, and a PSC notebook with 36 editorial workstreams and personal mistake corrections. The revision studio exports the checklist, practice history, recall, drafts, notebook and current mock together. These tools distinguish self-checks from quiz performance and original exercises from official samples or unverified historical transcriptions.

@@ -1,0 +1,25 @@
+.prep-notebook {display:block;font-family:var(--sl-font);}
+.notebook-hero {padding:1.3rem;background:var(--sl-color-gray-6);border-top:4px solid var(--sl-color-accent);border-radius:8px;}
+.prep-notebook h2 {font-size:1.9rem;line-height:1.15;color:var(--sl-color-white);margin:.5rem 0;}
+.prep-notebook h3 {font-size:1.3rem;color:var(--sl-color-white);margin:.25rem 0;}
+.prep-notebook h4 {font-size:1.1rem;line-height:1.5;color:var(--sl-color-white);}
+.prep-notebook p {line-height:1.6;}
+.prep-notebook .eyebrow,.prep-notebook .scope {font-size:.8rem;color:var(--sl-color-gray-2);}
+.notebook-panel {padding:1.1rem;border:1px solid var(--sl-color-gray-5);border-radius:9px;margin:1.5rem 0;min-width:0;}
+.notebook-filters {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem;margin:1rem 0;}
+.prep-notebook label {display:grid;gap:.3rem;min-width:0;font-size:.88rem;margin:.7rem 0;}
+.prep-notebook :is(input,select,textarea,button) {font:inherit;box-sizing:border-box;max-width:100%;min-width:0;min-height:44px;color:var(--sl-color-white);background:var(--sl-color-bg);border:1px solid var(--sl-color-gray-4);border-radius:5px;padding:.6rem;}
+.prep-notebook :is(select,textarea,input:not([type=checkbox])) {width:100%;}
+.prep-notebook textarea {resize:vertical;line-height:1.6;}
+.prep-notebook :is(button,select,summary) {cursor:pointer;}
+.prep-notebook :is(button,input,select,textarea,a,summary):focus-visible {outline:2px solid var(--sl-color-accent);outline-offset:3px;}
+.work-item {border-top:1px solid var(--sl-color-gray-5);padding:.8rem 0;}
+.work-item summary {color:var(--sl-color-white);font-weight:650;line-height:1.5;}
+.work-badge {display:block;font-size:.78rem;font-weight:400;color:var(--sl-color-gray-2);padding-left:1rem;}
+.work-personal {padding:.6rem 0;}
+.notebook-note {font-size:.8rem;color:var(--sl-color-gray-2);}
+.notebook-actions {display:flex;flex-wrap:wrap;align-items:center;gap:.8rem;margin-top:1rem;}
+.prep-notebook .notebook-check {display:flex;align-items:center;gap:.5rem;}
+.notebook-check input {width:1.1rem;min-height:1.1rem;accent-color:var(--sl-color-accent);}
+.prep-notebook [hidden] {display:none!important;}
+@media(max-width:40rem){.notebook-filters {grid-template-columns:minmax(0,1fr);}.notebook-panel{padding:.8rem;}}

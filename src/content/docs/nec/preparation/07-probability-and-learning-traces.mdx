@@ -1,0 +1,254 @@
+---
+title: "Probabilistic reasoning & neural learning: networks, rules & bounds"
+description: Bayesian network factorization and d-separation, Naive Bayes with Laplace smoothing, genetic algorithms, Adaline LMS convergence, Hebbian learning, and Hopfield energy dynamics for NEC ACtE09 and Lok Sewa CE.
+sidebar:
+  label: "Probability & learning traces"
+  order: 7
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Syllabus mapping:** NEC ACtE Chapter 9 (ACtE09: sub-chapters 9.3, 9.5, and 9.6) · Lok Sewa Computer Engineer Unit 11 (Artificial Intelligence) and Unit 15.4 (Artificial Neural Networks), Section C.
+
+This lesson directly develops the probabilistic and connectionist topics that extend beyond classical heuristic search and propositional resolution covered in [AI, search & neural networks](/learning-guide/nec/preparation/02-ai-search-and-neural-networks/) and the [Chapter 9 checklist](/learning-guide/nec/chapters/09-ai-neural-networks/). It covers exact Bayesian network factorization, conditional independence under d-separation, Naive Bayes binary classification traces, genetic algorithm selection mechanics, and the analytical convergence conditions governing Adaline, Hebbian, and Hopfield networks.
+
+---
+
+## 9.3 Bayesian Networks & Exact Probabilistic Inference
+
+### 1. Representation & Joint Distribution Factorization
+
+A **Bayesian Network** is a directed acyclic graph (DAG) where nodes represent random variables and directed edges represent direct probabilistic dependencies. Each variable $X_i$ is annotated with a Conditional Probability Table (CPT) specifying $P(X_i \mid \text{Parents}(X_i))$.
+
+By the chain rule of probability combined with conditional independence assertions, the joint probability distribution over all $n$ variables factorizes compactly as:
+$$P(X_1, X_2, \dots, X_n) = \prod_{i=1}^n P(X_i \mid \text{Parents}(X_i))$$
+
+This factorization reduces the parameter complexity from $O(2^n)$ in an unrestricted joint distribution to $O(n \cdot 2^k)$, where $k$ is the maximum number of parents per node.
+
+### 2. Conditional Independence & d-Separation
+
+If every undirected path between $X$ and $Z$ is **blocked** by evidence $E$, the graph guarantees conditional independence in every distribution that factorises over it. An open path permits dependence; particular conditional probability tables may still produce independence. Path blockage depends on the status of intermediate nodes across three canonical configurations:
+
+| Network Pattern | Graphical Structure | Status When Middle Node $Y \in E$ (Observed) | Status When Middle Node $Y \notin E$ (Unobserved) |
+| :--- | :--- | :--- | :--- |
+| **Causal Chain** | $X \to Y \to Z$ | **Blocked** ($X \perp\!\!\!\perp Z \mid Y$) | **Open** (dependence permitted) |
+| **Common Cause (Fork)** | $X \leftarrow Y \to Z$ | **Blocked** ($X \perp\!\!\!\perp Z \mid Y$) | **Open** (dependence permitted) |
+| **Common Effect (Collider / V-Structure)** | $X \to Y \leftarrow Z$ | **Open** (dependence can arise) | **Blocked** only if neither Y nor any descendant is observed |
+
+<Aside type="note" title="The Collider & Explaining Away">
+Unlike chains and forks, a collider ($X \to Y \leftarrow Z$) naturally blocks influence when unobserved. However, observing $Y$ (or any of $Y$'s descendants) **opens** the path, so conditional dependence between the causes can arise. Explaining away is a common example, not a guarantee for every possible CPT. These three-node statements assume no other connecting paths.
+</Aside>
+
+### 3. Worked Trace: Exact Inference by Enumeration
+
+Consider a three-node causal chain $A \to B \to C$ with binary variables in $\{0, 1\}$:
+- Prior: $P(A=1) = 0.20$ (hence $P(A=0) = 0.80$)
+- CPT at $B$: $P(B=1 \mid A=1) = 0.80$, $P(B=1 \mid A=0) = 0.10$
+- CPT at $C$: $P(C=1 \mid B=1) = 0.70$, $P(C=1 \mid B=0) = 0.20$
+
+**Query:** Compute the posterior probability $P(A=1 \mid C=1)$.
+
+1. **Compute marginal distribution $P(B=1)$:**
+   $$P(B=1) = P(B=1 \mid A=1)P(A=1) + P(B=1 \mid A=0)P(A=0)$$
+   $$P(B=1) = (0.80)(0.20) + (0.10)(0.80) = 0.16 + 0.08 = 0.24 \implies P(B=0) = 0.76$$
+
+2. **Compute marginal probability of evidence $P(C=1)$:**
+   $$P(C=1) = P(C=1 \mid B=1)P(B=1) + P(C=1 \mid B=0)P(B=0)$$
+   $$P(C=1) = (0.70)(0.24) + (0.20)(0.76) = 0.168 + 0.152 = 0.320$$
+
+3. **Compute joint probability $P(A=1, C=1)$ by summing out hidden variable $B$:**
+   $$P(A=1, C=1) = \sum_{b \in \{0, 1\}} P(A=1) P(B=b \mid A=1) P(C=1 \mid B=b)$$
+   $$P(A=1, C=1) = (0.20) \big[ (0.80)(0.70) + (0.20)(0.20) \big] = (0.20) [0.56 + 0.04] = 0.120$$
+
+4. **Compute conditional posterior:**
+   $$P(A=1 \mid C=1) = \frac{P(A=1, C=1)}{P(C=1)} = \frac{0.120}{0.320} = \frac{3}{8} = 0.375$$
+
+<Figure caption="Worked inference chain: sum out B to obtain P(C), then use the evidence C=1 to update A. Arrows describe the factorisation, not an automatic claim of causation.">
+  <svg viewBox="0 0 550 150" class="qe-diagram" role="img" aria-label="A points to B, B points to C. Prior probability of A is 0.20. Marginal probability of B is 0.24 and of C is 0.32. After observing C equal to one, the posterior for A is 0.375.">
+    <g fill="none" stroke="currentColor" stroke-width="2"><path d="M110 55 H215 l-9 -5 m9 5 l-9 5 M315 55 H420 l-9 -5 m9 5 l-9 5" /></g>
+    <g fill="var(--sl-color-bg)" stroke="currentColor"><rect x="10" y="25" width="100" height="60" rx="8"/><rect x="215" y="25" width="100" height="60" rx="8"/><rect x="420" y="25" width="100" height="60" rx="8"/></g>
+    <g fill="currentColor" text-anchor="middle" font-size="15"><text x="60" y="49">A</text><text x="60" y="70">P(A)=0.20</text><text x="265" y="49">B</text><text x="265" y="70">P(B)=0.24</text><text x="470" y="49">C</text><text x="470" y="70">P(C)=0.32</text><text x="265" y="125">Evidence C=1 → posterior P(A=1 | C=1)=0.375</text></g>
+  </svg>
+</Figure>
+
+Observing evidence $C=1$ raises the belief in $A=1$ from prior $0.20$ to posterior $0.375$.
+
+---
+
+## 9.5 Machine Learning: Naive Bayes & Genetic Algorithms
+
+### 1. Naive Bayes Classification & Laplace Smoothing
+
+The Naive Bayes classifier predicts class $C_k$ for feature vector $\mathbf{x} = (x_1, \dots, x_d)$ using Bayes' rule:
+$$P(C_k \mid \mathbf{x}) = \frac{P(C_k) P(\mathbf{x} \mid C_k)}{P(\mathbf{x})} \propto P(C_k) \prod_{j=1}^d P(x_j \mid C_k)$$
+
+The **naive assumption** asserts that features $x_j$ are conditionally independent given class $C_k$.
+When a feature value does not appear in class $C_k$ during training, the maximum likelihood estimate yields $P(x_j \mid C_k) = 0$, zeroing out the entire posterior. **Laplace (Add-1) smoothing** remedies this:
+$$\hat{P}(x_j = v \mid C_k) = \frac{N_{jk} + 1}{N_k + |V_j|}$$
+where $N_{jk}$ is the count of feature $j$ taking value $v$ in class $k$, $N_k$ is the total count of training instances in class $k$, and $|V_j|$ is the vocabulary size (number of distinct values of feature $j$).
+
+**Worked Classification Trace:**
+Training dataset: 10 samples (6 Positive ($+$), 4 Negative ($-$), so $P(+) = 0.6$, $P(-) = 0.4$). Binary features $X_1, X_2 \in \{0, 1\}$ ($|V_j| = 2$).
+Counts:
+- For class $+ (N_+ = 6)$: $X_1=1$ occurs 4 times; $X_2=0$ occurs 3 times.
+- For class $- (N_- = 4)$: $X_1=1$ occurs 1 time; $X_2=0$ occurs 1 time.
+
+**Classify test instance:** $\mathbf{x} = (X_1=1, X_2=0)$.
+
+| Method | Score($+$) $\propto P(+) P(X_1=1 \mid +) P(X_2=0 \mid +)$ | Score($-$) $\propto P(-) P(X_1=1 \mid -) P(X_2=0 \mid -)$ | Normalized Posterior $P(+ \mid \mathbf{x})$ |
+| :--- | :--- | :--- | :--- |
+| **Unsmoothed MLE** | $0.6 \times (4/6) \times (3/6) = 0.2000$ | $0.4 \times (1/4) \times (1/4) = 0.0250$ | $\frac{0.200}{0.200 + 0.025} = \frac{8}{9} \approx 0.8889$ |
+| **Laplace Smoothed** | $0.6 \times \frac{4+1}{6+2} \times \frac{3+1}{6+2} = 0.6 \times \frac{5}{8} \times \frac{4}{8} = 0.1875$ | $0.4 \times \frac{1+1}{4+2} \times \frac{1+1}{4+2} = 0.4 \times \frac{2}{6} \times \frac{2}{6} \approx 0.0444$ | $\frac{0.1875}{0.1875 + 0.0444} \approx 0.8085$ |
+
+### 2. Genetic Algorithm Pipeline & Selection Mechanics
+
+Genetic algorithms optimize complex objective functions through evolutionary operators across populations of chromosomes:
+
+```text
+GA Optimization Cycle:
+  1. Initialize population of N binary chromosomes
+  2. Evaluate fitness f(c_i) for each chromosome c_i
+  3. Select mating pool using selection probabilities p_i
+  4. Perform crossover with probability p_c to create offspring
+  5. Apply bit-flip mutation with probability p_m
+  6. Replace population and repeat until termination
+```
+
+**Selection Mechanisms:**
+1. **Roulette Wheel (Fitness-Proportional):** Require nonnegative fitness values with a strictly positive total. Negative objectives need a suitable transformation or another selection method; all-zero fitness needs an explicit fallback. Selection probability is $p_i = \frac{f_i}{\sum_{k=1}^M f_k}$. Cumulative probability thresholds determine intervals: $c_i = \sum_{j=1}^i p_j$.
+2. **Tournament Selection:** Randomly sample $k$ individuals from the population; the individual with the highest fitness wins the mating slot. Parameter $k$ directly tunes selection pressure without risk of scale saturation.
+3. **Rank Selection:** Individuals are sorted by fitness, and selection probabilities are assigned proportional to rank rather than raw score, mitigating premature convergence caused by outlier super-fit candidates.
+
+**Worked Reproduction Step:**
+Population of 4 individuals with fitnesses $f = [15, 5, 20, 10]$ (total $\sum f = 50$):
+- Selection probabilities: $p = [15/50, 5/50, 20/50, 10/50] = [0.30, 0.10, 0.40, 0.20]$.
+- Crossover trace: Pair individual 1 (`10110`) and individual 3 (`11001`) with single-point crossover after bit position 2:
+  - Parent 1: `10 | 110` $\implies$ Child 1: `10 | 001` = `10001`
+  - Parent 2: `11 | 001` $\implies$ Child 2: `11 | 110` = `11110`
+
+---
+
+## 9.6 Neural Architectures: Adaline, Hebbian & Hopfield Networks
+
+### 1. Adaline & the LMS (Widrow–Hoff) Delta Rule
+
+Adaline (Adaptive Linear Neuron) differs fundamentally from the Rosenblatt perceptron in its learning dynamics:
+- **Perceptron:** Computes error on the hard-limited binary threshold output: $e = t - \text{sgn}(\mathbf{w}^T \mathbf{x})$.
+- **Adaline:** Computes error on the continuous linear pre-activation sum before thresholding: $e = t - \mathbf{w}^T \mathbf{x}$.
+
+Adaline minimizes the Mean Squared Error (MSE) $J(\mathbf{w}) = \frac{1}{2}(t - \mathbf{w}^T \mathbf{x})^2$ via stochastic gradient descent:
+$$\Delta \mathbf{w} = \eta (t - \mathbf{w}^T \mathbf{x}) \mathbf{x} = \eta e \mathbf{x}$$
+
+**What can be said about convergence?**
+The displayed expression is a **single-sample** squared loss. The expected loss is $E[(t-\mathbf{w}^T\mathbf{x})^2]/2$. It is convex; a unique minimiser requires suitable full-rank input statistics. For deterministic gradient descent on this expected quadratic with positive-definite $\mathbf{R}=E[\mathbf{x}\mathbf{x}^T]$, the step-size condition $0<\eta<2/\lambda_{\max}$ gives convergence. Since $\lambda_{\max}\le\operatorname{Tr}(\mathbf{R})$, $\eta<2/\operatorname{Tr}(\mathbf{R})$ is a more conservative deterministic bound.
+
+Stochastic LMS uses individual noisy samples. A constant step generally leaves fluctuations around an optimum; the deterministic bound alone does **not** guarantee that every realised weight sequence converges exactly to the Wiener solution. For example, with scalar x=1, independent targets +1 or −1, and step 1, each update sets the weight to the latest random target. Mean and mean-square stability require their own assumptions. For the exam, distinguish the learning rule from an unconditional convergence promise.
+
+**Numerical Step Trace:**
+Let input $\mathbf{x} = [1.0, 2.0, 1.0]^T$ (bias input $x_0=1$), target $t = 1.0$, learning rate $\eta = 0.10$. Initial weights $\mathbf{w} = [0.20, 0.50, -0.10]^T$.
+- Linear output: $y = 0.20(1.0) + 0.50(2.0) - 0.10(1.0) = 0.20 + 1.00 - 0.10 = 1.10$.
+- Error: $e = t - y = 1.0 - 1.10 = -0.10$.
+- Weight updates:
+  - $\Delta w_0 = 0.10(-0.10)(1.0) = -0.01 \implies w_0^{\text{new}} = 0.19$
+  - $\Delta w_1 = 0.10(-0.10)(2.0) = -0.02 \implies w_1^{\text{new}} = 0.48$
+  - $\Delta w_2 = 0.10(-0.10)(1.0) = -0.01 \implies w_2^{\text{new}} = -0.11$
+- Post-update output on same sample: $y^{\text{new}} = 0.19(1) + 0.48(2) - 0.11(1) = 1.04$. Error $|1 - 1.04| = 0.04$ (reduced by 60%).
+
+### 2. Hebbian Learning
+
+Based on Donald Hebb's neuropsychological postulate ("neurons that fire together, wire together"), Hebbian learning is an unsupervised correlation-based update:
+$$\Delta w_{ij} = \eta x_i y_j$$
+For storing $P$ bipolar pattern vectors $\mathbf{x}^{(p)} \in \{-1, +1\}^N$, the outer-product rule sets weights as:
+$$\mathbf{W} = \sum_{p=1}^P \mathbf{x}^{(p)} (\mathbf{x}^{(p)})^T, \quad w_{ii} = 0$$
+
+**Analytical Limitations:**
+1. **Unbounded Weight Growth:** Repeated correlated Hebbian updates can grow weights without bound unless a stabilising mechanism is used. Oja’s rule is one example: $\Delta \mathbf{w} = \eta y (\mathbf{x} - y \mathbf{w})$. A finite outer-product storage calculation is not itself an indefinitely repeated update.
+2. **Crosstalk & Orthogonality:** Orthogonality eliminates cross-pattern inner-product terms: $\mathbf{x}^{(p)} \cdot \mathbf{x}^{(q)} = 0$ for $p \ne q$. Nonorthogonal patterns introduce crosstalk that may cause recall errors; perfect recall does not require orthogonality in every finite example.
+
+### 3. Hopfield Networks & Energy Dynamics
+
+A Hopfield network is a fully interconnected recurrent neural network of $N$ bipolar units $s_i \in \{-1, +1\}$ operating as an auto-associative content-addressable memory.
+
+**Structural Constraints:**
+1. **Symmetric weights:** $w_{ij} = w_{ji}$ for all $i, j$.
+2. **No self-connections:** $w_{ii} = 0$ for all $i$.
+
+**Asynchronous State Update Rule:**
+Select one node $i$ at a time. Let its local field be $h_i=\sum_j w_{ij}s_j-\theta_i$. Set $s_i$ to +1 if the field is positive and −1 if negative; **keep its previous value when the field is zero**. Assume a fair update schedule that revisits units.
+
+**Lyapunov Energy Function & Convergence Guarantee:**
+The global energy of the network state vector $\mathbf{s}$ is defined as:
+$$E = -\frac{1}{2} \sum_{i=1}^N \sum_{j=1}^N w_{ij} s_i s_j + \sum_{i=1}^N \theta_i s_i$$
+
+When a single unit $i$ changes state by $\Delta s_i \in \{-2, 0, +2\}$, the change in total energy is:
+$$\Delta E = -\Delta s_i \left( \sum_{j \ne i} w_{ij} s_j - \theta_i \right)$$
+Because $s_i^{\text{new}}$ takes the sign of $\left( \sum_{j} w_{ij} s_j - \theta_i \right)$, the product $\Delta s_i \left( \sum_{j} w_{ij} s_j - \theta_i \right)$ is strictly non-negative. Hence:
+$$\Delta E \le 0$$
+With the stated keep-state tie rule, every actual state change strictly lowers energy. There are only finitely many bipolar states, so a fair asynchronous schedule eventually reaches a fixed point. This need not be the intended stored pattern or a globally optimal state. Non-increasing energy alone, without controlling zero-energy ties, is not the complete finite-convergence argument.
+
+**Engineering Limits & Failure Modes:**
+1. **Spurious States:** The energy landscape contains spurious local minima not present in the training set (such as inverted states $-\mathbf{x}^{(p)}$ and odd linear mixtures of stored patterns).
+2. **Finite storage and crosstalk:** Retrieval depends on learning rule, pattern correlation, noise and success criterion. No single percentage is a universal finite-network guarantee. Test whether the desired pattern is a fixed point and whether corrupted states return to it.
+3. **Synchronous Update Pitfall:** If all nodes update simultaneously (synchronously), the network can enter limit cycles of period 2 (two-state oscillations) rather than converging to a fixed point.
+
+---
+
+## Original Practice Questions
+
+*The following original practice items test precise probabilistic dependencies, learning rules, and network stability proofs.*
+
+1. **In a Bayesian network with structure $X \to Y \leftarrow Z$, when does the collider path between $X$ and $Z$ become active?**
+   - (a) When $Y$ is unobserved and has no observed descendants
+   - (b) When $Y$ or at least one descendant of $Y$ is observed
+   - (c) Under no conditions, because $X$ and $Z$ are permanently independent
+   - (d) Only when $X$ and $Z$ have identical prior probabilities
+   *Answer:* **(b)**. In a collider (V-structure), $X$ and $Z$ are marginally independent. Observing the collider node $Y$ or any of its descendants unblocks the path, permitting conditional dependence. Whether dependence actually occurs depends on the CPTs.
+
+2. **Why does Laplace smoothing add $1$ to the numerator and $|V|$ to the denominator in Naive Bayes feature probability estimation?**
+   - (a) To force the sum of smoothed feature probabilities over all possible values in $V$ to equal 1
+   - (b) To guarantee that prior probabilities $P(C_k)$ remain equal
+   - (c) To convert multinomial features into continuous Gaussian distributions
+   - (d) To eliminate the independence assumption between features
+   *Answer:* **(a)**. Adding 1 to each of the $|V|$ possible outcome counts increases the total denominator count by $|V| \times 1 = |V|$. This ensures that $\sum_{v \in V} \hat{P}(x_j = v \mid C_k) = \frac{\sum_{v} (N_v + 1)}{N_k + |V|} = \frac{N_k + |V|}{N_k + |V|} = 1$.
+
+3. **In Genetic Algorithms, what primary advantage does Tournament Selection have over Roulette Wheel Selection?**
+   - (a) It guarantees convergence in exactly $N$ generations
+   - (b) It avoids selection bias by ignoring fitness completely
+   - (c) It depends only on relative rank among contestants, eliminating sensitivity to fitness scaling and negative fitness values
+   - (d) It eliminates the need for crossover operators
+   *Answer:* **(c)**. Roulette wheel selection depends on absolute fitness magnitudes, causing premature convergence if one super-fit candidate dominates, or random drift if fitnesses are uniformly large. Tournament selection depends purely on ordering among $k$ sampled individuals.
+
+4. **What is the key mathematical difference between the weight update rule of Adaline and that of the Rosenblatt Perceptron?**
+   - (a) Adaline updates weights using continuous linear activation error, whereas the Perceptron updates weights using thresholded step-function error
+   - (b) Adaline uses second-order Hessian matrices while the Perceptron uses gradient descent
+   - (c) Adaline requires all inputs to be non-negative integers
+   - (d) Adaline updates weights only on correct classifications
+   *Answer:* **(a)**. Adaline calculates error $e = t - \mathbf{w}^T \mathbf{x}$ using the linear combiner output, yielding an LMS gradient descent rule on a smooth quadratic surface. The Perceptron uses quantized output error $e = t - \text{sgn}(\mathbf{w}^T \mathbf{x})$.
+
+5. **Which set of structural and operational conditions guarantees that a discrete Hopfield network will not oscillate and will converge to a stable state?**
+   - (a) Asymmetric weights with positive diagonal entries and synchronous updates
+   - (b) Symmetric weights, zero diagonal, fair asynchronous updates and keeping the old state on a zero field
+   - (c) Random weights, non-zero diagonal entries, and continuous sigmoid activations
+   - (d) Strictly feedforward connections with linear activation functions
+   *Answer:* **(b)**. Hopfield proved convergence using a Lyapunov energy function $E = -\frac{1}{2}\sum \sum w_{ij} s_i s_j$. The energy proof uses symmetric weights and zero self-connections. Fair one-at-a-time updates with the stated zero-field tie rule ensure that every actual change strictly decreases energy until a fixed point is reached.
+
+6. **Three bipolar units have w12=w13=w23=1 (symmetric), zero diagonal and zero thresholds. Starting from (−1,+1,+1), what happens when only unit 1 updates?**
+   - (a) It stays −1 because the total energy is positive
+   - (b) It becomes +1 and energy changes from +1 to −3
+   - (c) All three units must flip simultaneously
+   - (d) The energy increases by 4
+   *Answer:* **(b)**. Unit 1 has local field +2, so it changes to +1. With zero thresholds, energy is the negative sum over the three unordered weighted pairs. Initially the pair sum is −1−1+1=−1, giving E=+1; afterwards it is 3, giving E=−3. This is a small verified update, not a storage-capacity claim.
+
+---
+
+## Primary References & Sources
+
+- Russell, S., & Norvig, P., *Artificial Intelligence: A Modern Approach*, 4th ed., Pearson (Bayesian networks, d-separation, and Naive Bayes).
+- Mitchell, T. M., *Machine Learning*, McGraw-Hill (Genetic algorithms and concept learning).
+- Widrow, B., & Hoff, M. E., "Adaptive Switching Circuits", *IRE WESCON Convention Record*, 1960 (Adaline and LMS algorithm).
+- Hebb, D. O., *The Organization of Behavior*, John Wiley & Sons, 1949.
+- Hopfield, J. J., "Neural networks and physical systems with emergent collective computational abilities", *PNAS*, 1982.
+- Haykin, S., *Neural Networks and Learning Machines*, 3rd ed., Pearson.
+- Official Syllabus: [Nepal Engineering Council Computer Engineering Syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf), Section ACtE09.
+
+- [UC Berkeley CS188: d-separation](https://inst.eecs.berkeley.edu/~cs188/textbook/bayes-nets/d-separation.html): graphical independence guarantees and active paths.

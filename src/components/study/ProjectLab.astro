@@ -1,0 +1,89 @@
+---
+import { presentValue, projectSchedule } from '../../lib/project-math';
+const cash = presentValue(100,40,3,10);
+const schedule = projectSchedule(3);
+---
+<project-lab class="not-content">
+  <section aria-labelledby="cash-lab-title">
+    <h3 id="cash-lab-title">Discount the cash, then decide</h3>
+    <p>All amounts in NPR thousands. Initial cost is paid now; each net inflow arrives at year-end. No salvage value, taxes or inflation in this teaching model.</p>
+    <div class="controls" hidden data-controls>
+      <label>Initial cost <input type="number" value="100" min="0" max="1000000" step="any" data-initial /></label>
+      <label>Annual net inflow <input type="number" value="40" min="0" max="1000000" step="any" data-annual /></label>
+      <label>Whole years <input type="number" value="3" min="1" max="30" step="1" data-years /></label>
+      <label>Annual discount rate (%) <input type="number" value="10" min="0" max="100" step="any" data-rate /></label>
+    </div>
+    <p data-error role="alert"></p>
+    <div class="table-wrap"><table><caption>Present-value trace (NPR thousands)</caption><thead><tr><th>Year</th><th>Net cash</th><th>Present value</th><th>Relative magnitude</th></tr></thead>
+      <tbody data-cash>{cash.map((value,i)=><tr><th>{i}</th><td>{i===0?-100:40}</td><td>{value.toFixed(3)}</td><td><meter min="0" max="100" value={Math.abs(value)} aria-label={`Year ${i} absolute present value`}></meter></td></tr>)}</tbody>
+    </table></div>
+    <p data-npv aria-live="polite"><strong>NPV = −0.526 thousand NPR.</strong> Negative at 10%; this cash-flow model does not meet the chosen discount rate.</p>
+  </section>
+  <section aria-labelledby="schedule-lab-title">
+    <h3 id="schedule-lab-title">One duration can change the critical path</h3>
+    <p>Network: A → B → D → finish; A → C → D → finish; A → C → E → finish. A=2, B=4, D=2 and E=3 days. No resource constraints; all links are finish-to-start.</p>
+    <label hidden data-controls>C duration: <input type="range" min="1" max="12" value="3" data-duration /> <output data-days>3 days</output></label>
+    <div class="table-wrap"><table><caption>CPM trace in days from time zero</caption><thead><tr><th>Activity</th><th>Days</th><th>ES</th><th>EF</th><th>LS</th><th>LF</th><th>Float</th></tr></thead>
+      <tbody data-schedule>{schedule.rows.map(r=><tr><th>{r.id}</th><td>{r.duration}</td><td>{r.es}</td><td>{r.ef}</td><td>{r.ls}</td><td>{r.lf}</td><td>{r.float}</td></tr>)}</tbody>
+    </table></div>
+    <p data-critical aria-live="polite">Project duration: 8 days. Critical paths: A–B–D and A–C–E. All five activities have zero total float.</p>
+  </section>
+  <noscript><p>These tables show the fully worked default scenarios. Enable JavaScript to change assumptions and recompute.</p></noscript>
+</project-lab>
+<script>
+  import {presentValue,projectSchedule} from '../../lib/project-math';
+  class ProjectLab extends HTMLElement {
+    connectedCallback() {
+      if(this.dataset.ready)return; this.dataset.ready='true';
+      this.querySelectorAll<HTMLElement>('[data-controls]').forEach(el=>el.hidden=false);
+      const inputs=['initial','annual','years','rate'].map(k=>this.querySelector<HTMLInputElement>(`[data-${k}]`)!);
+      const cashBody=this.querySelector<HTMLTableSectionElement>('[data-cash]')!;
+      const renderCash=()=>{
+        try {
+          if(inputs.some(i=>i.value.trim()==='' || !i.validity.valid))throw new Error('Invalid input');
+          const [initial,annual,years,rate]=inputs.map(i=>Number(i.value));
+          const values=presentValue(initial!,annual!,years!,rate!);
+          const max=Math.max(1,...values.map(Math.abs));
+          cashBody.replaceChildren();
+          values.forEach((v,i)=>{
+            const row=document.createElement('tr');
+            [i,i===0?-initial!:annual!,v.toFixed(3)].forEach((value,j)=>{const cell=document.createElement(j===0?'th':'td');cell.textContent=String(value);row.append(cell);});
+            const cell=document.createElement('td');const meter=document.createElement('meter');meter.min=0;meter.max=max;meter.value=Math.abs(v);meter.setAttribute('aria-label',`Year ${i} absolute present value`);cell.append(meter);row.append(cell);cashBody.append(row);
+          });
+          const npv=values.reduce((a,b)=>a+b,0);
+          this.querySelector('[data-npv]')!.textContent=`NPV = ${npv.toFixed(3)} thousand NPR. ${Math.abs(npv)<1e-8?'Break-even':npv>0?'Positive':'Negative'} at ${rate}%. Values are rounded for display; the sum uses full precision.`;
+          this.querySelector('[data-error]')!.textContent='';
+        } catch {this.querySelector('[data-error]')!.textContent='Enter costs and inflows from 0 to 1,000,000, whole years from 1 to 30, and a rate from 0% to 100%. The last valid table remains visible.';}
+      };
+      inputs.forEach(i=>i.addEventListener('input',renderCash));
+      const slider=this.querySelector<HTMLInputElement>('[data-duration]')!;
+      slider.addEventListener('input',()=>{
+        const c=Number(slider.value);const result=projectSchedule(c);
+        this.querySelector('[data-days]')!.textContent=`${c} days`;
+        const body=this.querySelector('[data-schedule]')!;body.replaceChildren();
+        result.rows.forEach(r=>{const row=document.createElement('tr');[r.id,r.duration,r.es,r.ef,r.ls,r.lf,r.float].forEach((v,i)=>{const cell=document.createElement(i===0?'th':'td');cell.textContent=String(v);row.append(cell);});body.append(row);});
+        const paths=[{name:'A–B–D',length:8},{name:'A–C–D',length:4+c},{name:'A–C–E',length:5+c}].filter(p=>p.length===result.duration).map(p=>p.name);
+        this.querySelector('[data-critical]')!.textContent=`Project duration: ${result.duration} days. Critical path${paths.length>1?'s':''}: ${paths.join(' and ')}. Zero float: ${result.rows.filter(r=>r.float===0).map(r=>r.id).join(', ')}.`;
+      });
+    }
+  }
+  if(!customElements.get('project-lab'))customElements.define('project-lab',ProjectLab);
+</script>
+<style>
+  project-lab { display:grid; gap:2rem; font-family:var(--sl-font); }
+  section { padding:1.2rem; border:1px solid var(--sl-color-gray-5); border-radius:8px; }
+  h3 { margin:0; color:var(--sl-color-white); font-size:1.3rem; }
+  p { line-height:1.6; }
+  .controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+  label { display:grid; gap:.3rem; font-size:.85rem; }
+  input { font:inherit; width:100%; min-height:44px; color:var(--sl-color-white); background:var(--sl-color-bg); border:1px solid var(--sl-color-gray-4); border-radius:5px; padding:.4rem; box-sizing:border-box; }
+  input:focus-visible { outline:2px solid var(--sl-color-accent); outline-offset:3px; }
+  .table-wrap { overflow:auto; margin-top:1rem; }
+  table { border-collapse:collapse; width:100%; font-size:.85rem; font-variant-numeric:tabular-nums; }
+  th,td { text-align:left; padding:.5rem; border-bottom:1px solid var(--sl-color-gray-5); }
+  caption { text-align:left; font-weight:700; padding:.5rem; }
+  meter { width:100%; min-width:4rem; accent-color:var(--sl-color-accent); }
+  [data-error] { color:var(--sl-color-orange-high); }
+  [hidden] { display:none!important; }
+  @media(max-width:32rem) { .controls { grid-template-columns:1fr; } section { padding:.75rem; } }
+</style>

@@ -1,0 +1,499 @@
+---
+title: "Artificial intelligence, search & neural networks: models & proofs"
+description: Comprehensive algorithmic coverage of agent architectures, A* heuristic proofs, minimax alpha-beta pruning, propositional resolution, decision trees, perceptron convergence, and backpropagation for NEC ACtE09 and Lok Sewa CE.
+sidebar:
+  label: "AI, search & neural networks"
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Syllabus mapping:** NEC ACtE Chapter 9 (ACtE09: sections 9.1 through 9.6) · Lok Sewa Computer Engineer Unit 11 (Artificial Intelligence), Unit 15.4 (Artificial Neural Networks), and Unit 15.15 (Expert Systems), Section C.
+
+These selected worked examples develop agents, search, logical inference, decision trees and neural-network learning. Derivations are learning aids, not predictions of what an examiner will ask. Use the Chapter 9 checklist for remaining topics, including Bayesian networks, genetic algorithms, Adaline, Hopfield networks, vision and robotics.
+
+---
+
+## 9.1 AI Foundations & Intelligent Agents
+
+### 1. The Rational Agent Framework
+
+An **agent** is anything that perceives its environment through **sensors** and acts upon that environment through **actuators**.
+A **rational agent** is one that, for each possible percept sequence, selects an action expected to maximize its **performance measure**, given the evidence provided by the percept sequence and whatever built-in knowledge the agent possesses.
+
+Rationality is distinct from omniscience: rationality maximizes *expected* performance based on available information, whereas omniscience implies knowledge of actual outcomes in advance.
+
+### 2. The PEAS Specification
+
+Designing an intelligent agent begins with defining its PEAS components:
+- **P**erformance measure: The metric used to evaluate the agent's behavior and success.
+- **E**nvironment: The external world, context, and entities the agent interacts with.
+- **A**ctuators: The output mechanisms through which the agent carries out actions.
+- **S**ensors: The input transducers through which the agent receives percepts.
+
+**Worked PEAS Comparison:**
+
+| System | Performance Measure | Environment | Actuators | Sensors |
+| :--- | :--- | :--- | :--- | :--- |
+| **Autonomous Taxi** | Safety, passenger arrival time, legal compliance, fuel efficiency, passenger comfort | Public roadways, urban traffic, pedestrians, changing weather | Steering wheel, accelerator, hydraulic brakes, horn, turn signals | Cameras, LiDAR, RADAR, ultrasonic proximity, GPS, speedometer, IMU |
+| **Medical Diagnostic System** | Diagnostic accuracy, patient recovery speed, minimized diagnostic cost/delay | Clinical hospital database, patient symptoms, lab test results | Display screen (recommending treatments/tests), prescription generator | Keyboard/touchscreen, electronic health record (EHR) feeds |
+| **Satellite Imagery Classifier** | Classification accuracy, boundary precision, processing throughput | Earth observation multispectral image feeds | Cloud database updates, geospatial GIS alert system | Multi-band optical sensors, infrared channels, radiometric data |
+
+### 3. Agent Architectures
+
+Agents progress in complexity and capability through five canonical architectures:
+1. **Simple Reflex Agent:** Selects actions based solely on the current percept using condition-action rules (`IF condition THEN action`). May fail when the correct action depends on information absent from the current percept; partial observability does not make every reflex policy fail.
+2. **Model-Based Reflex Agent:** Maintains an internal state reflecting history to keep track of unobserved aspects of the world. Updates state using knowledge of how the world evolves independently and how the agent's actions affect the world.
+3. **Goal-Based Agent:** Combines internal state tracking with explicit goal descriptions to choose actions that achieve the desired target state. Employs search and planning algorithms.
+4. **Utility-Based Agent:** Uses an explicit utility function ($U: \text{State} \to \mathbb{R}$) mapping states to real numbers. Evaluates trade-offs between competing goals and measures degree of success under uncertainty.
+5. **Learning Agent:** Decoupled into four functional blocks:
+   - **Learning Element:** Responsible for making improvements based on experience.
+   - **Critic:** Evaluates agent behavior against an external performance standard.
+   - **Problem Generator:** Directs the exploration of novel actions to gather new information.
+   - **Performance Element:** Selects external actions based on percepts (the operational agent).
+
+### 4. Environment Taxonomy
+
+| Dimension | Dichotomy | Technical Test |
+| :--- | :--- | :--- |
+| **Observability** | Fully vs. Partially Observable | Can the agent's sensors access the complete state of the environment at each point in time? |
+| **Determinism** | Deterministic vs. Stochastic | Is the next state completely determined by current state and agent action? (If other agents introduce uncertainty, it is called *strategic*). |
+| **Temporal Nature** | Episodic vs. Sequential | Does current action choice affect future decisions, or is each episode independent? |
+| **Change Dynamics** | Static vs. Dynamic | Can the environment change while the agent is deliberating? (If environment doesn't change but performance score decreases with time, it is *semidynamic*). |
+| **Continuity** | Discrete vs. Continuous | Are time, states, percepts, and actions discrete quantities with finite states? |
+| **Agent Count** | Single-Agent vs. Multi-Agent | Does the world contain other goal-directed entities (cooperative or competitive)? |
+
+---
+
+## 9.2 Problem Formulation & Search Algorithms
+
+### 1. State-Space Search & Uninformed Search
+
+A search problem is formally formulated as a 5-tuple:
+1. **Initial State:** $s_0 \in S$.
+2. **Actions:** $\text{Actions}(s)$ returns the set of legal actions executable in state $s$.
+3. **Transition Model:** $\text{Result}(s, a)$ returns the state resulting from action $a$ in state $s$.
+4. **Goal Test:** Predicate $\text{IsGoal}(s)$ determining if state $s$ satisfies goal requirements.
+5. **Path Cost:** Function $c(s, a, s')$ assigning a step cost; total path cost $g(n)$ is the sum of step costs along the path.
+
+**Comparison of Uninformed Search Strategies:**
+Let $b$ be branching factor, $d$ depth of shallowest goal, and $m$ maximum depth of search tree.
+
+| Algorithm | Complete? | Optimal? | Time Complexity | Space Complexity |
+| :--- | :--- | :--- | :--- | :--- |
+| **Breadth-First Search (BFS)** | Yes (if $b < \infty$) | Yes (if step costs equal) | $O(b^d)$ | $O(b^d)$ (Memory is critical bottleneck) |
+| **Uniform-Cost Search (UCS)** | Yes (if step costs $\ge \epsilon > 0$) | Yes (Lowest path cost $g(n)$) | $O(b^{1 + \lfloor C^* / \epsilon \rfloor})$ | $O(b^{1 + \lfloor C^* / \epsilon \rfloor})$ |
+| **Depth-First Search (DFS)** | No (fails in infinite paths) | No | $O(b^m)$ | $O(bm)$ (Linear space advantage) |
+| **Depth-Limited Search (DLS)** | No (if $l < d$) | No | $O(b^l)$ | $O(bl)$ |
+| **Iterative Deepening (IDS)** | Yes (if $b < \infty$) | Yes (if step costs equal) | $O(b^d)$ | $O(bd)$ (Combines BFS optimality with DFS memory) |
+
+### 2. Informed (Heuristic) Search: A* Algorithm & Proofs
+
+A* search evaluates frontier nodes using the evaluation function:
+$$f(n) = g(n) + h(n)$$
+where $g(n)$ is the exact cost to reach node $n$ from the start state, and $h(n)$ is an estimated cost from node $n$ to the goal.
+
+#### Theorem 1: Tree-Search Optimality of A* under Admissibility
+A heuristic $h(n)$ is **admissible** if it never overestimates the true cost to reach the goal:
+$$0 \le h(n) \le h^*(n), \quad \forall n, \quad \text{with } h(\text{Goal}) = 0$$
+
+*Proof of Optimality:*
+Let $G_2$ be a suboptimal goal node on the frontier ($g(G_2) > C^*$, where $C^*$ is optimal goal cost). Because $G_2$ is a goal, $h(G_2) = 0$, so $f(G_2) = g(G_2) > C^*$.
+Let $n$ be an unexpanded node on the frontier that lies on an optimal path to an optimal goal $G$.
+Because $h$ is admissible:
+$$f(n) = g(n) + h(n) \le g(n) + h^*(n) = C^*$$
+Therefore:
+$$f(n) \le C^* < f(G_2)$$
+Since A* always selects the node with the lowest $f$-value, node $n$ will be selected for expansion before $G_2$. This holds for every node along the optimal path, ensuring an optimal goal is expanded before any suboptimal goal. $\blacksquare$
+
+#### Theorem 2: Graph-Search Optimality of A* under Consistency (Monotonicity)
+A heuristic $h(n)$ is **consistent** (or monotonic) if, for every node $n$ and every successor $n'$ generated by action $a$:
+$$h(n) \le c(n, a, n') + h(n')$$
+*(This is the triangle inequality for heuristic estimates).*
+
+*Consequences of Consistency:*
+1. $f(n)$ is monotonically non-decreasing along any path:
+   $$f(n') = g(n') + h(n') = g(n) + c(n, a, n') + h(n') \ge g(n) + h(n) = f(n)$$
+2. Whenever A* expands a node $n$, the path to $n$ is guaranteed to be optimal. Therefore, graph search does not need to reopen previously closed nodes!
+
+### 3. Adversarial Search & Minimax with Alpha-Beta Pruning
+
+In a two-player zero-sum game between MAX and MIN:
+$$\text{Minimax}(s) = \begin{cases} \text{Utility}(s) & \text{if Terminal}(s) \\ \max_{a \in \text{Actions}(s)} \text{Minimax}(\text{Result}(s, a)) & \text{if Player}(s) = \text{MAX} \\ \min_{a \in \text{Actions}(s)} \text{Minimax}(\text{Result}(s, a)) & \text{if Player}(s) = \text{MIN} \end{cases}$$
+
+**Alpha-Beta Pruning Parameters:**
+- $\alpha$: The value of the best (highest-value) choice found so far along the path for MAX. Initialized to $-\infty$.
+- $\beta$: The value of the best (lowest-value) choice found so far along the path for MIN. Initialized to $+\infty$.
+- **Pruning Rule:** Prune remaining children of node $n$ as soon as:
+  $$\alpha \ge \beta$$
+
+<Figure caption="Alpha-Beta pruning game tree: the right branch of node C is pruned because beta (3) is less than alpha (5).">
+  <svg class="qe-diagram" width="360" viewBox="0 0 360 210" role="img" aria-label="Game tree showing root node A (MAX), children B and C (MIN), and leaf evaluations. Node C prunes its second child because alpha=5 and beta=3.">
+    {/* Root A (MAX) */}
+    <polygon points="180,15 160,45 200,45" class="qe-node qe-highlight" stroke-width="1.5" />
+    <text x="180" y="38" text-anchor="middle" fill="var(--sl-color-white)" font-size="11">5</text>
+    <text x="215" y="35" class="qe-muted" font-size="11">A (MAX)</text>
+
+    {/* Branch to B and C */}
+    <path class="qe-edge" d="M170,45 L100,85 M190,45 L260,85" />
+
+    {/* Node B (MIN) */}
+    <polygon points="100,115 80,85 120,85" class="qe-node" stroke-width="1.5" />
+    <text x="100" y="100" text-anchor="middle" fill="var(--sl-color-white)" font-size="11">5</text>
+    <text x="55" y="100" class="qe-muted" font-size="11">B (MIN)</text>
+
+    {/* Node C (MIN) */}
+    <polygon points="260,115 240,85 280,85" class="qe-node" stroke-width="1.5" />
+    <text x="260" y="100" text-anchor="middle" fill="var(--sl-color-white)" font-size="11">≤3</text>
+    <text x="305" y="100" class="qe-muted" font-size="11">C (MIN)</text>
+
+    {/* Leaves under B */}
+    <path class="qe-edge" d="M90,115 L60,155 M110,115 L140,155" />
+    <rect class="qe-node" x="45" y="155" width="30" height="25" rx="3" />
+    <text x="60" y="172" text-anchor="middle">5</text>
+    <rect class="qe-node" x="125" y="155" width="30" height="25" rx="3" />
+    <text x="140" y="172" text-anchor="middle">8</text>
+
+    {/* Leaves under C */}
+    <path class="qe-edge" d="M250,115 L220,155 M270,115 L300,155" />
+    <rect class="qe-node" x="205" y="155" width="30" height="25" rx="3" />
+    <text x="220" y="172" text-anchor="middle">3</text>
+
+    {/* Pruned leaf */}
+    <rect class="qe-node warn" x="285" y="155" width="30" height="25" rx="3" stroke-dasharray="3 3" />
+    <text x="300" y="172" text-anchor="middle" fill="var(--qe-warn)">✕</text>
+    <text x="300" y="195" text-anchor="middle" class="qe-muted" font-size="10">Pruned (α ≥ β)</text>
+  </svg>
+</Figure>
+
+**Trace of Pruning Step:**
+1. Subtree $B$ evaluates its children (values 5 and 8). Since $B$ is MIN, it chooses $\min(5, 8) = 5$.
+2. Root $A$ updates its $\alpha = \max(-\infty, 5) = 5$.
+3. Search moves to node $C$ (MIN), passing down current bounds: $\alpha = 5, \beta = +\infty$.
+4. Node $C$ examines its first child with value $3$.
+5. Node $C$ updates its $\beta = \min(+\infty, 3) = 3$.
+6. Check pruning condition at node $C$: $\alpha \ge \beta \implies 5 \ge 3$ (True!).
+7. Prune all remaining children of node $C$. MAX will never choose branch $C$ because MAX already has guaranteed access to an outcome of value 5 at branch $B$, while branch $C$ yields at most 3.
+
+---
+
+## 9.3 Knowledge Representation & Logic
+
+### 1. Conjunctive Normal Form (CNF) Conversion
+
+Resolution requires all statements to be in Conjunctive Normal Form (a conjunction of disjunctions of literals: $\bigwedge_i \bigvee_j L_{ij}$).
+
+**5-Step Algorithm to Convert Any Propositional Formula to CNF:**
+1. **Eliminate biconditionals ($\leftrightarrow$):** Replace $\alpha \leftrightarrow \beta$ with $(\alpha \to \beta) \land (\beta \to \alpha)$.
+2. **Eliminate implications ($\to$):** Replace $\alpha \to \beta$ with $\neg \alpha \lor \beta$.
+3. **Move negations inward (De Morgan's Laws & Double Negation):**
+   - $\neg(\neg \alpha) \equiv \alpha$
+   - $\neg(\alpha \land \beta) \equiv \neg \alpha \lor \neg \beta$
+   - $\neg(\alpha \lor \beta) \equiv \neg \alpha \land \neg \beta$
+4. **Distribute $\lor$ over $\land$:** Replace $\alpha \lor (\beta \land \gamma)$ with $(\alpha \lor \beta) \land (\alpha \lor \gamma)$.
+5. **Flatten clauses:** Group into discrete clauses separated by logical ANDs.
+
+### 2. Worked Trace: Propositional Resolution Refutation
+
+Prove that Knowledge Base $KB \models Q$ where:
+- Rule 1: $P \to Q$ (Clause 1: $\neg P \lor Q$)
+- Rule 2: $R \to P$ (Clause 2: $\neg R \lor P$)
+- Fact: $R$ (Clause 3: $R$)
+- Query: $Q$
+
+To prove by **resolution refutation**, negate the query and add it to the KB:
+- Negated Query: $\neg Q$ (Clause 4: $\neg Q$)
+
+**Resolution Trace:**
+- Step 1: Resolve Clause 1 ($\neg P \lor Q$) with Clause 4 ($\neg Q$). Resolvent: $\neg P$ (Clause 5).
+- Step 2: Resolve Clause 2 ($\neg R \lor P$) with Clause 5 ($\neg P$). Resolvent: $\neg R$ (Clause 6).
+- Step 3: Resolve Clause 3 ($R$) with Clause 6 ($\neg R$). Resolvent: **$\square$ (Empty Clause / Contradiction)**.
+
+Derivation of the empty clause confirms that $KB \cup \{\neg Q\}$ is unsatisfiable, formally proving $KB \models Q$.
+
+### 3. First-Order Predicate Logic (FOPL) & Unification
+
+In FOPL, unification finds a variable substitution $\theta$ that makes two atomic sentences identical:
+$$\text{Unify}(p, q) = \theta \quad \text{such that } \text{Subst}(\theta, p) = \text{Subst}(\theta, q)$$
+
+**Worked Trace: Finding the Most General Unifier (MGU)**
+Unify expressions:
+$$E_1 = P(x, \, f(y), \, z)$$
+$$E_2 = P(g(w), \, f(a), \, b)$$
+
+1. Compare top predicate: both are $P$, arity 3.
+2. Argument 1: $x$ and $g(w)$. Substitute $\theta_1 = \{x / g(w)\}$.
+3. Argument 2: $f(y)$ and $f(a)$. Match function $f$; unify $y$ with $a$. Substitute $\theta_2 = \{y / a\}$.
+4. Argument 3: $z$ and $b$. Both are ground terms/variables; substitute $\theta_3 = \{z / b\}$.
+5. **MGU $\theta = \{x / g(w), \, y / a, \, z / b\}$.**
+Applying $\theta$ to both yields the identical formula: $P(g(w), f(a), b)$.
+
+*Occurs Check:* A variable $x$ cannot be bound to a term containing $x$ (e.g., unifying $x$ with $f(x)$ would cause an infinite loop).
+
+---
+
+## 9.4 Expert Systems & Natural Language Processing
+
+### 1. Expert System Architecture
+
+An expert system consists of five primary subsystems:
+1. **Knowledge Base (KB):** Domain expertise encoded as declarative facts and heuristic production rules (`IF condition THEN action`).
+2. **Inference Engine:** The reasoning mechanism that chains rules to derive conclusions:
+   - **Forward Chaining (Data-Driven):** Starts with known facts in working memory, matches rule antecedents, and triggers actions to infer new facts until a goal is reached. Used for monitoring, control, and synthesis.
+   - **Backward Chaining (Goal-Driven):** Starts with a hypothesis (goal), finds rules that conclude the goal, and recursively attempts to prove their antecedents from known facts. Used for medical diagnosis and fault localization.
+3. **Working Memory:** Dynamic scratchpad storing current session facts and intermediate deductions.
+4. **Explanation Facility:** Answers user queries:
+   - *WHY was this question asked?* (Traces up the backward-chaining goal stack).
+   - *HOW was this conclusion reached?* (Displays the chain of fired rules from the execution tree).
+5. **Knowledge Acquisition Facility:** Tools used by a knowledge engineer to extract and translate human expert domain knowledge into structured rule syntax.
+
+### 2. Natural Language Processing (NLP) Stages
+
+The standard NLP pipeline processes text through six sequential phases:
+1. **Morphological / Lexical Analysis:** Tokenizes raw text into words, punctuation, and stems (analyzing prefixes, suffixes, and morphemes).
+2. **Syntactic Analysis (Parsing):** Checks grammatical correctness and constructs parse trees based on formal grammar rules (CFG, CYK algorithm, dependency parsing).
+3. **Semantic Analysis:** Assigns literal meaning to sentences; detects semantically anomalous sentences that are syntactically valid (e.g., Chomsky's *"Colorless green ideas sleep furiously"*).
+4. **Discourse Integration:** Resolves meaning across sentence boundaries, handling anaphora resolution (determining what pronouns refer to).
+5. **Pragmatic Analysis:** Interprets the speaker's true intent in context (e.g., interpreting *"Can you pass the salt?"* as a polite request rather than a query about physical ability).
+
+---
+
+## 9.5 Machine Learning & Fuzzy Systems
+
+### 1. Decision Tree Induction: ID3 Mathematical Trace
+
+The ID3 algorithm uses **Shannon Entropy** to measure data impurity and selects the attribute that maximizes **Information Gain**.
+
+For a training set $S$ with binary classification (positive $p$, negative $n$):
+$$H(S) = - p_+ \log_2(p_+) - p_- \log_2(p_-)$$
+where $p_+ = \frac{p}{p + n}$ and $p_- = \frac{n}{p + n}$.
+
+**Information Gain** of attribute $A$ having distinct values $v \in \text{Values}(A)$:
+$$IG(S, A) = H(S) - \sum_{v \in \text{Values}(A)} \frac{|S_v|}{|S|} H(S_v)$$
+
+**Numerical Worked Trace:**
+Let training set $S$ have 14 instances: 9 Positive, 5 Negative.
+- Total Entropy:
+  $$H(S) = -\frac{9}{14} \log_2\left(\frac{9}{14}\right) - \frac{5}{14} \log_2\left(\frac{5}{14}\right) \approx 0.940 \text{ bits}$$
+
+Evaluate Attribute **Wind** with two values: `Weak` (8 instances) and `Strong` (6 instances).
+- For `Weak`: 6 Positive, 2 Negative.
+  $$H(S_{\text{Weak}}) = -\frac{6}{8}\log_2\left(\frac{6}{8}\right) - \frac{2}{8}\log_2\left(\frac{2}{8}\right) = -0.75(-0.415) - 0.25(-2.0) = 0.311 + 0.500 = 0.811 \text{ bits}$$
+- For `Strong`: 3 Positive, 3 Negative.
+  $$H(S_{\text{Strong}}) = -\frac{3}{6}\log_2\left(\frac{3}{6}\right) - \frac{3}{6}\log_2\left(\frac{3}{6}\right) = 1.000 \text{ bit}$$
+
+Compute Information Gain:
+$$IG(S, \text{Wind}) = H(S) - \left[ \frac{8}{14} H(S_{\text{Weak}}) + \frac{6}{14} H(S_{\text{Strong}}) \right]$$
+$$IG(S, \text{Wind}) = 0.940 - \left[ \frac{8}{14}(0.811) + \frac{6}{14}(1.000) \right] = 0.940 - [0.463 + 0.428] = 0.940 - 0.891 = 0.049 \text{ bits}$$
+The attribute with the highest information gain across all candidates is selected as the decision root.
+
+### 2. Fuzzy Logic & Mamdani Inference
+
+Unlike crisp Boolean logic ($x \in \{0, 1\}$), fuzzy sets allow continuous membership degrees:
+$$\mu_A(x): X \to [0, 1]$$
+
+Standard Fuzzy (Zadeh) Operators:
+- Intersection (AND): $\mu_{A \cap B}(x) = \min(\mu_A(x), \mu_B(x))$
+- Union (OR): $\mu_{A \cup B}(x) = \max(\mu_A(x), \mu_B(x))$
+- Complement (NOT): $\mu_{\neg A}(x) = 1 - \mu_A(x)$
+
+**The Mamdani Fuzzy Inference Pipeline:**
+1. **Fuzzification:** Map crisp sensor inputs to membership degrees $\mu_{A_i}(x)$ on linguistic input sets.
+2. **Rule Evaluation:** Evaluate rules using min-implication. For rule `IF Temp is High AND Pressure is High THEN Fan is Fast`:
+   $$\text{Firing Strength } w = \min(\mu_{\text{High}}(T), \mu_{\text{High}}(P))$$
+   The output fuzzy set is clipped at height $w$.
+3. **Aggregation:** Combine all rule output fuzzy sets using the max operator: $\mu_{\text{Total}}(y) = \max_k(\mu_k(y))$.
+4. **Defuzzification (Centroid Method):** Convert the aggregated fuzzy region back into a crisp action value $z^*$:
+   $$z^* = \frac{\int z \cdot \mu_{\text{Total}}(z) \, dz}{\int \mu_{\text{Total}}(z) \, dz}$$
+
+---
+
+## 9.6 Neural Networks & Perceptrons
+
+### 1. The Perceptron Model & Decision Boundary
+
+An artificial neuron computes the dot product of input vector $\mathbf{x} = [x_1, x_2, \dots, x_n]^T$ and weight vector $\mathbf{w} = [w_1, w_2, \dots, w_n]^T$, adds bias $b$, and passes the net sum through activation function $f$:
+$$\text{net} = \mathbf{w}^T \mathbf{x} + b = \sum_{i=1}^n w_i x_i + b, \quad \hat{y} = f(\text{net})$$
+
+**Perceptron Learning Rule:**
+Weights are updated incrementally after each sample:
+$$\Delta w_i = \eta (y - \hat{y}) x_i, \quad \Delta b = \eta (y - \hat{y})$$
+where $\eta \in (0, 1]$ is the learning rate, $y$ is the ground truth target, and $\hat{y}$ is the perceptron output.
+If $y = \hat{y}$, error is zero and no weight update occurs.
+
+<Figure caption="A single-layer perceptron acts as a linear hyper-plane dividing input space. It can separate AND/OR, but fails on XOR.">
+  <svg class="qe-diagram" width="360" viewBox="0 0 360 160" role="img" aria-label="Left: Perceptron architecture diagram. Right: 2D scatter plot showing XOR non-linear separability.">
+    {/* Perceptron Diagram */}
+    <circle cx="50" cy="40" r="14" class="qe-node" />
+    <text x="50" y="44" text-anchor="middle" font-size="11">x₁</text>
+    <circle cx="50" cy="110" r="14" class="qe-node" />
+    <text x="50" y="114" text-anchor="middle" font-size="11">x₂</text>
+
+    <path class="qe-edge" d="M64,40 L130,75 M64,110 L130,75" />
+
+    <circle cx="145" cy="75" r="18" class="qe-node qe-highlight" />
+    <text x="145" y="79" text-anchor="middle" font-size="11">Σ, f</text>
+
+    <path class="qe-edge" d="M163,75 L200,75" />
+    <text x="215" y="79" class="qe-muted" font-size="11">y</text>
+
+    {/* XOR Plot */}
+    <path class="qe-edge" d="M250,140 H345 M250,140 V30" />
+    <text x="340" y="152" font-size="10" class="qe-muted">x₁</text>
+    <text x="240" y="35" font-size="10" class="qe-muted">x₂</text>
+
+    {/* Points */}
+    <circle cx="270" cy="120" r="5" fill="var(--sl-color-gray-4)" /> {/* (0,0)=0 */}
+    <circle cx="320" cy="70" r="5" fill="var(--sl-color-gray-4)" /> {/* (1,1)=0 */}
+    <circle cx="270" cy="70" r="5" fill="var(--sl-color-accent)" /> {/* (0,1)=1 */}
+    <circle cx="320" cy="120" r="5" fill="var(--sl-color-accent)" /> {/* (1,0)=1 */}
+
+    {/* Separator attempt */}
+    <line x1="250" y1="60" x2="330" y2="140" stroke="var(--qe-warn)" stroke-width="1.5" stroke-dasharray="3 3" />
+    <text x="295" y="50" text-anchor="middle" class="qe-muted" font-size="10">No single line separates XOR</text>
+  </svg>
+</Figure>
+
+### 2. Proof of XOR Non-Linear Separability
+
+Consider the XOR truth table with inputs $x_1, x_2 \in \{0, 1\}$:
+1. For $(0, 0) \to 0$: $w_1(0) + w_2(0) + b \le 0 \implies b \le 0$
+2. For $(0, 1) \to 1$: $w_1(0) + w_2(1) + b > 0 \implies w_2 + b > 0$
+3. For $(1, 0) \to 1$: $w_1(1) + w_2(0) + b > 0 \implies w_1 + b > 0$
+4. For $(1, 1) \to 0$: $w_1(1) + w_2(1) + b \le 0 \implies w_1 + w_2 + b \le 0$
+
+Sum inequalities (2) and (3):
+$$(w_1 + b) + (w_2 + b) > 0 \implies w_1 + w_2 + 2b > 0$$
+Rewrite as:
+$$(w_1 + w_2 + b) + b > 0$$
+Substitute inequality (4), which states $(w_1 + w_2 + b) \le 0$, and inequality (1), which states $b \le 0$. The sum of two non-positive quantities cannot be strictly greater than zero:
+$$\le 0 + \le 0 \ngtr 0$$
+This is a direct mathematical contradiction. Therefore, no single set of weights $(w_1, w_2, b)$ can separate XOR. A Multilayer Perceptron (MLP) with non-linear activation functions is strictly required.
+
+### 3. Backpropagation: Mathematical Derivation
+
+For an MLP with an input layer, hidden layer, and output layer:
+Let $a_j$ be the activation of hidden unit $j$:
+$$z_j = \sum_i w_{ij} x_i + b_j, \quad a_j = \sigma(z_j)$$
+Let $\hat{y}_k$ be the activation of output unit $k$:
+$$z_k = \sum_j w_{jk} a_j + b_k, \quad \hat{y}_k = \sigma(z_k)$$
+where $\sigma(z) = \frac{1}{1 + e^{-z}}$ is the sigmoid activation function, whose derivative is:
+$$\frac{d\sigma(z)}{dz} = \sigma(z)(1 - \sigma(z))$$
+
+Let the total Mean Squared Error loss across $K$ output units be:
+$$E = \frac{1}{2}\sum_{k=1}^K (\hat{y}_k - y_k)^2$$
+
+**1. Output Layer Weight Gradients:**
+By the chain rule:
+$$\frac{\partial E}{\partial w_{jk}} = \frac{\partial E}{\partial \hat{y}_k} \cdot \frac{\partial \hat{y}_k}{\partial z_k} \cdot \frac{\partial z_k}{\partial w_{jk}}$$
+$$\frac{\partial E}{\partial \hat{y}_k} = (\hat{y}_k - y_k), \quad \frac{\partial \hat{y}_k}{\partial z_k} = \hat{y}_k(1 - \hat{y}_k), \quad \frac{\partial z_k}{\partial w_{jk}} = a_j$$
+Define output error delta $\delta_k$:
+$$\delta_k = \frac{\partial E}{\partial z_k} = (\hat{y}_k - y_k) \cdot \hat{y}_k(1 - \hat{y}_k)$$
+Therefore:
+$$\frac{\partial E}{\partial w_{jk}} = \delta_k \cdot a_j \implies \Delta w_{jk} = -\eta \delta_k a_j$$
+
+**2. Hidden Layer Weight Gradients:**
+$$\frac{\partial E}{\partial w_{ij}} = \frac{\partial E}{\partial a_j} \cdot \frac{\partial a_j}{\partial z_j} \cdot \frac{\partial z_j}{\partial w_{ij}}$$
+Because hidden unit $j$ feeds into all output units $k$:
+$$\frac{\partial E}{\partial a_j} = \sum_{k=1}^K \frac{\partial E}{\partial z_k} \cdot \frac{\partial z_k}{\partial a_j} = \sum_{k=1}^K \delta_k \cdot w_{jk}$$
+Define hidden error delta $\delta_j$:
+$$\delta_j = \frac{\partial E}{\partial z_j} = \left( \sum_{k=1}^K \delta_k w_{jk} \right) \cdot a_j(1 - a_j)$$
+Therefore:
+$$\Delta w_{ij} = -\eta \delta_j x_i$$
+This formalizes the reverse propagation of errors from the output back through earlier layers.
+
+---
+
+## Traps & Exam Misconceptions
+
+1. **A* Admissibility vs Consistency:** Admissibility ($h(n) \le h^*(n)$) guarantees optimality for **tree search**. It does NOT guarantee optimality for standard **graph search** unless consistency ($h(n) \le c(n, a, n') + h(n')$) is also satisfied or the algorithm is modified to reopen closed nodes.
+2. **Alpha-Beta search result:** Alpha-beta pruning never alters the final minimax value computed at the root node. It evaluates the exact same decision as full minimax while evaluating substantially fewer nodes (in the ideal move-ordering case, $O(b^{d/2})$ instead of $O(b^d)$).
+3. **Resolution refutation logic:** To prove sentence $P$ from Knowledge Base $KB$, you must add **$\neg P$** to the KB and derive a contradiction ($\square$). Adding $P$ and deriving true proves nothing.
+4. **Naive Bayes independence assumption:** Naive Bayes assumes features are conditionally independent *given the class label* ($P(X_1, X_2 \mid C) = P(X_1 \mid C)P(X_2 \mid C)$), not unconditionally independent.
+5. **Perceptron capacity:** No adjustment of learning rate, iterations, or normalization will enable a single-layer perceptron to learn non-linearly separable logic functions like XOR. Only adding hidden layers with non-linear activation functions resolves this.
+
+---
+
+## Original Practice Questions (Not Official Past Questions)
+
+*The following questions are original practice items created to test analytical comprehension of section topics. They are not actual past exam questions.*
+
+1. **A heuristic function $h(n)$ for a search problem satisfies $h(n) = 0$ for all nodes. What algorithm does A* search become?**
+   - (a) Breadth-First Search
+   - (b) Depth-First Search
+   - (c) Uniform-Cost Search
+   - (d) Greedy Best-First Search
+   *Answer:* **(c)**. In A*, $f(n) = g(n) + h(n)$. When $h(n) = 0$ everywhere, $f(n) = g(n)$. Expanding nodes in order of minimum $g(n)$ is precisely the definition of Uniform-Cost Search (Dijkstra's algorithm).
+
+2. **In a two-player game tree, MAX is at node $X$ and MIN is at child $Y$. If $\alpha = 7$ and node $Y$ discovers a child with utility $4$, what occurs?**
+   - (a) $\alpha$ updates to 4
+   - (b) $\beta$ updates to 7
+   - (c) The remaining children of node $Y$ are pruned
+   - (d) Search terminates and declares a draw
+   *Answer:* **(c)**. At MIN node $Y$, finding a child with value 4 updates $\beta = \min(\beta, 4) \le 4$. Because $\alpha = 7$, we have $\alpha \ge \beta$ ($7 \ge 4$). The pruning condition is met, so all remaining branches under $Y$ are pruned.
+
+3. **In the ID3 decision tree algorithm, a training subset has 8 positive samples and 0 negative samples. What is its Shannon Entropy?**
+   - (a) 0 bits
+   - (b) 1 bit
+   - (c) 8 bits
+   - (d) Undefined
+   *Answer:* **(a)**. $H(S) = - (8/8)\log_2(8/8) - (0/8)\log_2(0/8)$. Since $\log_2(1) = 0$ and $\lim_{p \to 0} p\log_2(p) = 0$, entropy is exactly 0. A completely pure node has zero entropy.
+
+4. **Which agent architecture maintains an internal state to track aspects of the environment that cannot be viewed currently?**
+   - (a) Simple Reflex Agent
+   - (b) Model-Based Reflex Agent
+   - (c) Table-Driven Agent
+   - (d) Linear Threshold Agent
+   *Answer:* **(b)**. A model-based reflex agent maintains internal state to represent unobserved parts of the world, allowing it to function in partially observable environments where simple reflex agents fail.
+
+5. **In the unification of two first-order logic literals, what does the "occurs check" prevent?**
+   - (a) Variable name shadowing
+   - (b) Binding a variable to a term that contains that variable
+   - (c) Unifying two different predicate symbols
+   - (d) Evaluating Skolem constants
+   *Answer:* **(b)**. The occurs check verifies that variable $x$ does not appear inside term $t$ before substituting $\{x / t\}$. Without it, unifying $x$ with $f(x)$ would create an infinite recursive structure $f(f(f(\dots)))$.
+
+6. **What is the derivative of the standard logistic sigmoid activation function $\sigma(z) = \frac{1}{1 + e^{-z}}$?**
+   - (a) $\sigma(z)$
+   - (b) $1 - \sigma(z)$
+   - (c) $\sigma(z)(1 - \sigma(z))$
+   - (d) $\frac{1}{1 + e^{-z^2}}$
+   *Answer:* **(c)**. Using the quotient rule: $\sigma'(z) = \frac{e^{-z}}{(1 + e^{-z})^2} = \frac{1}{1 + e^{-z}} \cdot \frac{e^{-z}}{1 + e^{-z}} = \sigma(z)(1 - \sigma(z))$.
+
+7. **A single-layer perceptron has weights $w_1 = 0.4, w_2 = -0.6$, bias $b = 0.1$, and step activation ($f(\text{net}) = 1$ if $\text{net} \ge 0$, else $0$). For input $(1, 1)$, target is $1$, and learning rate is $\eta = 0.5$. What is the updated weight $w_1$?**
+   - (a) 0.4
+   - (b) 0.9
+   - (c) -0.1
+   - (d) 0.65
+   *Answer:* **(b)**. Compute net: $\text{net} = 0.4(1) + (-0.6)(1) + 0.1 = -0.1$. Since $\text{net} < 0$, output $\hat{y} = 0$. Error is $(y - \hat{y}) = 1 - 0 = 1$. The weight update is $\Delta w_1 = \eta (y - \hat{y}) x_1 = 0.5(1)(1) = 0.5$. Updated weight $w_1' = 0.4 + 0.5 = 0.9$.
+
+8. **In Mamdani fuzzy inference, which operation is typically used to aggregate the outputs of multiple fired rules?**
+   - (a) Algebraic Product
+   - (b) Maximum (Union)
+   - (c) Minimum (Intersection)
+   - (d) Arithmetic Average
+   *Answer:* **(b)**. Individual rule outputs are combined using the fuzzy union operator, implemented as the **maximum** of their membership curves across the output domain before defuzzification.
+
+9. **Why is the Momentum term $\alpha \Delta w(t-1)$ incorporated into backpropagation weight updates?**
+   - (a) To force weights to remain strictly positive
+   - (b) To prevent the network from overfitting the training set
+   - (c) To accelerate convergence along flat surfaces and avoid oscillations in narrow ravines
+   - (d) To eliminate the need for computing error gradients
+   *Answer:* **(c)**. Adding a fraction $\alpha$ of the previous update maintains trajectory velocity, helping gradient descent traverse plateaus and dampen oscillations across steep ravine walls.
+
+10. **In backward chaining, how does the inference engine search?**
+    - (a) Data-driven, moving from known symptoms to all possible disease conclusions
+    - (b) Goal-driven, starting from a hypothesized goal and seeking rules whose antecedents support it
+    - (c) Random exploration of the entire knowledge graph
+    - (d) Parallel evaluation of all combinations of facts
+    *Answer:* **(b)**. Backward chaining is goal-driven: it begins with a query/hypothesis and works backward looking for rules that conclude that goal, recursively testing whether the rule conditions are supported by working memory facts.
+
+---
+
+## Primary References & Sources
+
+- Russell, S., & Norvig, P., *Artificial Intelligence: A Modern Approach*, 4th ed., Pearson.
+- Haykin, S., *Neural Networks and Learning Machines*, 3rd ed., Pearson.
+- Mitchell, T. M., *Machine Learning*, McGraw-Hill.
+- Rich, E., Knight, K., & Nair, S. B., *Artificial Intelligence*, 3rd ed., Tata McGraw-Hill.
+- Official Syllabus Reference: [Nepal Engineering Council Computer Engineering Syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf), Section ACtE09.

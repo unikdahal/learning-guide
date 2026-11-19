@@ -1,0 +1,150 @@
+---
+title: Past-paper and source register
+description: Every known Computer Engineer and Computer Officer paper or question, graded by trust — official syllabus samples, the empty PSC question bank, third-party transcriptions of CE 2078 and 2079, unverified reports, and original practice — with a topic map of what has been asked.
+sidebar:
+  label: Source register
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Goal:** know which "past questions" you can trust, which are probably right, and which are only practice, so your revision rests on evidence.
+
+<Aside type="caution" title="Short version">
+**No Computer Engineer or Computer Officer past paper was found in the PSC question-bank index checked for this research pass.** That is a search result, not proof that no official copy exists elsewhere. The verified official question material here is the **sample questions printed in the Computer Officer syllabus**. The CE 2078 and 2079 papers that circulate are **typed transcriptions** on a third-party blog, and both sittings **predate the current syllabus** (in force since 2080/07/20). Nothing labelled "CO 2083" in this guide has a findable source.
+</Aside>
+
+## The trust ladder
+
+<Figure caption="Evidence tiers used across the Lok Sewa pages. Official documents establish their own scope and scheme; samples illustrate style. Transcriptions and recalls are practice leads, while original exercises have no historical provenance.">
+<svg viewBox="0 0 700 250" role="img" aria-label="Five stacked bars from most to least trustworthy: Official (PSC and NEC documents), Official sample (questions printed in the CO syllabus), Transcription (CE 2078 and 2079 on a blog), Reported unverified (CO 2083 items in earlier notes), Original practice (written for this guide)." style="width:100%;height:auto;font-family:var(--sl-font);font-size:13px">
+  <rect x="10" y="10" width="680" height="40" rx="5" style="fill:var(--sl-color-accent);opacity:0.9" />
+  <text x="24" y="35" style="fill:var(--sl-color-black);font-weight:700">Official</text>
+  <text x="200" y="35" style="fill:var(--sl-color-black)">PSC syllabus PDFs (scheme, units, weights) · NEC model question</text>
+  <rect x="10" y="56" width="620" height="40" rx="5" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <text x="24" y="81" style="fill:var(--sl-color-white);font-weight:700">Official sample</text>
+  <text x="200" y="81" style="fill:var(--sl-color-white)">6 subjective + 3 practical samples in the CO syllabus</text>
+  <rect x="10" y="102" width="560" height="40" rx="5" style="fill:var(--sl-color-gray-5)" />
+  <text x="24" y="127" style="fill:var(--sl-color-white);font-weight:700">Transcription</text>
+  <text x="200" y="127" style="fill:var(--sl-color-white)">CE 2078, CE 2079 (blog, typed, no scan)</text>
+  <rect x="10" y="148" width="500" height="40" rx="5" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+  <text x="24" y="173" style="fill:var(--sl-color-white);font-weight:700">Reported</text>
+  <text x="200" y="173" style="fill:var(--sl-color-gray-2)">"CO 2083" items, no source found</text>
+  <rect x="10" y="194" width="440" height="40" rx="5" style="fill:none;stroke:var(--sl-color-gray-4);stroke-dasharray:5 4" />
+  <text x="24" y="219" style="fill:var(--sl-color-white);font-weight:700">Original practice</text>
+  <text x="200" y="219" style="fill:var(--sl-color-gray-2)">written for this guide, labelled each time</text>
+</svg>
+</Figure>
+
+## 1. Official documents
+
+| Document | What it settles | Link |
+| --- | --- | --- |
+| CE syllabus, scheme + Paper I (6 pp.) | Stages, marks, pass marks, timings, 20% negative marking, no calculator, separate section books, 3-month law rule, Paper I units and weights, group-discussion format | [PDF](https://psc.gov.np/site_uploads/course/20231110070747654dd6c388682.pdf) |
+| CE syllabus, Paper II (6 pp.) | Units 1–16, section weights 25/25/20/30, Section D wording | [PDF](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf) |
+| CO syllabus, scheme + Paper I (7 pp.) | Practical test (50, pass 25, 5 × 10 by unit), all 12 unit weights, final-list rule | [PDF](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad7373.pdf) |
+| CO syllabus, Paper II + samples (7 pp.) | Section marks 30/20/20/30, **6 subjective and 3 practical sample questions** | [PDF](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad73731.pdf) |
+| NEC Computer Engineering model question | NEC licence MCQ style (and a fair proxy for Lok Sewa Paper I Part II style) | [PDF](https://nec.gov.np/uploads/Model%20Question%20Registration/1763714765897_Model%20question%20of%20Computer%20Engineering.pdf) |
+
+The PSC course index lists exactly one current syllabus for each post: course 569 (कम्प्युटर इञ्जिनियर) and course 571 (कम्प्युटर अधिकृत), Nepal Miscellaneous Service, Gazetted Third. The PDFs are typed in a legacy Nepali font, so copy-paste from them comes out garbled; read them as images.
+
+### Official negative result: the PSC question bank
+
+PSC's [question bank](https://psc.gov.np/category/question-bank) held **89 papers** on 17 Nov 2026, all uploaded from October 2026, covering joint secretary, under secretary, section officer, nayab subba and kharidar. Searching it by the Computer Engineer and Computer Officer designations, or for "कम्प्युटर" or "computer", returned **nothing**. The bank is new and growing, so check it again in February 2027.
+
+### Official sample questions (Computer Officer syllabus, pp. 5–6)
+
+These are PSC's own statement of question style. **They are samples, not a past paper.** All are worked in the [workshop](/learning-guide/lok-sewa/preparation/written-answer-workshop/) and the [CO page](/learning-guide/lok-sewa/preparation/co-non-overlap/).
+
+| # | Type | Question (summarised) | Unit | Worked |
+| --- | --- | --- | --- | --- |
+| S1 | Subjective | Merge two heap trees (a "max heap" and a "min heap" given as drawings) | DSA 2.4 | [workshop §3](/learning-guide/lok-sewa/preparation/written-answer-workshop/#3-official-sample-merge-two-heaps) |
+| S2 | Subjective | Build the binary tree from preorder u1 u2 u3 u4 u10 u8 u5 u9 u6 u11 u7 and postorder u4 u10 u3 u8 u2 u9 u11 u7 u6 u5 u1 | DSA 2.4 | [workshop §2](/learning-guide/lok-sewa/preparation/written-answer-workshop/#2-official-sample-tree-from-preorder-and-postorder) |
+| S3 | Subjective | Java nested do-while: print a 3 × 3 multiplication table | Programming 3.6 | [CO page](/learning-guide/lok-sewa/preparation/co-non-overlap/#practical-drills-from-the-official-samples) |
+| S4 | Subjective | C program printing two columns 1–4 and 2–5 | Programming 3.5 | CO page |
+| S5 | Subjective | Suppliers/Parts/Catalog: suppliers of a red part, in relational algebra and SQL (solution printed) | DBMS 6.3–6.11 | [workshop §4](/learning-guide/lok-sewa/preparation/written-answer-workshop/#4-official-sample-relational-algebra-and-sql) |
+| S6 | Subjective | Develop the top-level DFD from a budget-system context diagram | SAD 4.11–4.12 | [workshop §5](/learning-guide/lok-sewa/preparation/written-answer-workshop/#5-official-sample-context-diagram-to-level-0-dfd) |
+| P1 | Practical | Find IP addresses; share a resource with DB admins only; are 192.255.16.8 and 192.225.14.8 (mask 255.255.255.0) local or remote? | Networking | CO page |
+| P2 | Practical | Create Student, Teacher, Course tables; insert 10 rows; delete the first two | DBMS | CO page |
+| P3 | Practical | C++: from "123456789" print the pyramid 1 / 232 / 34543 / 4567654 / 567898765 | Programming | CO page |
+
+The Computer Engineer syllabus contains **no** sample questions.
+
+## 2. Transcriptions: CE 2078 and CE 2079
+
+Source: a third-party study blog, as typed text, with no scan, date, advertisement number, or account of how it was obtained ([2078](https://nextgenacademyyy.blogspot.com/p/subject-computer-engineer-subjective.html), [2079](https://nextgenacademyyy.blogspot.com/p/computer-engineer-subjective-2079.html), read 17 Nov 2026). The "reported CE 2078/2079" items elsewhere in this guide match these texts.
+
+**Why to treat them with care:**
+- Both sittings were set under the **previous syllabus**. The current one took effect on 2080/07/20 and repealed it.
+- Each section totals correctly (25/25/20/30), but some section placements don't fit the current syllabus. 2078 puts *pseudo-random numbers and the gap test* (now unit 15.1, Section C) in Section A. 2079 puts *knowledge representation* (now AI, Section C) in Section A and asks "OOP over structured programming" twice (Q4 and Q6). Either the old syllabus was sectioned differently or the transcription has errors; there is no way to tell which.
+- Two questions in 2079 (Q3, Q9) have no marks printed. The section totals imply 10 each.
+
+### CE 2078 (transcription)
+
+| Q | Sec | Marks | Topic | Current unit | Where to study |
+| --- | --- | --- | --- | --- | --- |
+| 1 | A | 5 | Compare TCP and UDP | 1.4 | [Transport](/learning-guide/nec/networks/06-transport/) |
+| 2 | A | 10 | 200.168.10.0/24 into 7 subnets; host **200.168.10.177**: mask, network, broadcast, range, which subnet | 1.3 | [Workshop §6](/learning-guide/lok-sewa/preparation/written-answer-workshop/#6-transcribed-ce-2078-subnetting-with-host-177) |
+| 3 | A | 2 + 8 | Pseudo-random numbers; gap test with example | 15.1 | [CE gap units](/learning-guide/lok-sewa/preparation/ce-gap-units/#151-simulation-random-numbers-and-the-gap-test) |
+| 4 | B | 2 + 3 | Deadlock; necessary conditions | 10.1 | [Deadlock](/learning-guide/nec/os/04-deadlock/) |
+| 5a | B | 5 | Design for reuse and design for change | 8.4 | [SE design](/learning-guide/nec/se/03-design/) |
+| 5b | B | 2 + 3 | Functional dependency; its importance in design | 9.1 | [Normalisation](/learning-guide/nec/dbms/03-normalisation/) |
+| 6 | B | 10 | Process scheduling algorithms | 10.2 | [Scheduling](/learning-guide/nec/os/02-scheduling/) |
+| 7a | C | 5 | Learning in AI | 11.4 | [NEC ch. 9](/learning-guide/nec/chapters/09-ai-neural-networks/) |
+| 7b | C | 5 | Pigeonhole principle in computation | 12.4 | [CE gap units](/learning-guide/lok-sewa/preparation/ce-gap-units/#theory-of-computation-extras) |
+| 8 | C | 3 + 7 | Cryptography; PKI | 15.9 | [Security](/learning-guide/nec/networks/08-security/) |
+| 9 | D | 10 | Concept note: automate attendance, payroll, registration | 16.1 | [Workshop §8](/learning-guide/lok-sewa/preparation/written-answer-workshop/#8-technical-writing-the-10-mark-section-d-answer) |
+| 10 | D | 5 + 10 + 5 | School case: processes and agents; graduation DFD; instructor–HOD–department relationship | 16.2 | [Workshop §9](/learning-guide/lok-sewa/preparation/written-answer-workshop/#9-case-study-the-20-mark-section-d-answer) |
+
+<Aside type="caution" title="Host address mismatch">
+The [NEC subnetting lesson](/learning-guide/nec/networks/04-ip-subnetting/) works this question with host **.75**. The transcription says **.177**. The method is the same; the [workshop](/learning-guide/lok-sewa/preparation/written-answer-workshop/#6-transcribed-ce-2078-subnetting-with-host-177) works .177.
+</Aside>
+
+### CE 2079 (transcription)
+
+| Q | Sec | Marks | Topic | Current unit | Where to study |
+| --- | --- | --- | --- | --- | --- |
+| 1 | A | 5 | Architecture vs organisation; processor–memory performance balance | 2.1, 2.7 | [Architecture basics](/learning-guide/nec/organization/01-architecture-basics/), [memory](/learning-guide/nec/organization/06-memory-cache/) |
+| 2 | A | 5 + 5 | Knowledge representation; semantic networks | 11 | [NEC ch. 9](/learning-guide/nec/chapters/09-ai-neural-networks/) |
+| 3 | A | (10) | Datagram vs virtual-circuit networks, with diagram | 1.3 | [Network layer](/learning-guide/nec/networks/05-network-layer-routing/) |
+| 4 | B | 5 | Why choose OOP over structured programming | 6 | [OOP answers](/learning-guide/nec/cpp/06-oop-written-answers/) |
+| 5 | B | 10 | Phases of the waterfall life cycle | 8.1 | [Process models](/learning-guide/nec/se/01-process-requirements/) |
+| 6 | B | 5 + 2.5 + 2.5 | Structured vs OOP; polymorphism; inheritance | 6.4 | [OOP answers](/learning-guide/nec/cpp/06-oop-written-answers/) |
+| 7 | C | 10 | Man-in-the-middle attack on Wi-Fi; consequences | 15.9 | [Security](/learning-guide/nec/networks/08-security/) |
+| 8 | C | 2 + 8 | What is AI; components of AI | 11 | [NEC ch. 9](/learning-guide/nec/chapters/09-ai-neural-networks/) |
+| 9 | D | (10) | Views: using ICT against the direct and indirect challenges of COVID-19 | 16.1 | [Workshop §8](/learning-guide/lok-sewa/preparation/written-answer-workshop/#8-technical-writing-the-10-mark-section-d-answer) |
+| 10 | D | 6 + 8 + 6 | Online revenue payment for digital governance: technical/economic/operational feasibility; use case and sequence diagrams; ER diagram and schema | 16.2 | [SE case study](/learning-guide/nec/se/06-case-study/) |
+
+### What the two transcriptions suggest
+
+Two sittings are too few for statistics, but the pattern fits the official Section D wording and is worth acting on:
+
+- **Section D is predictable in shape.** Technical writing was a *concept note* (2078) and a *views* essay on a current issue (2079). The case study was a Nepal public-service scenario asking for process lists, a DFD and relationships (2078), then feasibility, use case, sequence and ER (2079).
+- **Questions are definitional plus explanation**, split as 2 + 3, 2 + 8 or 3 + 7. The definition carries few marks; the explanation, diagram or example carries most of them.
+- **One numerical per paper** (subnetting in 2078). Plan for one each from scheduling, subnetting, normalisation and a tree/heap operation.
+- **Electronics, digital design, communications, compiler, graphics and ToC numericals did not appear in either paper.** Do not read that as "safe to skip": the current syllabus gives Section A 25% and lists units 3–5 explicitly.
+
+## 3. Reported, unverified: "CO 2083"
+
+Earlier pages in this guide cite these as "reported CO 2083". No PSC copy exists, since the question bank has no CO paper, and searching found no third-party copy. **Treat them as practice prompts, not past questions.** All of them sit squarely in the official CO syllabus.
+
+| Prompt | CO unit | Study |
+| --- | --- | --- |
+| JAD: purpose, participants, roles | 3.2–3.4 | [CO page](/learning-guide/lok-sewa/preparation/co-non-overlap/#jad-in-psc-wording) |
+| Use case diagram for online shopping | 3.15 | [DFD, use case](/learning-guide/nec/se/02-analysis-modelling/) |
+| DNS resolution and DHCP | 7.5 | [Application layer](/learning-guide/nec/networks/07-application/) |
+| Tree traversals with examples | 2.4 | [Trees](/learning-guide/nec/dsa/03-trees/) |
+| Virtual memory; paging vs segmentation | 4.3 | [Memory](/learning-guide/nec/os/05-memory/) |
+| DBMS concurrency control | 5.13 | [Transactions](/learning-guide/nec/dbms/04-transactions/) |
+| Java access modifiers; role of language translators | 6.1, 6.6 | [OOP answers](/learning-guide/nec/cpp/06-oop-written-answers/) |
+| CPU and its components | 1.6, 8 | [Architecture basics](/learning-guide/nec/organization/01-architecture-basics/) |
+
+## 4. Original practice
+
+Every question written for this guide is labelled **Original practice** where it appears. They are modelled on the official samples and the transcriptions' style, and are not claimed to be from any exam. The largest sets are in the [workshop](/learning-guide/lok-sewa/preparation/written-answer-workshop/#10-original-practice-set), the [CE gap units](/learning-guide/lok-sewa/preparation/ce-gap-units/) and the [CO page](/learning-guide/lok-sewa/preparation/co-non-overlap/).
+
+## How to keep this register honest
+
+1. If you find a scan of a real paper (PSC website, a candidate's photo with the PSC header and date), record it in a **Scan** tier with its host, header, date and completeness. Use **Official** only when the issuing authority publishes or authenticates it.
+2. Never upgrade a transcription because several sites repeat it. Most copy each other.
+3. Re-check the PSC question bank before the exam, and re-download the syllabus to make sure it hasn't been revised.

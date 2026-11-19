@@ -1,0 +1,138 @@
+---
+title: "Project economics & CPM: calculate, trace, explain"
+description: Worked NPV, critical path, float and PERT examples for NEC 10.2–10.3, with interactive assumptions and original retrieval questions.
+sidebar:
+  label: "Economics & critical-path lab"
+  order: 4
+---
+import ProjectLab from '@components/study/ProjectLab.astro';
+import Figure from '@components/Figure.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+**Scope:** NEC AALL10 sections **10.2 engineering economics** and **10.3 project scheduling**. The scheduling ideas also support CE **15.11 software project management** and economic-feasibility explanations in Section D. This is a worked subset of Chapter 10; drawing, contracts, professional practice and the Act remain on the [chapter checklist](/learning-guide/nec/chapters/10-project-planning/).
+
+**Prerequisites:** percentages, powers, and reading a directed acyclic graph. All examples and questions below are original teaching exercises, not past-year questions. Figures use hypothetical amounts and durations.
+
+## 1. Put money on a timeline before choosing a formula
+
+You pay NPR 100,000 now for an office system. It saves a net NPR 40,000 at the end of each of the next three years. Ignore salvage, tax and inflation; use a constant 10% annual discount rate. Are the savings worth the initial cost at that rate?
+
+<Figure caption="Original cash-flow example. Arrows above the timeline are inflows; the downward arrow is the time-zero cost. All labels are NPR thousands.">
+  <svg viewBox="0 0 620 200" class="qe-diagram" role="img" aria-label="At year zero pay 100 thousand; receive 40 thousand at the end of years one, two and three.">
+    <line x1="55" y1="105" x2="570" y2="105" stroke="currentColor" />
+    <g fill="none" stroke="currentColor" stroke-width="3">
+      <path d="M70 105 V165 l-6 -10 m6 10 l6 -10" />
+      <path d="M230 105 V40 l-6 10 m6 -10 l6 10" />
+      <path d="M390 105 V40 l-6 10 m6 -10 l6 10" />
+      <path d="M550 105 V40 l-6 10 m6 -10 l6 10" />
+    </g>
+    <g fill="currentColor" text-anchor="middle" font-size="15">
+      <text x="70" y="90">Year 0</text><text x="70" y="190">−100</text>
+      <text x="230" y="130">Year 1</text><text x="230" y="25">+40</text>
+      <text x="390" y="130">Year 2</text><text x="390" y="25">+40</text>
+      <text x="550" y="130">Year 3</text><text x="550" y="25">+40</text>
+    </g>
+  </svg>
+</Figure>
+
+An amount received later has present value `PV = F / (1 + i)^n`. Here `i = 0.10` per year, and `n` counts years from time zero. Use consistent periods: monthly cash flows need a compatible monthly rate.
+
+| Time | Net amount (NPR thousands) | Calculation | Present value |
+| --- | --- | --- | --- |
+| Now | −100 | Already at time zero | −100.000 |
+| End of year 1 | +40 | 40 / 1.10 | +36.364 |
+| End of year 2 | +40 | 40 / 1.10² | +33.058 |
+| End of year 3 | +40 | 40 / 1.10³ | +30.053 |
+| **NPV** | | Sum of unrounded present values | **−0.526** |
+
+The undiscounted savings total 120, but their present value is only 99.474. Therefore this hypothetical investment falls short of the 10% hurdle by about **NPR 526**. A negative NPV is relative to the chosen discount rate; it is not a claim that the system has no operational benefit.
+
+For a constant end-of-year net inflow `A`, an equivalent shortcut is `PV = A × [1 − (1+i)^−n] / i`, then subtract the initial cost. At `i = 0`, sum the inflows directly; the quotient form would divide by zero.
+
+## 2. Distinguish four decisions
+
+| Measure | Question answered | Trap to avoid |
+| --- | --- | --- |
+| Simple payback | When do nominal inflows recover the outlay? | Ignores discounting and flows after recovery |
+| Discounted payback | When do discounted inflows recover the outlay? | May never recover within the study period |
+| NPV | What is the net present worth at this discount rate? | Include time-zero cost and terminal salvage/disposal correctly |
+| IRR | Which discount rate makes NPV zero? | Unusual sign-changing cash flows can have multiple IRRs or no useful IRR |
+
+For the example, simple payback is `100 / 40 = 2.5 years` **only if** savings accrue uniformly within each year. Under the stated end-of-year receipt convention, recovery first occurs at year 3. Discounted payback is not reached by year 3. For this conventional cash-flow pattern, NPV changes from positive at 0% to negative at 10%, so an IRR lies between those rates.
+
+When comparing alternatives, state whether their lives, service outputs and residual values are comparable. Do not automatically pick the largest IRR or combine nominal cash flows with an inconsistent real discount rate. This lab deliberately omits real-world tax and policy assumptions.
+
+## 3. Read dependencies before adding durations
+
+We have five activities. Time is continuous in days from project start at time zero; all dependencies are finish-to-start, with no lags or resource limits.
+
+| Activity | Duration | Must wait for |
+| --- | --- | --- |
+| A: requirements | 2 | Start |
+| B: database work | 4 | A |
+| C: interface work | 3 | A |
+| D: integration | 2 | B **and** C |
+| E: acceptance preparation | 3 | C |
+| Finish | 0 | D **and** E |
+
+<Figure caption="Original activity network. Both branches must finish; D cannot begin when only one predecessor is complete.">
+  <svg viewBox="0 0 600 220" class="qe-diagram" role="img" aria-label="A branches to B and C. B and C lead to D. C also leads to E. D and E join at Finish.">
+    <g fill="none" stroke="currentColor" stroke-width="2"><path d="M115 110 L200 50 M115 110 L200 160 M280 50 L365 70 M280 160 L365 70 M280 160 L365 170 M445 70 L510 110 M445 170 L510 110" /></g>
+    <g fill="var(--sl-color-bg)" stroke="currentColor"><rect x="35" y="85" width="80" height="50" rx="8" /><rect x="200" y="25" width="80" height="50" rx="8" /><rect x="200" y="135" width="80" height="50" rx="8" /><rect x="365" y="45" width="80" height="50" rx="8" /><rect x="365" y="145" width="80" height="50" rx="8" /><rect x="510" y="85" width="80" height="50" rx="8" /></g>
+    <g fill="currentColor" text-anchor="middle" font-size="16"><text x="75" y="116">A · 2</text><text x="240" y="56">B · 4</text><text x="240" y="166">C · 3</text><text x="405" y="76">D · 2</text><text x="405" y="176">E · 3</text><text x="550" y="116">Finish</text></g>
+  </svg>
+</Figure>
+
+**Forward pass:** earliest start `ES = max(predecessor EF)`; earliest finish `EF = ES + duration`. At a merge take the **maximum**, because every predecessor must finish.
+
+**Backward pass:** initialise terminal latest finishes to the project duration. Latest finish `LF = min(successor LS)`; latest start `LS = LF − duration`. At a split take the **minimum**, because no successor may be delayed.
+
+| Activity | ES | EF | LS | LF | Total float = LS − ES |
+| --- | --- | --- | --- | --- | --- |
+| A | 0 | 2 | 0 | 2 | 0 |
+| B | 2 | 6 | 2 | 6 | 0 |
+| C | 2 | 5 | 2 | 5 | 0 |
+| D | 6 | 8 | 6 | 8 | 0 |
+| E | 5 | 8 | 5 | 8 | 0 |
+
+The project takes **8 days**, with two critical paths: **A–B–D** and **A–C–E**. The shorter path A–C–D takes 7 days, but C remains critical because it also feeds E. An activity can have zero **total float** even if one of its outgoing branches has slack.
+
+Set C to 5 days below. The duration becomes 10 days and A–C–E is critical. B now has 2 days of float and D has 1. Crashing only B would not shorten this project: the controlling branch is elsewhere.
+
+## 4. Change one assumption and predict before checking
+
+<ProjectLab />
+
+Try a 0% discount rate, then 20%. Next shorten C to 1 day, then increase it to 5. Before changing a control, predict the sign of NPV or name the critical path. The default tables remain available without JavaScript.
+
+## 5. PERT is an estimate, not a deadline guarantee
+
+For optimistic `a = 2`, most-likely `m = 5`, and pessimistic `b = 8` days:
+
+- Expected duration `te = (a + 4m + b) / 6 = 5 days`.
+- Approximate standard deviation `σ = (b − a) / 6 = 1 day`.
+- Variance `σ² = 1 day²`.
+
+For an assumed fixed critical path, a textbook approximation adds activity variances **if durations are independent**. Then `Z = (deadline − expected completion) / project standard deviation` can be used with a normal approximation. Correlation, uncertain path switching and limited resources weaken that estimate; the arithmetic is not a promise of delivery.
+
+**Resource smoothing** rearranges work within available float without extending the target duration. **Resource levelling** addresses resource limits and may extend it. A critical path under unlimited resources does not solve a resource-constrained scheduling problem.
+
+## 6. Original questions: retrieve before opening
+
+<details><summary>1. Why is a nominal total of 120 insufficient to justify an initial cost of 100?</summary><p>The payments occur at different times. Convert all amounts to a common date using the chosen opportunity cost of capital. In the default example their present value at 10% is 99.474.</p></details>
+
+<details><summary>2. A receipt of 121 arrives in two years at 10%. What is its present value?</summary><p>121 / 1.1² = 100. Dividing only once would discount one year instead of two.</p></details>
+
+<details><summary>3. If C takes 5 days, why does D start at 7 rather than 6?</summary><p>D needs both B and C. B finishes at 6, while C finishes at 7. ES(D) = max(6, 7) = 7.</p></details>
+
+<details><summary>4. Why can a zero-float activity lie on a shorter start-to-finish path?</summary><p>Float depends on all predecessor and successor constraints. C lies on the 7-day A–C–D route but also on the 8-day A–C–E route, so delaying C delays E and the project.</p></details>
+
+<details><summary>5. With a = 1, m = 4 and b = 7, compute PERT mean and variance.</summary><p>Mean = (1 + 16 + 7) / 6 = 4 days. Standard deviation = (7 − 1) / 6 = 1 day, so variance = 1 day².</p></details>
+
+<details><summary>6. Does levelling always preserve the finish date?</summary><p>No. Limited resources may force critical or otherwise constrained activities to wait. Smoothing is the term used here for rearranging within float while preserving the duration.</p></details>
+
+## Sources and scope check
+
+- [NEC ACtE syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf), page 6, AALL1002–AALL1003: scope authority.
+- [Federal PSC CE Paper II](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf): confirm unit 15.11 and Section D against your post.
+- [MIT OpenCourseWare, Project Evaluation](https://ocw.mit.edu/courses/1-011-project-evaluation-spring-2011/): academic material for the economics method, not a Nepal exam scheme or source of these original examples.

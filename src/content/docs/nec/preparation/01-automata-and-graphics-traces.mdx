@@ -1,0 +1,509 @@
+---
+title: "Theory of computation & computer graphics: worked traces"
+description: Deep algorithmic traces, formal state transitions, 2D/3D matrix transforms, and line clipping algorithms for NEC ACtE06 and Lok Sewa CE.
+sidebar:
+  label: "Automata & graphics traces"
+  order: 1
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Syllabus mapping:** NEC ACtE Chapter 6 (ACtE06: sections 6.1 through 6.6) · Lok Sewa Computer Engineer Unit 12 (Theory of Computation) and Unit 14 (Computer Graphics), Section C.
+
+Work these selected Chapter 6 examples before using the revision checklist. They connect definitions to state transitions, grammar derivations, transformations and clipping. The numbered syllabus headings organise the lesson; they do not mean every item within each sub-section is covered. For example, Liang–Barsky and the CFL pumping lemma still need separate practice.
+
+---
+
+## 6.1 Finite Automata & State Machines
+
+### 1. Formal Model & Machine Types
+
+A Deterministic Finite Automaton (DFA) is defined as a 5-tuple:
+$$M = (Q, \Sigma, \delta, q_0, F)$$
+where:
+- $Q$ is a finite, non-empty set of states.
+- $\Sigma$ is a finite, non-empty input alphabet.
+- $\delta: Q \times \Sigma \to Q$ is the deterministic transition function.
+- $q_0 \in Q$ is the start (initial) state.
+- $F \subseteq Q$ is the set of accepting (final) states.
+
+In a Non-deterministic Finite Automaton (NFA), the transition function maps to the power set of states: $\delta: Q \times \Sigma \to 2^Q$. If $\varepsilon$-transitions are permitted ($\varepsilon$-NFA), $\delta: Q \times (\Sigma \cup \{\varepsilon\}) \to 2^Q$.
+
+For finite state transducers with output:
+- **Moore Machine:** Output is associated strictly with each state: $\lambda: Q \to \Delta$. For an input string of length $n$, the output sequence has length $n + 1$ (including the start state's output).
+- **Mealy Machine:** Output is associated with state transitions: $\lambda: Q \times \Sigma \to \Delta$. For an input string of length $n$, the output sequence has length $n$. A Mealy machine can react to an input within the same clock cycle, generally requiring fewer states than an equivalent Moore machine.
+
+### 2. Worked Trace: $\varepsilon$-NFA to DFA via Subset Construction
+
+Consider binary strings ending in `01`. Use four NFA states $A,B,C,D$, start $A$, final $D$. Unlisted transitions go to the empty set:
+
+| NFA state | Input 0 | Input 1 | ε |
+| --- | --- | --- | --- |
+| A | ∅ | ∅ | `{B}` |
+| B | `{B,C}` | `{B}` | ∅ |
+| C | ∅ | `{D}` | ∅ |
+| D | ∅ | ∅ | ∅ |
+
+State B loops over any prefix. On a `0`, the machine may also branch to C, guessing that this is the penultimate symbol. Only a following `1` reaches D; any further symbol kills that branch. This is why `0` and `010` are rejected while `01` and `1101` are accepted.
+
+**Step 1: ε-closure.** The start closure is $S_0=\{A,B\}$. For the other states there are no outgoing ε-transitions, so their closures contain only themselves.
+
+**Step 2: Move on a symbol, then take ε-closure.** From $S_0$ on `0`, union the moves from A and B to obtain $\{B,C\}$; its closure is unchanged, giving $S_1$. On `1`, obtain $\{B\}=S_2$.
+
+From $S_1=\{B,C\}$, `0` produces $\{B,C\}=S_1$ and `1` produces $\{B,D\}=S_3$. From $S_3$, `0` returns to $S_1$ and `1` returns to $S_2$, since D has no outgoing transitions.
+
+| DFA state | NFA components | Input 0 | Input 1 | Accepting? |
+| --- | --- | --- | --- | --- |
+| S0 (start) | `{A,B}` | S1 | S2 | No |
+| S1 | `{B,C}` | S1 | S3 | No |
+| S2 | `{B}` | S1 | S2 | No |
+| S3 | `{B,D}` | S1 | S2 | Yes |
+
+**Check the result:** `0101` follows S0 → S1 → S3 → S1 → S3, so it is accepted. `010` ends in S1 and is rejected. S0 and S2 have identical future behaviour and can be merged during minimisation. Every reachable subset containing D must be accepting; no other subset may be marked accepting.
+
+
+### 3. Worked Trace: DFA Minimization (Partition Refinement)
+
+Let a DFA have states $Q = \{q_0, q_1, q_2, q_3, q_4\}$, input alphabet $\Sigma = \{a, b\}$, start state $q_0$, and accepting states $F = \{q_1, q_2, q_4\}$. Transitions are:
+- $\delta(q_0, a) = q_1, \quad \delta(q_0, b) = q_3$
+- $\delta(q_1, a) = q_2, \quad \delta(q_1, b) = q_4$
+- $\delta(q_2, a) = q_1, \quad \delta(q_2, b) = q_4$
+- $\delta(q_3, a) = q_2, \quad \delta(q_3, b) = q_4$
+- $\delta(q_4, a) = q_4, \quad \delta(q_4, b) = q_4$
+
+**Initial partition ($P_0$):** Separate non-accepting states and accepting states:
+$$P_0 = \{ G_1: \{q_0, q_3\}, \quad G_2: \{q_1, q_2, q_4\} \}$$
+
+**Refinement Pass 1:**
+- Examine $G_1 = \{q_0, q_3\}$:
+  - $\delta(q_0, a) = q_1 \in G_2$; $\delta(q_3, a) = q_2 \in G_2$. (Both land in $G_2$ for $a$).
+  - $\delta(q_0, b) = q_3 \in G_1$; $\delta(q_3, b) = q_4 \in G_2$.
+  - Because on input $b$, $q_0$ transitions to $G_1$ while $q_3$ transitions to $G_2$, they are distinguishable!
+  - Therefore, $G_1$ splits into $\{q_0\}$ and $\{q_3\}$.
+- Examine $G_2 = \{q_1, q_2, q_4\}$:
+  - For input $a$: $\delta(q_1, a) = q_2 \in G_2$, $\delta(q_2, a) = q_1 \in G_2$, but $\delta(q_4, a) = q_4 \in G_2$.
+  - For input $b$: $\delta(q_1, b) = q_4 \in G_2$, $\delta(q_2, b) = q_4 \in G_2$, and $\delta(q_4, b) = q_4 \in G_2$.
+  - All transitions from this group remain in the same accepting group. Every suffix is therefore accepted from all three states. Being absorbing does not distinguish $q_4$ from the others.
+
+The stable partition is:
+$$P_{final} = \{ \{q_0\}, \{q_3\}, \{q_1,q_2,q_4\} \}$$
+The minimal DFA has **three states**. Its transitions are:
+
+| State | a | b | Accepting? |
+| --- | --- | --- | --- |
+| [q0] | [q1,q2,q4] | [q3] | No |
+| [q3] | [q1,q2,q4] | [q1,q2,q4] | No |
+| [q1,q2,q4] | [q1,q2,q4] | [q1,q2,q4] | Yes |
+
+The suffix `b` distinguishes q0 from q3. The empty suffix distinguishes either non-accepting state from the accepting group. No further merge is possible.
+
+### 4. The Pumping Lemma for Regular Languages
+
+<Aside type="caution" title="Core exam trap: role of the pumping lemma">
+The Pumping Lemma is an **only-if** condition: if a language is regular, it satisfies the pumping lemma. It **cannot** be used to prove a language is regular (satisfying the lemma does not guarantee regularity). It is used strictly as a proof by contradiction to prove a language is **not** regular.
+</Aside>
+
+**Formal Statement:** If $L$ is a regular language, there exists a constant $p \ge 1$ (the pumping length) such that any string $s \in L$ with $|s| \ge p$ can be divided into three substrings $s = xyz$ satisfying:
+1. $|y| \ge 1$ (the pumped substring is non-empty)
+2. $|xy| \le p$ (repetition occurs within the first $p$ characters)
+3. For all $i \ge 0$, $x y^i z \in L$.
+
+**Worked Proof: Proving $L = \{0^n 1^n \mid n \ge 0\}$ is not regular.**
+1. Assume $L$ is regular. Let $p$ be its pumping length.
+2. Choose string $s = 0^p 1^p \in L$. Clearly $|s| = 2p \ge p$.
+3. By condition (2), $|xy| \le p$. Because $s$ begins with $p$ zeros, $xy$ must consist entirely of zeros.
+4. Hence, $y = 0^k$ for some $k \ge 1$ (by condition 1).
+5. Now pump with $i = 2$: the resulting string is $s' = x y^2 z = 0^{p+k} 1^p$.
+6. Because $k \ge 1$, $p + k \ne p$, so $s'$ has more zeros than ones. Therefore $s' \notin L$.
+7. This contradicts the pumping lemma. Hence, $L$ cannot be regular.
+
+---
+
+## 6.2 Context-Free Languages & Pushdown Automata
+
+### 1. Context-Free Grammars & Ambiguity
+
+A Context-Free Grammar (CFG) is a 4-tuple $G = (V, \Sigma, R, S)$ where:
+- $V$ is a finite set of variables (non-terminals).
+- $\Sigma$ is a finite set of terminals disjoint from $V$.
+- $R \subseteq V \times (V \cup \Sigma)^*$ is a finite set of production rules.
+- $S \in V$ is the start symbol.
+
+A grammar is **ambiguous** if there exists at least one string $w \in L(G)$ that admits **two or more distinct parse trees** (or equivalently, two distinct leftmost derivations).
+
+**Example: Classic Expression Ambiguity.**
+Consider grammar $G$: $E \to E + E \mid E \times E \mid \text{id}$.
+Evaluate the string: $\text{id} + \text{id} \times \text{id}$.
+
+- **Derivation 1 (Leftmost):**
+  $$E \implies E + E \implies \text{id} + E \implies \text{id} + E \times E \implies \text{id} + \text{id} \times E \implies \text{id} + \text{id} \times \text{id}$$
+  *Parse tree structure:* Addition is at the root; multiplication is a subtree. Multiplies before adding: correct standard precedence.
+- **Derivation 2 (Leftmost):**
+  $$E \implies E \times E \implies E + E \times E \implies \text{id} + E \times E \implies \text{id} + \text{id} \times E \implies \text{id} + \text{id} \times \text{id}$$
+  *Parse tree structure:* Multiplication is at the root; addition is evaluated first as a child subtree.
+
+Because two distinct leftmost derivations exist for the same string, $G$ is ambiguous. To resolve this, grammars are rewritten using stratified precedence levels:
+$$E \to E + T \mid T, \quad T \to T \times F \mid F, \quad F \to (\,E\,) \mid \text{id}$$
+
+### 2. Normal Forms: CNF and GNF
+
+- **Chomsky Normal Form (CNF):** Every rule has the form $A \to BC$ or $A \to a$ (where $A, B, C \in V$ and $a \in \Sigma$). If the empty string $\varepsilon \in L$, $S \to \varepsilon$ is permitted provided $S$ never appears on the right-hand side.
+  - *Key Property:* Any string $w$ of length $n \ge 1$ requires exactly $2n - 1$ derivation steps in CNF. This powers the $O(n^3)$ CYK parsing algorithm.
+- **Greibach Normal Form (GNF):** Every rule has the form $A \to a\alpha$, where $a \in \Sigma$ and $\alpha \in V^*$ (a terminal followed by zero or more variables). Every step consumes exactly one terminal symbol, making GNF closely tied to Pushdown Automata transitions.
+
+### 3. Pushdown Automata (PDA)
+
+A PDA is defined as a 7-tuple:
+$$M = (Q, \Sigma, \Gamma, \delta, q_0, Z_0, F)$$
+where $\Gamma$ is the stack alphabet and $Z_0 \in \Gamma$ is the start stack symbol.
+The transition function is:
+$$\delta: Q \times (\Sigma \cup \{\varepsilon\}) \times \Gamma \to 2^{Q \times \Gamma^*}$$
+
+Acceptance can be defined by **final state** ($q \in F$) or by **empty stack** (stack becomes empty). Both acceptance models accept identical language classes for non-deterministic PDAs.
+
+<Aside type="note" title="DPDA vs NPDA power hierarchy">
+Deterministic Pushdown Automata (DPDA) are **strictly less expressive** than Non-deterministic Pushdown Automata (NPDA). For example, the language of even-length palindromes $L = \{w w^R \mid w \in \{0, 1\}^*\}$ requires guessing the midpoint and can be recognized by an NPDA, but cannot be recognized by any DPDA.
+</Aside>
+
+---
+
+## 6.3 Turing Machines & Computational Complexity
+
+### 1. Standard Turing Machine Formulation
+
+A standard deterministic Turing Machine is a 7-tuple:
+$$M = (Q, \Sigma, \Gamma, \delta, q_0, B, F)$$
+where:
+- $\Gamma$ is the tape alphabet ($\Sigma \subset \Gamma$).
+- $B \in \Gamma \setminus \Sigma$ is the blank symbol.
+- $\delta: Q \times \Gamma \to Q \times \Gamma \times \{L, R\}$ is the partial transition function.
+
+A machine configuration is represented as $u q v$, where $q$ is the current state, $u$ is the tape contents to the left of the head, and $v$ has the head positioned on its first symbol. A transition step:
+$$u_1 a \, q_1 \, b v_1 \vdash u_1 \, q_2 \, a c v_1 \quad \text{if } \delta(q_1, b) = (q_2, c, L)$$
+
+### 2. The Chomsky Hierarchy
+
+<Figure caption="The Chomsky Hierarchy: nesting of language classes and their recognizing automata.">
+  <svg class="qe-diagram" width="360" viewBox="0 0 360 250" role="img" aria-label="Euler diagram of Chomsky Hierarchy: Type 0 Turing Machine, Type 1 Linear Bounded Automaton, Type 2 Pushdown Automaton, Type 3 Finite Automaton.">
+    {/* Type 0 */}
+    <ellipse cx="180" cy="125" rx="170" ry="115" class="qe-node" fill="none" stroke="var(--sl-color-gray-4)" stroke-width="1.5" />
+    <text x="180" y="28" text-anchor="middle" class="qe-muted">Type 0: Recursively Enumerable (Turing Machine)</text>
+    {/* Type 1 */}
+    <ellipse cx="180" cy="138" rx="135" ry="92" class="qe-node" fill="none" stroke="var(--sl-color-gray-4)" stroke-width="1.5" />
+    <text x="180" y="60" text-anchor="middle" class="qe-muted">Type 1: Context-Sensitive (LBA)</text>
+    {/* Type 2 */}
+    <ellipse cx="180" cy="150" rx="100" ry="68" class="qe-node" fill="none" stroke="var(--sl-color-gray-4)" stroke-width="1.5" />
+    <text x="180" y="96" text-anchor="middle" class="qe-muted">Type 2: Context-Free (PDA)</text>
+    {/* Type 3 */}
+    <ellipse cx="180" cy="165" rx="65" ry="42" class="qe-node qe-highlight" stroke-width="2" />
+    <text x="180" y="158" text-anchor="middle" fill="var(--sl-color-white)">Type 3: Regular</text>
+    <text x="180" y="176" text-anchor="middle" class="qe-muted" font-size="11">(Finite Automata)</text>
+  </svg>
+</Figure>
+
+| Type | Language Class | Grammar Production Rule Form | Recognizing Automaton | Closed Under Complement? |
+| :--- | :--- | :--- | :--- | :--- |
+| **0** | Recursively Enumerable | $\alpha \to \beta$ (no restrictions, $\alpha \ne \varepsilon$) | Turing Machine | **No** |
+| **1** | Context-Sensitive | $\alpha A \beta \to \alpha \gamma \beta$, $|\gamma| \ge 1$ | Linear Bounded Automaton (LBA) | **Yes** (Immerman–Szelepcsényi) |
+| **2** | Context-Free | $A \to \gamma$, $A \in V, \gamma \in (V \cup \Sigma)^*$ | Pushdown Automaton (NPDA) | **No** |
+| **3** | Regular | $A \to aB$ or $A \to a$ (Right Linear) | Finite State Automaton (DFA/NFA) | **Yes** |
+
+### 3. Decidability, Reductions & NP-Completeness
+
+- **Recursive vs Recursively Enumerable (RE):** A language is recursive (decidable) if a Turing Machine halts and accepts on strings in $L$, and halts and rejects on strings not in $L$. A language is RE (semi-decidable) if the TM halts and accepts strings in $L$, but may loop indefinitely on strings not in $L$.
+- **Halting Problem ($HALT_{TM}$):** Undecidable. Proved by Cantor diagonalization.
+- **Polynomial-Time Reduction ($A \le_p B$):** A problem $A$ reduces to $B$ in polynomial time if an instance of $A$ can be transformed into an instance of $B$ in polynomial time.
+  - If $B \in P$, then $A \in P$.
+  - If $A$ is NP-hard, then $B$ is NP-hard.
+  - *Direction Trap:* To prove a new problem $X$ is NP-complete, you must reduce a **known NP-complete problem to $X$** (Known $\le_p X$), not the reverse!
+
+---
+
+## 6.4 Graphics Hardware & Display Architecture
+
+### 1. Raster-Scan vs Vector Displays
+
+- **Vector (Random-Scan / Calligraphic) Displays:**
+  - Draws images by steering an electron beam directly from point to point across the CRT face.
+  - Directed by a **display processor** executing a sequence of vector drawing commands stored in a **display file** (display list).
+  - Lines are smooth and continuous (no aliasing/staircase effects), but cannot render realistic filled areas or complex shaded surfaces.
+- **Raster-Scan Displays:**
+  - The electron beam sweeps across the entire screen row by row (raster lines) from top to bottom, modulating intensity at discrete pixel positions.
+  - Retraces: Horizontal retrace (beam returns to start of next line) and Vertical retrace (beam returns from bottom right to top left).
+  - Image data is stored in a dedicated memory block called the **Frame Buffer**.
+
+### 2. Frame Buffer Calculations
+
+The frame buffer size required is determined strictly by horizontal resolution, vertical resolution, and pixel color depth (bits per pixel, bpp):
+$$\text{Frame Buffer Size (bytes)} = \frac{W \times H \times \text{bpp}}{8}$$
+
+**Numerical Trace:**
+Calculate the uncompressed frame buffer size for a Full HD display ($1920 \times 1080$) with 24-bit TrueColor (8 bits each for R, G, B):
+$$\text{Pixels} = 1920 \times 1080 = 2,073,600 \text{ pixels}$$
+$$\text{Bits} = 2,073,600 \times 24 = 49,766,400 \text{ bits}$$
+$$\text{Bytes} = \frac{49,766,400}{8} = 6,220,800 \text{ bytes} \approx 5.93 \text{ MB}$$
+
+For an indexed color display ($1024 \times 768$ with 8 bpp):
+$$\text{Bytes} = \frac{1024 \times 768 \times 8}{8} = 786,432 \text{ bytes} = 768 \text{ KB}$$
+The 8-bit pixel values serve as indices into a Color Look-Up Table (LUT), allowing $2^8 = 256$ simultaneous colors chosen from a wider palette (e.g., 24-bit colors).
+
+---
+
+## 6.5 2D Transformations & Clipping
+
+### 1. Homogeneous Coordinates & Affine Matrices
+
+To combine translations with rotations and scaling into unified matrix multiplications, 2D coordinates $(x, y)$ are expressed in 3D projective space as homogeneous coordinates $[x, y, 1]^T$.
+
+$$\begin{bmatrix} x' \\ y' \\ 1 \end{bmatrix} = \mathbf{M} \begin{bmatrix} x \\ y \\ 1 \end{bmatrix}$$
+
+Standard Transformation Matrices:
+
+- **Translation by $(t_x, t_y)$:**
+  $$\mathbf{T}(t_x, t_y) = \begin{bmatrix} 1 & 0 & t_x \\ 0 & 1 & t_y \\ 0 & 0 & 1 \end{bmatrix}$$
+- **Scaling by $(s_x, s_y)$ relative to origin:**
+  $$\mathbf{S}(s_x, s_y) = \begin{bmatrix} s_x & 0 & 0 \\ 0 & s_y & 0 \\ 0 & 0 & 1 \end{bmatrix}$$
+- **Rotation by angle $\theta$ (counterclockwise) around origin:**
+  $$\mathbf{R}(\theta) = \begin{bmatrix} \cos\theta & -\sin\theta & 0 \\ \sin\theta & \cos\theta & 0 \\ 0 & 0 & 1 \end{bmatrix}$$
+- **Shear along X-axis ($sh_x$) and Y-axis ($sh_y$):**
+  $$\mathbf{SH}_x(sh_x) = \begin{bmatrix} 1 & sh_x & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix}, \quad \mathbf{SH}_y(sh_y) = \begin{bmatrix} 1 & 0 & 0 \\ sh_y & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix}$$
+  *Area Invariance:* $\det(\mathbf{SH}_x) = 1 \cdot 1 - 0 = 1$. A shear transformation **preserves area**, but **does not preserve angles or distances**.
+
+### 2. Worked Derivation: Rotation Around an Arbitrary Pivot Point
+
+To rotate a point $(x, y)$ about an arbitrary pivot point $(x_r, y_r)$ by an angle $\theta$:
+1. Translate the pivot point to the origin: $\mathbf{T}(-x_r, -y_r)$
+2. Perform rotation about origin: $\mathbf{R}(\theta)$
+3. Translate origin back to the pivot point: $\mathbf{T}(x_r, y_r)$
+
+The composite transformation matrix is multiplied in right-to-left application order:
+$$\mathbf{M}_{pivot} = \mathbf{T}(x_r, y_r) \cdot \mathbf{R}(\theta) \cdot \mathbf{T}(-x_r, -y_r)$$
+
+<Figure caption="Composite 2D transformation pipeline for rotating an object about an arbitrary pivot point.">
+  <svg class="qe-diagram" width="370" viewBox="0 0 370 70" role="img" aria-label="Flowchart: Translate (-xr, -yr), then Rotate theta, then Translate back (+xr, +yr)">
+    <rect class="qe-node" x="10" y="15" width="105" height="40" rx="4" />
+    <text x="62" y="34" text-anchor="middle">Translate</text>
+    <text x="62" y="47" text-anchor="middle" class="qe-muted" font-size="11">T(-xr, -yr)</text>
+
+    <path class="qe-edge" d="M115,35 H135" />
+
+    <rect class="qe-node qe-highlight" x="135" y="15" width="100" height="40" rx="4" />
+    <text x="185" y="34" text-anchor="middle">Rotate</text>
+    <text x="185" y="47" text-anchor="middle" class="qe-muted" font-size="11">R(θ)</text>
+
+    <path class="qe-edge" d="M235,35 H255" />
+
+    <rect class="qe-node" x="255" y="15" width="105" height="40" rx="4" />
+    <text x="307" y="34" text-anchor="middle">Translate Back</text>
+    <text x="307" y="47" text-anchor="middle" class="qe-muted" font-size="11">T(+xr, +yr)</text>
+  </svg>
+</Figure>
+
+**Matrix Multiplication Expansion:**
+$$\mathbf{M}_{pivot} = \begin{bmatrix} 1 & 0 & x_r \\ 0 & 1 & y_r \\ 0 & 0 & 1 \end{bmatrix} \begin{bmatrix} \cos\theta & -\sin\theta & 0 \\ \sin\theta & \cos\theta & 0 \\ 0 & 0 & 1 \end{bmatrix} \begin{bmatrix} 1 & 0 & -x_r \\ 0 & 1 & -y_r \\ 0 & 0 & 1 \end{bmatrix}$$
+$$\mathbf{M}_{pivot} = \begin{bmatrix} \cos\theta & -\sin\theta & x_r(1 - \cos\theta) + y_r\sin\theta \\ \sin\theta & \cos\theta & y_r(1 - \cos\theta) - x_r\sin\theta \\ 0 & 0 & 1 \end{bmatrix}$$
+
+**Numerical Trace:** Rotate point $P(5, 3)$ about pivot $(2, 1)$ by $\theta = 90^\circ$ ($\cos 90^\circ = 0, \sin 90^\circ = 1$):
+- $x' = 0 \cdot 5 - 1 \cdot 3 + [2(1 - 0) + 1 \cdot 1] = -3 + [2 + 1] = 0$
+- $y' = 1 \cdot 5 + 0 \cdot 3 + [1(1 - 0) - 2 \cdot 1] = 5 + [1 - 2] = 4$
+The rotated point is $P'(0, 4)$.
+
+### 3. Worked Trace: Cohen-Sutherland Line Clipping
+
+The Cohen-Sutherland algorithm divides 2D space into 9 regions using a rectangular clipping window bounded by $[x_{wmin}, x_{wmax}]$ and $[y_{wmin}, y_{wmax}]$.
+Each endpoint is assigned a 4-bit outcode: **[Top, Bottom, Right, Left]** (TBRL).
+
+- Bit 1 (Top): Set to 1 if $y > y_{wmax}$, else 0.
+- Bit 2 (Bottom): Set to 1 if $y < y_{wmin}$, else 0.
+- Bit 3 (Right): Set to 1 if $x > x_{wmax}$, else 0.
+- Bit 4 (Left): Set to 1 if $x < x_{wmin}$, else 0.
+
+<Figure caption="Cohen-Sutherland 9-region outcode division with clipping window at centre (0000).">
+  <svg class="qe-diagram" width="340" viewBox="0 0 340 220" role="img" aria-label="3x3 grid showing Cohen-Sutherland outcodes: 1001, 1000, 1010 on top; 0001, 0000, 0010 in middle; 0101, 0100, 0110 at bottom.">
+    {/* Window rectangle */}
+    <rect class="qe-node qe-highlight" x="110" y="70" width="120" height="80" rx="3" />
+    <text x="170" y="115" text-anchor="middle" font-weight="700">0000 (Window)</text>
+
+    {/* Dividing boundary lines */}
+    <path class="qe-edge" d="M110,15 V205 M230,15 V205 M20,70 H320 M20,150 H320" stroke-dasharray="4 3" />
+
+    {/* Outcode labels */}
+    <text x="65" y="45" text-anchor="middle" class="qe-muted">1001 (Top-Left)</text>
+    <text x="170" y="45" text-anchor="middle" class="qe-muted">1000 (Top)</text>
+    <text x="275" y="45" text-anchor="middle" class="qe-muted">1010 (Top-Right)</text>
+
+    <text x="65" y="115" text-anchor="middle" class="qe-muted">0001 (Left)</text>
+    <text x="275" y="115" text-anchor="middle" class="qe-muted">0010 (Right)</text>
+
+    <text x="65" y="185" text-anchor="middle" class="qe-muted">0101 (Btm-Left)</text>
+    <text x="170" y="185" text-anchor="middle" class="qe-muted">0100 (Bottom)</text>
+    <text x="275" y="185" text-anchor="middle" class="qe-muted">0110 (Btm-Right)</text>
+  </svg>
+</Figure>
+
+**Algorithmic Decision Rules:**
+1. **Trivial Accept:** $\text{code}_1 = 0000$ and $\text{code}_2 = 0000$ ($\text{code}_1 \mid \text{code}_2 = 0000$). The segment lies completely inside the window.
+2. **Trivial Reject:** $\text{code}_1 \ \& \ \text{code}_2 \ne 0000$. Both endpoints share an outside half-plane; the segment lies completely outside the window.
+3. **Clip & Iterate:** If neither holds, select an endpoint outside the window ($\text{code} \ne 0000$), calculate the intersection with the corresponding window boundary line using line slope $m = \frac{y_2 - y_1}{x_2 - x_1}$, replace the outside point with the intersection point, recompute its outcode, and test again.
+
+**Intersection Formulas:**
+- Top boundary ($y = y_{wmax}$): $x = x_1 + \frac{y_{wmax} - y_1}{m}$
+- Bottom boundary ($y = y_{wmin}$): $x = x_1 + \frac{y_{wmin} - y_1}{m}$
+- Right boundary ($x = x_{wmax}$): $y = y_1 + m(x_{wmax} - x_1)$
+- Left boundary ($x = x_{wmin}$): $y = y_1 + m(x_{wmin} - x_1)$
+
+**Boundary cases:** The slope formulas assume a nonvertical line. For a vertical segment, keep x constant and intersect top/bottom boundaries directly; reject if that x lies outside the window. For a horizontal segment, keep y constant and intersect left/right boundaries; reject if that y lies outside. Handle a zero-length segment by testing the point. Equivalently use the parametric form `P(t) = P1 + t(P2 − P1)`, choosing the coordinate with a nonzero difference when computing an intersection.
+
+**Numerical Trace:**
+Let clipping window be: $x_{wmin} = 10, x_{wmax} = 60, y_{wmin} = 10, y_{wmax} = 60$.
+Line segment endpoints: $P_1(0, 20)$ and $P_2(80, 50)$.
+
+- Slope $m = \frac{50 - 20}{80 - 0} = \frac{30}{80} = 0.375$.
+- Compute outcodes:
+  - $P_1(0, 20)$: $x < 10 \implies L=1$; all other bits 0. $\text{Code}_1 = 0001$.
+  - $P_2(80, 50)$: $x > 60 \implies R=1$; all other bits 0. $\text{Code}_2 = 0010$.
+- Test rules:
+  - $\text{Code}_1 \mid \text{Code}_2 = 0011 \ne 0000$ (Not trivial accept).
+  - $\text{Code}_1 \ \& \ \text{Code}_2 = 0001 \ \& \ 0010 = 0000$ (Not trivial reject).
+- Clip $P_1$ (Left bit is 1, so intersect with $x = x_{wmin} = 10$):
+  $$y = y_1 + m(x_{wmin} - x_1) = 20 + 0.375(10 - 0) = 20 + 3.75 = 23.75$$
+  New endpoint $P_1'(10, 23.75)$. Its outcode is $0000$.
+- Now line is $P_1'(10, 23.75)$ to $P_2(80, 50)$.
+  - $\text{Code}_1' = 0000$, $\text{Code}_2 = 0010$.
+  - Neither trivial accept nor reject.
+- Clip $P_2$ (Right bit is 1, so intersect with $x = x_{wmax} = 60$):
+  $$y = y_1 + m(x_{wmax} - x_1) = 20 + 0.375(60 - 0) = 20 + 22.5 = 42.5$$
+  New endpoint $P_2'(60, 42.5)$. Its outcode is $0000$.
+- Final test: $\text{Code}_1' \mid \text{Code}_2' = 0000 \mid 0000 = 0000 \implies$ **Trivial Accept**. Clipped segment is from $(10, 23.75)$ to $(60, 42.5)$.
+
+---
+
+## 6.6 3D Transformations & Projections
+
+### 1. 3D Homogeneous Coordinates ($4 \times 4$)
+
+3D points $[x, y, z, 1]^T$ use $4 \times 4$ matrices.
+Rotation about coordinate axes (right-hand rule, positive angle rotates counterclockwise when looking down the axis toward the origin):
+
+$$\mathbf{R}_z(\theta) = \begin{bmatrix} \cos\theta & -\sin\theta & 0 & 0 \\ \sin\theta & \cos\theta & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 1 \end{bmatrix}, \quad \mathbf{R}_x(\theta) = \begin{bmatrix} 1 & 0 & 0 & 0 \\ 0 & \cos\theta & -\sin\theta & 0 \\ 0 & \sin\theta & \cos\theta & 0 \\ 0 & 0 & 0 & 1 \end{bmatrix}$$
+$$\mathbf{R}_y(\theta) = \begin{bmatrix} \cos\theta & 0 & \sin\theta & 0 \\ 0 & 1 & 0 & 0 \\ -\sin\theta & 0 & \cos\theta & 0 \\ 0 & 0 & 0 & 1 \end{bmatrix}$$
+*(Note the sign placement in $\mathbf{R}_y$: $\sin\theta$ is positive in row 1, negative in row 3).*
+
+### 2. Projections: Parallel vs Perspective
+
+- **Parallel Projections:** Projectors are parallel to each other.
+  - **Orthographic:** Projectors are perpendicular to the projection plane. Includes multiview orthographic (front, top, side elevation) and axonometric.
+    - *Isometric Projection:* Projection plane makes equal angles with all three coordinate axes ($\approx 35.26^\circ$). Foreshortening factor is identical on all three axes ($\approx 0.816$).
+    - *Dimetric:* Foreshortening is equal on two axes; different on the third.
+    - *Trimetric:* Foreshortening is different on all three axes.
+  - **Oblique:** Projectors are NOT perpendicular to the projection plane.
+    - *Cavalier Projection:* Projector angle is $45^\circ$. Lines perpendicular to the view plane are displayed at full scale ($1:1$, foreshortening factor = 1).
+    - *Cabinet Projection:* Projector angle is $\approx 63.4^\circ$ ($\arctan 2$). Lines perpendicular to the view plane are foreshortened by half ($1:2$, factor = 0.5) for a more realistic appearance.
+
+- **Perspective Projections:** Projectors converge at a single point called the Center of Projection (COP).
+  - Parallel lines not parallel to the projection plane converge at a **vanishing point**.
+  - Number of principal vanishing points corresponds to the number of principal axes intersected by the projection plane (1-point, 2-point, 3-point perspective).
+  - **Derivation of Perspective Coordinates:**
+    Let the projection plane be at $z = d$, and COP be at the origin $(0, 0, 0)$. By similar triangles:
+    $$\frac{x_p}{d} = \frac{x}{z} \implies x_p = \frac{x}{z/d}, \quad \frac{y_p}{d} = \frac{y}{z} \implies y_p = \frac{y}{z/d}$$
+    In $4 \times 4$ homogeneous matrix form:
+    $$\mathbf{M}_{persp} = \begin{bmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 1/d & 0 \end{bmatrix} \begin{bmatrix} x \\ y \\ z \\ 1 \end{bmatrix} = \begin{bmatrix} x \\ y \\ z \\ z/d \end{bmatrix}$$
+    Dividing by the homogeneous coordinate $w = z/d$ yields Cartesian projection coordinates: $[x/(z/d), y/(z/d), d]^T$. As $z$ increases (object is farther), $w$ increases, and projected coordinates shrink—the geometric foundation of perspective foreshortening.
+
+---
+
+## Traps & Exam Misconceptions
+
+1. **NFA vs DFA expressive power:** An NFA does NOT recognize any language that a DFA cannot recognize. Both recognize the exact class of regular languages. The only difference is state succinctness: an $n$-state NFA may require up to $2^n$ states when converted to a DFA.
+2. **Context-Free closure properties:** CFLs are closed under union, concatenation, and Kleene star ($L_1 \cup L_2, L_1 L_2, L^*$). They are **not** closed under intersection or complement! (The intersection of two CFLs is not necessarily context-free; e.g., $\{a^n b^n c^m\} \cap \{a^m b^n c^n\} = \{a^n b^n c^n\}$, which is context-sensitive).
+3. **Pumping Lemma direction:** The pumping lemma is a necessary property of regular languages, not a sufficient one. You cannot prove a language is regular by showing it satisfies the pumping condition.
+4. **Shear area preservation:** Shearing shifts points proportional to their perpendicular distance from an axis. It distorts angles and line lengths, but its determinant is identically $1$, meaning **area is strictly preserved**.
+5. **Cohen-Sutherland bitwise logic:**
+   - Trivial accept: $\text{code}_1 \mid \text{code}_2 = 0000$ (bitwise OR is zero).
+   - Trivial reject: $\text{code}_1 \ \& \ \text{code}_2 \ne 0000$ (bitwise AND is non-zero). A bitwise OR $\ne 0000$ does NOT reject the line; it merely indicates that clipping is required.
+
+---
+
+## Original Practice Questions (Not Official Past Questions)
+
+*The following questions are original practice items created to test analytical comprehension of section topics. They are not actual past exam questions.*
+
+1. **An $\varepsilon$-NFA has 4 states. What is the theoretical maximum number of states in its equivalent minimal DFA?**
+   - (a) 4
+   - (b) 8
+   - (c) 16
+   - (d) 64
+   *Answer:* **(c)**. By subset construction, a power set of 4 states contains $2^4 = 16$ possible subset configurations. While unreachable states can be pruned and states minimized, the theoretical upper bound on states is $2^n = 16$.
+
+2. **Which of the following grammar rules violates Chomsky Normal Form (CNF)?**
+   - (a) $A \to BC$
+   - (b) $A \to a$
+   - (c) $S \to \varepsilon$ (where $S$ is start symbol, not on RHS)
+   - (d) $A \to aB$
+   *Answer:* **(d)**. In CNF, right-hand sides must consist of either exactly two non-terminals ($BC$) or exactly one terminal ($a$). The form $A \to aB$ has a terminal followed by a non-terminal, which is characteristic of regular/right-linear grammars or GNF, not CNF.
+
+3. **In the Chomsky Hierarchy, what machine recognizes context-sensitive languages?**
+   - (a) Finite State Automaton
+   - (b) Pushdown Automaton
+   - (c) Linear Bounded Automaton
+   - (d) Unrestricted Turing Machine
+   *Answer:* **(c)**. Type 1 context-sensitive languages are recognized by Linear Bounded Automata (a non-deterministic TM whose tape head cannot move beyond the portion of tape holding the input string).
+
+4. **A CRT monitor displays $1280 \times 1024$ pixels at 60 Hz progressive scan. If each pixel requires 16 bits of color depth, what is the minimum required bandwidth of the display controller RAMDAC?**
+   - (a) 15.72 MHz
+   - (b) 78.64 MHz
+   - (c) 157.28 MHz
+   - (d) 629.14 MHz
+   *Answer:* **(b)**. Pixel clock rate $= \text{Pixels per frame} \times \text{Refresh rate} = (1280 \times 1024) \times 60 = 1,310,720 \times 60 = 78,643,200 \text{ pixels/second} \approx 78.64 \text{ MHz}$.
+
+5. **In the Cohen-Sutherland line clipping algorithm, two endpoints have outcodes $C_1 = 1000$ and $C_2 = 0100$. The line segment:**
+   - (a) Is completely inside the window
+   - (b) Is trivially rejected
+   - (c) Must be clipped against window boundaries
+   - (d) Is parallel to the viewing window
+   *Answer:* **(c)**. Bitwise OR $1000 \mid 0100 = 1100 \ne 0000$ (not trivial accept). Bitwise AND $1000 \ \& \ 0100 = 0000$ (not trivial reject). Therefore, the segment must be clipped against the boundaries.
+
+6. **What is the determinant of a 2D shear matrix $\mathbf{SH}_x(2)$?**
+   - (a) 0
+   - (b) 1
+   - (c) 2
+   - (d) -1
+   *Answer:* **(b)**. The shear matrix is $\begin{bmatrix} 1 & 2 \\ 0 & 1 \end{bmatrix}$. Its determinant is $(1)(1) - (2)(0) = 1$. The determinant represents the area scaling factor, confirming that 2D shearing preserves area.
+
+7. **In Cabinet oblique projection, what is the foreshortening factor along the receding axis?**
+   - (a) 1.0
+   - (b) 0.5
+   - (c) 0.707
+   - (d) 0.333
+   *Answer:* **(b)**. Cavalier projection uses full scale ($1.0$, angle $45^\circ$). Cabinet projection uses half scale ($0.5$, angle $\approx 63.4^\circ$) to render a more natural visual depth.
+
+8. **Which operation is NOT commutative in 2D transformations?**
+   - (a) Two successive uniform scalings
+   - (b) Two successive translations
+   - (c) Two successive rotations about the origin
+   - (d) A translation followed by a rotation
+   *Answer:* **(d)**. Translations commute with translations ($T_1 T_2 = T_2 T_1$) and rotations commute with rotations about the same origin ($R_1 R_2 = R_2 R_1$). However, translation and rotation do not commute: $\mathbf{T} \mathbf{R} \ne \mathbf{R} \mathbf{T}$. With column vectors, translating then rotating gives R(Tp) = Rp + Rt; rotating then translating gives T(Rp) = Rp + t. The first order rotates the translation vector; the second adds it in the original coordinate frame.
+
+9. **Which decision problem is decidable for Context-Free Grammars?**
+   - (a) Grammar Equivalence ($L(G_1) = L(G_2)$)
+   - (b) Grammar Ambiguity (is $G$ ambiguous?)
+   - (c) Emptiness ($L(G) = \emptyset$)
+   - (d) Universality ($L(G) = \Sigma^*$)
+   *Answer:* **(c)**. Emptiness ($L(G) = \emptyset$) and Finiteness are decidable for CFGs by analyzing reachable and productive non-terminals. Equivalence, Ambiguity, and Universality are all undecidable for CFGs.
+
+10. **A point $P(4, 2)$ in 2D is transformed by rotating $90^\circ$ counterclockwise about the origin, followed by translation by $(3, -2)$. The final coordinate is:**
+    - (a) $(1, 2)$
+    - (b) $(-2, 4)$
+    - (c) $(1, 4)$
+    - (d) $(-1, 2)$
+    *Answer:* **(a)**. Rotation of $(x, y)$ by $90^\circ$ CCW gives $(x', y') = (-y, x) = (-2, 4)$. Subsequent translation by $(3, -2)$ gives $(x'', y'') = (-2 + 3, 4 - 2) = (1, 2)$.
+
+---
+
+## Primary References & Sources
+
+- Sipser, M., *Introduction to the Theory of Computation*, 3rd ed., Cengage Learning.
+- Hopcroft, J. E., Motwani, R., & Ullman, J. D., *Introduction to Automata Theory, Languages, and Computation*, 3rd ed., Pearson.
+- Hearn, D., Baker, M. P., & Carithers, W., *Computer Graphics with OpenGL*, 4th ed., Pearson.
+- Foley, J. D., van Dam, A., Feiner, S. K., & Hughes, J. F., *Computer Graphics: Principles and Practice*, Addison-Wesley.
+- Official Syllabus Reference: [Nepal Engineering Council Computer Engineering Syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf), Section ACtE06.

@@ -1,0 +1,391 @@
+---
+/**
+ * WorkedExamples.astro
+ *
+ * Static, accessible worked examples rendered server-side with zero JS requirements.
+ * Directly leverages the pure math library (subnet-math.ts) to provide exact calculations,
+ * 32-bit AND breakdowns, and bounded split tables.
+ */
+import {
+  WORKED_EXAMPLES,
+  calculateSubnet,
+  splitSubnet,
+} from '../../lib/subnet-math.ts';
+
+const computedExamples = WORKED_EXAMPLES.map((ex) => {
+  const calc = calculateSubnet(ex.inputIp, ex.inputPrefix);
+  const split = ex.borrowedBits ? splitSubnet(ex.inputIp, ex.inputPrefix, ex.borrowedBits, 8) : null;
+  return { ex, calc, split };
+});
+---
+
+<div class="worked-examples not-content">
+  <div class="examples-intro">
+    <p class="examples-desc">
+      Each example below is computed directly at build time using the shared <code>subnet-math.ts</code> pure engine.
+      Expand any example to view the exact bitwise derivation, boundary ranges, host capacity, and PSC examination notes.
+    </p>
+  </div>
+
+  <div class="examples-stack">
+    {computedExamples.map(({ ex, calc, split }, index) => (
+      <details class="example-card" id={`example-${ex.id}`}>
+        <summary class="example-summary">
+          <div class="summary-header">
+            <span class="example-index">Example {index + 1}</span>
+            <span class="example-tag">{ex.syllabusTag}</span>
+          </div>
+          <h3 class="example-title">{ex.title}</h3>
+          <p class="example-prompt">{ex.prompt}</p>
+        </summary>
+
+        <div class="example-body">
+          <!-- Solution Highlights -->
+          <div class="solution-highlight">
+            <h4 class="box-title">Solution Summary</h4>
+            <p>{ex.solutionSummary}</p>
+          </div>
+
+          <!-- Key Metrics -->
+          <div class="metrics-grid">
+            <div class="metric-item">
+              <span class="metric-label">Input CIDR</span>
+              <span class="metric-val"><code>{calc.rawIp}/{calc.prefix}</code></span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Subnet Mask</span>
+              <span class="metric-val"><code>{calc.maskStr}</code></span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Network ID</span>
+              <span class="metric-val"><code>{calc.networkStr}</code></span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Directed Broadcast</span>
+              <span class="metric-val"><code>{calc.broadcastStr}</code></span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Usable Host Range</span>
+              <span class="metric-val"><code>{calc.hostRangeStr}</code></span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Usable Hosts</span>
+              <span class="metric-val">{calc.usableHosts.toLocaleString()}</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Block Size</span>
+              <span class="metric-val">{calc.blockSize} (Octet {calc.interestingOctet})</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Class &amp; Scope</span>
+              <span class="metric-val">{calc.addressClass}{calc.isPrivate ? ' · Private' : ''}</span>
+            </div>
+          </div>
+
+          <!-- Step-by-Step AND Table -->
+          <div class="and-table-wrapper">
+            <h4 class="box-title">Bitwise AND Octet Breakdown</h4>
+            <div class="table-scroll" tabindex="0" role="region" aria-label={`Bitwise AND octet breakdown for ${ex.title}`}>
+              <table class="static-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Octet</th>
+                    <th scope="col">IP Octet</th>
+                    <th scope="col">Mask Octet</th>
+                    <th scope="col">Network Octet</th>
+                    <th scope="col">8-Bit Binary AND Operation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {calc.andSteps.map((s) => (
+                    <tr>
+                      <td>Octet {s.octetIndex}</td>
+                      <td><code>{s.ipDecimal}</code></td>
+                      <td><code>{s.maskDecimal}</code></td>
+                      <td><strong><code>{s.networkDecimal}</code></strong></td>
+                      <td>
+                        <span class="mono-step">{s.ipBinary} &amp; {s.maskBinary} = <strong>{s.networkBinary}</strong></span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Subnet Split Table (if applicable) -->
+          {split ? (
+            <div class="split-table-wrapper">
+              <h4 class="box-title">
+                Subnet Allocation Table (Borrow {split.borrowedBits} Bits → {split.totalSubnets} Subnets of /{split.childPrefix})
+              </h4>
+              <div class="table-scroll" tabindex="0" role="region" aria-label={`Subnet allocation table for ${ex.title}`}>
+                <table class="static-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col">Subnet Network</th>
+                      <th scope="col">First Usable</th>
+                      <th scope="col">Last Usable</th>
+                      <th scope="col">Broadcast</th>
+                      <th scope="col">Usable Hosts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {split.rows.map((r) => (
+                      <tr class={r.containsInputIp ? 'active-host-row' : ''}>
+                        <td>{r.index}</td>
+                        <td>
+                          <code>{r.cidrStr}</code>
+                          {r.containsInputIp ? <span class="host-badge">Holds Host</span> : null}
+                        </td>
+                        <td><code>{r.firstUsableStr}</code></td>
+                        <td><code>{r.lastUsableStr}</code></td>
+                        <td><code>{r.broadcastStr}</code></td>
+                        <td>{r.usableHosts.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {split.isTruncated ? (
+                <p class="truncation-note">Showing first {split.displayedSubnets} of {split.totalSubnets} subnets.</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <!-- Detailed Examination Rationale -->
+          <div class="rationale-box">
+            <h4 class="box-title">Examination Rationale &amp; Engineering Insight</h4>
+            <p>{ex.rationale}</p>
+          </div>
+        </div>
+      </details>
+    ))}
+  </div>
+</div>
+
+<style>
+  .worked-examples {
+    margin-block: 2rem;
+    font-family: var(--sl-font);
+    color: var(--sl-color-gray-1);
+    --we-border: var(--sl-color-gray-5);
+  }
+
+  .examples-intro {
+    margin-bottom: 1.5rem;
+  }
+
+  .examples-desc {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--sl-color-gray-2);
+  }
+
+  .examples-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .example-card {
+    border: 1px solid var(--we-border);
+    border-radius: 0.8rem;
+    background: var(--sl-color-black);
+    overflow: hidden;
+  }
+
+  .example-card[open] {
+    border-color: var(--sl-color-accent);
+  }
+
+  .example-summary {
+    padding: 1.1rem 1.4rem;
+    cursor: pointer;
+    background: var(--sl-color-gray-6);
+    user-select: none;
+    transition: background 0.15s ease;
+  }
+
+  .example-summary:hover {
+    background: color-mix(in srgb, var(--sl-color-accent-low) 25%, var(--sl-color-gray-6));
+  }
+
+  .summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .example-index {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sl-color-accent-high);
+    text-transform: uppercase;
+  }
+
+  .example-tag {
+    font-size: 0.72rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--we-border);
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-2);
+  }
+
+  .example-title {
+    margin: 0.2rem 0 0.5rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    line-height: 1.35;
+  }
+
+  .example-prompt {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-2);
+  }
+
+  .example-body {
+    padding: 1.2rem 1.4rem;
+    border-top: 1px solid var(--we-border);
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .box-title {
+    margin: 0 0 0.6rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .solution-highlight {
+    background: color-mix(in srgb, var(--sl-color-accent-low) 30%, transparent);
+    border-inline-start: 4px solid var(--sl-color-accent);
+    padding: 0.85rem 1.1rem;
+    border-radius: 0 0.5rem 0.5rem 0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--sl-color-white);
+  }
+
+  .solution-highlight p {
+    margin: 0;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.6rem;
+  }
+
+  .metric-item {
+    border: 1px solid var(--we-border);
+    background: var(--sl-color-gray-6);
+    border-radius: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .metric-label {
+    font-size: 0.72rem;
+    color: var(--sl-color-gray-3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .metric-val {
+    font-family: var(--sl-font-mono);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--we-border);
+    border-radius: 0.5rem;
+  }
+
+  .static-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    white-space: nowrap;
+  }
+
+  .static-table th, .static-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--we-border);
+    text-align: left;
+  }
+
+  .static-table th {
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font);
+    font-weight: 600;
+  }
+
+  .static-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .static-table code {
+    font-family: var(--sl-font-mono);
+    color: var(--sl-color-white);
+  }
+
+  .mono-step {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-2);
+  }
+
+  .active-host-row td {
+    background: color-mix(in srgb, var(--sl-color-accent-low) 30%, transparent);
+  }
+
+  .host-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    margin-left: 0.4rem;
+  }
+
+  .truncation-note {
+    font-size: 0.78rem;
+    color: var(--sl-color-gray-3);
+    margin-top: 0.4rem;
+  }
+
+  .rationale-box {
+    background: var(--sl-color-gray-6);
+    border: 1px solid var(--we-border);
+    border-radius: 0.5rem;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--sl-color-gray-1);
+  }
+
+  .rationale-box p {
+    margin: 0;
+  }
+</style>

@@ -1,0 +1,365 @@
+---
+title: CO non-overlap and practical
+description: What the Computer Officer exam needs beyond NEC prep — official unit weights and coverage, the practical test (format and fully worked drills from PSC's own samples), OS administration, hands-on SQL, computer fundamentals, JAD in PSC's wording, Java, e-commerce, MIS, IT in Nepal, and the group discussion.
+sidebar:
+  label: CO non-overlap and practical
+  order: 4
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Goal:** prepare the listed CO-specific additions (36% of Paper I Part II by their published unit weights), while checking any partial NEC overlap, and pass the practical test, which is a gate: fail it and you are not on the final list.
+
+<Aside type="note" title="Where this scores for you">
+**Official (CO syllabus):** Paper I Part II unit weights (all 12 printed, total 100%); Paper II 10 × 10 in Sections A 30, B 20, C 20, D 30; **practical 50 marks, pass 25, 1 h 30 min, 5 questions × 10: Operating Systems 1, DBMS 2, Programming 1, Networking 1**. Only candidates who pass the practical are placed on the final merit list. The drills below are worked from **PSC's own sample questions** printed in the syllabus.
+</Aside>
+
+## Where the Computer Officer marks are
+
+<Figure caption="Computer Officer Paper I Part II weights (official), marked by how much NEC prep already covers. Solid = covered, tinted = partial, dashed = not in NEC. Weights also guide Paper II revision, though Paper II marks go by section.">
+<svg viewBox="0 0 720 360" role="img" aria-label="Horizontal bar chart of the 12 Computer Officer units by weight. Covered by NEC: data structures 8, operating systems 10, DBMS 14, programming 8, networking 10, architecture 4. Partial: system analysis and design 10. Not in NEC: computer fundamentals 10, compiler design 2, e-commerce 4, MIS and web engineering 10, IT in Nepal 10. Total covered 54 percent, partial 10, new 36." style="width:100%;height:auto;font-family:var(--sl-font);font-size:12px">
+  <text x="236" y="22" style="fill:var(--sl-color-gray-2)">weight in Paper I Part II (%) · coverage by NEC prep</text>
+  <text x="226" y="51" text-anchor="end" style="fill:var(--sl-color-white)">1 Computer fundamentals</text>
+  <rect x="236" y="38" width="280" height="18" rx="3" style="fill:none;stroke:var(--sl-color-gray-3);stroke-dasharray:4 3" />
+  <text x="524" y="51" style="fill:var(--sl-color-gray-2)">10% · New</text>
+  <text x="226" y="77" text-anchor="end" style="fill:var(--sl-color-white)">2 Data structures and algorithms</text>
+  <rect x="236" y="64" width="224" height="18" rx="3" style="fill:var(--sl-color-accent)" />
+  <text x="468" y="77" style="fill:var(--sl-color-gray-2)">8% · Covered</text>
+  <text x="226" y="103" text-anchor="end" style="fill:var(--sl-color-white)">3 System analysis and design</text>
+  <rect x="236" y="90" width="280" height="18" rx="3" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <text x="524" y="103" style="fill:var(--sl-color-gray-2)">10% · Partial</text>
+  <text x="226" y="129" text-anchor="end" style="fill:var(--sl-color-white)">4 Operating systems</text>
+  <rect x="236" y="116" width="280" height="18" rx="3" style="fill:var(--sl-color-accent)" />
+  <text x="524" y="129" style="fill:var(--sl-color-gray-2)">10% · Covered (+ admin)</text>
+  <text x="226" y="155" text-anchor="end" style="fill:var(--sl-color-white)">5 DBMS and design</text>
+  <rect x="236" y="142" width="392" height="18" rx="3" style="fill:var(--sl-color-accent)" />
+  <text x="636" y="155" style="fill:var(--sl-color-gray-2)">14% · Covered</text>
+  <text x="226" y="181" text-anchor="end" style="fill:var(--sl-color-white)">6 Programming language</text>
+  <rect x="236" y="168" width="224" height="18" rx="3" style="fill:var(--sl-color-accent)" />
+  <text x="468" y="181" style="fill:var(--sl-color-gray-2)">8% · Covered (+ Java)</text>
+  <text x="226" y="207" text-anchor="end" style="fill:var(--sl-color-white)">7 Networking</text>
+  <rect x="236" y="194" width="280" height="18" rx="3" style="fill:var(--sl-color-accent)" />
+  <text x="524" y="207" style="fill:var(--sl-color-gray-2)">10% · Covered</text>
+  <text x="226" y="233" text-anchor="end" style="fill:var(--sl-color-white)">8 Architecture and organisation</text>
+  <rect x="236" y="220" width="112" height="18" rx="3" style="fill:var(--sl-color-accent)" />
+  <text x="356" y="233" style="fill:var(--sl-color-gray-2)">4% · Covered</text>
+  <text x="226" y="259" text-anchor="end" style="fill:var(--sl-color-white)">9 Compiler design</text>
+  <rect x="236" y="246" width="56" height="18" rx="3" style="fill:none;stroke:var(--sl-color-gray-3);stroke-dasharray:4 3" />
+  <text x="300" y="259" style="fill:var(--sl-color-gray-2)">2% · New (CE gap page)</text>
+  <text x="226" y="285" text-anchor="end" style="fill:var(--sl-color-white)">10 E-commerce technology</text>
+  <rect x="236" y="272" width="112" height="18" rx="3" style="fill:none;stroke:var(--sl-color-gray-3);stroke-dasharray:4 3" />
+  <text x="356" y="285" style="fill:var(--sl-color-gray-2)">4% · New</text>
+  <text x="226" y="311" text-anchor="end" style="fill:var(--sl-color-white)">11 MIS and web engineering</text>
+  <rect x="236" y="298" width="280" height="18" rx="3" style="fill:none;stroke:var(--sl-color-gray-3);stroke-dasharray:4 3" />
+  <text x="524" y="311" style="fill:var(--sl-color-gray-2)">10% · New</text>
+  <text x="226" y="337" text-anchor="end" style="fill:var(--sl-color-white)">12 IT in Nepal</text>
+  <rect x="236" y="324" width="280" height="18" rx="3" style="fill:none;stroke:var(--sl-color-gray-3);stroke-dasharray:4 3" />
+  <text x="524" y="337" style="fill:var(--sl-color-gray-2)">10% · New</text>
+</svg>
+</Figure>
+
+**Totals:** covered 54%, partial 10%, new 36%. With 50 questions in Part II, the official weights work out to roughly 5 questions each for fundamentals, SAD, OS, networking, MIS and IT in Nepal; 7 for DBMS; 4 each for DSA and programming; 2 each for architecture and e-commerce; and 1 for compiler. PSC does not say how it rounds the weights into question counts.
+
+## Practical drills from the official samples
+
+**Format (official):** 1 h 30 min, 5 questions × 10 marks: **OS 1, DBMS 2, programming 1, networking 1**. That is 18 minutes per question, at a computer. PSC does not say which software is installed. Practise on both Windows and Linux, in C, C++ and Java, and with a mainstream SQL database (MySQL/MariaDB or PostgreSQL, plus SQLite for quick checks). On the day, check the versions before you start.
+
+<Aside type="tip" title="How a practical is marked, as far as you can control it">
+The examiner sees your screen or your saved files. Name files clearly (`q3_pyramid.cpp`), put a one-line comment at the top with the question number, and keep a screenshot or copy of the output in the same folder. A program that compiles and prints the right output beats a clever one that doesn't.
+</Aside>
+
+### P1 Networking (Official sample): IP addresses, restricted share, local or remote
+
+*"Get IP address from given computers which are on a network. (a) Give privileged share only to database administration. (b) Determine if the following addresses are on the local or a remote network: Node 1 192.255.16.8, Node 2 192.225.14.8, mask 255.255.255.0."*
+
+**Get the IP address:**
+
+```text
+Windows:  ipconfig            (ipconfig /all also shows MAC, DHCP server, DNS)
+Linux:    ip addr show        (older: ifconfig)   ·   hostname -I
+Remote:   ping <host>  then  arp -a   (IP-to-MAC of hosts you just reached)
+```
+
+**(a) Share a folder with the DB administrators only.** Windows, from an administrator prompt:
+
+```text
+net localgroup DBAdmins /add
+net localgroup DBAdmins ram /add
+mkdir D:\DBData
+net share DBData=D:\DBData /GRANT:DBAdmins,FULL
+icacls D:\DBData /inheritance:r /grant DBAdmins:(OI)(CI)F /grant Administrators:(OI)(CI)F
+```
+
+Explain in two lines: share permissions and NTFS permissions both apply, and the **more restrictive** of the two wins. Removing inheritance takes away the default `Users` access. The GUI route is Properties → Sharing → Advanced Sharing → Permissions, then the Security tab.
+
+Linux equivalent:
+
+```bash
+sudo groupadd dbadmins
+sudo usermod -aG dbadmins ram
+sudo mkdir -p /srv/dbdata
+sudo chown root:dbadmins /srv/dbdata
+sudo chmod 2770 /srv/dbdata      # rwx for owner and group, nothing for others; setgid keeps group on new files
+```
+
+For network access via Samba, add `valid users = @dbadmins` to the share in `smb.conf`.
+
+**(b) Local or remote:** AND each address with the mask.
+
+| | Address | AND 255.255.255.0 |
+| --- | --- | --- |
+| Node 1 | 192.255.16.8 | **192.255.16.0** |
+| Node 2 | 192.225.14.8 | **192.225.14.0** |
+
+The network IDs differ, so the nodes are on **different networks (remote)**, and traffic between them must go through a router (the default gateway). Checked with Python's `ipaddress` module.
+
+### P2 DBMS (Official sample): create, insert, delete
+
+*"Create tables Student(Sid, Sname, subject, level), Teacher(Tid, Tname, subject), Course(Cid, Cnumber, Tname, level). (a) Insert 10 values. (b) Delete the first two values."*
+
+```sql
+CREATE TABLE Student (
+  Sid     INT PRIMARY KEY,
+  Sname   VARCHAR(50) NOT NULL,
+  subject VARCHAR(40),
+  level   VARCHAR(20)
+);
+CREATE TABLE Teacher (
+  Tid     INT PRIMARY KEY,
+  Tname   VARCHAR(50) NOT NULL,
+  subject VARCHAR(40)
+);
+CREATE TABLE Course (
+  Cid     INT PRIMARY KEY,
+  Cnumber VARCHAR(10) UNIQUE,
+  Tname   VARCHAR(50),
+  level   VARCHAR(20)
+);
+
+INSERT INTO Student (Sid, Sname, subject, level) VALUES
+ (1,'Asha','DBMS','Bachelor'), (2,'Bikash','OS','Bachelor'), (3,'Chandra','Networks','Master'),
+ (4,'Dipa','DBMS','Bachelor'), (5,'Era','AI','Master'),       (6,'Gopal','OS','Bachelor'),
+ (7,'Hari','DSA','Bachelor'),  (8,'Isha','Networks','Master'), (9,'Jeevan','DBMS','Bachelor'),
+ (10,'Kamala','AI','Master');
+
+-- "First two": rows have no inherent order in SQL, so define it explicitly (here: lowest Sid)
+DELETE FROM Student WHERE Sid IN (1, 2);
+-- general form (PostgreSQL/SQLite; MySQL needs a derived table or DELETE ... ORDER BY Sid LIMIT 2):
+-- DELETE FROM Student WHERE Sid IN (SELECT Sid FROM Student ORDER BY Sid LIMIT 2);
+
+SELECT * FROM Student;   -- show the examiner: 8 rows remain, Sid 3..10
+```
+
+The comment on "first two" is the mark-earning insight: **a relation is an unordered set**, so "first" must mean something you can state, such as the lowest key or the earliest insertion timestamp. Checked in SQLite: 8 rows remain, and the smallest Sid is 3. Do the same for Teacher and Course if time allows; the examiner asked for all three tables.
+
+The second DBMS question is likely to test what the syllabus lists for unit 5. Drill these until they're automatic:
+
+| Unit 5 item | Drill |
+| --- | --- |
+| 5.4 Restricting and sorting | `WHERE level = 'Master' AND subject LIKE 'N%' ORDER BY Sname DESC` |
+| 5.5 Single-row functions | `UPPER(Sname)`, `SUBSTR(Sname,1,3)`, `LENGTH`, `ROUND(cost,1)`, `COALESCE(x,0)`, date functions per DBMS |
+| 5.6 Multiple tables | inner join, `LEFT JOIN` to find students with no course, self-join |
+| 5.7 Group functions | `SELECT subject, COUNT(*) FROM Student GROUP BY subject HAVING COUNT(*) > 1` |
+| 5.8 Subqueries, DML, DDL | `WHERE Sid IN (SELECT …)`, correlated `EXISTS`, `UPDATE … SET`, `ALTER TABLE … ADD`, `DROP` |
+| 5.9 Views and access | `CREATE VIEW MasterStudents AS …`, `GRANT SELECT ON MasterStudents TO clerk`, `REVOKE` |
+| 5.10 Set operators | `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`/`MINUS` |
+
+### P3 Programming (Official sample): the digit pyramid in C++
+
+*"Given String S("123456789"), write a C++ program that displays 1 / 232 / 34543 / 4567654 / 567898765."*
+
+**Spot the pattern before coding.** Row i (from 0) rises from `s[i]` to `s[2i]`, then falls back to `s[i]`, and is indented by (4 − i) spaces.
+
+```cpp
+#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+    string s = "123456789";
+    int rows = 5;
+    for (int i = 0; i < rows; i++) {
+        cout << string(rows - 1 - i, ' ');
+        for (int j = i; j <= 2 * i; j++) cout << s[j];       // rising part: s[i] .. s[2i]
+        for (int j = 2 * i - 1; j >= i; j--) cout << s[j];   // falling part: s[2i-1] .. s[i]
+        cout << '\n';
+    }
+    return 0;
+}
+```
+
+Output (compiled with g++ and run):
+
+```text
+    1
+   232
+  34543
+ 4567654
+567898765
+```
+
+### S3 and S4 (Official subjective samples): Java do-while table, C two columns
+
+```java
+public class Tables {
+    public static void main(String[] args) {
+        System.out.println("Multiple Tables");
+        int i = 1;
+        do {
+            int j = 1;
+            do {
+                System.out.print(i * j + "\t");
+                j++;
+            } while (j <= 3);
+            System.out.println();
+            i++;
+        } while (i <= 3);
+    }
+}
+```
+
+```c
+#include <stdio.h>
+
+int main(void) {
+    for (int i = 1; i <= 4; i++)
+        printf("%d\t%d\n", i, i + 1);
+    return 0;
+}
+```
+
+Both were compiled and run: the Java program prints the 3 × 3 table 1 2 3 / 2 4 6 / 3 6 9, and the C program prints 1 2 / 2 3 / 3 4 / 4 5. In a written answer, add one line: **do-while runs its body at least once**, because the condition is tested after the body, unlike `while`.
+
+### The OS practical: what to rehearse
+
+The syllabus OS items 4.6–4.14 are hands-on. One practical question is OS. **Original practice drills** (do each in under 18 minutes):
+
+| Task | Windows | Linux |
+| --- | --- | --- |
+| Create user, add to group | `net user sita P@ss123 /add` · `net localgroup Staff sita /add` | `sudo useradd -m sita` · `sudo passwd sita` · `sudo usermod -aG staff sita` |
+| Set permissions | `icacls file /grant Staff:R` | `chmod 640 file` · `chown sita:staff file` |
+| Disk and partitions | Disk Management · `diskpart` (`list disk`, `create partition primary`, `format fs=ntfs quick`) | `lsblk` · `fdisk -l` / `parted` · `mkfs.ext4 /dev/sdb1` · `mount` · `/etc/fstab` |
+| Processes and monitoring | Task Manager · `tasklist` · `taskkill /PID n /F` · Event Viewer · `perfmon` | `ps aux` · `top` · `kill -9 n` · `journalctl` · `df -h` · `free -h` |
+| Network printing | Add printer by IP (TCP/IP port) · share it · set permissions | CUPS (`localhost:631`), `lpstat -p`, `lp file` |
+| Troubleshooting | Safe Mode · `sfc /scannow` · `chkdsk` · `ipconfig /release /renew` · `ping`, `tracert`, `nslookup` | `systemctl status svc` · `dmesg` · `ping`, `traceroute`, `dig` |
+
+**Know for MCQs (unit 1.9, 4.6):** MS-DOS boots through `IO.SYS`, `MSDOS.SYS` and `COMMAND.COM`. `CONFIG.SYS` loads device drivers and system settings (`DEVICE=`, `FILES=`, `BUFFERS=`); `AUTOEXEC.BAT` runs startup commands (`PATH`, `PROMPT`, `SET`). Internal commands (`DIR`, `COPY`, `DEL`, `CD`) live in COMMAND.COM; external commands (`FORMAT`, `XCOPY`, `CHKDSK`) are separate files. **MBR** allows 4 primary partitions (or 3 primary + 1 extended holding logical drives) and a 2 TiB limit with 512-byte sectors; **GPT** allows 128 partitions by default on Windows and much larger disks.
+
+## Computer fundamentals (unit 1, 10%)
+
+Pure MCQ recall. One evening with flashcards is enough:
+
+| Generation | Technology | Example |
+| --- | --- | --- |
+| First (≈1940–56) | vacuum tubes; machine language | ENIAC, UNIVAC |
+| Second (≈1956–63) | transistors; assembly, early FORTRAN/COBOL | IBM 1401 |
+| Third (≈1964–71) | integrated circuits; OS, multiprogramming | IBM System/360 |
+| Fourth (≈1971–) | microprocessor (VLSI) | Intel 4004 → PCs |
+| Fifth | AI, parallel processing, ULSI | ongoing |
+
+Also know: classification by **size** (super, mainframe, mini, micro) and by **function/type** (analog, digital, hybrid); input/output devices; primary vs secondary storage; **viruses** (boot sector, file infector, macro, polymorphic), **worms** (self-propagating over networks), **Trojans** (disguised); antivirus detection by signature vs heuristic/behaviour; intranet vs extranet vs internet.
+
+## System analysis and design in PSC's wording (unit 3, 10%)
+
+The NEC [SE course](/learning-guide/nec/se/00-start-here/) covers DFD, ER, use case and feasibility. What PSC's CO syllabus adds is its own vocabulary, which MCQs quote word for word.
+
+**System stakeholders (3.1):** **system owners** (sponsor and pay for the system), **system users** (internal and external), **system designers** (translate requirements into technical solutions), **system builders** (construct, test and deliver), and **systems analysts** (facilitate between all of them). These are the categories from Whitten and Bentley's *Systems Analysis and Design Methods*. Variations on the analyst title include business analyst, programmer-analyst and systems consultant.
+
+### JAD in PSC wording
+
+**Joint Application Development** is a structured workshop that brings users, managers and IT staff together for a few intensive sessions, to define requirements (and sometimes design) jointly instead of through a long series of individual interviews.
+
+- **Purpose:** gather and agree requirements fast, reduce misunderstandings, and build ownership.
+- **Philosophy:** decisions are made in the room by the people who own the process, guided by a neutral facilitator.
+- **Scope:** usually one business area or system, with a defined agenda and output document.
+
+| Who (3.3–3.4, official terms) | Role |
+| --- | --- |
+| **Sponsor** | senior manager who commits resources and has final say; opens the session |
+| **Business users** | domain experts who state requirements and make decisions |
+| **System analyst** | observes, models requirements, advises on feasibility |
+| **Project leader** (facilitator) | runs the agenda, keeps the session neutral and on track, resolves conflict |
+| **Record keeper** (scribe) | documents decisions, models and open issues |
+| **Time keeper** | keeps each agenda item to its slot |
+
+**Advantages:** faster, better-quality requirements and user buy-in. **Disadvantages:** costly to take many people away from their jobs; groupthink or dominant voices; needs a skilled facilitator. Compare it with **RAD** (JAD is often its requirements phase) and with interviews and questionnaires.
+
+**Also from unit 3:** feasibility types (technical, operational, economic), with schedule and legal as extras; ER details (weak entities, multivalued and derived attributes, specialisation, generalisation and **aggregation**); object modelling (association, composition, inheritance); state diagrams; documentation of automatic vs manual systems.
+
+## Programming language extras (unit 6)
+
+**Java access modifiers** (also a reported-but-unverified "CO 2083" prompt):
+
+| Modifier | Same class | Same package | Subclass (other package) | Everywhere |
+| --- | --- | --- | --- | --- |
+| `private` | ✓ | | | |
+| *(default, package-private)* | ✓ | ✓ | | |
+| `protected` | ✓ | ✓ | ✓ | |
+| `public` | ✓ | ✓ | ✓ | ✓ |
+
+**Language translators (6.1):** an **assembler** turns assembly into machine code; a **compiler** turns a whole high-level program into object code; an **interpreter** executes line by line; a **linker** combines object files and libraries into an executable; a **loader** places it in memory and starts it. Java is compiled to **bytecode**, run by the **JVM** (a virtual machine, 6.3), and JIT-compiled at run time.
+
+**Language-design issues (6.2):** readability, writability, reliability, cost; static vs dynamic typing; scoping; memory management (manual vs garbage collection).
+
+## E-commerce and MIS (unit 10 and 11)
+
+**E-commerce (4%):**
+- Business models: **B2B, B2C, B2E** (business to employee), **C2C, G2G, G2C**.
+- Payment: cards, e-wallets, net banking, payment gateways; principles of electronic payment are security, non-repudiation, low cost and convenience.
+- **EDI**: standardised business documents exchanged computer to computer (ANSI X12, UN/EDIFACT).
+- **SWIFT**: the interbank messaging network for international transfers.
+- Security: TLS, digital signatures and certificates, PKI, and the payment-card standard PCI DSS.
+- E-governance success models, explained as stages: information (publish) → interaction → transaction → transformation (integrated services).
+
+**MIS and web engineering (10%):**
+- **TPS → MIS → DSS → EIS** as decision levels; **GDSS** for group decisions.
+- **ERP**: integrated modules sharing one database (finance, HR, inventory, sales).
+- **BPR** (business process re-engineering): radical redesign of processes, enabled by IT.
+- **Knowledge management**: tacit vs explicit knowledge, capture → store → share.
+- Data warehouse vs data mining: OLAP vs OLTP, ETL, star schema.
+- CBSE; information privacy and security.
+- Website design basics: HTML/CSS, responsive layout, usability, accessibility.
+
+## IT in Nepal (unit 12, 10%)
+
+<Aside type="caution" title="Use the law as in force three months before your exam">
+The syllabus rule (official note 7) makes the version of each act and policy **in force three months before the exam date** the examinable one. Laws and policies change. Download reference texts now, then re-check them at the exact three-month cut-off for your confirmed exam date. For a March 2027 exam, that cut-off is still in the future on this page’s research date. Obtain texts from the [Nepal Law Commission](https://lawcommission.gov.np/) and the Ministry of Communication and Information Technology, and check for amendments and replacements.
+</Aside>
+
+| Syllabus item | What checked sources say (17 Nov 2026) | Status |
+| --- | --- | --- |
+| 12.3 Electronic Transactions Act | **Electronic Transactions Act, 2063**; the English text on UNODC SHERLOC gives authentication as 22 Mangsir 2063. It covers electronic records, digital signatures and certifying authorities, and computer offences; it is described as Nepal's basic cybercrime law | Verify against the Law Commission text |
+| 12.4 Copyright Act | **Copyright Act, 2059**; WIPO Lex gives authentication 30 Shrawan 2059 (15 Aug 2002). It protects computer programs as works and sets infringement penalties | Verify against the Law Commission text |
+| 12.2 IT policy | **National ICT Policy, 2072** (2015) is hosted on the OPMCM site. **Digital Nepal Framework** (2019; draft 2.0 released 2025) is the umbrella programme. Secondary sites mention a newer IT policy, **not confirmed** | Check for any newer policy before the cut-off |
+| 12.1 History | key milestones: first computer, NITC, early ISPs, the e-government master plan. Take dates only from an official or academic source | Not verified here |
+| 12.6 Nepali Unicode and fonts | Devanagari Unicode block U+0900–U+097F; legacy fonts like Preeti map Latin code points to glyphs, so text breaks across systems (which is why PSC's own syllabus PDFs copy as gibberish); Unicode makes Nepali text searchable and portable | Stable |
+| 12.7 Licensing | proprietary vs open-source licences (GPL copyleft vs permissive MIT/BSD/Apache); EULA; piracy and the Copyright Act | Stable |
+
+## Group discussion (both posts)
+
+**Official format:** 10 marks, 30 minutes, **leaderless group discussion**. Each candidate also gives an **individual presentation** within the set time. A three-member panel marks it: a PSC chair or member, a psychologist and a subject expert. Only one topic is given. The official sample topics are **energy crisis, poverty alleviation, health insurance, food security and brain drain**: national issues, not computing.
+
+**How to use your background:** open with a clear position on the topic itself, then add the ICT angle as your distinctive contribution. For health insurance, that might be digital claim processing and a unique patient ID. For brain drain, remote work and the IT services export policy. For food security, market-price information systems.
+
+**What panels generally look for** (learning aid, not an official rubric): relevant content, listening and building on others, inviting quieter members in, staying calm under disagreement, and a crisp summary. Speak 3–4 times, briefly; never interrupt; don't try to "lead" a leaderless group.
+
+**Original practice topics:** digital literacy for local governments; cybersecurity of public services; social media and misinformation; online education after the pandemic.
+
+## Original practice (CO Paper II style, 10 marks each)
+
+1. Explain the roles in a JAD session using PSC's terms, and compare JAD with traditional interviewing. *(SAD)*
+2. Draw an ER diagram for a library with members, books, copies (weak entity) and loans, then map it to relations. *(SAD/DBMS)*
+3. Write SQL to list each department's number of employees and average salary, showing only departments with more than 5 employees, then create a view of it and grant `SELECT` to a user. *(DBMS)*
+4. Differentiate NAS and SAN, and explain a disaster recovery plan for a government data centre. *(Networking 7.11–7.12)*
+5. What is ERP? Discuss the challenges of ERP implementation in a Nepali public enterprise. *(MIS)*
+6. Explain the major provisions of the Electronic Transactions Act on digital signatures and computer offences. *(IT in Nepal; use the current text)*
+7. Describe the Windows and Linux permission models and show how to give a group read-only access to a folder in each. *(OS)*
+
+## Sources
+
+- [PSC Computer Officer syllabus: scheme and Paper I (official PDF)](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad7373.pdf)
+- [PSC Computer Officer syllabus: Paper II and sample questions (official PDF)](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad73731.pdf)
+- [Electronic Transactions Act, 2063, English text (UNODC SHERLOC)](https://sherloc.unodc.org/cld/uploads/res/document/the-electronic-transactions-act-_html/Nepal_Electronic_Transactions_Act.pdf)
+- [Copyright Act, 2059 (WIPO Lex)](https://www.wipo.int/wipolex/en/legislation/details/7230)
+- [National ICT Policy, 2072 (OPMCM)](https://www.opmcm.gov.np/wp-content/uploads/npolicy/Communication/ict_policy_2072.pdf)
+- [Nepal Law Commission](https://lawcommission.gov.np/), for current official texts

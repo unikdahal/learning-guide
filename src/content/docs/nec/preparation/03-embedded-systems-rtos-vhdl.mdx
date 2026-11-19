@@ -1,0 +1,472 @@
+---
+title: "Embedded systems, RTOS & VHDL: architectures & timing analysis"
+description: In-depth engineering analysis of custom processor FSMD design, rate monotonic and EDF scheduling proofs, priority inversion protocols, and concurrent VHDL hardware modeling for NEC ACtE 4.4–4.6 and Lok Sewa CE.
+sidebar:
+  label: "Embedded systems, RTOS & VHDL"
+  order: 3
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Syllabus mapping:** NEC ACtE Chapter 4 (ACtE04: sub-chapters 4.4, 4.5, 4.6) · Lok Sewa Computer Engineer Unit 2 (Computer Architecture), Unit 15.12 (Embedded Systems), Section A & C.
+
+While general computer organization (ALU, cache mapping, pipeline stages) is well-covered in standard textbooks, sub-chapters 4.4 through 4.6 address the specialized engineering discipline of embedded co-design, real-time operating systems (RTOS), and hardware description languages (VHDL). The examples below develop these syllabus topics through timing analysis and HDL traces. They are study exercises, not a claim that advanced derivations are required by either examiner.
+
+---
+
+## 4.4 Embedded Systems: Hardware–Software Co-Design
+
+### 1. Embedded System Definition & Engineering Constraints
+
+An **embedded system** is an engineering artifact comprising hardware and software tightly integrated to perform a dedicated function within a larger mechanical or electrical system. Unlike general-purpose computing platforms (PCs, cloud servers), embedded systems operate under strict multi-dimensional constraints:
+- **Unit Manufacturing Cost:** Cost per unit in mass production, heavily influenced by silicon area and packaging.
+- **NRE Cost (Non-Recurring Engineering):** One-time engineering research, design, synthesis, and mask fabrication expense.
+- **Power Dissipation & Energy Budget:** Measured in milliwatts/microwatts; critical for battery lifespan and thermal management in sealed enclosures.
+- **Real-Time Responsiveness:** Deterministic timing boundaries; correctness requires both logical validity and temporal timeliness.
+- **Physical Form Factor:** Compact board area and component volume.
+
+#### Economic Trade-Off Model: Total Cost per Unit
+$$\text{Cost}_{\text{unit total}} = \text{Unit Manufacturing Cost} + \frac{\text{NRE Cost}}{\text{Production Volume } (N)}$$
+
+**Processor Technology Comparison Matrix:**
+
+| Dimension | General-Purpose Processor (GPP) | Application-Specific Instruction-Set Processor (ASIP) | Custom Single-Purpose Processor (ASIC / FPGA) |
+| :--- | :--- | :--- | :--- |
+| **Silicon Implementation** | Off-the-shelf microprocessors (x86, ARM Cortex-A) | Specialized cores with tailored ALUs (DSPs, microcontrollers) | Custom CMOS standard cells or FPGA logic gates |
+| **NRE Cost** | Very low (software toolchain only) | Moderate (custom compiler / core licensing) | Often high for ASIC; FPGA avoids custom fabrication masks |
+| **Unit Production Cost** | High for high performance | Moderate | Very low in massive ASIC runs; high for large FPGAs |
+| **Flexibility / Upgrades** | High (pure software update) | Moderate (software on custom ISA) | None for ASIC (silicon freeze); high for FPGA |
+| **Energy Efficiency** | Low (surplus architectural overhead) | High (domain-specific acceleration) | Optimal (hardware matches computation exactly) |
+
+### 2. Custom Single-Purpose Processor Design (FSMD)
+
+A custom digital processor is decomposed into two tightly coupled units:
+1. **Datapath:** Consists of storage registers, multiplexers, buses, and arithmetic functional units (ALUs, adders, comparators).
+2. **Controller:** A synchronous Finite State Machine (FSM) that monitors datapath status flags and asserts sequenced control words to steer the datapath.
+
+Combined, this architecture is modeled as a **Finite State Machine with Datapath (FSMD)**.
+
+<Figure caption="Custom processor architecture: Controller FSM driving the Datapath registers, multiplexers, and ALU via control words.">
+  <svg class="qe-diagram" width="370" viewBox="0 0 370 190" role="img" aria-label="Block diagram showing Controller FSM communicating with Datapath via Control Signals and Status Signals.">
+    {/* Controller Box */}
+    <rect class="qe-node qe-highlight" x="20" y="25" width="130" height="140" rx="5" />
+    <text x="85" y="50" text-anchor="middle" font-weight="700">Controller (FSM)</text>
+    <text x="85" y="80" text-anchor="middle" class="qe-muted" font-size="11">State Register</text>
+    <text x="85" y="110" text-anchor="middle" class="qe-muted" font-size="11">Next-State Logic</text>
+    <text x="85" y="140" text-anchor="middle" class="qe-muted" font-size="11">Output Logic</text>
+
+    {/* Datapath Box */}
+    <rect class="qe-node" x="220" y="25" width="130" height="140" rx="5" />
+    <text x="285" y="50" text-anchor="middle" font-weight="700">Datapath</text>
+    <text x="285" y="80" text-anchor="middle" class="qe-muted" font-size="11">Registers (A, B)</text>
+    <text x="285" y="110" text-anchor="middle" class="qe-muted" font-size="11">MUXes & Buses</text>
+    <text x="285" y="140" text-anchor="middle" class="qe-muted" font-size="11">ALU / Subtractor</text>
+
+    {/* Forward Control Path */}
+    <path class="qe-edge build" d="M150,65 H220" />
+    <text x="185" y="58" text-anchor="middle" font-size="10" class="qe-muted">Control Signals</text>
+
+    {/* Feedback Status Path */}
+    <path class="qe-edge emit" d="M220,125 H150" />
+    <text x="185" y="140" text-anchor="middle" font-size="10" class="qe-muted">Status Flags</text>
+  </svg>
+</Figure>
+
+#### Worked Design Trace: Euclid's GCD Hardware Processor
+
+Precondition: both inputs are strictly positive integers. If zero inputs are allowed, return the other operand before entering the subtraction loop; otherwise subtracting zero can cause nontermination.
+Compute $\gcd(x, y)$ using subtraction:
+$$\text{while } A \ne B \text{ do: if } A > B \text{ then } A \leftarrow A - B \text{ else } B \leftarrow B - A$$
+
+**1. Datapath Components:**
+- Two $n$-bit registers: $A$ and $B$, equipped with load enables ($A_{ld}, B_{ld}$).
+- One $n$-bit subtractor computing $A - B$ or $B - A$.
+- Two multiplexers routing initial inputs ($x, y$) or subtractor outputs into registers.
+- One comparator evaluating conditions: $A = B$, $A > B$, and $A < B$, feeding status signals back to the controller.
+
+**2. Controller State Transition Trace:**
+- State $S_0$ (Reset/Idle): Wait for start signal. When asserted, set $A_{sel} = \text{input}$, $A_{ld} = 1$, $B_{sel} = \text{input}$, $B_{ld} = 1$. Next state $\to S_1$.
+- State $S_1$ (Test): Inspect comparator flag $A = B$.
+  - If $A = B$, assert `done = 1`; transition to $S_0$.
+  - If $A \ne B$ and $A > B$, transition to $S_2$.
+  - If $A \ne B$ and $A < B$, transition to $S_3$.
+- State $S_2$ (Subtract $A$): Assert $A_{ld} = 1$, $A_{sel} = \text{sub\_out}$ (loads $A - B$ into $A$). Transition back to $S_1$.
+- State $S_3$ (Subtract $B$): Assert $B_{ld} = 1$, $B_{sel} = \text{sub\_out}$ (loads $B - A$ into $B$). Transition back to $S_1$.
+
+## 4.5 Real-Time Operating & Control Systems
+
+### 1. Real-Time Taxonomy & Kernel Mechanics
+
+In a real-time system, **temporal correctness** is as essential as logical correctness.
+- **Hard Real-Time:** Missing a deadline violates the required correctness contract and may have severe consequences (e.g., automotive airbag deployment, flight avionics control, cardiac pacemakers).
+- **Firm Real-Time:** Missing a deadline renders the generated result useless, but causes no physical destruction (e.g., satellite telemetry packets, financial algorithmic trade execution).
+- **Soft Real-Time:** Missing deadlines degrades Quality of Service (QoS) without invalidating system integrity (e.g., video streaming frame drops, audio playback).
+
+#### RTOS Kernel Responsibilities
+An RTOS kernel provides deterministic, bounded-time execution through:
+1. **Task Control Block (TCB):** Data structure storing task ID, execution state, priority, stack pointer, program counter, and CPU register snapshot.
+2. **Deterministic Context Switch:** Saving the register set of the suspended task to its stack, updating its TCB, restoring the stack pointer recorded in the new task's TCB, and popping its registers.
+3. **Interrupt Latency Model:**
+   $$T_{\text{latency}} = T_{\text{detect}} + T_{\text{complete}} + T_{\text{save\_context}} + T_{\text{dispatch}}$$
+   Where $T_{\text{complete}}$ is the time spent waiting for the current non-interruptible instruction or critical section to release.
+
+### 2. Real-Time Scheduling Algorithms & Derivations
+
+Assume one preemptive processor, independent periodic tasks, no blocking or release jitter, negligible switching overhead, and deadlines equal to periods. These textbook guarantees do not apply unchanged when those assumptions fail.
+
+Let a task set $\Gamma = \{\tau_1, \tau_2, \dots, \tau_n\}$ have execution times $C_i$, periods $T_i$, and deadlines $D_i = T_i$.
+
+#### Rate Monotonic Scheduling (RMS)
+A **static-priority** preemptive algorithm where task priority is inversely proportional to its period:
+$$T_i < T_j \implies \text{Priority}(\tau_i) > \text{Priority}(\tau_j)$$
+Tasks that execute more frequently receive higher static priority.
+
+**Liu & Layland (1973) Schedulability Bound Theorem:**
+A set of $n$ independent, periodic tasks is guaranteed schedulable by RMS if the total processor utilization $U$ satisfies:
+$$U = \sum_{i=1}^n \frac{C_i}{T_i} \le n \left( 2^{1/n} - 1 \right)$$
+
+Evaluating utilization bounds for task set sizes:
+- $n = 1$: $U \le 1(2^{1/1} - 1) = 1.000$ (100.0%)
+- $n = 2$: $U \le 2(2^{1/2} - 1) = 2(\sqrt{2} - 1) \approx 0.828$ (82.8%)
+- $n = 3$: $U \le 3(2^{1/3} - 1) \approx 3(1.2599 - 1) \approx 0.7798$ (78.0%)
+- As $n \to \infty$: $\lim_{n \to \infty} n(2^{1/n} - 1) = \ln(2) \approx 0.6931$ (69.3%)
+
+<Aside type="caution" title="RMS bound is a sufficient condition, NOT necessary!">
+If $U \le n(2^{1/n} - 1)$, the task set is guaranteed to be schedulable. If $U > n(2^{1/n} - 1)$, the task set **may still be schedulable**! To prove or disprove schedulability when $n(2^{1/n}-1) < U \le 1.0$, you must perform exact **Response Time Analysis (RTA)**:
+$$R_i^{(k+1)} = C_i + \sum_{j \in hp(i)} \left\lceil \frac{R_i^{(k)}}{T_j} \right\rceil C_j$$
+Iterate until $R_i^{(k+1)} = R_i^{(k)}$. If $R_i \le T_i$ for all tasks, the set is schedulable.
+</Aside>
+
+#### Earliest Deadline First (EDF)
+A **dynamic-priority** preemptive algorithm where priority is assigned based on the nearest absolute deadline:
+Compare absolute deadlines directly: the ready task with the earliest deadline runs. No reciprocal calculation is needed; overdue jobs need an explicit policy.
+- **Optimality:** EDF is an optimal dynamic uniprocessor scheduling algorithm.
+- **Schedulability Condition:** A periodic task set is schedulable if and only if:
+  $$U = \sum_{i=1}^n \frac{C_i}{T_i} \le 1.0 \quad (100\%)$$
+
+### 3. The Priority Inversion Problem & Mitigation Protocols
+
+**Priority Inversion** occurs when a high-priority task is indirectly blocked by a lower-priority task holding a shared mutual exclusion resource (mutex), while an unrelated medium-priority task preempts the low-priority task.
+
+#### Illustrative priority-inversion scenario
+- **High-Priority Task ($\tau_H$):** a control task requiring access to the information bus mutex.
+- **Low-Priority Task ($\tau_L$):** Meteorological data gathering thread that acquired the bus mutex.
+- **Medium-Priority Task ($\tau_M$):** Communications thread (unrelated communications task) that had long execution time and did not use the mutex.
+- *Failure Sequence:* $\tau_L$ acquired the mutex. $\tau_H$ preempted $\tau_L$ and requested the mutex, entering the blocked state. Then $\tau_M$, having higher priority than $\tau_L$, preempted $\tau_L$. Because $\tau_M$ did not need the mutex, it ran for a prolonged duration. $\tau_H$ was held hostage by $\tau_M$ through $\tau_L$! In this hypothetical example, the delay could trigger a watchdog reset.
+
+<Figure caption="Priority Inversion without mitigation vs Priority Inheritance Protocol (PIP).">
+  <svg class="qe-diagram" width="370" viewBox="0 0 370 190" role="img" aria-label="Timing diagram comparing unbounded priority inversion with priority inheritance.">
+    {/* Unmitigated Inversion */}
+    <text x="20" y="25" font-weight="700" font-size="12">Unmitigated Inversion (Hazardous):</text>
+    <rect class="qe-node" x="20" y="35" width="40" height="18" rx="2" /><text x="40" y="48" text-anchor="middle" font-size="10">τL locks</text>
+    <path class="qe-edge" d="M60,44 H80" />
+    <rect class="qe-node qe-highlight" x="80" y="35" width="30" height="18" rx="2" /><text x="95" y="48" text-anchor="middle" font-size="10">τH blk</text>
+    <path class="qe-edge" d="M110,44 H130" />
+    <rect class="qe-node warn" x="130" y="35" width="120" height="18" rx="2" stroke-dasharray="2 2" /><text x="190" y="48" text-anchor="middle" font-size="10">τM preempts τL (τH starved!)</text>
+
+    {/* With Priority Inheritance */}
+    <text x="20" y="95" font-weight="700" font-size="12">With Priority Inheritance (PIP):</text>
+    <rect class="qe-node" x="20" y="105" width="40" height="18" rx="2" /><text x="40" y="118" text-anchor="middle" font-size="10">τL locks</text>
+    <path class="qe-edge" d="M60,114 H80" />
+    <rect class="qe-node qe-highlight" x="80" y="105" width="40" height="18" rx="2" /><text x="100" y="118" text-anchor="middle" font-size="10">τH req</text>
+    <path class="qe-edge" d="M120,114 H140" />
+    <rect class="qe-node build" x="140" y="105" width="90" height="18" rx="2" /><text x="185" y="118" text-anchor="middle" font-size="10">τL inherits τH prio</text>
+    <path class="qe-edge" d="M230,114 H250" />
+    <rect class="qe-node qe-highlight" x="250" y="105" width="80" height="18" rx="2" /><text x="290" y="118" text-anchor="middle" font-size="10">τH executes</text>
+    <text x="185" y="145" text-anchor="middle" class="qe-muted" font-size="10">τM cannot preempt; priority inversion bounded strictly to critical section length</text>
+  </svg>
+</Figure>
+
+#### Protocol Solutions
+1. **Priority Inheritance Protocol (PIP):**
+   - When a low-priority task $\tau_L$ holds a resource requested by high-priority task $\tau_H$, $\tau_L$ dynamically inherits the priority of $\tau_H$.
+   - Medium-priority tasks ($\tau_M$) can no longer preempt $\tau_L$.
+   - After releasing the mutex, recompute its effective priority from any remaining inherited priorities; return to base priority when none remain.
+   - *Limitation:* Does not prevent deadlocks and allows chained blocking.
+2. **Priority Ceiling Protocol (PCP):**
+   - Each shared resource is assigned a static **priority ceiling** equal to the priority of the highest-priority task that can ever lock it.
+   - A task can only acquire a lock if its dynamic priority is strictly higher than the priority ceilings of all resources currently locked by **other tasks**.
+   - *Advantages:* Under the standard single-processor protocol assumptions, prevents circular-wait deadlock and bounds lower-priority blocking to at most one relevant critical section.
+
+### 4. Open-Loop vs Closed-Loop Control & PID Mathematics
+
+- **Open-Loop Control:** Controller generates outputs without measuring the actual process output (no feedback; e.g., microwave timer, washing machine wash cycle).
+- **Closed-Loop (Feedback) Control:** Output $y(t)$ is continuously measured by sensors, compared with reference setpoint $r(t)$, and error signal $e(t) = r(t) - y(t)$ drives the controller.
+
+**Continuous PID Mathematical Formulation:**
+$$u(t) = K_p \, e(t) + K_i \int_0^t e(\tau) \, d\tau + K_d \, \frac{de(t)}{dt}$$
+
+- **Proportional Term ($K_p$):** Reacts to current error. Often reduces rise time; residual steady-state error depends on the plant and reference type. Proportional control can give zero step error for a plant with an integrator.
+- **Integral Term ($K_i$):** Accumulates past error. Can eliminate constant steady-state error in a suitably stable, unsaturated loop; may introduce overshoot, phase lag and windup.
+- **Derivative Term ($K_d$):** Responds to the error slope. With suitable tuning it can improve damping, but it amplifies high-frequency noise and does not guarantee stability or better settling for every plant.
+
+---
+
+## 4.6 Hardware Description Language (VHDL) & IC Technology
+
+### 1. VHDL Design Units & Modeling Styles
+
+A complete VHDL design requires at least two constructs:
+1. **Entity Declaration:** Specifies the external hardware interface (ports and generics).
+2. **Architecture Body:** Specifies the internal circuit implementation.
+
+```vhdl
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity full_adder is
+  port (
+    a, b, cin : in  std_logic;
+    sum, cout : out std_logic
+  );
+end entity full_adder;
+```
+
+**Three Modeling Styles:**
+
+- **1. Dataflow Modeling:** Uses concurrent signal assignments evaluating whenever an input changes.
+  ```vhdl
+  architecture dataflow of full_adder is
+  begin
+    sum  <= a xor b xor cin;
+    cout <= (a and b) or (cin and (a xor b));
+  end architecture dataflow;
+  ```
+- **2. Behavioral Modeling:** Uses procedural `process` blocks containing sequential statements (`if`, `case`, `loop`).
+  ```vhdl
+  architecture behavioral of full_adder is
+  begin
+    process(a, b, cin)
+      variable s, carry : std_logic;
+    begin
+      s := a xor b xor cin;
+      carry := (a and b) or (cin and (a xor b));
+      sum <= s;
+      cout <= carry;
+    end process;
+  end architecture behavioral;
+  ```
+- **3. Structural Modeling:** Instantiates and wires together pre-defined hardware components.
+  ```vhdl
+  architecture structural of full_adder is
+    component half_adder is
+      port (x, y : in std_logic; s, c : out std_logic);
+    end component;
+    signal s1, c1, c2 : std_logic;
+  begin
+    HA1: half_adder port map (x => a, y => b, s => s1, c => c1);
+    HA2: half_adder port map (x => s1, y => cin, s => sum, c => c2);
+    cout <= c1 or c2;
+  end architecture structural;
+  ```
+
+### 2. Signals vs Variables: Simulation Delta Cycles
+
+Trace this distinction carefully; assignment timing is different from hardware inference:
+
+| Attribute | Signal (`signal`) | Variable (`variable`) |
+| :--- | :--- | :--- |
+| **Scope of Declaration** | Architecture, package, or entity declarative region | Ordinary non-shared variables: inside a `process`, function, or procedure |
+| **Assignment Operator** | `<=` (Concurrent or scheduled assignment) | `:=` (Immediate procedural assignment) |
+| **Update Timing** | Evaluated during simulation delta cycle ($\delta$); update takes effect only **after process suspends** | Updates **immediately** in sequence within the current process |
+| **Hardware Mapping** | Synthesizes to physical wires, bus nets, or flip-flop inputs | May infer combinational logic, registers or latches, depending on clocking and whether previous values must be retained |
+
+Shared variables are a separate language feature and can appear in architecture/package declarative regions; modern VHDL places protected-type requirements on them. Process variables persist between activations. Immediate assignment does not imply the absence of stored state.
+
+#### Simulation Trace: The Register Swap Test
+Examine the execution inside a clocked process:
+
+```vhdl
+-- Code Snippet A: Signals
+signal A, B : integer := 0;
+...
+process(clk)
+begin
+  if rising_edge(clk) then
+    A <= B;
+    B <= A;
+  end if;
+end process;
+```
+*Result of A:* Both assignments schedule their updates for the next delta cycle. If $A=1, B=2$, then after the clock edge, $A$ becomes $2$ and $B$ becomes $1$. **A and B are successfully swapped in a single cycle!**
+
+```vhdl
+-- Code Snippet B: Variables
+process(clk)
+  variable X : integer := 1;
+  variable Y : integer := 2;
+begin
+  if rising_edge(clk) then
+    X := Y;   -- X immediately becomes 2!
+    Y := X;   -- Y immediately becomes X's NEW value (2)!
+  end if;
+end process;
+```
+*Result of B:* Variable $X$ updates immediately to $2$. When the next line executes, $Y := X$ reads the new value $2$. Both $X$ and $Y$ end with value $2$. **The swap fails because variable assignment updates instantaneously!**
+
+### 3. IEEE 1164 `std_logic` 9-Valued System
+
+The standard logic system supports nine distinct logic states to model physical CMOS circuits, tristate buses, and electrical drive strengths:
+
+| State | Character | Description | Drive Strength |
+| :--- | :---: | :--- | :--- |
+| **Uninitialized** | `'U'` | Simulation start before state resolution | Unknown |
+| **Forcing Unknown** | `'X'` | Electrical bus conflict (e.g., `'0'` and `'1'` driven simultaneously) | Strong |
+| **Forcing 0** | `'0'` | Direct connection to ground ($V_{SS}$) | Strong |
+| **Forcing 1** | `'1'` | Direct connection to supply ($V_{DD}$) | Strong |
+| **High Impedance** | `'Z'` | Disconnected / tristate buffer disabled | None |
+| **Weak Unknown** | `'W'` | Conflict between weak pull-up and pull-down | Weak |
+| **Weak 0** | `'L'` | Pull-down resistor to ground | Weak |
+| **Weak 1** | `'H'` | Pull-up resistor to supply | Weak |
+| **Don't Care** | `'-'` | Synthesis optimization don't-care | Irrelevant |
+
+### 4. Sequential Logic Templates & Inferred Latch Pitfall
+
+To synthesize a clean edge-triggered D flip-flop with active-low asynchronous reset:
+
+```vhdl
+process(clk, rst_n)
+begin
+  if rst_n = '0' then
+    q <= '0';
+  elsif rising_edge(clk) then
+    q <= d;
+  end if;
+end process;
+```
+
+<Aside type="caution" title="Synthesis trap: accidental inferred transparent latches">
+In a process intended to be combinational, an output that is not assigned on every execution path, with no covering default assignment, may require a **transparent latch** to retain its old value. Missing `else` alone is not sufficient: an unconditional default can cover that path. An exhaustive `case` needs no `others`; a non-exhaustive ordinary VHDL `case` is illegal. Unintended latches can complicate timing.
+</Aside>
+
+### 5. A two-stage VHDL pipeline
+
+Section 4.6 explicitly includes pipelining using VHDL. This example computes `a + b + c` for a stream of unsigned 8-bit inputs. The intermediate sum needs 9 bits; the full result needs 10. Delaying c alongside the first sum keeps operands from the same input sample aligned.
+
+```vhdl
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity sum_pipeline is
+  port (
+    clk : in std_logic;
+    a, b, c : in unsigned(7 downto 0);
+    y : out unsigned(9 downto 0)
+  );
+end entity;
+
+architecture rtl of sum_pipeline is
+  signal ab : unsigned(8 downto 0);
+  signal c_delayed : unsigned(7 downto 0);
+begin
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      ab <= resize(a, 9) + resize(b, 9);
+      c_delayed <= c;
+      y <= resize(ab, 10) + resize(c_delayed, 10);
+    end if;
+  end process;
+end architecture;
+```
+
+At edge 1 with `(a,b,c) = (1,2,3)`, the first-stage registers take `(ab,c_delayed) = (3,3)`. The y assignment reads their **old** values, so its first result is unspecified. At edge 2, y becomes **6**, while the first stage captures the next input sample. If that next sample is `(2,3,4)`, y becomes **9** at edge 3. Once filled, the pipeline can produce one result per edge; the example does not claim that its clock frequency doubles. It omits reset and valid signals for clarity, so a real interface must define startup and bubbles.
+
+
+---
+
+## Traps & Exam Misconceptions
+
+1. **RMS Schedulability Misconception:** The Liu-Layland utilization threshold ($n(2^{1/n}-1)$) is a **sufficient** condition, not a **necessary** condition. If a 3-task set has total utilization $U = 0.81$ (which exceeds $0.78$), you cannot conclude it is unschedulable without running Response Time Analysis!
+2. **Priority Inversion vs Deadlock:** Priority inheritance solves **unbounded priority inversion**, but it does **not prevent deadlocks**. In contrast, Priority Ceiling Protocol (PCP) prevents circular-wait deadlock under its standard single-processor resource-access assumptions.
+3. **Signal assignment delay:** In VHDL, writing `S <= A + B;` inside a process does **not** update `S` immediately. It registers an event scheduled for the next simulation delta cycle. Reading `S` on the very next line of the same process returns its *old* value.
+4. **EDF vs RMS CPU utilization:** EDF can achieve up to $100\%$ theoretical processor utilization ($U \le 1.0$) under uniprocessor conditions without missing deadlines. The asymptotic RMS sufficient guarantee is approximately $69.3\%$ for arbitrary period relationships, not a cap. Harmonic tasks can reach 100%: $(C,T)=(1,2),(2,4)$.
+5. **FPGA execution paradigm:** An FPGA does not execute instructions sequentially through a program counter. It configures physical hardware circuits that execute in true, massive parallel spatial concurrency across silicon.
+
+---
+
+## Original Practice Questions (Not Official Past Questions)
+
+*The following questions are original practice items created to test analytical comprehension of section topics. They are not actual past exam questions.*
+
+1. **A periodic task set consists of three tasks: $\tau_1(C_1 = 1, T_1 = 4)$, $\tau_2(C_2 = 2, T_2 = 5)$, and $\tau_3(C_3 = 1, T_3 = 10)$. What is the total processor utilization?**
+   - (a) 0.65
+   - (b) 0.75
+   - (c) 0.78
+   - (d) 0.85
+   *Answer:* **(b)**. $U = \sum \frac{C_i}{T_i} = \frac{1}{4} + \frac{2}{5} + \frac{1}{10} = 0.25 + 0.40 + 0.10 = 0.75$ (75%). Since $0.75 \le 3(2^{1/3}-1) \approx 0.7798$, the task set is guaranteed to be schedulable under Rate Monotonic Scheduling.
+
+2. **In Rate Monotonic Scheduling (RMS), how are static priorities assigned?**
+   - (a) Shorter execution time $C_i$ receives higher priority
+   - (b) Longer period $T_i$ receives higher priority
+   - (c) Shorter period $T_i$ receives higher priority
+   - (d) Nearest dynamic absolute deadline receives higher priority
+   *Answer:* **(c)**. Rate monotonic priority is proportional to task request rate ($1/T_i$), meaning tasks with shorter periods receive higher static priorities.
+
+3. **For an ordinary **non-shared** VHDL variable, which declaration location below is valid?**
+   - (a) In the architecture declarative region
+   - (b) In the entity port list
+   - (c) Strictly inside a process, function, or procedure
+   - (d) Inside a package header
+   *Answer:* **(c)**. Ordinary non-shared variables are declared in a process or subprogram. Shared variables are a separate feature with different declaration and type rules; the question excludes them.
+
+4. **In the simplified priority-inversion scenario above, what prolongs the blocking of the high-priority task?**
+   - (a) Hardware failure in the radio transmitter
+   - (b) Preemption by medium-priority communication tasks that did not use the shared mutex
+   - (c) A stack overflow in the C runtime
+   - (d) Inversion of bit values inside the Flash EEPROM
+   *Answer:* **(b)**. The low-priority task held the information bus mutex needed by the high-priority task. Unrelated medium-priority communication tasks preempted the low-priority task, preventing it from finishing and releasing the mutex.
+
+5. **A combinational circuit has four Boolean inputs. How many distinct single-output truth tables are possible?**
+   - (a) 16
+   - (b) 256
+   - (c) 65,536
+   - (d) Infinite
+   *Answer:* **(c)**. A 4-input function has $2^4 = 16$ rows in its truth table. The total number of distinct Boolean functions of $k$ inputs is $2^{2^k} = 2^{16} = 65,536$.
+
+6. **In the IEEE 1164 standard, what value does the `std_logic` character `'Z'` represent?**
+   - (a) Uninitialized
+   - (b) High Impedance / Tristate
+   - (c) Weak 1
+   - (d) Don't Care
+   *Answer:* **(b)**. `'Z'` represents high impedance, used to model disconnected pins or inactive tristate bus drivers.
+
+7. **How does the Priority Ceiling Protocol (PCP) prevent deadlocks among real-time tasks?**
+   - (a) By dynamically increasing task execution time
+   - (b) By requiring tasks to request all resources at system startup
+   - (c) By allowing a task to lock a resource only if its priority exceeds the priority ceilings of resources currently locked by other tasks
+   - (d) By terminating any task that blocks for longer than 10 ms
+   *Answer:* **(c)**. Under PCP, a task can only acquire a lock if its priority is strictly higher than the priority ceilings of resources currently held by other tasks. This ensures no task can ever enter a circular wait condition, eliminating deadlocks.
+
+8. **In an embedded PID controller, what is the primary role of the Derivative ($K_d$) term?**
+   - (a) To eliminate steady-state error completely
+   - (b) To respond to error slope and potentially improve damping when suitably tuned
+   - (c) To reduce the initial rise time from zero to setpoint
+   - (d) To filter out high-frequency sensor noise
+   *Answer:* **(b)**. The derivative term scales with the rate of change of the error signal ($de/dt$), which can improve damping with suitable tuning; it can also amplify measurement noise.
+
+9. **In the pipeline above, the inputs sampled at edge 1 are a=1, b=2, c=3. What result appears after edge 2, assuming no reset?**
+   - (a) 3
+   - (b) 6
+   - (c) 9
+   - (d) 765
+   *Answer:* **(b)**. Edge 1 registers `ab=3` and `c_delayed=3`; edge 2 computes y from those old registered values, giving 6. Edge 1's y cannot be assumed valid because the example has no initialisation or reset.
+
+10. **An output in a process intended as combinational is assigned on only some execution paths, with no default assignment. Which storage element may be inferred to preserve its previous value?**
+    - (a) Edge-triggered D Flip-Flop
+    - (b) Transparent Latch
+    - (c) Tristate Buffer
+    - (d) Look-Up Table with registered output
+    *Answer:* **(b)**. When an assignment is not specified for all possible conditions in a combinational process, the synthesis tool must preserve the prior output state, thereby inferring level-sensitive **transparent latches** (which can cause severe timing and race problems in synchronous designs).
+
+---
+
+## Primary References & Sources
+
+- Vahid, F., & Givargis, T., *Embedded System Design: A Unified Hardware/Software Introduction*, John Wiley & Sons.
+- Liu, J. W. S., *Real-Time Systems*, Pearson.
+- Perry, D. L., *VHDL: Programming by Example*, 4th ed., McGraw-Hill.
+- Ashenden, P. J., *The Designer's Guide to VHDL*, 3rd ed., Morgan Kaufmann.
+- Sha, L., Rajkumar, R., & Sathaye, S. S., *Priority Inheritance Protocols: An Approach to Designing Real-Time Distributed Systems*, IEEE Transactions on Computers, 1990.
+- Official Syllabus Reference: [Nepal Engineering Council Computer Engineering Syllabus](https://nec.gov.np/uploads/Syllabus-Registration/1763716654201_Syllabus%20Computer%20Engineering.pdf), Section ACtE04 (4.4–4.6).

@@ -11,14 +11,30 @@ import SectionLanding from '@components/SectionLanding.astro';
 
 <SectionLanding
   title="NEC Licence"
-  lede="Computer Engineering (ACtE) registration exam: 100 one-mark MCQs, 10 chapters, pass at 50. The window opens 4 January 2027."
+  lede="Prepare for Computer Engineering (ACtE) with a 60-section syllabus checklist, worked visual lessons and explained practice. Carry the shared core into Lok Sewa, then train for written answers."
   actions={[
-    { label: 'Tonight’s plan', href: 'nec/roadmap/', primary: true },
+    { label: 'Open preparation desk', href: 'nec/study-hub/', primary: true },
+    { label: 'Practise questions', href: 'nec/practice/' },
+    { label: 'Recall & writing studio', href: 'nec/revision-studio/' },
     { label: 'Syllabus', href: 'nec/syllabus/' },
     { label: 'All guides', href: 'guides/' },
   ]}
   cardsTitle="Start here"
   cards={[
+    { label: 'Timed training', title: 'Resumable mock centre', text: 'Balanced 20, 60 or 100-question rounds, flags, a fixed deadline and explained review.', href: 'nec/mock-centre/' },
+    { label: 'Visual lab', title: 'Subnetting step by step', text: 'Explore network bits, address ranges and equal-size subnet splits with seven worked examples.', href: 'nec/subnet-lab/' },
+    { label: 'PSC workspace', title: 'Workstreams and mistake notebook', text: 'Track 36 PSC workstreams, corrected reasoning and dated references beside your shared-core study.', href: 'lok-sewa/preparation/notebook/' },
+    { label: 'Daily workspace', title: 'Recall and writing studio', text: 'Recall cards, timed writing, saved drafts, a session plan and one preparation backup.', href: 'nec/revision-studio/' },
+    { label: 'Track', title: 'Combined preparation desk', text: 'All 60 NEC sub-sections, PSC overlap, confidence tracking, revision queue and progress backup.', href: 'nec/study-hub/' },
+    { label: 'Practise', title: 'Explained question workbench', text: 'Original syllabus-tagged practice with worked reasoning. Build an honest record of errors and revision needs.', href: 'nec/practice/' },
+    { label: 'Evidence', title: 'Official model-paper register', text: 'Question and page references into NEC’s model, ambiguity notes and a method for checking past-question claims.', href: 'nec/model-paper/' },
+    { label: 'Visual lessons', title: 'Automata and graphics traces', text: 'Subset construction, grammar proofs, transformations and clipping with worked examples.', href: 'nec/preparation/01-automata-and-graphics-traces/' },
+    { label: 'Visual lessons', title: 'AI, search and neural networks', text: 'Agents, A*, alpha-beta, resolution, decision trees and neural learning explained through traces.', href: 'nec/preparation/02-ai-search-and-neural-networks/' },
+    { label: 'Visual lessons', title: 'Embedded systems, RTOS and VHDL', text: 'Hardware/software design, scheduling, priority inversion and signal-update examples.', href: 'nec/preparation/03-embedded-systems-rtos-vhdl/' },
+    { label: 'Numerical lab', title: 'Economics and critical path', text: 'Change discount rates and task durations; see the NPV calculation and critical path respond.', href: 'nec/preparation/04-project-economics-and-cpm/' },
+    { label: 'Drawing and practice', title: 'Drawing, project decisions and the NEC Act', text: 'Projection, scale, contracts, ethics and a section-cited regulatory reading guide.', href: 'nec/preparation/05-engineering-drawing-and-professional-practice/' },
+    { label: 'Worked traces', title: 'CFL proofs and parametric clipping', text: 'Pumping-lemma quantifiers, closure properties and Liang–Barsky with boundary cases.', href: 'nec/preparation/06-cfl-and-parametric-clipping/' },
+    { label: 'Worked traces', title: 'Probability and learning', text: 'Bayesian inference, Naive Bayes, genetic selection, Adaline and Hopfield dynamics.', href: 'nec/preparation/07-probability-and-learning-traces/' },
     { label: 'Rules', title: 'Exam format and dates', text: 'What is confirmed, what is not, and what to check on the admit card.', href: 'nec/exam/' },
     { label: 'Map', title: 'Syllabus and priorities', text: 'All 10 chapters and 60 sub-chapters, ranked for an electronics-weak, coding-strong candidate.', href: 'nec/syllabus/' },
     { label: 'Schedule', title: 'Study plan (v2)', text: 'Lok Sewa-depth study of the overlap until 20 Dec, then NEC-only topics and mocks.', href: 'nec/roadmap/' },

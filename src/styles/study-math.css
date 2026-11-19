@@ -1,0 +1,16 @@
+/* Server-rendered native MathML: no math runtime, remote fonts, or image formulas. */
+.sl-markdown-content .katex {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.sl-markdown-content .katex-display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: .5rem;
+}
+.sl-markdown-content math[display="block"] { margin-block: .75rem; }

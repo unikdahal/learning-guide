@@ -6,7 +6,7 @@ never overwritten by generation. Keep explicit slugs when changing a title to pr
 
 ## Set up and verify
 
-Use Node 22.18 or newer, Python 3 for static output checks, and the Rust toolchain in
+Use Node 22.23.4 or newer, Python 3 for static output checks, and the Rust toolchain in
 `lab/rust-toolchain.toml`. Run `npm ci`, `npm run generate`, and `npm run verify`.
 For browser checks, run `npx playwright install chromium` followed by `npm run test:browser`.
 

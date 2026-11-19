@@ -2,6 +2,9 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { loadSyllabus } from './scripts/syllabus.mjs';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import { unified } from '@astrojs/markdown-remark';
 
 const { parts } = loadSyllabus();
 
@@ -38,6 +41,12 @@ const necSidebar = [
     label: 'NEC Licence',
     items: [
       { label: 'Overview', link: '/nec/' },
+      { label: 'Combined preparation desk', link: '/nec/study-hub/' },
+      { label: 'Recall & writing studio', link: '/nec/revision-studio/' },
+      { label: 'Timed mock centre', link: '/nec/mock-centre/' },
+      { label: 'Visual subnet lab', link: '/nec/subnet-lab/' },
+      { label: 'Practice workbench', link: '/nec/practice/' },
+      { label: 'Official model-paper register', link: '/nec/model-paper/' },
       { label: 'Exam format and dates', link: '/nec/exam/' },
       { label: 'Syllabus and priorities', link: '/nec/syllabus/' },
       { label: 'Study plan (v2)', link: '/nec/roadmap/' },
@@ -52,6 +61,7 @@ const necSidebar = [
           { label: 'OS for the exam', items: [{ autogenerate: { directory: 'nec/os' } }] },
           { label: 'Software engineering', items: [{ autogenerate: { directory: 'nec/se' } }] },
           { label: 'C and C++ for the exam', items: [{ autogenerate: { directory: 'nec/cpp' } }] },
+  { label: 'Worked visual lessons', items: [{ autogenerate: { directory: 'nec/preparation' } }] },
   { label: 'Chapters', items: [{ autogenerate: { directory: 'nec/chapters' } }] },
 ];
 
@@ -61,10 +71,13 @@ const lokSewaSidebar = [
     items: [
       { label: 'Overview', link: '/lok-sewa/' },
       { label: 'Roadmap', link: '/lok-sewa/roadmap/' },
+      { label: 'PSC workstreams & mistake notebook', link: '/lok-sewa/preparation/notebook/' },
+      { label: 'Verified preparation hub', link: '/lok-sewa/preparation/' },
     ],
   },
   { label: 'Computer Engineer', items: [{ autogenerate: { directory: 'lok-sewa/computer-engineer' } }] },
   { label: 'Computer Officer', items: [{ autogenerate: { directory: 'lok-sewa/computer-officer' } }] },
+  { label: 'Evidence and written preparation', items: [{ autogenerate: { directory: 'lok-sewa/preparation' } }] },
 ];
 
 const sidebar = [...queryExecutionSidebar, ...necSidebar, ...lokSewaSidebar];
@@ -72,6 +85,12 @@ const sidebar = [...queryExecutionSidebar, ...necSidebar, ...lokSewaSidebar];
 export default defineConfig({
   site,
   base,
+  markdown: {
+    processor: unified({
+      remarkPlugins: [remarkMath],
+      rehypePlugins: [[rehypeKatex, { output: 'mathml', strict: 'error' }]],
+    }),
+  },
   trailingSlash: 'always',
   integrations: [
     starlight({
@@ -92,6 +111,7 @@ export default defineConfig({
         '@fontsource-variable/jetbrains-mono/wght.css',
         './src/styles/theme.css',
         './src/styles/lab-visual.css',
+        './src/styles/study-math.css',
       ],
       expressiveCode: {
         themes: ['github-dark-dimmed', 'github-light'],

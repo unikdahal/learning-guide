@@ -1,0 +1,69 @@
+---
+import {pscWorkstreams} from '../../data/psc-workstreams';
+import {url} from '../../lib/site';
+import './notebook.css';
+const base=import.meta.env.BASE_URL.replace(/\/$/,'');
+---
+<preparation-notebook class="prep-notebook not-content" data-base={base}>
+  <section class="notebook-hero">
+    <p class="eyebrow">Find the gap · explain the error · practise again</p>
+    <h2>Make unfinished work visible</h2>
+    <p>PSC workstreams have their own status. A complete NEC checklist does not automatically complete a Lok Sewa syllabus. Your notes and references stay in this browser.</p>
+  </section>
+  <p role="status" data-notebook-status>Enable JavaScript to save personal statuses, references and mistake notes. Lesson links remain available below.</p>
+  <section class="notebook-panel" aria-labelledby="psc-work-title">
+    <h3 id="psc-work-title">PSC preparation workstreams</h3>
+    <p>These {pscWorkstreams.length} editorial workstreams cover additions and separate PSC outputs, including some concepts shared with NEC. They are not a replacement for the full official syllabus or a mark-weighted readiness score. “Self-checked” means you have produced and checked the listed output.</p>
+    <div class="notebook-filters" hidden data-notebook-live>
+      <label>Post <select data-work-target><option value="all">Both posts</option><option value="ce">Computer Engineer</option><option value="co">Computer Officer</option></select></label>
+      <label>Type <select data-work-kind><option value="all">Every type</option><option value="technical">Technical</option><option value="written">Written</option><option value="awareness">Awareness and reasoning</option><option value="practical">Practical</option><option value="final">Final stage</option></select></label>
+      <label>Status <select data-work-status><option value="all">All statuses</option><option value="pending">Needs work</option><option value="checked">Self-checked</option></select></label>
+      <label>Find a workstream <input type="search" data-work-search placeholder="Try GIS, practical or CE 15.2" /></label>
+    </div>
+    <p data-work-summary aria-live="polite">All workstreams and lesson links.</p>
+    <progress data-work-progress value="0" max={pscWorkstreams.length} aria-label="Self-checked visible workstreams" hidden data-notebook-live></progress>
+    <div class="work-list">
+      {pscWorkstreams.map(item=><details class="work-item" data-work={item.id}>
+        <summary><span>{item.title}</span><span class="work-badge" data-work-badge>Not started</span></summary>
+        <p class="scope">{item.scope} · {item.targets.map(t=>t.toUpperCase()).join(' + ')} · {item.kind}</p>
+        <p><strong>Produce this:</strong> {item.output}</p>
+        <a href={url(item.lesson)}>Study the method</a>
+        <div class="work-personal" hidden data-notebook-live>
+          <label>Your status <select data-work-state aria-label={`Your status for ${item.title}`}><option value="unseen">Not started</option><option value="learning">Learning</option><option value="review">Needs review</option><option value="checked">Self-checked</option></select></label>
+          <label>Your notes <textarea data-work-notes maxlength="600" rows="3" aria-label={`Your notes for ${item.title}`}></textarea></label>
+          <label>Your reference URL (optional) <input type="url" data-work-url maxlength="800" placeholder="https://…" aria-label={`Your reference URL (optional) for ${item.title}`} /></label>
+          <label>Date you checked that reference <input type="date" data-work-date min="2000-01-01" max="2100-12-31" aria-label={`Date you checked that reference for ${item.title}`} /></label>
+          <a data-work-reference hidden target="_blank" rel="noopener noreferrer">Open your saved reference</a>
+          <p class="notebook-note">The URL and check date are your own record. This site does not fetch or verify the reference. Re-check laws, policy and current affairs against the applicable exam cut-off.</p>
+        </div>
+      </details>)}
+    </div>
+    <p hidden data-work-empty>No workstreams match. Broaden the post, type or status filter.</p>
+  </section>
+  <section class="notebook-panel" aria-labelledby="mistake-title" hidden data-notebook-live>
+    <h3 id="mistake-title">Mistake and uncertainty notebook</h3>
+    <p>Record why an answer failed and what you will change. A note never alters your actual quiz result. Correct retries remove an item from the latest-mistakes view while keeping its note.</p>
+    <div class="notebook-filters">
+      <label>Question view <select data-mistake-view><option value="wrong">Latest incorrect answers</option><option value="noted">Questions with notes</option><option value="all">Any original question</option></select></label>
+      <label>Find a question <input type="search" data-mistake-search placeholder="Question text or NEC section" /></label>
+    </div>
+    <p data-mistake-summary aria-live="polite"></p>
+    <label>Select a question <select data-mistake-select></select></label>
+    <p hidden data-mistake-empty>No questions in this view. Answer questions in the workbench, or choose “Any original question” to record a doubt or lucky guess.</p>
+    <div data-note-editor>
+      <p class="scope" data-note-scope></p><h4 data-note-question></h4>
+      <p data-note-attempt></p>
+      <details data-note-solution><summary>Show the answer and reasoning</summary><p data-note-answer></p><p data-note-explanation></p></details>
+      <label>What caused the difficulty? <select data-note-cause><option value="concept">Concept gap</option><option value="calculation">Calculation or units</option><option value="reading">Misread the question</option><option value="time">Time or process</option><option value="uncertain">Uncertain or lucky guess</option></select></label>
+      <label>Your corrected reasoning <textarea data-note-correction maxlength="1200" rows="5" placeholder="State the principle and explain the wrong turn."></textarea></label>
+      <label>Your next practice action <textarea data-note-next maxlength="400" rows="2" placeholder="Choose one specific fresh problem or trace."></textarea></label>
+      <label class="notebook-check"><input type="checkbox" data-note-reviewed /> I checked this reasoning</label>
+      <p data-note-status></p>
+      <div class="notebook-actions"><a href={url('nec/practice/')}>Try a fresh question</a><a data-note-lesson>Relearn this section</a><button type="button" data-note-delete>Delete this note</button></div>
+    </div>
+  </section>
+  <p class="notebook-note">Use <a href={url('nec/revision-studio/')}>the revision studio’s preparation backup</a> to export and restore this notebook with the other preparation stores. These personal records are separate from article-reading progress.</p>
+</preparation-notebook>
+<script>
+  import './preparation-notebook';
+</script>

@@ -1,0 +1,541 @@
+---
+title: Written-answer workshop
+description: How to write Lok Sewa Paper II answers that score — answer anatomy, time per mark, and fully worked answers to the official PSC sample questions (tree from traversals, heap merge, relational algebra and SQL, context diagram to DFD) and the transcribed CE 2078/2079 questions (subnetting, deadlock, technical writing, school case study), each with a self-check rubric.
+sidebar:
+  label: Written-answer workshop
+  order: 2
+---
+import { Aside } from '@astrojs/starlight/components';
+import Figure from '@components/Figure.astro';
+
+**Goal:** turn knowledge you already have from NEC prep into Paper II answers: right length, right structure, a diagram where one earns marks, and nothing the examiner has to dig for.
+
+<Aside type="note" title="Where this scores for you">
+**Computer Engineer Paper II** (2 × 5 + 7 × 10 + 1 × 20, 3 h) and **Computer Officer Paper II** (10 × 10, 3 h). The PSC syllabus says a question may be one long answer, two or more parts, or several short notes, and that each section has its own answer book. Every worked question below says where it comes from: **Official sample**, **Transcription** or **Original practice**. See the [source register](/learning-guide/lok-sewa/preparation/source-register/).
+</Aside>
+
+<Aside type="caution" title="About the rubrics">
+PSC publishes no marking scheme. The rubrics below are a **learning aid** for checking your own answers. They show how the marks split in the question (e.g. 2 + 8) and what a careful examiner would look for. They are not official.
+</Aside>
+
+## 1. Anatomy of an answer that scores
+
+<Figure caption="One 10-mark answer on the page. The marks split in the question decides how much space each part gets: a 2 + 8 question needs a two-line definition, then an eight-mark body.">
+<svg viewBox="0 0 700 330" role="img" aria-label="Layout of a 10-mark answer. Left margin holds the question number and marks split. The body has: a one or two line definition for the small mark part; a labelled diagram; four to six numbered points with bold keywords; a worked example or numerical; a one-line conclusion or comparison table." style="width:100%;height:auto;font-family:var(--sl-font);font-size:13px">
+  <rect x="10" y="10" width="680" height="310" rx="6" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+  <line x1="90" y1="10" x2="90" y2="320" style="stroke:var(--sl-color-gray-4)" />
+  <text x="50" y="40" text-anchor="middle" style="fill:var(--sl-color-white);font-weight:700">Q5</text>
+  <text x="50" y="58" text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:12px">2 + 8</text>
+  <rect x="105" y="24" width="570" height="38" rx="4" style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)" />
+  <text x="118" y="48" style="fill:var(--sl-color-white)">Definition · 1–2 lines · the textbook sentence + one qualifier (2 marks)</text>
+  <rect x="105" y="72" width="250" height="110" rx="4" style="fill:none;stroke:var(--sl-color-gray-3);stroke-dasharray:5 4" />
+  <text x="230" y="122" text-anchor="middle" style="fill:var(--sl-color-white)">Labelled diagram</text>
+  <text x="230" y="142" text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:12px">pencil · boxes named · caption</text>
+  <text x="372" y="92" style="fill:var(--sl-color-white)">1. Keyword in bold — one sentence</text>
+  <text x="372" y="116" style="fill:var(--sl-color-white)">2. Keyword — one sentence</text>
+  <text x="372" y="140" style="fill:var(--sl-color-white)">3. Keyword — one sentence</text>
+  <text x="372" y="164" style="fill:var(--sl-color-white)">4–6. … (≈ 1 point per mark)</text>
+  <rect x="105" y="194" width="570" height="62" rx="4" style="fill:none;stroke:var(--sl-color-gray-4)" />
+  <text x="118" y="218" style="fill:var(--sl-color-white)">Example / numerical / code — the part that proves you understand</text>
+  <text x="118" y="240" style="fill:var(--sl-color-gray-2);font-size:12px">Nepal context where natural: NIC, IRD tax, Nagarik app, local levels</text>
+  <rect x="105" y="266" width="570" height="40" rx="4" style="fill:none;stroke:var(--sl-color-gray-4)" />
+  <text x="118" y="291" style="fill:var(--sl-color-white)">Conclusion — one line, or a 3-row comparison table</text>
+</svg>
+</Figure>
+
+**Writing heuristics (learning aids, not an official marking scheme):**
+
+1. **Follow the marks split.** "Define X. Explain Y. (2 + 8)" gets two clearly separated parts. Put the definition first and keep it short.
+2. **About one distinct point per mark** in theory answers. A 10-mark answer is roughly 6–8 points plus a diagram, or a full worked numerical. It is not three pages of prose.
+3. **Draw whenever a diagram exists.** Protocol stacks, process state diagrams, DFDs, ER diagrams, trees and timing charts are quick to mark and hard to fake.
+4. **Comparisons go in a table** with 5–7 rows for 5 marks. For "compare and explain", add one sentence per row below it.
+5. **Numericals show every step**: given, formula, substitution, result with units, one-line interpretation. With no calculator, keep the arithmetic exact (powers of two, fractions).
+6. **Use standard terms** (ACID, Coffman conditions, CIDR, FIRST/FOLLOW) so the examiner can spot the keywords at a glance.
+
+### Generic 10-mark rubric (learning aid)
+
+| Criterion | Share | What full marks looks like |
+| --- | --- | --- |
+| Accuracy of core content | 40% | every point correct; no confusion of terms |
+| Coverage | 25% | all parts of the question answered in proportion to their marks |
+| Diagram / worked example | 20% | labelled, correct, referred to in the text |
+| Structure and clarity | 10% | headings per part, numbered points, table for comparisons |
+| Context / judgement | 5% | a sensible example, limitation or recommendation |
+
+## 2. Official sample: tree from preorder and postorder
+
+**Source: Official sample** (CO syllabus, Paper II, S2). *Preorder: u1 u2 u3 u4 u10 u8 u5 u9 u6 u11 u7. Postorder: u4 u10 u3 u8 u2 u9 u11 u7 u6 u5 u1. Obtain the binary tree.*
+
+**Key fact to state first:** preorder and postorder together do **not** fix a binary tree in general. If a node has only one child, you can't tell whether it is the left or the right child. They do fix a **full** binary tree, where every node has 0 or 2 children. So build assuming the tree is full, then check that the assumption holds.
+
+**Method (recursive):**
+1. The root is the first node of the preorder and the last of the postorder: **u1**.
+2. The next preorder node, **u2**, is the root of the left subtree. In the postorder, everything up to and including u2 (`u4 u10 u3 u8 u2`) is the left subtree, and the rest before u1 (`u9 u11 u7 u6 u5`) is the right subtree.
+3. Recurse:
+   - Left (pre `u2 u3 u4 u10 u8`, post `u4 u10 u3 u8 u2`): root u2. Its left child is u3, whose postorder block is `u4 u10 u3`, so u3 has children u4 and u10. u2's right child is u8.
+   - Right (pre `u5 u9 u6 u11 u7`, post `u9 u11 u7 u6 u5`): root u5. Its left child is u9 (a leaf); its right child is u6, with children u11 and u7.
+
+<Figure caption="The unique full binary tree for sample S2. Every internal node has exactly two children, which is why the answer is unique.">
+<svg viewBox="0 0 720 240" role="img" aria-label="Binary tree. u1 has children u2 and u5. u2 has children u3 and u8. u3 has children u4 and u10. u5 has children u9 and u6. u6 has children u11 and u7." style="width:100%;height:auto;font-family:var(--sl-font-mono);font-size:13px">
+  <g style="stroke:var(--sl-color-gray-3);stroke-width:1.5">
+    <line x1="360" y1="30" x2="200" y2="90" /><line x1="360" y1="30" x2="520" y2="90" />
+    <line x1="200" y1="90" x2="120" y2="150" /><line x1="200" y1="90" x2="280" y2="150" />
+    <line x1="520" y1="90" x2="440" y2="150" /><line x1="520" y1="90" x2="600" y2="150" />
+    <line x1="120" y1="150" x2="70" y2="210" /><line x1="120" y1="150" x2="170" y2="210" />
+    <line x1="600" y1="150" x2="550" y2="210" /><line x1="600" y1="150" x2="650" y2="210" />
+  </g>
+  <g style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)">
+    <circle cx="360" cy="30" r="20" /><circle cx="200" cy="90" r="20" /><circle cx="520" cy="90" r="20" />
+    <circle cx="120" cy="150" r="20" /><circle cx="280" cy="150" r="20" /><circle cx="440" cy="150" r="20" /><circle cx="600" cy="150" r="20" />
+    <circle cx="70" cy="210" r="20" /><circle cx="170" cy="210" r="20" /><circle cx="550" cy="210" r="20" /><circle cx="650" cy="210" r="20" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="360" y="35">u1</text><text x="200" y="95">u2</text><text x="520" y="95">u5</text>
+    <text x="120" y="155">u3</text><text x="280" y="155">u8</text><text x="440" y="155">u9</text><text x="600" y="155">u6</text>
+    <text x="70" y="215">u4</text><text x="170" y="215">u10</text><text x="550" y="215">u11</text><text x="650" y="215">u7</text>
+  </g>
+</svg>
+</Figure>
+
+**Check (always write this line):** preorder of the drawn tree is u1 u2 u3 u4 u10 u8 u5 u9 u6 u11 u7 ✓, and postorder is u4 u10 u3 u8 u2 u9 u11 u7 u6 u5 u1 ✓. Inorder, as a bonus, is u4 u3 u10 u2 u8 u1 u9 u5 u11 u6 u7.
+
+| Rubric (learning aid, 10) | Marks |
+| --- | --- |
+| States the full-binary-tree condition for uniqueness | 2 |
+| Root and left/right split explained from the two sequences | 3 |
+| Correct final tree, neatly drawn | 3 |
+| Verification by re-traversal | 2 |
+
+## 3. Official sample: merge two heaps
+
+**Source: Official sample** (CO syllabus, Paper II, S1). The PDF draws **H1 "a max heap"**: 9 with children 4 and 6, and 4 with children 3 and 5. It draws **H2 "a min heap"**: 1 with children 19 and 80, 19 with children 9 and 9, and 80 with child 96.
+
+**Read the drawings critically.** Neither is a valid heap as printed. In H1, 5 is a child of 4, which breaks the max-heap property. In H2, 9 is a child of 19, which breaks the min-heap property. Say so in one line, then state your assumption. This makes your reasoning and assumptions checkable; the official marking scheme is not available.
+
+> *Assumption: the heaps are taken as the level-order arrays H1 = [9, 4, 6, 3, 5] and H2 = [1, 19, 80, 9, 9, 96], and the result is to be a **max heap**.*
+
+**Method: concatenate, then build bottom-up (Floyd's heapify), O(n + m).** Put all 11 keys in one array and sift down every internal node from index ⌊11/2⌋ − 1 = 4 down to 0:
+
+| Step | Sift node (value) | Array after the step |
+| --- | --- | --- |
+| start | — | 9 4 6 3 5 1 19 80 9 9 96 |
+| i = 4 | 5 | 9 4 6 3 **96** 1 19 80 9 9 **5** |
+| i = 3 | 3 | 9 4 6 **80** 96 1 19 **3** 9 9 5 |
+| i = 2 | 6 | 9 4 **19** 80 96 1 **6** 3 9 9 5 |
+| i = 1 | 4 | 9 **96** 19 80 **9** 1 6 3 9 **4** 5 |
+| i = 0 | 9 | **96 80** 19 **9** 9 1 6 3 9 4 5 |
+
+<Figure caption="The merged max heap [96, 80, 19, 9, 9, 1, 6, 3, 9, 4, 5]. Every parent is at least as large as its children.">
+<svg viewBox="0 0 720 240" role="img" aria-label="Max heap. 96 has children 80 and 19. 80 has children 9 and 9. 19 has children 1 and 6. The first 9 has children 3 and 9. The second 9 has children 4 and 5." style="width:100%;height:auto;font-family:var(--sl-font-mono);font-size:13px">
+  <g style="stroke:var(--sl-color-gray-3);stroke-width:1.5">
+    <line x1="360" y1="30" x2="200" y2="90" /><line x1="360" y1="30" x2="520" y2="90" />
+    <line x1="200" y1="90" x2="120" y2="150" /><line x1="200" y1="90" x2="280" y2="150" />
+    <line x1="520" y1="90" x2="440" y2="150" /><line x1="520" y1="90" x2="600" y2="150" />
+    <line x1="120" y1="150" x2="80" y2="210" /><line x1="120" y1="150" x2="160" y2="210" />
+    <line x1="280" y1="150" x2="240" y2="210" /><line x1="280" y1="150" x2="320" y2="210" />
+  </g>
+  <g style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent)">
+    <circle cx="360" cy="30" r="20" /><circle cx="200" cy="90" r="20" /><circle cx="520" cy="90" r="20" />
+    <circle cx="120" cy="150" r="20" /><circle cx="280" cy="150" r="20" /><circle cx="440" cy="150" r="20" /><circle cx="600" cy="150" r="20" />
+    <circle cx="80" cy="210" r="20" /><circle cx="160" cy="210" r="20" /><circle cx="240" cy="210" r="20" /><circle cx="320" cy="210" r="20" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="360" y="35">96</text><text x="200" y="95">80</text><text x="520" y="95">19</text>
+    <text x="120" y="155">9</text><text x="280" y="155">9</text><text x="440" y="155">1</text><text x="600" y="155">6</text>
+    <text x="80" y="215">3</text><text x="160" y="215">9</text><text x="240" y="215">4</text><text x="320" y="215">5</text>
+  </g>
+  <text x="700" y="232" text-anchor="end" style="fill:var(--sl-color-gray-2);font-family:var(--sl-font);font-size:12px">index 0 … 10, left to right, level by level</text>
+</svg>
+</Figure>
+
+**Also worth one line each:**
+- For an already valid H1, merging by **repeated insertion** costs O(m log(n + m)). The printed H1 is invalid, so heapify it first if using that method. Floyd's build is O(n + m), so it is the better answer.
+- If the question means "merge into a **min** heap", the same build with the comparison reversed gives [1, 3, 6, 4, 5, 9, 19, 80, 9, 9, 96].
+- Binary heaps have no fast merge. **Leftist, binomial or Fibonacci heaps** merge in O(log n) or O(1), which is a good closing remark.
+
+| Rubric (learning aid, 10) | Marks |
+| --- | --- |
+| Heap property stated; invalid drawings noticed and assumption written | 2 |
+| Method named and justified (bottom-up build vs repeated insertion) | 2 |
+| Correct step-by-step trace | 4 |
+| Final heap as array and tree; complexity | 2 |
+
+## 4. Official sample: relational algebra and SQL
+
+**Source: Official sample** (CO syllabus, Paper II, S5; PSC prints a solution). Schema: `Suppliers(sid, sname, address)`, `Parts(pid, pname, color)`, `Catalog(sid, pid, cost)`. *Find the names of suppliers who supply some red part.*
+
+```text
+Relational algebra (PSC's form):
+  π sname ( π sid ( π pid ( σ color='red' (Parts) ) ⋈ Catalog ) ⋈ Suppliers )
+
+Equivalent, with the selection pushed down and attributes named:
+  RedParts ← π pid ( σ color='red' (Parts) )
+  RedSids  ← π sid ( RedParts ⋈ Catalog )
+  Answer   ← π sname ( RedSids ⋈ Suppliers )
+```
+
+```sql
+-- PSC's printed SQL
+SELECT S.sname
+FROM   Suppliers S, Parts P, Catalog C
+WHERE  P.color = 'red' AND C.pid = P.pid AND C.sid = S.sid;
+
+-- Better: explicit joins and DISTINCT
+SELECT DISTINCT S.sname
+FROM   Suppliers S
+JOIN   Catalog  C ON C.sid = S.sid
+JOIN   Parts    P ON P.pid = C.pid
+WHERE  P.color = 'red';
+```
+
+**The point that lifts this answer above the printed one:** relational algebra works on **sets**, but SQL returns a **multiset** (bag). A supplier who supplies two red parts appears **twice** in PSC's SQL output. In a test with supplier "Acme" supplying two red parts, the printed query returned Acme, Acme, Chet; the `DISTINCT` version returned Acme, Chet. Add `DISTINCT` and say why in one line. Also mention that two suppliers with the same name would merge under `DISTINCT sname`, so include `S.sid` as well if the requested result must distinguish supplier identities. For a names-only set projection, `DISTINCT S.sname` matches that projection.
+
+**Variants to practise** (Original practice): suppliers of red **or** green parts (∪, or `IN ('red','green')`); suppliers of red **and** green parts (∩, or `GROUP BY … HAVING COUNT(DISTINCT color) = 2`); suppliers who supply **every** part (÷, or `NOT EXISTS … NOT EXISTS`); the cheapest supplier of each part (`GROUP BY pid` with `MIN(cost)` joined back). All four come up again in [DBMS lesson 2](/learning-guide/nec/dbms/02-relational-sql/).
+
+## 5. Official sample: context diagram to level-0 DFD
+
+**Source: Official sample** (CO syllabus, Paper II, S6). PSC shows a context diagram with one process, **Budget**, and three external entities:
+
+| External entity | Flow into Budget | Flow out of Budget |
+| --- | --- | --- |
+| Department | spending request | rejected request, delivery advice |
+| Management | budget allocation, response to special approval | request for special approval, spending summaries |
+| Suppliers | supplier delivery advice | part order |
+
+**How to answer:** explode the single process into 4–6 numbered processes, add the data stores that the context diagram hides, and **balance**: every flow in the context diagram must appear exactly once at level 0, with the same name. The level-0 DFD below is **one valid answer** (original), not PSC's.
+
+<Figure wide caption="Level-0 DFD for the Budget system (one valid answer). The nine context flows all reappear with the same names; the internal flows and the two data stores are new at this level.">
+<svg viewBox="0 0 760 520" role="img" aria-label="Level-0 DFD. Department sends spending request to 1.0 Check request, which reads balance from D1 Budget, returns rejected request to Department, sends over-limit request to 2.0 Get special approval, and sends approved request to 3.0 Place order. Management sends budget allocation to 1.0. Process 2.0 sends request for special approval to Management, receives response to special approval, and sends approved request to 3.0. Process 3.0 sends part order to Suppliers and writes order to D2 Orders. Suppliers send supplier delivery advice to 4.0 Record delivery, which reads order details from D2, writes expenditure to D1, and sends delivery advice to Department. 5.0 Summarise spending reads budget data from D1 and sends spending summaries to Management." style="width:100%;height:auto;font-family:var(--sl-font);font-size:12px">
+  <defs>
+    <marker id="dfd-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--sl-color-gray-2)" /></marker>
+  </defs>
+  <g style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-3);stroke-width:1.5">
+    <rect x="10" y="218" width="120" height="44" />
+    <rect x="600" y="20" width="140" height="44" />
+    <rect x="600" y="400" width="140" height="44" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white);font-size:13px;font-weight:700">
+    <text x="70" y="245">Department</text><text x="670" y="47">Management</text><text x="670" y="427">Suppliers</text>
+  </g>
+  <g style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent);stroke-width:1.5">
+    <circle cx="230" cy="110" r="48" /><circle cx="450" cy="110" r="48" /><circle cx="450" cy="240" r="48" /><circle cx="450" cy="370" r="48" /><circle cx="230" cy="370" r="48" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="230" y="100" style="font-weight:700">1.0</text><text x="230" y="116">Check</text><text x="230" y="131">request</text>
+    <text x="450" y="100" style="font-weight:700">2.0</text><text x="450" y="116">Get special</text><text x="450" y="131">approval</text>
+    <text x="450" y="230" style="font-weight:700">5.0</text><text x="450" y="246">Summarise</text><text x="450" y="261">spending</text>
+    <text x="450" y="360" style="font-weight:700">3.0</text><text x="450" y="376">Place</text><text x="450" y="391">order</text>
+    <text x="230" y="360" style="font-weight:700">4.0</text><text x="230" y="376">Record</text><text x="230" y="391">delivery</text>
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-3);stroke-width:1.5">
+    <path d="M160 225 H300 M160 255 H300 M160 225 V255 M188 225 V255" />
+    <path d="M270 460 H410 M270 490 H410 M270 460 V490 M298 460 V490" />
+  </g>
+  <g style="fill:var(--sl-color-white)">
+    <text x="166" y="245" style="font-weight:700">D1</text><text x="196" y="245">Budget</text>
+    <text x="276" y="480" style="font-weight:700">D2</text><text x="306" y="480">Orders</text>
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-2);stroke-width:1.3">
+    <path d="M90 218 L190 138" marker-end="url(#dfd-ah)" />
+    <path d="M200 150 L120 218" marker-end="url(#dfd-ah)" />
+    <path d="M600 32 H300 L262 74" marker-end="url(#dfd-ah)" />
+    <path d="M278 110 H400" marker-end="url(#dfd-ah)" />
+    <path d="M492 88 L600 54" marker-end="url(#dfd-ah)" />
+    <path d="M610 64 L496 124" marker-end="url(#dfd-ah)" />
+    <path d="M490 136 Q 560 240 492 350" marker-end="url(#dfd-ah)" />
+    <path d="M262 146 L414 336" marker-end="url(#dfd-ah)" />
+    <path d="M230 225 V160" marker-end="url(#dfd-ah)" />
+    <path d="M230 322 V257" marker-end="url(#dfd-ah)" />
+    <path d="M300 240 H400" marker-end="url(#dfd-ah)" />
+    <path d="M492 218 L620 66" marker-end="url(#dfd-ah)" />
+    <path d="M498 378 L600 414" marker-end="url(#dfd-ah)" />
+    <path d="M670 444 V505 H230 V420" marker-end="url(#dfd-ah)" />
+    <path d="M430 414 L384 458" marker-end="url(#dfd-ah)" />
+    <path d="M296 460 L258 410" marker-end="url(#dfd-ah)" />
+    <path d="M190 342 L110 262" marker-end="url(#dfd-ah)" />
+  </g>
+  <g style="fill:var(--sl-color-gray-2);font-size:11px">
+    <text x="60" y="168">spending request</text>
+    <text x="146" y="214" text-anchor="start">rejected request</text>
+    <text x="440" y="26">budget allocation</text>
+    <text x="340" y="104" text-anchor="middle">over-limit request</text>
+    <text x="594" y="48" text-anchor="end">request for special approval</text>
+    <text x="545" y="112">response to special approval</text>
+    <text x="560" y="300">approved request</text>
+    <text x="316" y="186">approved request</text>
+    <text x="236" y="196">balance</text>
+    <text x="236" y="296">expenditure</text>
+    <text x="352" y="270" text-anchor="end">budget data</text>
+    <text x="566" y="160">spending summaries</text>
+    <text x="548" y="384">part order</text>
+    <text x="450" y="518" text-anchor="middle">supplier delivery advice</text>
+    <text x="420" y="448">order</text>
+    <text x="250" y="446" text-anchor="end">order details</text>
+    <text x="70" y="318">delivery advice</text>
+  </g>
+</svg>
+</Figure>
+
+**Balancing table** (write this under the diagram; few candidates do, and it shows you know the rule):
+
+| Context-diagram flow | Level-0 process |
+| --- | --- |
+| spending request (in) | 1.0 Check request |
+| rejected request (out) | 1.0 Check request |
+| budget allocation (in) | 1.0 Check request (writes D1) |
+| request for special approval (out) | 2.0 Get special approval |
+| response to special approval (in) | 2.0 Get special approval |
+| part order (out) | 3.0 Place order |
+| supplier delivery advice (in) | 4.0 Record delivery |
+| delivery advice (out) | 4.0 Record delivery |
+| spending summaries (out) | 5.0 Summarise spending |
+
+**DFD rules to state:** no flow goes directly between two external entities, between two stores, or between an entity and a store; every process has at least one input and one output (no black holes or miracles); processes are named verb + object; stores are named with plural nouns and an ID. Full symbol table: [SE lesson 2](/learning-guide/nec/se/02-analysis-modelling/).
+
+## 6. Transcribed CE 2078: subnetting with host .177
+
+**Source: Transcription** (CE 2078 Q2, 10 marks). *200.168.10.0/24 is subnetted into 7 subnetworks; host 200.168.10.177. Find the subnet mask, network address, broadcast address, usable host range, and the subnet the host is in.*
+
+1. **Bits to borrow:** 2ⁿ ≥ 7 gives n = 3, so 8 subnets. New prefix /24 + 3 = **/27**.
+2. **Mask:** 11111111.11111111.11111111.**111**00000 = **255.255.255.224**. Block size 256 − 224 = **32**, so 32 addresses and **30 usable hosts** per subnet.
+3. **Subnets:** .0, .32, .64, .96, .128, .160, .192, .224.
+4. **Locate .177:** 177 ÷ 32 = 5 remainder 17, so the block starts at 5 × 32 = **160**. In binary, 177 = 101**1 0001**: AND with 224 = 1110 0000 gives 1010 0000 = 160.
+
+| Item | Value |
+| --- | --- |
+| Subnet mask | 255.255.255.224 (/27) |
+| Network address | 200.168.10.160 |
+| Broadcast address | 200.168.10.191 |
+| Usable host range | 200.168.10.161 – 200.168.10.190 (30 hosts) |
+| Host lies in | the **6th subnet** (subnet number 5 when counting from 0) |
+
+**Full subnet table** (worth drawing for 10 marks):
+
+| # | Network | Usable range | Broadcast |
+| --- | --- | --- | --- |
+| 1 | .0 | .1 – .30 | .31 |
+| 2 | .32 | .33 – .62 | .63 |
+| 3 | .64 | .65 – .94 | .95 |
+| 4 | .96 | .97 – .126 | .127 |
+| 5 | .128 | .129 – .158 | .159 |
+| **6** | **.160** | **.161 – .190** | **.191** |
+| 7 | .192 | .193 – .222 | .223 |
+| 8 | .224 | .225 – .254 | .255 |
+
+Add one sentence: "200.168.x.x is not a private range; in practice it would be a public block, and 7 subnets wastes one, which is the usual cost of a power-of-two split." Then name **VLSM** as the alternative that fits uneven subnet sizes.
+
+| Rubric (learning aid, 10) | Marks |
+| --- | --- |
+| Bits borrowed and new prefix, with reasoning | 2 |
+| Mask in dotted decimal and binary | 1 |
+| Network, broadcast and range, each correct | 4 |
+| Correct subnet for the host, method shown | 2 |
+| Subnet table or VLSM remark | 1 |
+
+## 7. Short answers: the 5-mark shape
+
+**Source: Transcription** (CE 2078 Q4, 2 + 3). *What is deadlock? What are the necessary conditions for deadlock to occur?* About 8 minutes and half a page:
+
+> **Deadlock** is a state in which each process in a set waits for a resource held by another process in the same set, so none of them can ever proceed. *(2)*
+>
+> **Necessary conditions (Coffman, 1971)**, which must all hold at once: *(3)*
+> 1. **Mutual exclusion**: at least one resource is non-shareable.
+> 2. **Hold and wait**: a process holds one resource while waiting for another.
+> 3. **No pre-emption**: a resource is released only voluntarily by its holder.
+> 4. **Circular wait**: there is a cycle P₀ → P₁ → … → Pₙ → P₀ of processes, each waiting for a resource held by the next.
+>
+> *Small resource-allocation graph:* P1 holds R1 and requests R2; P2 holds R2 and requests R1, which forms a cycle. Prevention breaks any one of the four conditions.
+
+That is all a 5-mark answer needs. Don't add avoidance and Banker's algorithm unless asked; that belongs in the [10-mark version](/learning-guide/nec/os/04-deadlock/).
+
+## 8. Technical writing: the 10-mark Section D answer
+
+**Official wording (CE 16.1):** *"This section may ask the examinee to write technical proposal on given specification, essay, views/critics etc. The topic must be related to computer technology … and examinee should be encouraged to put his/her own views and reasoning rather than facts/information."*
+
+So the examiner wants **your reasoning**, organised. The transcribed papers show both forms: a **concept note** (2078: *automate attendance, payroll, registration*) and a **views essay** (2079: *ICT against the direct and indirect challenges of COVID-19*).
+
+### Template A: concept note or proposal (about 16 minutes, 1.5–2 pages)
+
+1. **Title** and one-line purpose.
+2. **Background / problem** (3–4 lines): what goes wrong today, with numbers if you can estimate them honestly ("about 40 staff, paper attendance register, payroll prepared manually in a spreadsheet each month").
+3. **Objectives** (3–4 bullets, measurable).
+4. **Proposed solution:** modules, a **block diagram**, and the main technology choices with one reason each.
+5. **Implementation plan:** phases with rough durations (a small Gantt-style table).
+6. **Cost and benefit** (rough, by category), and **risks with mitigations**.
+7. **Conclusion / recommendation.**
+
+**Worked outline for CE 2078 Q9 (Transcription prompt; outline is original):**
+
+| Part | Content |
+| --- | --- |
+| Problem | Paper attendance and manual payroll lead to errors, delays and no audit trail; registration is repeated per office |
+| Objectives | single staff record; biometric/RFID attendance feeding payroll automatically; payslips and tax deduction computed by rule; online registration |
+| Solution | modules: Staff registry, Attendance (device + mobile check-in), Leave, Payroll (allowances, deductions, tax, bank transfer file), Reports; web app + central DB; role-based access |
+| Integration | export to the government accounting system and the bank, using their published formats (state as "to be confirmed with the agency") |
+| Plan | requirements and SRS 1 month · build 3 months · pilot in one unit 1 month · rollout and training 1 month |
+| Risks | resistance to change → training and a parallel run; device failure → manual override with approval log; data privacy → access control, encryption, backups |
+| Benefit | payroll time cut from days to hours; fewer errors; reports on demand; a base for e-governance |
+
+### Template B: views essay or critique (about 16 minutes)
+
+1. **Thesis** in the first two lines: your position.
+2. **Context**: the situation in Nepal, briefly.
+3. **3–4 arguments**, each a short paragraph with a concrete example.
+4. **Counter-view / challenges**: digital divide, connectivity, cost, cybersecurity, capacity.
+5. **Recommendations**: 3–5 actionable, prioritised points.
+6. **Conclusion** restating the thesis.
+
+For CE 2079 Q9, for example: direct challenges (telemedicine, contact tracing, vaccine registration and certificates, data dashboards); indirect ones (remote learning, digital payments, e-commerce for small businesses, remote work for government services); then the limits (rural connectivity, device access, digital literacy, misinformation, privacy).
+
+| Rubric (learning aid, 10) | Marks |
+| --- | --- |
+| Clear structure (template followed, headings) | 2 |
+| Own reasoning and judgement, not a list of facts | 3 |
+| Technical soundness of the proposal or arguments | 3 |
+| Feasibility, risks or counter-views addressed | 1 |
+| Diagram or table that carries content | 1 |
+
+## 9. Case study: the 20-mark Section D answer
+
+**Official wording (CE 16.2):** *"…analysis and design of a software system. Examinee should be given a scenario of existing system and asked to analyze and design it following one particular paradigm … may incorporate questions from Software Engineering and Database management and Operating system domains."*
+
+**State your paradigm in the first line** ("Structured analysis: DFD and ER" or "Object-oriented: use case, class and sequence"). Then stick to it. Mixing notations within one part loses marks.
+
+### Worked: the school case (CE 2078 Q10, Transcription, 5 + 10 + 5)
+
+*Scenario (summarised): departments employ instructors; students are admitted and choose programmes offered by departments; instructors are assigned subjects; each department has a HOD who coordinates class and lab scheduling; students sit semester-end exams; students with "NQ" (not qualified) status in internal assessment may not sit the final exam; after at least 8 semesters of final evaluations, students with departmental clearance, including HOD approval, become ready to graduate.*
+
+**(i) Processes and agents (5)**
+
+| Agents (external entities / actors) | Processes |
+| --- | --- |
+| Student | 1.0 Admit student |
+| Instructor | 2.0 Enrol in programme / subject |
+| HOD | 3.0 Assign instructor to subject; schedule classes and labs |
+| Department (office) | 4.0 Record internal assessment; set NQ status |
+| Exam section | 5.0 Conduct semester-end exam (eligible students only) |
+| | 6.0 Publish results; update transcript |
+| | 7.0 Issue departmental clearance (HOD approval) |
+| | 8.0 Approve graduation (≥ 8 semesters passed + clearance) |
+
+**(ii) DFD for graduation and associated processes (10).** Draw a context diagram for the graduation subsystem first (2 marks), then the level-0 DFD below (8 marks).
+
+<Figure wide caption="Level-0 DFD for the graduation subsystem (one valid answer). NQ students are filtered at 5.0 using D2; graduation at 8.0 needs eight semester results from D3 and a clearance from 7.0.">
+<svg viewBox="0 0 760 330" role="img" aria-label="Graduation DFD. Instructor sends marks to 4.0 Record assessment, which writes to D2 Assessments. 5.0 Conduct exam reads eligibility from D2 and sends admit card to Student, who sends answer scripts back. 5.0 writes results to D3 Results. 7.0 Issue clearance reads results from D3 and receives HOD approval from HOD. 8.0 Approve graduation reads semester count from D3 and clearance from 7.0, writes to D1 Students, and sends graduation certificate to Student." style="width:100%;height:auto;font-family:var(--sl-font);font-size:12px">
+  <defs>
+    <marker id="grad-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--sl-color-gray-2)" /></marker>
+  </defs>
+  <g style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-3);stroke-width:1.5">
+    <rect x="10" y="20" width="110" height="40" /><rect x="320" y="270" width="110" height="40" /><rect x="630" y="20" width="110" height="40" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white);font-size:13px;font-weight:700">
+    <text x="65" y="45">Instructor</text><text x="375" y="295">Student</text><text x="685" y="45">HOD</text>
+  </g>
+  <g style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent);stroke-width:1.5">
+    <circle cx="65" cy="170" r="44" /><circle cx="250" cy="120" r="44" /><circle cx="500" cy="120" r="44" /><circle cx="685" cy="170" r="44" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="65" y="162" style="font-weight:700">4.0</text><text x="65" y="178">Record</text><text x="65" y="192">assessment</text>
+    <text x="250" y="112" style="font-weight:700">5.0</text><text x="250" y="128">Conduct</text><text x="250" y="142">exam</text>
+    <text x="500" y="112" style="font-weight:700">7.0</text><text x="500" y="128">Issue</text><text x="500" y="142">clearance</text>
+    <text x="685" y="162" style="font-weight:700">8.0</text><text x="685" y="178">Approve</text><text x="685" y="192">graduation</text>
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-3);stroke-width:1.5">
+    <path d="M30 250 H160 M30 280 H160 M30 250 V280 M58 250 V280" />
+    <path d="M300 200 H440 M300 230 H440 M300 200 V230 M328 200 V230" />
+    <path d="M560 250 H700 M560 280 H700 M560 250 V280 M588 250 V280" />
+  </g>
+  <g style="fill:var(--sl-color-white)">
+    <text x="36" y="270" style="font-weight:700">D2</text><text x="64" y="270">Assessments</text>
+    <text x="306" y="220" style="font-weight:700">D3</text><text x="334" y="220">Results</text>
+    <text x="566" y="270" style="font-weight:700">D1</text><text x="594" y="270">Students</text>
+  </g>
+  <g style="fill:none;stroke:var(--sl-color-gray-2);stroke-width:1.3">
+    <path d="M65 60 V124" marker-end="url(#grad-ah)" />
+    <path d="M65 214 V248" marker-end="url(#grad-ah)" />
+    <path d="M150 250 L216 150" marker-end="url(#grad-ah)" />
+    <path d="M260 163 L340 268" marker-end="url(#grad-ah)" />
+    <path d="M360 268 L278 156" marker-end="url(#grad-ah)" />
+    <path d="M276 156 L330 198" marker-end="url(#grad-ah)" />
+    <path d="M410 200 L466 150" marker-end="url(#grad-ah)" />
+    <path d="M660 60 L536 96" marker-end="url(#grad-ah)" />
+    <path d="M544 124 L641 158" marker-end="url(#grad-ah)" />
+    <path d="M440 222 L641 184" marker-end="url(#grad-ah)" />
+    <path d="M670 213 L650 248" marker-end="url(#grad-ah)" />
+    <path d="M700 213 Q 740 300 432 296" marker-end="url(#grad-ah)" />
+  </g>
+  <g style="fill:var(--sl-color-gray-2);font-size:11px">
+    <text x="72" y="98">marks, attendance</text>
+    <text x="72" y="236">NQ status</text>
+    <text x="190" y="214">eligibility</text>
+    <text x="318" y="250" text-anchor="end">admit card</text>
+    <text x="352" y="250">answer scripts</text>
+    <text x="320" y="176">results</text>
+    <text x="436" y="194">semester results</text>
+    <text x="560" y="72">HOD approval</text>
+    <text x="580" y="128">clearance</text>
+    <text x="520" y="232">semester count</text>
+    <text x="664" y="240" text-anchor="end">graduate</text>
+    <text x="560" y="320">graduation certificate</text>
+  </g>
+</svg>
+</Figure>
+
+**(iii) Relationship between instructor, HOD and department (5).** Model HOD as a **role of an instructor** (a specialisation or a 1:1 relationship), not as a separate person entity:
+
+<Figure caption="ER fragment: a department employs many instructors (1:N, total participation of Instructor); exactly one of those instructors heads the department (1:1).">
+<svg viewBox="0 0 700 230" role="img" aria-label="ER diagram. Department entity connected through relationship Employs, one to many, to Instructor entity. Instructor connected through relationship Heads, one to one, back to Department. Attributes: Department has dept_id and name; Instructor has instructor_id and name. Double line shows Instructor participates totally in Employs." style="width:100%;height:auto;font-family:var(--sl-font);font-size:13px">
+  <g style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-3);stroke-width:1.5">
+    <rect x="40" y="90" width="140" height="46" /><rect x="520" y="90" width="140" height="46" />
+  </g>
+  <g style="fill:var(--sl-color-accent-low);stroke:var(--sl-color-accent);stroke-width:1.5">
+    <path d="M350 40 L410 70 L350 100 L290 70 z" /><path d="M350 130 L410 160 L350 190 L290 160 z" />
+  </g>
+  <g style="stroke:var(--sl-color-gray-2);stroke-width:1.5;fill:none">
+    <path d="M180 104 L290 70" /><path d="M410 70 L520 104" /><path d="M410 70 L520 108" />
+    <path d="M180 124 L290 160" /><path d="M410 160 L520 124" />
+  </g>
+  <g text-anchor="middle" style="fill:var(--sl-color-white)">
+    <text x="110" y="118" style="font-weight:700">Department</text><text x="590" y="118" style="font-weight:700">Instructor</text>
+    <text x="350" y="75">Employs</text><text x="350" y="165">Heads</text>
+  </g>
+  <g style="fill:var(--sl-color-gray-2);font-size:12px">
+    <text x="232" y="78">1</text><text x="462" y="80">N</text>
+    <text x="232" y="160">1</text><text x="462" y="150">1</text>
+    <text x="40" y="160">dept_id (PK), name</text>
+    <text x="690" y="160" text-anchor="end">instructor_id (PK), name, dept_id (FK)</text>
+    <text x="40" y="215">Department(dept_id, name, hod_instructor_id FK UNIQUE) · Instructor(instructor_id, name, dept_id FK)</text>
+  </g>
+</svg>
+</Figure>
+
+Write two sentences under it. *Each instructor is employed by exactly one department; a department employs many. Exactly one instructor of a department is its HOD; storing `hod_instructor_id` as a unique foreign key in Department enforces "one HOD per department, and an instructor heads at most one".* Add the business rule "the HOD must belong to the department he or she heads" as a constraint (a check or trigger), which shows design maturity.
+
+| Rubric (learning aid, 20) | Marks |
+| --- | --- |
+| (i) Complete agents and processes, consistent with the scenario (NQ rule, 8 semesters, HOD clearance) | 5 |
+| (ii) Context diagram correct | 2 |
+| (ii) Level-0 DFD: correct symbols, numbered verb-object processes, stores, NQ filter shown | 6 |
+| (ii) Balancing with the context diagram; no illegal flows | 2 |
+| (iii) Correct cardinalities and participation; HOD modelled as a role; keys shown | 5 |
+
+For the object-oriented route (use case + sequence + ER, as in CE 2079 Q10), the full worked answer is the [SE case study](/learning-guide/nec/se/06-case-study/).
+
+## 10. Original practice set
+
+All questions below are **Original practice**. They are written in PSC style, and none comes from an exam. Time tags assume 1.6 min per mark.
+
+1. **(5 · 8 min)** Differentiate a hub, a switch and a router with respect to OSI layer, collision domain and broadcast domain. *CE 1.2–1.3 / CO 7.4*
+2. **(10 · 16 min)** 172.16.0.0/16 must be divided for departments needing 500, 250, 120 and 60 hosts. Allocate subnets using VLSM; give network, range and broadcast for each. *CE 1.3 / CO 7.6*
+3. **(2 + 8 · 16 min)** What is a critical section? Solve the bounded-buffer producer–consumer problem with semaphores and explain why the order of the `wait` calls matters. *CE 10.1*
+4. **(10 · 16 min)** R(A, B, C, D, E) with A → B, B → C, CD → E. Find the candidate key(s), the highest normal form, and decompose to BCNF, checking whether it is lossless and dependency-preserving. *CE 9.1 / CO 5.12*
+5. **(5 + 5 · 16 min)** Insert 10, 20, 30, 25, 28, 27 into an AVL tree, showing each rotation. Then state the height bound of an AVL tree with n nodes. *CE 7.3 / CO 2.4*
+6. **(10 · 16 min)** Explain the two-phase locking protocol and show, with a schedule of two transactions, how strict 2PL prevents cascading rollback. *CE 9.2 / CO 5.13*
+7. **(10 · 16 min, technical writing)** "Every local level in Nepal should run its own data centre." Give your views and critique, with an alternative. *CE 16.1*
+8. **(20 · 32 min, case study)** A municipality issues building permits: applicant submits drawings, an engineer checks them, the ward chair recommends, the executive officer approves, and fees are paid at a bank. (a) Feasibility (technical, economic, operational) (6); (b) context and level-0 DFD (8); (c) ER diagram with keys (6). *CE 16.2 / CO 3*
+
+## Sources
+
+- [PSC Computer Engineer syllabus, Paper II (official PDF)](https://psc.gov.np/site_uploads/course/20231110070747654dd6c3886821.pdf): Section D wording
+- [PSC Computer Officer syllabus, Paper II with sample questions (official PDF)](https://psc.gov.np/site_uploads/course/20231110070338654dd5cad73731.pdf): samples S1, S2, S5, S6
+- Transcriptions: [CE 2078](https://nextgenacademyyy.blogspot.com/p/subject-computer-engineer-subjective.html), [CE 2079](https://nextgenacademyyy.blogspot.com/p/computer-engineer-subjective-2079.html) (third-party; see the [register](/learning-guide/lok-sewa/preparation/source-register/))

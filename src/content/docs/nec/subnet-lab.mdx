@@ -1,0 +1,94 @@
+---
+title: "IPv4 Subnetting & Network Calculation Lab"
+description: "Interactive 32-bit visualizer, bitwise AND masking, RFC 3021 /31 point-to-point links, CIDR split tables, and 7 worked examination solutions for NEC 5.3 and Lok Sewa CE 1.3 CO 7."
+sidebar:
+  label: "Subnetting interactive lab"
+  order: 5
+---
+import { Aside } from '@astrojs/starlight/components';
+import SubnetLab from '@components/subnet/SubnetLab.astro';
+import WorkedExamples from '@components/subnet/WorkedExamples.astro';
+
+**Syllabus alignment:** **NEC 5.3** (Internet addressing, classful/classless CIDR, subnetting), **Lok Sewa CE Unit 1.3** (Network layer addressing, subnet calculation), and **Lok Sewa Computer Officer (CO) Unit 7**.
+
+This interactive workbench pairs with the theoretical foundations in [Lesson 4: IP addressing and subnetting](/learning-guide/nec/networks/04-ip-subnetting/). It provides strict 32-bit arithmetic validation, step-by-step bitwise AND derivations, RFC 3021 point-to-point interconnect semantics, and bounded equal-size subnet splitting.
+
+<Aside type="note" title="Engineering & examination relevance">
+Practise binary conversion, masks, block sizes and host boundaries for the listed syllabus topics. These are worked learning examples. The host .177 example follows a **reported, unverified CE 2078 transcription**, not an authenticated official paper. The other examples are original or adapted exercises; see the [source register](/learning-guide/lok-sewa/preparation/source-register/) for attribution limits.
+</Aside>
+
+---
+
+## 1. Interactive Subnetting Laboratory
+
+Type any standard IPv4 host address (or select a worked preset) and adjust the prefix length slider. The calculation engine updates the 32-bit binary visual strip, evaluates every octet through bitwise AND logic, derives boundary parameters, and projects an equal-size subnet split.
+
+<SubnetLab />
+
+---
+
+## 2. Core Mathematical Contracts
+
+IPv4 network mathematics rests on exact 32-bit unsigned arithmetic. The formulas below govern both the interactive laboratory and the static worked examples.
+
+### 2.1 Bitwise Network Identification
+Every IPv4 address $A \in [0, 2^{32}-1]$ and subnet mask $M \in [0, 2^{32}-1]$ consist of exactly 32 bits. The network identifier $N$ is obtained via bitwise AND ($\&$):
+
+$$N = (A \ \& \ M) \ggg 0$$
+
+The inverse (wildcard) mask $W$ represents the host bits:
+
+$$W = (\sim M) \ggg 0 = (2^{32} - 1) - M$$
+
+The directed broadcast address $B$ on conventional multi-access subnets (/0 to /30) is:
+
+$$B = (N \ | \ W) \ggg 0$$
+
+### 2.2 Host Capacity & Boundary Semantics
+
+A prefix length $p \in [0, 32]$ defines $p$ network bits and $h = 32 - p$ host bits. The total address volume is:
+
+$$\text{Total Addresses} = 2^{32 - p} = 2^h$$
+
+However, usable host capacity differs fundamentally across network topologies:
+
+| Prefix | Category | Usable Hosts | Network Address | Directed Broadcast | RFC Reference & Routing Context |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **/0** | Default route | $4,294,967,294^*$ | `0.0.0.0` | `255.255.255.255` | Represents the entire IPv4 Internet (`0.0.0.0/0`). Arithmetic yields $2^{32}-2$, but this is a routing aggregate, not a physical host LAN. |
+| **/1 to /30** | Standard LAN / CIDR | $2^h - 2$ | Host bits all 0 | Host bits all 1 | Multi-access subnets. Host bits all-0 identifies the wire/network; host bits all-1 is reserved for directed broadcast. |
+| **/31** | Point-to-point link | **2** | Assigned to Interface A | **None** | **RFC 3021**: Eliminates network and broadcast reservations on router-to-router point-to-point links. Both addresses (host bit 0 and 1) are usable endpoints. |
+| **/32** | Single host route | **1** | Endpoint address | **None** | Host routes, loopback interfaces (`lo0`), and single-IP firewall rules. No broadcast overhead. |
+
+<Aside type="caution" title="RFC 3021 vs Historical Exam Conventions">
+Under the conventional network/broadcast reservation rule, $/30$ is the smallest subnet with two usable host addresses (giving 4 addresses: 1 network, 1 broadcast, 2 usable hosts, wasting 50% of the address space). **RFC 3021** permits $/31$ prefixes on supported point-to-point links to conserve IPv4 addresses. In written exams, state whether your answer assumes standard multi-access LAN rules ($2^h - 2$) or RFC 3021 point-to-point links.
+</Aside>
+
+### 2.3 The Block Size Rule
+For rapid mental calculation under exam conditions:
+1. Locate the **interesting octet** (the octet where the prefix boundary falls: octet 1 for /1–/8, octet 2 for /9–/16, octet 3 for /17–/24, and octet 4 for /25–/32).
+2. Compute the **block size** (increment):
+   $$\text{Block Size} = 256 - \text{Mask value in interesting octet} = 2^{8-r}$$
+   Here $r = 1 + ((p-1) \bmod 8)$ is the number of network bits in that octet, for $1 \le p \le 32$. At /24, $r=8$ and the step is 1 in octet 3.
+3. The network address is the highest multiple of the block size less than or equal to the host's value in that octet.
+4. The broadcast address is $(\text{next network multiple}) - 1$.
+
+---
+
+## 3. Fixed Worked Solutions (Static Fallback)
+
+The following 7 worked solutions cover subnet calculations, high-bit unsigned boundaries, RFC 3021 point-to-point links, and equal-size splits. These examples are evaluated server-side at build time using the identical pure TypeScript engine.
+
+<WorkedExamples />
+
+---
+
+## 4. Key Takeaways for the Written Exam
+
+1. **CIDR vs Subnet Zero (RFC 950 vs RFC 1878 / 4632):**
+   Old textbooks excluded the all-zeros subnet (subnet 0) and all-ones subnet ($2^s - 2$). Under modern CIDR, all $2^s$ subnet IDs are available; routability still depends on address scope and routing. Excluding only subnet zero leaves $2^s-1$; excluding both all-zero and all-one subnets leaves $2^s-2$. Follow the explicit question assumptions.
+2. **Step-by-step AND verification:**
+   Show decimal and 8-bit binary conversions for the interesting octet so the calculation is checkable.
+3. **No signed-bit corruption:**
+   Remember that IPv4 addresses with values $\ge 128$ in the first octet have the MSB set. In software or mathematical proofs, always treat these as 32-bit unsigned integers.
+
+Scope labels are a teaching subset of special-purpose IPv4 ranges, based on [RFC 6890](https://www.rfc-editor.org/rfc/rfc6890.html). “Unclassified” does not establish global routability; check the current IANA registry for operational decisions.
