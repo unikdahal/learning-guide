@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
 
-# Manual only: run it from the Actions tab ("Run workflow") when you want to publish.
-# Pushing to main never triggers a build, so routine commits use no Actions minutes.
+# Publishes on every push to main. "Run workflow" in the Actions tab still works
+# for a manual redeploy.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
