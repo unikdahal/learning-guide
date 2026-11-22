@@ -91,6 +91,8 @@ test('backup restores notebook and mock without replaying answers; legacy backup
   await page.goto('nec/mock-centre/');
   await page.locator('mock-centre [type="submit"]').click();
   await page.locator('mock-centre input[name="mock-answer"]').first().check();
+  // Wait for the asynchronous save before navigating away.
+  await expect.poll(()=>page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('exam-preparation:mock:v1')!).session.answers).length)).toBe(1);
   await page.goto(route);
   const workId=(await import('../../src/data/psc-workstreams')).pscWorkstreams[0].id;
   await page.evaluate(id=>localStorage.setItem('exam-preparation:notebook:v1',JSON.stringify({version:1,work:{[id]:{status:'learning',notes:'Keep this reference note',sourceUrl:'https://psc.gov.np/',checkedDate:'2026-11-17',updated:Date.now()}},mistakes:{}})),workId);

@@ -12,7 +12,10 @@ test('resume, navigator, editable answers, flags, confirmation and history survi
   await app.getByRole('radio').nth(0).check();
   await app.getByRole('button', { name: 'Flag question', exact: true }).click();
   await app.getByRole('button', { name: 'Next question', exact: true }).click();
+  // Saves are asynchronous (they wait for the cross-tab lock); sync on stored state, not timing.
+  await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).session.cursor, mockKey)).toBe(1);
   await app.getByRole('radio').nth(1).check();
+  await expect.poll(() => page.evaluate(key => Object.keys(JSON.parse(localStorage.getItem(key)!).session.answers).length, mockKey)).toBe(2);
   await page.reload();
   await expect(app.getByRole('radio').nth(1)).toBeChecked();
   await expect(app.locator('[data-progress]')).toHaveText('2 answered · 18 unanswered · 1 flagged');

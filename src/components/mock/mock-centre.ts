@@ -22,7 +22,7 @@ class MockCentre extends HTMLElement {
     this.find('[data-live]').hidden = false;
     this.find('[data-fallback]').hidden = true;
     this.find<HTMLFormElement>('[data-setup]').addEventListener('submit', event => {
-      event.preventDefault(); const form = new FormData(event.currentTarget as HTMLFormElement);
+      event.preventDefault(); if (this.busy) return; const form = new FormData(event.currentTarget as HTMLFormElement);
       void this.update(state => { if (state.session && (state.session.finished === null || (!state.session.recorded && this.storage))) throw new Error('Finish and save the current round first.'); return createMock(Number(form.get('count')) as 20 | 60 | 100, String(form.get('seed')).trim(), Number(form.get('minutes')), Number(form.get('penalty')) as 0 | 0.2, Date.now(), crypto.randomUUID()); });
     }, { signal: this.events.signal });
     this.addEventListener('click', this.handleClick, { signal: this.events.signal });
@@ -34,8 +34,15 @@ class MockCentre extends HTMLElement {
   }
   disconnectedCallback() { clearInterval(this.interval); this.events?.abort(); this.events = undefined; }
   private sync = () => { if (this.storage && !this.busy && !this.dirty) { this.durableRaw = this.storage.getItem(MOCK_KEY); this.state = parseMock(this.durableRaw); this.render(); this.tick(); } };
-  private async update(action: (state: MockState) => MockState, focus?: string) {
-    if (this.busy) return;
+  // Updates run one after another. A change that arrives while an earlier save is
+  // waiting for the storage lock is queued, never dropped, so quick answers are kept.
+  private queue: Promise<void> = Promise.resolve();
+  private update(action: (state: MockState) => MockState, focus?: string): Promise<void> {
+    const next = this.queue.then(() => this.apply(action, focus));
+    this.queue = next;
+    return next;
+  }
+  private async apply(action: (state: MockState) => MockState, focus?: string) {
     this.busy = true;
     const run = () => {
       if (this.storage && this.dirty && this.storage.getItem(MOCK_KEY) !== this.durableRaw) throw new Error('Saved preparation data changed while this tab had unsaved work. Export or copy your work before reloading');
@@ -83,7 +90,9 @@ class MockCentre extends HTMLElement {
   };
   private handleClick = (event: Event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
-    if (!button || button.type === 'submit' || this.busy) return;
+    if (!button || button.type === 'submit') return;
+    // Starting a retry round is not repeatable; ignore it while a save is in flight.
+    if (this.busy && button.hasAttribute('data-retry')) return;
     const s = this.state.session;
     if (!s) return;
     if (button.hasAttribute('data-submit')) {
